@@ -7,11 +7,11 @@ The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`Tcp
 ## Key capabilities
 
 - Checklist:
-    - Control helpers: `NewControl`, `PingAsync`, `AwaitControlAsync`.
-    - Handshake: `HandshakeAsync` (X25519 + Keccak256) updates `TransportOptions.Secret`.
-    - Directives: `TryHandleDirectiveAsync`, throttle/redirect/NACK/NOTICE handling.
-    - Requests: `RequestAsync` with `RequestOptions` (timeout, retry, encrypt).
-    - Subscriptions: `On`, `OnOnce`, `SubscribeTemp`, `CompositeSubscription`.
+  - Control helpers: `NewControl`, `PingAsync`, `AwaitControlAsync`.
+  - Handshake: `HandshakeAsync` (X25519 + Keccak256) updates `TransportOptions.Secret`.
+  - Directives: `TryHandleDirectiveAsync`, throttle/redirect/NACK/NOTICE handling.
+  - Requests: `RequestAsync` with `RequestOptions` (timeout, retry, encrypt).
+  - Subscriptions: `On`, `OnOnce`, `SubscribeTemp`, `CompositeSubscription`.
 
 - Fluent `Control` builders, PING/PONG helpers, and awaiters that use `PacketAwaiter` to avoid race conditions.
 - Secure X25519 handshake + `Keccak256` key derivation that installs the shared secret on `TransportOptions.Secret`.

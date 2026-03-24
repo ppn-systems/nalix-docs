@@ -16,18 +16,10 @@
 
 ---
 
-## Documentation
-
-|                                                    Document | Description                                                |
-|-------------------------------------------------------------|------------------------------------------------------------|
-| [TcpSession](./TcpSession.md)                       | Connect, send/receive, events, reconnect, heartbeat, framing, and transport options.       |
-| [TcpSession Extensions](./TcpSession-Extensions.md) | Subscription helpers, control directives, handshake, throttling, directives, and request/response helpers. |
-
----
-
 ## Quick Start
 
 Checklist:
+
 - Configure `TransportOptions` (address/port/timeout/reconnect/secret).
 - Register `IPacketRegistry` in `InstanceManager`.
 - Hook events: `OnConnected`, `OnMessageReceived`, `OnDisconnected`.

@@ -82,14 +82,6 @@ Flow: ConnectAsync → state=Connecting → StartReceiveWorker → (monitor/hear
 
 ---
 
-## Extensions & protocol helpers
-
-- Use the helpers in [`docs/Nalix.SDK/TcpSession-Extensions.md`](./TcpSession-Extensions.md) for fluent CONTROL builders (`NewControl`, `PingAsync`), secure handshake (`HandshakeAsync` with X25519 + SHA3), directive handling (THROTTLE, REDIRECT, NOTICE, NACK), and the request/response helpers (`RequestAsync` + `RequestOptions`).
-- Extensions rely on the `IClientConnection` event system to subscribe/unsubscribe safely and dispose leases.
-- `RequestOptions` controls timeout, retry count, and optional encryption; `RequestExtensions.RequestAsync` avoids races by subscribing before sending.
-
----
-
 ## Sample usage
 
 ```csharp

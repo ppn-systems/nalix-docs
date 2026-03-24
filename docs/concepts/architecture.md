@@ -23,7 +23,7 @@ flowchart TD
       B["System (Other Service)"]
     end
 
-    subgraph NALIX_LIB["NALIX.NETWORK TCP LIBRARY"]
+    subgraph NALIX_LIB["NALIX.NETWORK"]
       direction TB
       Listeners["Tcp/Udp Listener"]
       Protocols["Protocol & Routing"]
@@ -54,9 +54,6 @@ flowchart TD
     Infra <--> Logging
     Infra <--> Tasks
     Infra <--> ObjectPool
-
-    style NALIX_LIB fill:#444444,stroke:#4682b4,stroke-width:2px
-    classDef inner fill:#444444,stroke:#4682b4,stroke-width:1px;
 ```
 
 ---
