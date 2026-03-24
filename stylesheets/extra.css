@@ -1,0 +1,12 @@
+/* .md-grid {
+  max-width: 1220px;
+} */
+
+.md-grid {
+  max-width: 90%;
+}
+
+.md-nav__link {
+  white-space: normal !important;
+  word-break: break-word;
+}
