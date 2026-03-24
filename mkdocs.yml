@@ -1,28 +1,75 @@
 site_name: Nalix Documentation
 site_description: High-performance real-time server framework for .NET
 site_url: https://nalix.example.com/docs
+copyright: Copyright © 2025-2026 PPN Corporation
+
+extra:
+  alternate:
+    - name: English
+      link: /
+      lang: en
+    - name: Tiếng Việt
+      link: /vi/
+      lang: vi
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ppn-systems/nalix
+    - icon: fontawesome/brands/facebook
+      link: https://facebook.com/ppn.system
+    - icon: fontawesome/solid/envelope
+      link: mailto:ppn.system@gmail.com
 
 nav:
-  - Home: index.md
-  - 🚀 Getting Started:
-    - Getting Started: getting-started.md
-    - Installation: installation.md
-  - ⚡ Quick Start: quickstart.md
-  - 🧠 Concepts:
-    - Architecture: concepts/architecture.md
-    - Real-time Engine: concepts/real-time.md
-    - Middleware Pipeline: concepts/middleware.md
-  - 📦 Packages:
-    - Nalix.SDK: packages/nalix-sdk.md
-    - Nalix.Network: packages/nalix-network.md
-    - Nalix.Common: packages/nalix-common.md
-    - Nalix.Logging: packages/nalix-logging.md
-    - Nalix.Framework: packages/nalix-framework.md
-  - 🔌 API:
-    - Overview: api/overview.md
-  - 🛠 Guides:
-    - Basic Server: guides/basic-server.md
-    - Client Connection: guides/client-connection.md
+  - English:
+    - Home: index.md
+    - 🚀 Getting Started:
+        - Getting Started: getting-started.md
+        - Installation: installation.md
+    - ⚡ Quick Start: quickstart.md
+    - 🧠 Concepts:
+        - Architecture: concepts/architecture.md
+        - Real-time Engine: concepts/real-time.md
+        - Middleware Pipeline: concepts/middleware.md
+    - 📦 Packages:
+        - Nalix.SDK: packages/nalix-sdk.md
+        - Nalix.Network: packages/nalix-network.md
+        - Nalix.Common: packages/nalix-common.md
+        - Nalix.Logging: packages/nalix-logging.md
+        - Nalix.Framework: packages/nalix-framework.md
+    - 🔌 API:
+        - Overview: api/overview.md
+        - Server: api/server.md
+        - Client: api/client.md
+        - Shared Contracts: api/shared.md
+        - Security & Policies: api/security.md
+    - 🛠 Guides:
+        - Basic Server: guides/basic-server.md
+        - Client Connection: guides/client-connection.md
+  - Tiếng Việt:
+    - Trang Chủ: vi/index.md
+    - 🚀 Bắt đầu:
+        - Bắt đầu: vi/getting-started.md
+        - Cài đặt: vi/installation.md
+    - ⚡ Khởi động nhanh: vi/quickstart.md
+    - 🧠 Khái niệm:
+        - Kiến trúc: vi/concepts/architecture.md
+        - Thời gian thực: vi/concepts/real-time.md
+        - Pipeline middleware: vi/concepts/middleware.md
+    - 📦 Gói:
+        - Nalix.SDK: vi/packages/nalix-sdk.md
+        - Nalix.Network: vi/packages/nalix-network.md
+        - Nalix.Common: vi/packages/nalix-common.md
+        - Nalix.Logging: vi/packages/nalix-logging.md
+        - Nalix.Framework: vi/packages/nalix-framework.md
+    - 🔌 API:
+        - Tổng quan: vi/api/overview.md
+        - Server: vi/api/server.md
+        - Client: vi/api/client.md
+        - Shared: vi/api/shared.md
+        - Bảo mật: vi/api/security.md
+    - 🛠 Hướng dẫn:
+        - Server cơ bản: vi/guides/basic-server.md
+        - Kết nối client: vi/guides/client-connection.md
 
 theme:
   name: material
@@ -58,12 +105,14 @@ theme:
 
 plugins:
   - search
+  - mermaid2
 
 markdown_extensions:
   - admonition
   - pymdownx.details
   - attr_list
   - pymdownx.highlight:
+      guess_lang: false
       anchor_linenums: true
       pygments_lang_class: true
       line_spans: __span
@@ -75,6 +124,3 @@ markdown_extensions:
       smart_enable: all
   - pymdownx.tabbed:
       alternate_style: true
-
-extra_css:
-  - stylesheets/extra.css

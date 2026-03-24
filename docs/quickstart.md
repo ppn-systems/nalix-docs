@@ -1,86 +1,116 @@
 # ⚡ Quick Start
 
-Prove a listener and a client share the same catalog, middleware, and cipher state before you add business rules.
+Spin up a listener and a client with the same catalog, middleware, and cipher settings.
 
-### 🔧 Server wiring
-Wire a logging-backed dispatch channel, register packet metadata, and host it behind a `TcpListenerBase` derivative such as `AutoXListener`.
+### 🔧 Server setup
+Create a dispatch channel, a protocol that forwards to the channel, and a listener derived from `TcpListenerBase`.
 
 **Responsibilities**
-- Register `ILogger` and `IPacketRegistry` so every dispatch option and middleware resolves the same instances.
-- Register `PacketMetadataProviders` (for example `PacketCustomAttributeProvider`) so `[PacketController]` and `[PacketOpcode]` metadata can be captured.
-- Configure middleware, error handling, and handlers on `PacketDispatchChannel` before you call `Activate()`.
+- Register `ILogger` and `IPacketRegistry`.
+- Configure middleware and handlers.
+- Activate the channel and listener.
 
 **Key Components**
-- `PacketDispatchChannel` – queue-based dispatcher that calls inbound/outbound/outbound-always middleware and compiled handlers.
-- `AutoXProtocol` / `AutoXListener` – example protocol/listener that keeps connections in `ConnectionHub` and logs the bound listener via `TcpListenerBase.GenerateReport()`.
-- `TimeoutMiddleware` / `CustomMiddleware` – sample middleware (`IPacketMiddleware<IPacket>`) that demonstrates throttling, metadata checks, and logging.
-- `PingHandlers` – `[PacketController]` sample handlers that echo `Handshake` or control packets, showing how `PacketContext<TPacket>` exposes `context.Packet`, `context.Connection`, and `context.Sender`.
-
-**Flow**
-- Register `ILogger` + `IPacketRegistry` → register metadata providers → configure `PacketDispatchChannel` (middleware, handlers, logging) → activate channel + listener.
+- `PacketDispatchChannel`
+- `Protocol` (derived)
+- `TcpListenerBase` (derived)
 
 ```csharp
 InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-PacketRegistry packetRegistry = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register(packetRegistry);
+IPacketRegistry registry = new PacketRegistryFactory().CreateCatalog();
+InstanceManager.Instance.Register(registry);
 
-PacketMetadataProviders.Register(new PacketCustomAttributeProvider());
-
-PacketDispatchChannel channel = new(dispatchOptions =>
+PacketDispatchChannel channel = new(options =>
 {
-    dispatchOptions.WithMiddleware(new TimeoutMiddleware());
-    dispatchOptions.WithMiddleware(new CustomMiddleware());
-    dispatchOptions.WithLogging(InstanceManager.Instance.GetExistingInstance<ILogger>());
-    dispatchOptions.WithErrorHandling((ex, opCode)
-        => InstanceManager.Instance.GetExistingInstance<ILogger>()?
-                                     .Error($"Error handling opcode={opCode}", ex));
-    dispatchOptions.WithHandler(() => new PingHandlers());
+    options.WithMiddleware(new TimeoutMiddleware());
+    options.WithHandler(() => new HandshakeHandlers());
 });
 
-AutoXProtocol protocol = new(channel);
-AutoXListener listener = new(protocol);
+sealed class DemoProtocol : Protocol
+{
+    private readonly PacketDispatchChannel _dispatch;
+    public DemoProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
+    public override void ProcessMessage(object sender, IConnectEventArgs args)
+        => _dispatch.HandlePacket(args.Lease, args.Connection);
+}
+
+sealed class DemoListener : TcpListenerBase
+{
+    public DemoListener(ushort port, IProtocol protocol) : base(port, protocol) { }
+}
+
+DemoProtocol protocol = new(channel);
+DemoListener listener = new(57206, protocol);
 
 channel.Activate();
 listener.Activate();
-Console.WriteLine(listener.GenerateReport());
-Console.ReadLine();
 ```
 
-!!! tip "Custom metadata"
-    `PacketMetadataProviders.Register(...)` can run any `IPacketMetadataProvider` so middleware or handlers can inspect attributes via `PacketContext<TPacket>.Attributes.CustomAttributes`.
-
-### 🔧 Client wiring
-Use the SDK transports and `Handshake` frame from `Nalix.Shared` to open a connection and prove both sides share the same secret.
+### 🔧 Add middleware
+Use middleware to guard packets and record telemetry.
 
 **Responsibilities**
-- Register the same `ILogger`/`IPacketRegistry` instances as the listener.
-- Tune `TransportOptions` (address, port, cipher, reconnection) before calling `IoTTcpSession.ConnectAsync`.
-- Serialize a `Handshake` with `Csprng.GetBytes` so the listener can verify the shared secret.
+- Enforce timeouts.
+- Inspect attributes and metadata.
 
 **Key Components**
-- `IoTTcpSession` – validates `TransportOptions`, manages heartbeats/reconnects, and exposes `OnMessageReceived`, `OnDisconnected`, and `OnReconnected`.
-- `Handshake` – `PacketBase<Handshake>` frame with encryption flags and dynamic data used to start the session.
-- `Csprng` – seeded RNG used to generate secrets for `Handshake`.
-- `ControlExtensions` / `RequestExtensions` – helper extensions for ping/response flows once the socket is open.
-
-**Flow**
-- Register `ILogger`/`IPacketRegistry` → fetch `TransportOptions` → `IoTTcpSession.ConnectAsync(address, port)` → send `Handshake`.
+- `TimeoutMiddleware`
+- `CustomMiddleware`
+- `PacketContext<TPacket>`
 
 ```csharp
-InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-PacketRegistry clientRegistry = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register<IPacketRegistry>(clientRegistry);
+PacketDispatchChannel channel = new(options =>
+{
+    options.WithMiddleware(new TimeoutMiddleware());
+    options.WithMiddleware(new CustomMiddleware());
+});
+```
 
+### 🔧 Add handlers
+Handlers use `[PacketController]` and `[PacketOpcode]`.
+
+**Responsibilities**
+- Group handlers by controller.
+- Implement per-opcode methods.
+
+**Key Components**
+- `[PacketController]`
+- `[PacketOpcode]`
+- `PacketContext<TPacket>`
+
+```csharp
+[PacketController("HandshakeHandlers")]
+public class HandshakeHandlers
+{
+    [PacketOpcode(1)]
+    public ValueTask HandlePing(Handshake packet, IConnection connection)
+        => connection.SendAsync(packet);
+}
+```
+
+### 🔧 Client connect
+Open a session and send a handshake.
+
+**Responsibilities**
+- Load `TransportOptions`.
+- Send the `Handshake`.
+
+**Key Components**
+- `IoTTcpSession`
+- `Handshake`
+- `Csprng`
+
+```csharp
 TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
 options.Address = "127.0.0.1";
 options.Port = 57206;
 
 Handshake handshake = new(0, Csprng.GetBytes(32));
 
-TcpSession client = new();
+IoTTcpSession client = new();
 await client.ConnectAsync(options.Address, options.Port);
 await client.SendAsync(handshake.Serialize());
 ```
 
-!!! note "Use ping helpers"
-    Call `await ControlExtensions.PingAsync(client, CancellationToken.None)` or `await RequestExtensions.RequestAsync<TRequest, TResponse>(...)` once the session is live to drive request-response flows with built-in timeouts and retries.
+!!! tip "Ping helpers"
+    Use `ControlExtensions.PingAsync` or `RequestExtensions.RequestAsync` to test request-response flows after the session is live.

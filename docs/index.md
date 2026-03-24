@@ -1,25 +1,81 @@
 # Nalix
 
-Nalix is a high-performance real-time server framework for .NET with shared sockets, deterministic middleware, and secure transports.
-Every package is scoped so you can compose only the bits your host, client, or tooling needs.
+Nalix is a high-performance real-time server framework for .NET.
+It keeps server and client stacks aligned so packets, middleware, and ciphers behave the same everywhere.
 
-### 🔧 Framework Overview
-A deterministic core stitches together configuration, dependency resolution, and networking so every host and SDK client observes the same timing, serialization, and logging policies.
+### 🔧 Framework at a glance
+Nalix centers on shared configuration, shared packet catalogs, and a deterministic dispatch pipeline.
 
 **Responsibilities**
-- Keep configuration, randomness, and logging singletons stable through `InstanceManager` and `ConfigurationManager`.
-- Provide a thin SDK surface for clients (`IoTTcpSession`, `TcpSession`) that mirrors the production listener stack (`TcpListenerBase`, `AutoXListener`).
-- Orchestrate packet dispatch, middleware, and handlers with `PacketDispatchChannel`, `PacketContext`, and `PacketSender` so packets carry metadata, encryption state, and connection context.
+- Keep configuration and logging singletons stable through `ConfigurationManager` and `InstanceManager`.
+- Build one packet catalog with `PacketRegistryFactory` and reuse it across listeners and clients.
+- Route packets through middleware and handlers via `PacketDispatchChannel`.
 
 **Key Components**
-- `InstanceManager` – caches loggers, registries, and schedulers with high-performance pooling.
-- `ConfigurationManager` – watches `default.ini`, validates `TransportOptions`, `NetworkSocketOptions`, and other POCOs, and exposes them via `Get<T>()`.
-- `PacketRegistryFactory` – scans assemblies and builds a lock-free catalog of `IPacket` deserializers used by both listeners and SDK clients.
-- `PacketDispatchChannel` – compiles `[PacketController]` handlers, injects middleware, and streams packets through inbound/outbound/outbound-always stages.
-- `IoTTcpSession` / `TcpListenerBase` – share transports, ciphers, and buffer pools so tests and production behave identically.
+- `ConfigurationManager` – loads and validates options from `default.ini`.
+- `InstanceManager` – caches shared services like `ILogger` and `IPacketRegistry`.
+- `PacketRegistryFactory` – builds the packet catalog used by both listener and SDK.
+- `PacketDispatchChannel` – executes middleware and handlers in a fixed order.
 
 **Flow**
-- Register global services (`ILogger`, `IPacketRegistry`) → build packets with `PacketRegistryFactory.CreateCatalog()` → configure middleware with `PacketDispatchChannel` → start `TcpListenerBase` + `IoTTcpSession`.
+- Load options -> register shared services -> build packet catalog -> activate channel + listener.
 
-!!! tip "Keep registries in sync"
-    Instantiate `PacketRegistryFactory` once and register the same catalog with both your listener and client via `InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry)` so handler metadata, op codes, and cipher negotiations align.
+### 🔧 Shared runtime services
+Register services once so every part of the stack uses the same instances.
+
+**Responsibilities**
+- Register `ILogger` for consistent logging.
+- Register the packet catalog so middleware and handlers resolve metadata.
+
+**Key Components**
+- `InstanceManager.Instance.Register<T>()` – service registration.
+- `PacketRegistryFactory.CreateCatalog()` – catalog factory.
+
+```csharp
+InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
+IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
+InstanceManager.Instance.Register(catalog);
+```
+
+### 🔧 Packet catalog
+The catalog binds op codes to packet types and deserializers.
+
+**Responsibilities**
+- Build catalog once.
+- Reuse the same catalog in listeners and clients.
+
+**Key Components**
+- `PacketRegistryFactory`
+- `IPacketRegistry`
+
+```csharp
+PacketRegistryFactory factory = new();
+IPacketRegistry registry = factory.CreateCatalog();
+InstanceManager.Instance.Register(registry);
+```
+
+!!! tip "Keep catalogs aligned"
+    Always reuse the same catalog instance in both the listener and SDK to keep op codes and metadata consistent.
+
+### 🔧 Dispatch pipeline
+The channel compiles handlers and applies middleware to every packet.
+
+**Responsibilities**
+- Attach middleware.
+- Register handler groups.
+- Activate the channel before the listener.
+
+**Key Components**
+- `PacketDispatchChannel`
+- `PacketDispatchOptions`
+- `[PacketController]`
+
+```csharp
+PacketDispatchChannel channel = new(options =>
+{
+    options.WithMiddleware(new TimeoutMiddleware());
+    options.WithHandler(() => new HandshakeHandlers());
+});
+
+channel.Activate();
+```

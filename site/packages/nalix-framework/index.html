@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -922,10 +924,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#framework-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
+        🔧 Framework responsibilities
       
     </span>
   </a>
@@ -933,30 +935,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#instance-guard" class="md-nav__link">
+  <a href="#configuration-scheduling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Instance guard
+        🔧 Configuration &amp; scheduling
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Instance guard">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#common-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Common usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1205,10 +1190,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#framework-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
+        🔧 Framework responsibilities
       
     </span>
   </a>
@@ -1216,30 +1201,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#instance-guard" class="md-nav__link">
+  <a href="#configuration-scheduling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Instance guard
+        🔧 Configuration &amp; scheduling
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Instance guard">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#common-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Common usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1261,60 +1229,88 @@
 
 
 <h1 id="nalixframework">Nalix.Framework<a class="headerlink" href="#nalixframework" title="Permanent link">&para;</a></h1>
-<p><code>Nalix.Framework</code> is the shared infrastructure layer: configuration binding, dependency injection, time synchronization, and scheduled work. It keeps the runtime deterministic and reusable so the <code>Nalix.Network</code> listener and <code>Nalix.SDK</code> client layers stay lightweight.</p>
-<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>InstanceManager</code> acts as a trimmed dependency container optimized for real-time services. It caches activated instances, tracks disposables, and exposes <code>IsTheOnlyInstance</code> via a named mutex so you can guard singleton scenarios.</li>
-<li><code>ConfigurationManager</code> binds POCOs such as <code>TransportOptions</code>, <code>NetworkSocketOptions</code>, <code>TaskManagerOptions</code>, and <code>WorkerOptions</code> from INI and environment sources, then validates them for correctness.</li>
-<li><code>TaskManager</code> schedules both worker tasks and recurring jobs. It enforces the global concurrency limit (<code>SemaphoreSlim</code>), tracks execution metrics, and exposes <code>ScheduleWorker</code>/<code>ScheduleRecurring</code> for background work.</li>
-<li><code>TimeSynchronizer</code> updates the global clock used by <code>ControlExtensions.PingAsync</code>, while <code>Snowflake</code>/<code>Identifiers</code> generate unique IDs for connections, workers, and packets.</li>
-</ul>
-<h2 id="instance-guard">Instance guard<a class="headerlink" href="#instance-guard" title="Permanent link">&para;</a></h2>
-<p><code>InstanceManager.IsTheOnlyInstance</code> uses a named mutex to ensure the application runs once per machine. The property lazily initializes the mutex and caches the ownership result.</p>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">public</span><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Boolean</span><span class="w"> </span><span class="n">IsTheOnlyInstance</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="p">{</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">get</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="p">{</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">_processMutex</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="k">null</span><span class="p">)</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">        </span><span class="p">{</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">_processMutexOwner</span><span class="p">;</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="p">}</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">        </span><span class="k">lock</span><span class="w"> </span><span class="p">(</span><span class="n">ProcessMutexInitSync</span><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="p">{</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">_processMutex</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="k">null</span><span class="p">)</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">            </span><span class="p">{</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="n">_processMutexOwner</span><span class="p">;</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">            </span><span class="p">}</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">            </span><span class="k">try</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">            </span><span class="p">{</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">                </span><span class="n">_processMutex</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Threading</span><span class="p">.</span><span class="n">Mutex</span><span class="p">(</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">                    </span><span class="n">initiallyOwned</span><span class="p">:</span><span class="w"> </span><span class="k">true</span><span class="p">,</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">                    </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="n">ApplicationMutexName</span><span class="p">,</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">                    </span><span class="n">createdNew</span><span class="p">:</span><span class="w"> </span><span class="k">out</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Boolean</span><span class="w"> </span><span class="n">createdNew</span><span class="p">);</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">                </span><span class="n">_processMutexOwner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">createdNew</span><span class="p">;</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">            </span><span class="p">}</span>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">            </span><span class="k">catch</span>
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">            </span><span class="p">{</span>
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">                </span><span class="n">_processMutexOwner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">false</span><span class="p">;</span>
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">            </span><span class="p">}</span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">_processMutexOwner</span><span class="p">;</span>
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="w">        </span><span class="p">}</span>
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="p">}</span>
+<p><code>Nalix.Framework</code> supplies configuration management, dependency injection, scheduling, and time synchronization for every host and SDK consumer.</p>
+<h3 id="framework-responsibilities">🔧 Framework responsibilities<a class="headerlink" href="#framework-responsibilities" title="Permanent link">&para;</a></h3>
+<p>Keep singletons, configuration, and workers aligned so runtime code observes the same clocks, loggers, and schedulers.</p>
+<p><strong>Responsibilities</strong>
+- Provide <code>InstanceManager</code> so only one <code>ILogger</code>, <code>IPacketRegistry</code>, <code>TaskManager</code>, and <code>TimeSynchronizer</code> exist per process.
+- Bind and watch <code>default.ini</code> via <code>ConfigurationManager</code>, then reload options safely whenever the file changes.
+- Schedule background work with <code>TaskManager</code>, <code>WorkerOptions</code>, and <code>Snowflake</code> IDs while respecting CPU thresholds and dynamic concurrency.</p>
+<p><strong>Key Components</strong>
+- <code>InstanceManager</code> – caches instances by <code>RuntimeTypeHandle</code> and exposes <code>GetOrCreateInstance&lt;T&gt;()</code>, <code>Register&lt;T&gt;()</code>, and <code>GetExistingInstance&lt;T&gt;()</code>.
+- <code>ConfigurationManager</code> – thread-safe singleton that debounces file-watcher events, validates options, and exposes <code>SetConfigFilePath()</code> and <code>Get&lt;T&gt;()</code>.
+- <code>TaskManager</code> – schedules workers, monitors CPU, exposes <code>ScheduleWorker()</code>, <code>CancelWorker()</code>, and tracks errors.
+- <code>TimeSynchronizer</code> &amp; <code>Clock</code> – keep system clocks aligned for ping responses and telemetry.
+- <code>Snowflake</code> – unique 64-bit IDs assigned to listeners, workers, and connections.</p>
+<p><strong>Flow</strong>
+- Register <code>InstanceManager</code> services → <code>ConfigurationManager</code> loads <code>default.ini</code> → <code>TaskManager</code> schedules workers → logging and networking share the same scheduler and clock.</p>
+<h3 id="configuration-scheduling">🔧 Configuration &amp; scheduling<a class="headerlink" href="#configuration-scheduling" title="Permanent link">&para;</a></h3>
+<p><code>ConfigurationManager</code> uses locks and semaphores so reloading or moving the config file is safe, while <code>TaskManager</code> gates concurrency with <code>_globalConcurrencyGate</code>.</p>
+<p><strong>Responsibilities</strong>
+- Use <code>SetConfigFilePath</code> to point to a custom INI file and optionally reload already-initialized containers.
+- Gate concurrent reloads via <code>_reloadGate</code> so hot updates do not race.
+- Let <code>TaskManager.ScheduleWorker</code> await <code>_globalConcurrencyGate</code> before spawning worker tasks.</p>
+<p><strong>Key Components</strong>
+- <code>ConfigurationManager.SetConfigFilePath()</code> – validates new paths, flushes old files, reloads containers, and updates the file watcher.
+- <code>TaskManager.ScheduleWorker()</code> – acquires <code>_globalConcurrencyGate</code>, assigns a <code>Snowflake</code>, creates <code>WorkerState</code>, and starts the work via <code>Task.Run</code>.
+- <code>WorkerOptions</code> – exposes tags, retention, cancellation, and group concurrency limits consumed by <code>TaskManager</code>.
+- <code>RecurringState</code> – manages scheduled recurring tasks and their error counts.</p>
+<p><strong>Flow</strong>
+- Call <code>SetConfigFilePath()</code> → watcher reloads <code>IniConfig</code> → <code>ConfigurationLoader</code> POCOs reload → <code>TaskManager</code> picks up new <code>TaskManagerOptions</code>/<code>WorkerOptions</code>.</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="na">[System.Runtime.CompilerServices.MethodImpl(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="na">    System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">public</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Boolean</span><span class="w"> </span><span class="n">SetConfigFilePath</span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">String</span><span class="w"> </span><span class="n">newConfigFilePath</span><span class="p">,</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Boolean</span><span class="w"> </span><span class="n">autoReload</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">true</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">{</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">String</span><span class="p">.</span><span class="n">IsNullOrWhiteSpace</span><span class="p">(</span><span class="n">newConfigFilePath</span><span class="p">))</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">ArgumentException</span><span class="p">(</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">            </span><span class="s">&quot;Configuration file path cannot be null or whitespace.&quot;</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">            </span><span class="n">nameof</span><span class="p">(</span><span class="n">newConfigFilePath</span><span class="p">));</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">String</span><span class="w"> </span><span class="n">normalizedPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">IO</span><span class="p">.</span><span class="n">Path</span><span class="p">.</span><span class="n">GetFullPath</span><span class="p">(</span><span class="n">newConfigFilePath</span><span class="p">);</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="n">VALIDATE_CONFIG_PATH</span><span class="p">(</span><span class="n">normalizedPath</span><span class="p">);</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">_reloadGate</span><span class="p">.</span><span class="n">Wait</span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">TimeSpan</span><span class="p">.</span><span class="n">FromSeconds</span><span class="p">(</span><span class="m">5</span><span class="p">)))</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="k">false</span><span class="p">;</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">    </span><span class="k">try</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">        </span><span class="n">_configLock</span><span class="p">.</span><span class="n">EnterWriteLock</span><span class="p">();</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">        </span><span class="k">try</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">String</span><span class="p">.</span><span class="n">Equals</span><span class="p">(</span><span class="n">_configFilePath</span><span class="p">,</span><span class="w"> </span><span class="n">normalizedPath</span><span class="p">,</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">StringComparison</span><span class="p">.</span><span class="n">OrdinalIgnoreCase</span><span class="p">))</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="k">false</span><span class="p">;</span><span class="w"> </span><span class="c1">// no-op</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">_iniFile</span><span class="p">.</span><span class="n">IsValueCreated</span><span class="p">)</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="w">                </span><span class="n">_iniFile</span><span class="p">.</span><span class="n">Value</span><span class="p">.</span><span class="n">Flush</span><span class="p">();</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="w">            </span><span class="n">_configFilePath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">normalizedPath</span><span class="p">;</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="w">            </span><span class="n">_iniFile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CREATE_LAZY_INI_CONFIG</span><span class="p">(</span><span class="n">_configFilePath</span><span class="p">);</span>
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="w">        </span><span class="k">finally</span>
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="w">            </span><span class="n">_configLock</span><span class="p">.</span><span class="n">ExitWriteLock</span><span class="p">();</span>
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="w">    </span><span class="k">finally</span>
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="w">        </span><span class="n">_reloadGate</span><span class="p">.</span><span class="n">Release</span><span class="p">();</span>
+</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>
+</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">true</span><span class="p">;</span>
+</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="p">}</span>
 </span></code></pre></div>
 <div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This fragment comes from <code>src/Nalix.Framework/Injection/InstanceManager.cs</code>, so you can rely on the mutex guard exactly as shown.</p>
+<p class="admonition-title">Gate worker concurrency</p>
+<p><code>TaskManager.ScheduleWorker()</code> calls <code>_globalConcurrencyGate.Wait()</code> before adding a worker. That gate enforces <code>TaskManagerOptions.MaxWorkers</code>, so make sure the gate is not starved when scheduling many short-lived tasks.</p>
 </div>
-<h3 id="common-usage">Common usage<a class="headerlink" href="#common-usage" title="Permanent link">&para;</a></h3>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">GetOrCreateInstance</span><span class="o">&lt;</span><span class="n">TaskManager</span><span class="o">&gt;</span><span class="p">();</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">ConfigurationManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Get</span><span class="o">&lt;</span><span class="n">TransportOptions</span><span class="o">&gt;</span><span class="p">().</span><span class="n">Validate</span><span class="p">();</span>
-</span></code></pre></div>
-<p>Use <code>WorkerOptions</code> to decorate scheduled jobs (timeouts, retention, group caps) and rely on <code>RecurringOptions</code> when you need timed work aligned with the global clock.</p>
 
 
 

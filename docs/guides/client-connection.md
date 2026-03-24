@@ -1,70 +1,73 @@
 # 🛠 Client Connection
 
-Connect the SDK client, measure latency, and keep the handshake secret in sync with the listener.
+Connect, handshake, and run a simple request flow.
 
-### 🔧 Client connection flow
-Register singletons, connect via `IoTTcpSession`, and send a `Handshake` so both sides share secrets.
+### 🔧 Prepare options
+Load options before creating the session.
 
 **Responsibilities**
-- Register `ILogger` and `IPacketRegistry` before creating the client so the transport resolves dependencies.
-- Configure `TransportOptions` (address, port, cipher, reconnection) via `ConfigurationManager`.
-- Use `Handshake`/`Csprng` to prove the client and listener share the same secret.
+- Read `TransportOptions`.
+- Set address and port.
 
 **Key Components**
-- `IoTTcpSession` / `TcpSession` – validate options, manage heartbeats, and expose lifecycle events.
-- `Handshake` – `PacketBase` used by examples to share 32-byte secrets and report `MagicNumber`.
-- `ControlExtensions.PingAsync` – measure RTT and optionally sync clocks via `Clock.SynchronizeTime`.
-- `RequestExtensions.RequestAsync<TRequest, TResponse>` – built-in request-response flow.
-
-**Flow**
-- Register `ILogger` + `IPacketRegistry` → set `TransportOptions` → `TcpSession.ConnectAsync(address, port)` → send `Handshake`.
+- `TransportOptions`
+- `ConfigurationManager`
 
 ```csharp
-InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-PacketRegistry packetRegistry = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
-
 TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
 options.Address = "127.0.0.1";
 options.Port = 57206;
+```
 
-Handshake handshake = new(0, Csprng.GetBytes(32));
+### 🔧 Connect and handshake
+Open a session and send the shared secret.
 
+**Responsibilities**
+- Connect the session.
+- Send `Handshake`.
+
+**Key Components**
+- `TcpSession`
+- `Handshake`
+- `Csprng`
+
+```csharp
 TcpSession client = new();
 await client.ConnectAsync(options.Address, options.Port);
+
+Handshake handshake = new(0, Csprng.GetBytes(32));
 await client.SendAsync(handshake.Serialize());
 ```
 
-### 🔧 Resilience and events
-Listen for `OnMessageReceived`, `OnDisconnected`, and `OnReconnected` while honoring reconnection and event leases.
+### 🔧 Ping the server
+Use control helpers to verify latency.
 
 **Responsibilities**
-- Handle pooled leases from `OnMessageReceived` and dispose them when finished.
-- Use `OnDisconnected` / `OnReconnected` to alert your UI or retry logic.
-- Respect `TransportOptions.ReconnectEnabled` / `ReconnectMaxAttempts` settings so clients automatically retry.
+- Send a ping request.
+- Confirm the channel is stable.
 
 **Key Components**
-- `IoTTcpSession.OnMessageReceived` – raises events with pooled `Lease<TPacket>` instances.
-- `IoTTcpSession.OnDisconnected` / `OnReconnected` – notify when the transport loses or regains connectivity.
-- `RequestExtensions` / `ControlExtensions` – keep RTT in sync and allow request-response flows with timeouts.
-
-**Flow**
-- Subscribe to events → dispose leases after processing (`lease.Dispose()`) → rely on `TransportOptions` for retries → call `RequestExtensions` or `ControlExtensions` once stable.
+- `ControlExtensions`
 
 ```csharp
-client.OnMessageReceived += (sender, lease) =>
-{
-    try
-    {
-        Console.WriteLine($"Message {lease.Packet.SequenceId} received");
-        // handle packet
-    }
-    finally
-    {
-        lease.Dispose();
-    }
-};
+await ControlExtensions.PingAsync(client, CancellationToken.None);
 ```
 
-!!! note "Retry logic"
-    `TransportOptions.ReconnectEnabled = true` plus `ReconnectMaxAttempts` let `IoTTcpSession` stay online. The override in `TransportOptions` defaults (retries unlimited) so manual logic rarely needs to change.
+### 🔧 Request-response
+Send a request and wait for a typed response.
+
+**Responsibilities**
+- Send a request packet.
+- Await the response.
+
+**Key Components**
+- `RequestExtensions`
+
+```csharp
+Control ctrl = client.NewControl(3, ControlType.PING).WithSeq(42).Build();
+Control response = await RequestExtensions.RequestAsync<Control>(
+    client,
+    ctrl,
+    RequestOptions.Default,
+    p => p.Type == ControlType.PONG);
+```

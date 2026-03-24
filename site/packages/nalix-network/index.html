@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -838,10 +840,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#networking-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
+        🔧 Networking responsibilities
       
     </span>
   </a>
@@ -849,30 +851,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#listener-flow" class="md-nav__link">
+  <a href="#protocol-contracts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Listener flow
+        🔧 Protocol contracts
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Listener flow">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#server-wiring-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Server wiring example
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1205,10 +1190,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#networking-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
+        🔧 Networking responsibilities
       
     </span>
   </a>
@@ -1216,30 +1201,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#listener-flow" class="md-nav__link">
+  <a href="#protocol-contracts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Listener flow
+        🔧 Protocol contracts
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Listener flow">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#server-wiring-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Server wiring example
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1261,52 +1229,72 @@
 
 
 <h1 id="nalixnetwork">Nalix.Network<a class="headerlink" href="#nalixnetwork" title="Permanent link">&para;</a></h1>
-<p><code>Nalix.Network</code> exposes the server runtime: listeners, connection management, routing, middleware, and protocol hooks. It builds on <code>Nalix.Common</code> primitives to accept sockets, policy-check them, and drive <code>PacketContext</code> through <code>PacketDispatchChannel</code> so your handlers run on a predictable, thread-safe path.</p>
-<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>TcpListenerBase</code> configures pools, <code>NetworkSocketOptions</code>, connection limits, and a dedicated process channel before passing each <code>IConnection</code> to your <code>Protocol</code> implementation.</li>
-<li><code>PacketDispatchChannel</code> wires <code>PacketMetadataProviders</code>, inbound/outbound middleware, logging, and error handling, producing <code>PacketContext&lt;IPacket&gt;</code> that handler methods consume.</li>
-<li><code>ConnectionHub</code> shards active connections, exposes <code>Statistics</code>, raises <code>CapacityLimitReached</code> events, and publishes <code>ConnectionUnregistered</code> so you can free resources.</li>
-<li><code>MiddlewarePipeline&lt;TPacket&gt;</code> runs <code>IPacketMiddleware</code> through inbound → handler → outbound → outbound-always stages, with <code>INetworkBufferMiddleware</code> for buffer-level instrumentation.</li>
-<li>Routing helpers (<code>PacketDispatcherBase</code>, <code>PacketDispatcherChannel</code>, <code>PacketTransmitter</code>) keep metadata, channel options, and throttling in sync while maintaining the connection lifecycle.</li>
-</ul>
-<h2 id="listener-flow">Listener flow<a class="headerlink" href="#listener-flow" title="Permanent link">&para;</a></h2>
-<p><code>TcpListenerBase.ProcessConnection</code> finalizes accepts by invoking your <code>IProtocol</code> and recording diagnostics, which is why every handler runs on a fully-configured <code>IConnection</code>.</p>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">protected</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">ProcessConnection</span><span class="p">(</span><span class="n">IConnection</span><span class="w"> </span><span class="n">connection</span><span class="p">)</span>
+<p><code>Nalix.Network</code> owns listener loops, connection tracking, middleware dispatch, and protocol glue so every host stays deterministic.</p>
+<h3 id="networking-responsibilities">🔧 Networking responsibilities<a class="headerlink" href="#networking-responsibilities" title="Permanent link">&para;</a></h3>
+<p>Accept sockets, apply socket tuning, and hand packets to the dispatcher while connection hubs enforce limits.</p>
+<p><strong>Responsibilities</strong>
+- Run <code>TcpListenerBase</code> accept loops via <code>TaskManager</code> workers and the <code>TimingWheel</code> when <code>NetworkSocketOptions.EnableTimeout</code> is true.
+- Store every connection inside <code>ConnectionHub</code>, evict anonymous connections, and expose <code>Statistics</code> and events for monitoring.
+- Feed inbound packets into <code>PacketDispatchChannel</code>, which compiles <code>[PacketController]</code> handlers, runs middleware, and replies with <code>PacketSender&lt;TPacket&gt;</code>.</p>
+<p><strong>Key Components</strong>
+- <code>TcpListenerBase</code> – abstract listener that uses <code>NetworkSocketOptions</code>, <code>TaskManager</code>, and <code>PacketDispatchChannel</code>.
+- <code>ConnectionHub</code> – sharded dictionaries with <code>MaxConnections</code>, <code>DropPolicy</code>, and <code>ParallelDisconnectDegree</code> configured via <code>ConnectionHubOptions</code>.
+- <code>PacketDispatchChannel</code> – queue dispatcher started via <code>Activate()</code> that owns <code>PacketDispatchOptions</code>.
+- <code>PacketDispatchOptions&lt;TPacket&gt;</code> – configuration object with methods such as <code>WithMiddleware</code>, <code>WithHandler</code>, <code>WithLogging</code>, and <code>WithErrorHandling</code>.
+- <code>PacketSender&lt;TPacket&gt;</code> – auto-applies the handler’s encryption/compression metadata to replies.</p>
+<p><strong>Flow</strong>
+- <code>TcpListenerBase</code> accepts → <code>ConnectionHub.RegisterConnection</code> stores the connection → <code>PacketDispatchChannel.HandlePacket</code> enqueues the packet → middleware runs → handler executes → <code>PacketSender</code> replies.</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">public</span><span class="w"> </span><span class="n">PacketDispatchOptions</span><span class="o">&lt;</span><span class="n">TPacket</span><span class="o">&gt;</span><span class="w"> </span><span class="n">WithMiddleware</span><span class="p">([</span><span class="n">System</span><span class="p">.</span><span class="n">Diagnostics</span><span class="p">.</span><span class="n">CodeAnalysis</span><span class="p">.</span><span class="n">NotNull</span><span class="p">]</span><span class="w"> </span><span class="n">IPacketMiddleware</span><span class="o">&lt;</span><span class="n">TPacket</span><span class="o">&gt;</span><span class="w"> </span><span class="n">middleware</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="p">{</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">try</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="p">{</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">        </span><span class="n">_protocol</span><span class="p">.</span><span class="n">OnAccept</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span><span class="w"> </span><span class="n">_cancellationToken</span><span class="p">);</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">        </span><span class="n">_metrics</span><span class="p">.</span><span class="n">RECORD_ACCEPTED</span><span class="p">();</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="n">s_logger</span><span class="o">?.</span><span class="n">Trace</span><span class="p">(</span><span class="s">$&quot;[NW.{nameof(TcpListenerBase)}:{nameof(ProcessConnection)}] new={connection?.NetworkEndpoint}&quot;</span><span class="p">);</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">Exception</span><span class="w"> </span><span class="n">ex</span><span class="p">)</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="p">{</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="n">s_logger</span><span class="o">?.</span><span class="n">Error</span><span class="p">(</span><span class="s">$&quot;[NW.{nameof(TcpListenerBase)}:{nameof(ProcessConnection)}] process-error={connection?.NetworkEndpoint}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ex</span><span class="p">);</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="n">connection</span><span class="p">.</span><span class="n">Close</span><span class="p">();</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">}</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">ArgumentNullException</span><span class="p">.</span><span class="n">ThrowIfNull</span><span class="p">(</span><span class="n">middleware</span><span class="p">);</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">Logging</span><span class="o">?.</span><span class="n">Debug</span><span class="p">(</span><span class="s">$&quot;[NW.{nameof(PacketDispatchOptions&lt;&gt;)}:{nameof(WithMiddleware)}] middleware-added type={middleware.GetType().Name}&quot;</span><span class="p">);</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="n">_pipeline</span><span class="p">.</span><span class="n">Use</span><span class="p">(</span><span class="n">middleware</span><span class="p">);</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">;</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">}</span>
 </span></code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The snippet above is taken verbatim from <code>src/Nalix.Network/Listeners/TcpListener/TcpListener.Handle.cs</code>, so you can trace how connections move from sockets into your protocol.</p>
-</div>
-<h3 id="server-wiring-example">Server wiring example<a class="headerlink" href="#server-wiring-example" title="Permanent link">&para;</a></h3>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">PacketDispatchChannel</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">dispatchOptions</span><span class="w"> </span><span class="o">=&gt;</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p">{</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithMiddleware</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">TimeoutMiddleware</span><span class="p">());</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithHandler</span><span class="p">(()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">PingHandlers</span><span class="p">());</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithLogging</span><span class="p">(</span><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">GetExistingInstance</span><span class="o">&lt;</span><span class="n">ILogger</span><span class="o">&gt;</span><span class="p">());</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">});</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">AutoXProtocol</span><span class="w"> </span><span class="n">protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">channel</span><span class="p">);</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">AutoXListener</span><span class="w"> </span><span class="n">listener</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">protocol</span><span class="p">);</span>
+<h3 id="protocol-contracts">🔧 Protocol contracts<a class="headerlink" href="#protocol-contracts" title="Permanent link">&para;</a></h3>
+<p>Protocols and metadata providers keep the dispatcher, handlers, and middleware in sync.</p>
+<p><strong>Responsibilities</strong>
+- Implement <code>IProtocol</code> to plug into <code>TcpListenerBase</code> (for example <code>AutoXProtocol</code>) to validate connections, log events, and call <code>PacketDispatchChannel</code>.
+- Register <code>PacketMetadataProviders</code> so handler attributes (e.g., <code>PacketCustomAttribute</code>) populate <code>PacketMetadataBuilder</code>.
+- Pool <code>PacketContext&lt;TPacket&gt;</code> instances so <code>Packet</code>, <code>Connection</code>, <code>PacketMetadata</code>, and <code>PacketSender</code> stay on-stack.</p>
+<p><strong>Key Components</strong>
+- <code>AutoXProtocol</code> – sample <code>Protocol</code> that logs accept events and calls <code>s_Dispatch.HandlePacket</code>.
+- <code>PacketMetadataProviders</code> – static registry for <code>IPacketMetadataProvider</code> implementations.
+- <code>PacketContext&lt;TPacket&gt;</code> – pooled context with <code>Initialize</code>/<code>Reset</code> methods that load metadata and a <code>PacketSender&lt;TPacket&gt;</code>.
+- <code>PacketDispatchChannel.HandlePacket(IBufferLease, IConnection)</code> – core entry point used by protocols and listeners.</p>
+<p><strong>Flow</strong>
+- <code>Protocol.ProcessMessage</code> receives a lease → call <code>PacketDispatchChannel.HandlePacket(lease, connection)</code> → dispatcher builds <code>PacketContext</code> → middleware/handler executes → lease disposed.</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">internal</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">Initialize</span><span class="p">(</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="na">[System.Diagnostics.CodeAnalysis.MaybeNull]</span><span class="w"> </span><span class="n">TPacket</span><span class="w"> </span><span class="n">packet</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="na">[System.Diagnostics.CodeAnalysis.MaybeNull]</span><span class="w"> </span><span class="n">IConnection</span><span class="w"> </span><span class="n">connection</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="na">[System.Diagnostics.CodeAnalysis.MaybeNull]</span><span class="w"> </span><span class="n">PacketMetadata</span><span class="w"> </span><span class="n">descriptor</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="na">[System.Diagnostics.CodeAnalysis.MaybeNull]</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Threading</span><span class="p">.</span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="p">)</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">{</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Threading</span><span class="p">.</span><span class="n">Interlocked</span><span class="p">.</span><span class="n">Exchange</span><span class="p">(</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="k">ref</span><span class="w"> </span><span class="n">_state</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">Int32</span><span class="p">)</span><span class="n">PacketContextState</span><span class="p">.</span><span class="n">IN_USE</span><span class="p">);</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">channel</span><span class="p">.</span><span class="n">Activate</span><span class="p">();</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">listener</span><span class="p">.</span><span class="n">Activate</span><span class="p">();</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">Packet</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">packet</span><span class="p">;</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">Connection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">connection</span><span class="p">;</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">Attributes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">descriptor</span><span class="p">;</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">CancellationToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">token</span><span class="p">;</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">Sender</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">s_object</span><span class="p">.</span><span class="n">Get</span><span class="o">&lt;</span><span class="n">PacketSender</span><span class="o">&lt;</span><span class="n">TPacket</span><span class="o">&gt;&gt;</span><span class="p">();</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="n">Sender</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="k">null</span><span class="p">)</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">InvalidOperationException</span><span class="p">(</span><span class="s">$&quot;[{nameof(PacketContext&lt;TPacket&gt;)}] object pool returned null {nameof(PacketSender&lt;TPacket&gt;)}&quot;</span><span class="p">);</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="n">_isInitialized</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">true</span><span class="p">;</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>The listener is a lightweight subclass of <code>TcpListenerBase</code> (<code>AutoXListener</code>) that plugs an <code>IProtocol</code> such as <code>AutoXProtocol</code>. The protocol registers handlers via <code>PacketDispatchChannel</code> and records connections in <code>ConnectionHub</code>.</p>
-<p>Always register <code>IPacketRegistry</code> and <code>ILogger</code> before activating channels or listeners to ensure metadata-driven handlers resolve correctly.</p>
+<div class="admonition note">
+<p class="admonition-title">Metadata provider</p>
+<p><code>PacketMetadataProviders.Register()</code> can accept any <code>IPacketMetadataProvider</code> (example: <code>PacketCustomAttributeProvider</code>) so middleware or handlers can inspect custom attributes via <code>PacketContext&lt;TPacket&gt;.Attributes.CustomAttributes</code>.</p>
+</div>
 
 
 

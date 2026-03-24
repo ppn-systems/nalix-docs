@@ -1,0 +1,11 @@
+.md-typeset pre code::selection {
+  background: var(--bg-highlight);
+}
+
+.highlight .hll {
+  background: var(--bg-highlight);
+}
+
+.highlight .linenos {
+  color: var(--comment);
+}

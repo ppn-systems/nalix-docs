@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -1009,10 +1011,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#server-surface" class="md-nav__link">
+  <a href="#server-apis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Server surface
+        🔧 Server APIs
       
     </span>
   </a>
@@ -1020,10 +1022,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#client-surface" class="md-nav__link">
+  <a href="#client-apis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Client surface
+        🔧 Client APIs
       
     </span>
   </a>
@@ -1031,10 +1033,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#core-contracts" class="md-nav__link">
+  <a href="#shared-contracts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core contracts
+        🔧 Shared contracts
       
     </span>
   </a>
@@ -1199,10 +1201,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#server-surface" class="md-nav__link">
+  <a href="#server-apis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Server surface
+        🔧 Server APIs
       
     </span>
   </a>
@@ -1210,10 +1212,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#client-surface" class="md-nav__link">
+  <a href="#client-apis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Client surface
+        🔧 Client APIs
       
     </span>
   </a>
@@ -1221,10 +1223,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#core-contracts" class="md-nav__link">
+  <a href="#shared-contracts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core contracts
+        🔧 Shared contracts
       
     </span>
   </a>
@@ -1249,25 +1251,60 @@
 
 
 <h1 id="api-overview">🔌 API Overview<a class="headerlink" href="#api-overview" title="Permanent link">&para;</a></h1>
-<h2 id="server-surface">Server surface<a class="headerlink" href="#server-surface" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>TcpListenerBase</code> sets up accept loops, configures <code>NetworkSocketOptions</code>, and hands each <code>IConnection</code> to an <code>IProtocol</code> implementation such as <code>AutoXProtocol</code>.</li>
-<li><code>IProtocol</code> exposes hooks (<code>OnAccept</code>, <code>ProcessMessage</code>, <code>PostProcessMessage</code>, <code>ValidateConnection</code>) so you can plug custom validation, authorization, and dispatch.</li>
-<li><code>PacketDispatchChannel</code> builds <code>PacketContext&lt;IPacket&gt;</code> objects, runs registered <code>IPacketMiddleware&lt;TPacket&gt;</code>, and resolves <code>[PacketController]</code> handlers via <code>PacketMetadataProviders</code>.</li>
-<li><code>PacketDispatcherBase</code>, <code>PacketContext</code>, and <code>PacketSender</code> work together to retry, log, and respond to packets with the correct <code>CipherSuiteType</code> and <code>PermissionLevel</code>.</li>
-</ul>
-<h2 id="client-surface">Client surface<a class="headerlink" href="#client-surface" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>TcpSessionBase</code>/<code>IoTTcpSession</code> expose <code>ConnectAsync</code>, <code>SendAsync</code>, <code>OnMessageReceived</code>, <code>OnDisconnected</code>, and <code>OnReconnected</code> events; they rely on <code>TransportOptions</code> for heartbeats, reconnection, and ciphers.</li>
-<li><code>RequestExtensions.RequestAsync&lt;TRequest, TResponse&gt;</code> sends a request packet and awaits a matching response, while <code>ControlExtensions.PingAsync</code> measures RTT and keeps clocks synchronized via <code>Clock.SynchronizeTime</code>.</li>
-<li><code>TransportOptions</code> configures buffer sizes, compression flags, and encryption; <code>RequestOptions</code> adds fluent <code>WithTimeout</code>, <code>WithRetry</code>, and <code>WithEncrypt</code> helpers.</li>
-</ul>
-<h2 id="core-contracts">Core contracts<a class="headerlink" href="#core-contracts" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>IConnection</code> defines IDs, ping time, bytes transferred, secrets, and permission levels. <code>ConnectionHub</code> keeps sharded dictionaries for fast lookup and exposes <code>Statistics</code>.</li>
-<li><code>IPacketMiddleware&lt;TPacket&gt;</code> and <code>MiddlewarePipeline&lt;TPacket&gt;</code> power both client and server middleware stages (inbound/outbound/outbound-always).</li>
-<li><code>IConnectionHub</code>, <code>IListener</code>, <code>IProtocol</code>, and <code>INetworkEndpoint</code> connect the listener, dispatcher, and connection implementations so you can test each tier independently.</li>
-</ul>
+<p>Nalix exposes server, client, and shared contracts so listeners and SDKs stay deterministic.</p>
+<h3 id="server-apis">🔧 Server APIs<a class="headerlink" href="#server-apis" title="Permanent link">&para;</a></h3>
+<p>Listeners rely on <code>TcpListenerBase</code>, <code>ConnectionHub</code>, and <code>PacketDispatchChannel</code> to accept sockets and run middleware + handlers.</p>
+<p><strong>Responsibilities</strong>
+- Accept sockets with <code>TcpListenerBase</code> and tune them using <code>NetworkSocketOptions</code>.
+- Register connections in <code>ConnectionHub</code>, enforce <code>DropPolicy</code>, and emit <code>ConnectionHubEventArgs</code>.
+- Route received data through <code>PacketDispatchChannel</code>, <code>PacketContext</code>, and compiled handlers.</p>
+<p><strong>Key Components</strong>
+- <code>TcpListenerBase</code> – host that consumes <code>IProtocol</code>, schedules accept workers via <code>TaskManager</code>, and invokes <code>GenerateReport()</code>.
+- <code>PacketDispatchChannel</code> – queue dispatcher configured with <code>PacketDispatchOptions</code> that calls <code>WithMiddleware</code>, <code>WithHandler</code>, and <code>WithLogging</code>.
+- <code>PacketDispatchOptions&lt;TPacket&gt;</code> – methods such as <code>WithMiddleware</code>, <code>WithHandler</code>, and <code>WithErrorHandling</code> control how packets progress.
+- <code>IProtocol</code> – interface for custom protocols (see <code>AutoXProtocol</code>) with hooks <code>OnAccept</code>, <code>ProcessMessage</code>, and <code>ValidateConnection</code>.
+- <code>PacketContext&lt;TPacket&gt;</code> + <code>PacketSender&lt;TPacket&gt;</code> – pooled helpers passed to middleware and handlers for replies.</p>
+<p><strong>Flow</strong>
+- <code>TcpListenerBase</code> accepts → <code>ConnectionHub.RegisterConnection</code> stores the connection → <code>Protocol.ProcessMessage</code> calls <code>PacketDispatchChannel.HandlePacket(...)</code> → middleware/handlers execute → replies send via <code>PacketSender</code>.</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">HandlePacket</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="na">[System.Diagnostics.CodeAnalysis.MaybeNull]</span><span class="w"> </span><span class="n">IBufferLease</span><span class="w"> </span><span class="n">lease</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="na">[System.Diagnostics.CodeAnalysis.NotNull]</span><span class="w"> </span><span class="n">IConnection</span><span class="w"> </span><span class="n">connection</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">{</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="n">Logging</span><span class="o">?.</span><span class="n">Debug</span><span class="p">(</span><span class="s">$&quot;[{nameof(PacketDispatchChannel)}:{nameof(HandlePacket)}] empty-payload ep={connection.NetworkEndpoint}&quot;</span><span class="p">);</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">lease</span><span class="o">?.</span><span class="n">Dispose</span><span class="p">();</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="client-apis">🔧 Client APIs<a class="headerlink" href="#client-apis" title="Permanent link">&para;</a></h3>
+<p>SDK transports reuse the same <code>TransportOptions</code>, <code>Handshake</code>, and request helpers so clients behave like listeners.</p>
+<p><strong>Responsibilities</strong>
+- Validate <code>TransportOptions</code> and <code>RequestOptions</code> before <code>IoTTcpSession.ConnectAsync</code>.
+- Surface <code>OnMessageReceived</code>, <code>OnDisconnected</code>, and <code>OnReconnected</code> events with pooled leases.
+- Offer helpers (<code>ControlExtensions</code>, <code>RequestExtensions</code>) for ping/pong and request-response flows.</p>
+<p><strong>Key Components</strong>
+- <code>TcpSessionBase</code> / <code>IoTTcpSession</code> – enforce options, manage heartbeats, and serialize packets with pooling.
+- <code>TransportOptions</code> – controls address, port, buffer size, compression, and <code>CipherSuiteType</code>.
+- <code>Handshake</code> – <code>PacketBase</code> used by SDK examples to share secrets (<code>Csprng.GetBytes(32)</code>).
+- <code>RequestExtensions</code> / <code>ControlExtensions</code> – extensions that register predicates, send packets, and optionally call <code>Clock.SynchronizeTime</code>.</p>
+<p><strong>Flow</strong>
+- Register <code>ILogger</code>/<code>IPacketRegistry</code> → configure <code>TransportOptions</code> → call <code>IoTTcpSession.ConnectAsync()</code> → <code>ControlExtensions.PingAsync()</code> or <code>RequestExtensions.RequestAsync()</code> for latency/response flows.</p>
+<h3 id="shared-contracts">🔧 Shared contracts<a class="headerlink" href="#shared-contracts" title="Permanent link">&para;</a></h3>
+<p>Shared interfaces and metadata keep middleware, listeners, and SDK clients aligned.</p>
+<p><strong>Responsibilities</strong>
+- Define <code>IPacket</code>, <code>IConnection</code>, and handler attributes so <code>PacketDispatchChannel</code> can discover and execute methods.
+- Provide metadata (<code>PacketMetadata</code>, <code>PacketMetadataBuilder</code>) via <code>PacketMetadataProviders</code>.
+- Offer pooled contexts and senders to keep middleware zero-allocation.</p>
+<p><strong>Key Components</strong>
+- <code>IPacket</code> / <code>IConnection</code> – fundamental wire contracts with IDs, permission levels, and encryption secrets.
+- <code>PacketControllerAttribute</code> / <code>PacketOpcodeAttribute</code> – markers discovered by <code>PacketDispatchOptions.WithHandler</code>.
+- <code>PacketMetadataProviders</code> – register <code>IPacketMetadataProvider</code> to add custom attributes (see <code>PacketCustomAttributeProvider</code>).
+- <code>PacketContext&lt;TPacket&gt;</code> – pooled object with <code>Initialize(...)</code>, <code>SkipOutbound</code>, and <code>Sender</code>.
+- <code>PacketSender&lt;TPacket&gt;</code> – ensures replies honor the handler’s cipher/compression metadata.</p>
+<p><strong>Flow</strong>
+- Handler method decorated with <code>[PacketController]</code> &amp; <code>[PacketOpcode]</code> → <code>PacketMetadataProviders</code> populate metadata → <code>PacketContext</code> initializes → handler executes → <code>PacketSender</code> replies.</p>
+<div class="admonition warning">
+<p class="admonition-title">Register metadata + logger</p>
+<p>Every dispatcher requires <code>InstanceManager.Instance.Register&lt;ILogger&gt;(NLogix.Host.Instance)</code> and <code>IPacketRegistry</code> before <code>PacketDispatchChannel</code> starts; otherwise <code>PacketDispatchChannel</code> throws <code>InvalidOperationException</code>.</p>
+</div>
 
 
 

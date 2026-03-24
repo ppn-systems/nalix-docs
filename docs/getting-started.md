@@ -1,80 +1,102 @@
 # 🚀 Getting Started
 
-Nalix assumes a deterministic host and client stack that share logging, configuration, and packet metadata.
-Follow these steps to prove out a connection before you layer in middleware or business logic.
+Start with configuration and shared services before opening any sockets.
+This keeps listener and client behavior aligned.
 
-### 🔧 Prepare the environment
-Verify that the machine runs .NET 8 SDK or later and that `default.ini` exists so `ConfigurationManager` can load `TransportOptions`, `NetworkSocketOptions`, `TaskManagerOptions`, and `NLogixOptions`.
-
-**Responsibilities**
-- Make the configuration directory readable (`%ProgramData%\Nalix\config\default.ini` on Windows, `$XDG_DATA_HOME/Nalix/config/default.ini` or `~/.local/share/Nalix/config/default.ini` on Linux).
-- Confirm your firewall and container network allow the listener port configured in `NetworkSocketOptions.Port`.
-- Ensure a shared packet registry is available so both SDK clients and listeners agree on op codes and ciphers.
-
-**Key Components**
-- `ConfigurationManager` – binds `default.ini`, watches for updates, debounces events, and exposes every options POCO.
-- `TransportOptions` / `NetworkSocketOptions` – surface retry, heartbeat, cipher, and buffer defaults that `TcpSessionBase` and `TcpListenerBase` read at startup.
-- `TaskManagerOptions` – drives worker cleanup and dynamic concurrency for listeners and dispatchers.
-
-**Flow**
-- Install the .NET 8 SDK → copy the default configuration into the right data dir → confirm `default.ini` values before booting the SDK or listener.
-
-!!! note "Default configuration paths"
-    Windows: `C:\ProgramData\Nalix\config\default.ini`
-    Linux: `~/.local/share/Nalix/config/default.ini` (set `XDG_DATA_HOME` if you need a custom base path).
-
-### 🔧 Install the SDK
-Add `Nalix.SDK` so you can build clients, register packets, and reuse the same transports as the listener without bringing in the entire host stack.
+### 🔧 Environment checklist
+Make sure the runtime and config files exist.
 
 **Responsibilities**
-- Bring in the SDK transport stack and localization helpers.
-- Keep logging, diagnostics, and packet catalogs centralized so both sides read the same metadata.
-- Keep the SDK light by referencing additional packages (`Nalix.Network`, `Nalix.Logging`, `Nalix.Common`, `Nalix.Framework`) only when you need them.
+- Install .NET 8 SDK or later.
+- Place `default.ini` in the Nalix config directory.
+- Align ports with `NetworkSocketOptions.Port`.
 
 **Key Components**
-- `Nalix.SDK` – exposes `IoTTcpSession`, `TcpSession`, `TransportOptions`, `RequestOptions`, `RequestExtensions`, and `ControlExtensions`.
-- `Nalix.Logging` – `NLogix`, `NLogix.Host`, and `NLogixOptions` for structured logging.
-- `Nalix.Shared` – `PacketRegistry`, `PacketRegistryFactory`, and `Handshake` frames shared between client and server.
+- `ConfigurationManager`
+- `NetworkSocketOptions`
 
-**Flow**
-- Run `dotnet add package Nalix.SDK` → restore → confirm `Nalix.Shared` assets are available to your project.
+!!! note "Default config locations"
+    Windows: `C:\ProgramData\Nalix\config\default.ini`  
+    Linux: `~/.local/share/Nalix/config/default.ini`
 
-### 🔧 Bootstrap shared services
-Register logging and packet metadata once and reuse the same catalog on both ends of the wire before you open sockets.
+### 🔧 Install packages
+Add only the packages you need.
 
 **Responsibilities**
-- Register `ILogger` and `IPacketRegistry` in `InstanceManager` so transports, middleware, and background tasks all resolve the same instances.
-- Tune `TransportOptions` from `ConfigurationManager.Instance.Get<TransportOptions>()` before calling `ConnectAsync`.
-- Connect `IoTTcpSession`, send a `Handshake`, and keep the same `CipherSuiteType` as your listener.
+- Use `Nalix.SDK` for client-only apps.
+- Add server-side packages when hosting a listener.
 
 **Key Components**
-- `InstanceManager` – singleton cache that throws if `ILogger` or `IPacketRegistry` are missing while constructing dispatchers or listeners.
-- `PacketRegistryFactory` – compilation state for every `IPacket` type you plan to serialize/deserialize.
-- `IoTTcpSession` – validates `TransportOptions`, drives heartbeats, and exposes `OnMessageReceived`, `OnDisconnected`, and `OnReconnected`.
-- `Handshake` / `Csprng` – fixed `Packet` that proves both ends share the same secret.
+- `Nalix.SDK`
+- `Nalix.Network`
+- `Nalix.Common`
+- `Nalix.Logging`
+- `Nalix.Framework`
 
-**Flow**
-- Register `ILogger` → register `IPacketRegistry` → fetch `TransportOptions` → call `IoTTcpSession.ConnectAsync()` → send `Handshake`.
+```bash
+dotnet add package Nalix.SDK
+```
+
+```bash
+dotnet add package Nalix.Network
+dotnet add package Nalix.Common
+dotnet add package Nalix.Logging
+dotnet add package Nalix.Framework
+```
+
+### 🔧 Load configuration
+Pull validated options before you create sessions.
+
+**Responsibilities**
+- Read options from `ConfigurationManager`.
+- Validate before changing buffer or cipher settings.
+
+**Key Components**
+- `TransportOptions`
+- `ConfigurationManager.Instance.Get<T>()`
+
+```csharp
+TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
+options.Validate();
+```
+
+### 🔧 Register shared services
+Register the logger and packet catalog once.
+
+**Responsibilities**
+- Register `ILogger`.
+- Register `IPacketRegistry`.
+
+**Key Components**
+- `InstanceManager`
+- `PacketRegistryFactory`
 
 ```csharp
 InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-IPacketRegistry packetRegistry = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register(packetRegistry);
-
-TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
-options.Address = "127.0.0.1";
-options.Port = 12345;
-options.Secret = Csprng.GetBytes(32);
-
-IoTTcpSession client = new();
-await client.ConnectAsync(options.Address, options.Port);
-
-Handshake handshake = new(opCode: 0, data: options.Secret);
-await client.SendAsync(handshake.Serialize());
+IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
+InstanceManager.Instance.Register(catalog);
 ```
 
-!!! warning "Register logger and registry first"
-    `PacketDispatchChannel` throws `InvalidOperationException` if `IPacketRegistry` is not registered in `InstanceManager`, and listeners assume `ILogger` exists before `TcpListenerBase.Activate()` runs.
+### 🔧 Verify a basic handshake
+Send a `Handshake` to confirm client and listener agree on secrets.
 
-!!! note "Tune `TransportOptions` before connecting"
-    Call `TransportOptions.Validate()` (triggered automatically when `IoTTcpSession` initializes) whenever you change `BufferSize`, `MaxPacketSize`, or cipher settings so you avoid `ValidationException` at connect time.
+**Responsibilities**
+- Generate a secret.
+- Serialize and send `Handshake`.
+
+**Key Components**
+- `Handshake`
+- `Csprng`
+- `TcpSession`
+
+```csharp
+TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
+options.Address = "127.0.0.1";
+options.Port = 57206;
+options.Secret = Csprng.GetBytes(32);
+
+TcpSession client = new();
+await client.ConnectAsync(options.Address, options.Port);
+Handshake handshake = new(0, options.Secret);
+await client.SendAsync(handshake.Serialize());
+```

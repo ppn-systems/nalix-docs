@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -810,21 +812,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#sdk-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#client-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Client example
+        🔧 SDK responsibilities
       
     </span>
   </a>
@@ -835,7 +826,7 @@
   <a href="#request-helpers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Request helpers
+        🔧 Request helpers
       
     </span>
   </a>
@@ -843,10 +834,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#localization" class="md-nav__link">
+  <a href="#localization-transports" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Localization
+        🔧 Localization &amp; transports
       
     </span>
   </a>
@@ -1210,21 +1201,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#sdk-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#client-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Client example
+        🔧 SDK responsibilities
       
     </span>
   </a>
@@ -1235,7 +1215,7 @@
   <a href="#request-helpers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Request helpers
+        🔧 Request helpers
       
     </span>
   </a>
@@ -1243,10 +1223,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#localization" class="md-nav__link">
+  <a href="#localization-transports" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Localization
+        🔧 Localization &amp; transports
       
     </span>
   </a>
@@ -1271,65 +1251,75 @@
 
 
 <h1 id="nalixsdk">Nalix.SDK<a class="headerlink" href="#nalixsdk" title="Permanent link">&para;</a></h1>
-<p><code>Nalix.SDK</code> is the developer-facing kit that configures logging, localization, dependency injection, and the client-side transport stack. It wires global singletons through <code>InstanceManager</code>, exposes <code>ControlExtensions</code>/<code>RequestExtensions</code> for request-response flows, and surfaces <code>TransportOptions</code>/<code>RequestOptions</code> builders so clients can tune reconnection, encryption, and retries.</p>
-<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>IoTTcpSession</code> inherits from <code>TcpSessionBase</code> and is the default client implementation: it validates <code>TransportOptions</code>, serializes packets with pooling, tracks bytes sent/received, and auto-reconnects while serializing <code>ConnectAsync</code> calls with <code>_connectLock</code>.</li>
-<li><code>ControlExtensions</code> adds helpers for <code>PING</code>/<code>PONG</code>, fluent control frame builders, and <code>AwaitPacketAsync&lt;TPkt&gt;</code> so you can send a control and wait for a matching reply safely.</li>
-<li><code>RequestExtensions.RequestAsync&lt;TRequest, TResponse&gt;</code> guarantees no race conditions by registering <code>PACKET_AWAITER</code> before sending and only retries on timeouts.</li>
-<li><code>TransportOptions</code> and <code>RequestOptions</code> are validated (e.g., <code>TransportOptions.Validate</code> enforces buffer sizes) and supply fluent setters (<code>WithRetry</code>, <code>WithEncrypt</code>).</li>
-<li>Localization support via <code>Localizer</code>, <code>MultiLocalizer</code>, and PO file parsers keeps user-facing text consistent across clients and servers.</li>
-</ul>
-<h2 id="client-example">Client example<a class="headerlink" href="#client-example" title="Permanent link">&para;</a></h2>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Register</span><span class="o">&lt;</span><span class="n">ILogger</span><span class="o">&gt;</span><span class="p">(</span><span class="n">NLogix</span><span class="p">.</span><span class="n">Host</span><span class="p">.</span><span class="n">Instance</span><span class="p">);</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">PacketRegistry</span><span class="w"> </span><span class="n">packetRegistry</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">PacketRegistryFactory</span><span class="p">().</span><span class="n">CreateCatalog</span><span class="p">();</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Register</span><span class="o">&lt;</span><span class="n">IPacketRegistry</span><span class="o">&gt;</span><span class="p">(</span><span class="n">packetRegistry</span><span class="p">);</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">IoTTcpSession</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">();</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">await</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">ConnectAsync</span><span class="p">(</span><span class="s">&quot;127.0.0.1&quot;</span><span class="p">,</span><span class="w"> </span><span class="m">12345</span><span class="p">);</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">Handshake</span><span class="w"> </span><span class="n">handshake</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">opCode</span><span class="p">:</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">secret</span><span class="p">:</span><span class="w"> </span><span class="n">Csprng</span><span class="p">.</span><span class="n">GetBytes</span><span class="p">(</span><span class="m">32</span><span class="p">));</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">await</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">SendAsync</span><span class="p">(</span><span class="n">handshake</span><span class="p">.</span><span class="n">Serialize</span><span class="p">());</span>
-</span></code></pre></div>
-<p>This example mirrors <code>example/Nalix.SDK.Examples</code>: normalize the registry, register the logger, then use the SDK transports to open a socket and send a serialized <code>Handshake</code> frame.</p>
-<h2 id="request-helpers">Request helpers<a class="headerlink" href="#request-helpers" title="Permanent link">&para;</a></h2>
-<p><code>RequestExtensions.RequestAsync&lt;TRequest, TResponse&gt;</code> combines the subscribe/send/await cycle so you never miss a response. The method registers the predicate before sending, applies timeout+retry semantics, and delegates the race-free wait to <code>PACKET_AWAITER</code>.</p>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">public</span><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Threading</span><span class="p">.</span><span class="n">Tasks</span><span class="p">.</span><span class="n">Task</span><span class="o">&lt;</span><span class="n">TResponse</span><span class="o">&gt;</span><span class="w"> </span><span class="n">RequestAsync</span><span class="o">&lt;</span><span class="n">TRequest</span><span class="p">,</span><span class="w"> </span><span class="n">TResponse</span><span class="o">&gt;</span><span class="p">(</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="k">this</span><span class="w"> </span><span class="n">IClientConnection</span><span class="w"> </span><span class="n">client</span><span class="p">,</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="n">TRequest</span><span class="w"> </span><span class="n">request</span><span class="p">,</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Func</span><span class="o">&lt;</span><span class="n">TResponse</span><span class="p">,</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Boolean</span><span class="o">&gt;</span><span class="w"> </span><span class="n">predicate</span><span class="p">,</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Int32</span><span class="w"> </span><span class="n">timeoutMs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5000</span><span class="p">,</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Threading</span><span class="p">.</span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">ct</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="p">)</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="k">where</span><span class="w"> </span><span class="n">TRequest</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">IPacket</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="k">where</span><span class="w"> </span><span class="n">TResponse</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">IPacket</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">{</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">ArgumentNullException</span><span class="p">.</span><span class="n">ThrowIfNull</span><span class="p">(</span><span class="n">client</span><span class="p">);</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">ArgumentNullException</span><span class="p">.</span><span class="n">ThrowIfNull</span><span class="p">(</span><span class="n">request</span><span class="p">);</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">ArgumentNullException</span><span class="p">.</span><span class="n">ThrowIfNull</span><span class="p">(</span><span class="n">predicate</span><span class="p">);</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">client</span><span class="p">.</span><span class="n">IsConnected</span><span class="p">)</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="p">{</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">InvalidOperationException</span><span class="p">(</span><span class="s">&quot;Client is not connected.&quot;</span><span class="p">);</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">PACKET_AWAITER</span><span class="p">.</span><span class="n">AwaitAsync</span><span class="p">(</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">        </span><span class="n">client</span><span class="p">,</span>
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">        </span><span class="n">predicate</span><span class="p">,</span>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">        </span><span class="n">timeoutMs</span><span class="p">,</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">        </span><span class="n">sendAsync</span><span class="p">:</span><span class="w"> </span><span class="n">token</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">SendAsync</span><span class="p">(</span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">token</span><span class="p">),</span>
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">        </span><span class="n">ct</span><span class="p">);</span>
-</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="p">}</span>
+<p><code>Nalix.SDK</code> packages the client transport stack, localized strings, and helper extensions so SDK consumers mirror the host transports.</p>
+<h3 id="sdk-responsibilities">🔧 SDK responsibilities<a class="headerlink" href="#sdk-responsibilities" title="Permanent link">&para;</a></h3>
+<p>Expose a client-focused API, validate transport configuration, and keep logging + packet catalogs centralized.</p>
+<p><strong>Responsibilities</strong>
+- Provide <code>IoTTcpSession</code> / <code>TcpSession</code> as the default client connection that enforces <code>TransportOptions</code>.
+- Surface helper extensions (<code>ControlExtensions</code>, <code>RequestExtensions</code>) to simplify ping, request-response, and race-free awaits.
+- Keep localization (<code>Localizer</code>, <code>MultiLocalizer</code>, <code>Formats</code>) in sync across clients and servers.</p>
+<p><strong>Key Components</strong>
+- <code>IoTTcpSession</code> / <code>TcpSession</code> – implement <code>IClientConnection</code>, validate <code>TransportOptions</code>, and manage reconnect/heartbeat loops.
+- <code>TransportOptions</code> – controls address, port, buffer size, compression, <code>CipherSuiteType</code>, reconnection delays, and <code>Csprng</code> secrets.
+- <code>RequestOptions</code> – fluent setters (<code>WithRetry</code>, <code>WithTimeout</code>, <code>WithEncrypt</code>) used by <code>RequestExtensions</code>.
+- <code>PacketRegistryFactory</code> – shared catalog builder for SDKs and listeners so metadata and op codes align.
+- <code>ControlExtensions</code> / <code>RequestExtensions</code> – extension methods that simplify common flows.</p>
+<p><strong>Flow</strong>
+- Register <code>ILogger</code>/<code>IPacketRegistry</code> → tune <code>TransportOptions</code> via <code>ConfigurationManager.Instance.Get&lt;TransportOptions&gt;()</code> → call <code>IoTTcpSession.ConnectAsync()</code> → use <code>ControlExtensions</code>/<code>RequestExtensions</code>.</p>
+<h3 id="request-helpers">🔧 Request helpers<a class="headerlink" href="#request-helpers" title="Permanent link">&para;</a></h3>
+<p><code>RequestExtensions.RequestAsync&lt;TRequest, TResponse&gt;</code> registers a predicate before writing the packet so the awaiter never races with the response.</p>
+<p><strong>Responsibilities</strong>
+- Register listeners (<code>PACKET_AWAITER</code>) before sending so replies are caught even when they arrive immediately.
+- Retry only when timeouts occur, not on fatal errors.
+- Throw early if the client disconnects.</p>
+<p><strong>Key Components</strong>
+- <code>RequestExtensions</code> – extension methods on <code>IClientConnection</code>.
+- <code>PACKET_AWAITER</code> – shared awaiter that correlates responses via predicates.
+- <code>ControlExtensions</code> – query helpers such as <code>PingAsync</code> and <code>SynchronizeTimeAsync</code>.</p>
+<p><strong>Flow</strong>
+- Call <code>RequestAsync</code> → the method registers your predicate → it sends the request → <code>PACKET_AWAITER</code> resolves or times out.</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">public</span><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Threading</span><span class="p">.</span><span class="n">Tasks</span><span class="p">.</span><span class="n">Task</span><span class="o">&lt;</span><span class="n">TResponse</span><span class="o">&gt;</span><span class="w"> </span><span class="n">RequestAsync</span><span class="o">&lt;</span><span class="n">TRequest</span><span class="p">,</span><span class="w"> </span><span class="n">TResponse</span><span class="o">&gt;</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="k">this</span><span class="w"> </span><span class="n">IClientConnection</span><span class="w"> </span><span class="n">client</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">TRequest</span><span class="w"> </span><span class="n">request</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Func</span><span class="o">&lt;</span><span class="n">TResponse</span><span class="p">,</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">Boolean</span><span class="o">&gt;</span><span class="w"> </span><span class="n">predicate</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Int32</span><span class="w"> </span><span class="n">timeoutMs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5000</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Threading</span><span class="p">.</span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">ct</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="k">where</span><span class="w"> </span><span class="n">TRequest</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">IPacket</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="k">where</span><span class="w"> </span><span class="n">TResponse</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">class</span><span class="p">,</span><span class="w"> </span><span class="n">IPacket</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">{</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">ArgumentNullException</span><span class="p">.</span><span class="n">ThrowIfNull</span><span class="p">(</span><span class="n">client</span><span class="p">);</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">ArgumentNullException</span><span class="p">.</span><span class="n">ThrowIfNull</span><span class="p">(</span><span class="n">request</span><span class="p">);</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">ArgumentNullException</span><span class="p">.</span><span class="n">ThrowIfNull</span><span class="p">(</span><span class="n">predicate</span><span class="p">);</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">client</span><span class="p">.</span><span class="n">IsConnected</span><span class="p">)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">InvalidOperationException</span><span class="p">(</span><span class="s">&quot;Client is not connected.&quot;</span><span class="p">);</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">PACKET_AWAITER</span><span class="p">.</span><span class="n">AwaitAsync</span><span class="p">(</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">        </span><span class="n">client</span><span class="p">,</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">        </span><span class="n">predicate</span><span class="p">,</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">        </span><span class="n">timeoutMs</span><span class="p">,</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">        </span><span class="n">sendAsync</span><span class="p">:</span><span class="w"> </span><span class="n">token</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">SendAsync</span><span class="p">(</span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">token</span><span class="p">),</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">        </span><span class="n">ct</span><span class="p">);</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="p">}</span>
 </span></code></pre></div>
 <div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The snippet above is directly from <code>src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs</code>, so you can follow the source if you need to customize the awaiter or add new overloads.</p>
+<p class="admonition-title">Trace the awaiter</p>
+<p>The snippet above is copied from <code>src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs</code>. Follow that file when you add overloads or adjust predicate matching.</p>
 </div>
-<h2 id="localization">Localization<a class="headerlink" href="#localization" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>Localizer</code> loads PO catalogs and exposes <code>Get</code>, <code>GetParticular</code>, <code>GetPlural</code>, and <code>GetParticularPlural</code> so you can resolve contextualized strings.</li>
-<li><code>MultiLocalizer</code> composes multiple <code>Localizer</code> instances to build fallback chains.</li>
-<li><code>Formats</code> helpers parse timestamps, numbers, and enumerations using localized culture settings.</li>
-</ul>
-<p>Always register <code>ILogger</code> and <code>IPacketRegistry</code> before constructing sessions. The SDK resolves those dependencies through <code>InstanceManager</code> (see <code>example/Nalix.SDK.Examples</code>).</p>
+<h3 id="localization-transports">🔧 Localization &amp; transports<a class="headerlink" href="#localization-transports" title="Permanent link">&para;</a></h3>
+<p>Localization flows share the same options and clocks as the networking stack.</p>
+<p><strong>Responsibilities</strong>
+- Load PO catalogs via <code>Localizer</code> and compose fallback chains with <code>MultiLocalizer</code>.
+- Expose transport configuration via POCOs with validation before sockets start.</p>
+<p><strong>Key Components</strong>
+- <code>Localizer</code>, <code>MultiLocalizer</code>, and <code>Formats</code> – textual helpers that parse timestamps or enumerations.
+- <code>TransportOptions.Validate()</code> – ensures buffer sizes, packet limits, and reconnection delays stay in range.
+- <code>RequestOptions</code> – builder used by <code>RequestExtensions</code> for retries and encryption toggles.
+- <code>Handshake</code> – <code>PacketBase</code> used by SDK examples to prove the client and listener share the same secret.</p>
+<p><strong>Flow</strong>
+- Customize PO files / config → call <code>Localizer.Get()</code>/<code>GetPlural()</code> → validate <code>TransportOptions</code> → reuse same catalog with the listener.</p>
 
 
 

@@ -1,52 +1,70 @@
 # 🧠 Middleware Pipeline
 
-`MiddlewarePipeline<TPacket>` gives you deterministic stages, metadata access, and optional short-circuiting around each handler.
+Middleware runs in a strict order and can inspect metadata before handlers execute.
 
-### 🔧 Middleware stages
-The pipeline runs inbound middleware first, executes your handler, and then runs outbound and outbound-always stages.
+### 🔧 Pipeline order
+Inbound middleware runs before handlers, outbound after.
 
 **Responsibilities**
-- Register middleware (`IPacketMiddleware<TPacket>`) once per dispatch channel so execution order is deterministic.
-- Store middleware in immutable snapshots (`_inbound`, `_outbound`, `_outboundAlways`) so hot-path execution avoids locks.
-- Allow middleware to short-circuit outbound stages via `PacketContext<TPacket>.SkipOutbound` and to clean up resources in outbound-always.
+- Enforce timeouts.
+- Inspect packet metadata.
+- Add logging.
 
 **Key Components**
-- `MiddlewarePipeline<TPacket>` – internal, thread-safe pipeline used by `PacketDispatchChannel`.
-- `IPacketMiddleware<TPacket>` – handler contract; implementations run inside `ExecuteAsync` with access to `PacketContext<TPacket>` and `Func<CancellationToken, Task>` delegates.
-- `PacketContext<TPacket>` – pooled context with `Attributes`, `Connection`, `Packet`, `CancellationToken`, and `Sender`.
-- `PacketDispatchOptions<TPacket>.WithMiddleware(...)` – surface that calls `_pipeline.Use(...)` so `PacketDispatchChannel` wires middleware at startup.
+- `IPacketMiddleware<IPacket>`
+- `PacketDispatchChannel`
 
 **Flow**
-- `PacketDispatchChannel` receives a packet → `PacketContext<TPacket>` initializes → inbound middleware runs → handler executes → outbound-always runs → outbound runs (if `SkipOutbound` is false).
+- Inbound middleware -> handler -> outbound middleware -> `PacketSender`.
+
+### 🔧 Register middleware
+Attach middleware when you build the dispatch channel.
+
+**Responsibilities**
+- Attach middleware instances in order.
+- Keep middleware stateless when possible.
+
+**Key Components**
+- `PacketDispatchOptions.WithMiddleware`
 
 ```csharp
-public void ConfigureErrorHandling(
-    bool continueOnError,
-    Action<Exception, Type> errorHandler = null)
+PacketDispatchChannel channel = new(options =>
 {
-    lock (_lock)
-    {
-        _continueOnError = continueOnError;
-        _errorHandler = errorHandler;
-    }
-}
+    options.WithMiddleware(new TimeoutMiddleware());
+    options.WithMiddleware(new CustomMiddleware());
+});
 ```
 
-### 🔧 Error handling & short-circuit
-Configure how the pipeline responds to middleware exceptions and decide when to bypass outbound work entirely.
+### 🔧 Read packet metadata
+Middleware can read attributes attached to a packet or controller.
 
 **Responsibilities**
-- Control whether exceptions in middleware stop the pipeline or continue to the next stage via `continueOnError`.
-- Capture exceptions with `errorHandler` for logging or metrics without disrupting the rest of the pipeline.
-- Set `PacketContext<TPacket>.SkipOutbound = true` when you want to avoid running outbound middleware after a middleware short-circuit.
+- Read `PacketContext.Attributes`.
+- Enforce validation rules.
 
 **Key Components**
-- `IPacketMiddleware<TPacket>` implementations such as `TimeoutMiddleware` that throw when deadlines expire.
-- `MiddlewarePipeline<TPacket>.ExecuteAsync` – snapshots middleware lists and calls `INVOKE_PIPELINE_ASYNC` for each stage.
-- `PacketContext<TPacket>.Attributes` – metadata collected from `PacketMetadataBuilder` so middleware can read `[PacketCustomAttribute]` values.
+- `PacketContext<TPacket>`
+- `PacketCustomAttribute`
 
-**Flow**
-- Middleware throws? `ConfigureErrorHandling` decides if the pipeline continues → `errorHandler` logs metadata → outbound-always runs even when cancelled.
+```csharp
+PacketCustomAttribute? attribute = context.Attributes.CustomAttributes
+    .OfType<PacketCustomAttribute>()
+    .FirstOrDefault();
+```
 
-!!! warning "Skip outbound when needed"
-    Set `context.SkipOutbound = true` from inbound middleware if you need to drop a packet before outbound work runs; otherwise outbound middleware still executes by default.
+### 🔧 Error handling
+Capture middleware and handler exceptions in one place.
+
+**Responsibilities**
+- Attach error handling to the channel.
+- Log op codes for tracing.
+
+**Key Components**
+- `PacketDispatchOptions.WithErrorHandling`
+- `ILogger`
+
+```csharp
+options.WithErrorHandling((ex, opCode)
+    => InstanceManager.Instance.GetExistingInstance<ILogger>()?
+                              .Error($"Error handling opcode={opCode}", ex));
+```

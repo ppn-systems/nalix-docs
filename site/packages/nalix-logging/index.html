@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -894,10 +896,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#logging-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
+        🔧 Logging responsibilities
       
     </span>
   </a>
@@ -905,30 +907,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#message-sanitization" class="md-nav__link">
+  <a href="#configuration-targets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Message sanitization
+        🔧 Configuration &amp; targets
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Message sanitization">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#registration-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Registration example
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1205,10 +1190,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#logging-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
+        🔧 Logging responsibilities
       
     </span>
   </a>
@@ -1216,30 +1201,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#message-sanitization" class="md-nav__link">
+  <a href="#configuration-targets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Message sanitization
+        🔧 Configuration &amp; targets
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Message sanitization">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#registration-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Registration example
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1261,39 +1229,47 @@
 
 
 <h1 id="nalixlogging">Nalix.Logging<a class="headerlink" href="#nalixlogging" title="Permanent link">&para;</a></h1>
-<p><code>Nalix.Logging</code> provides a structured <code>ILogger</code> implementation plus configuration that ties logging directly into the Nalix diagnostics and lifecycle.</p>
-<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>NLogix</code> inherits from <code>NLogixEngine</code> and exposes <code>ILogger</code> methods that sanitize log messages (<code>SanitizeLogMessage</code>) and call <code>Publish</code> on the engine layer.</li>
-<li><code>NLogix.Host.Instance</code> is the default logger used in the SDK/Network examples; registering it via <code>InstanceManager.Instance.Register&lt;ILogger&gt;(NLogix.Host.Instance)</code> ensures every package can log without reconfiguring.</li>
-<li><code>NLogixOptions</code> controls sink registration, JSON formatting, and level overrides. Extend the options during bootstrap to route logs to console, file, or custom distributors.</li>
-<li><code>NLogixDistributor</code> and <code>NLogixEngine</code> handle batching, background flushes, and safe exception handling so logging stays reliable even under heavy load.</li>
-</ul>
-<h2 id="message-sanitization">Message sanitization<a class="headerlink" href="#message-sanitization" title="Permanent link">&para;</a></h2>
-<p><code>NLogix</code> calls <code>SanitizeLogMessage</code> before publishing to avoid log forging attacks. The method returns the input unchanged unless it contains newline characters.</p>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">private</span><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">String</span><span class="w"> </span><span class="n">SanitizeLogMessage</span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">String</span><span class="o">?</span><span class="w"> </span><span class="n">message</span><span class="p">)</span>
+<p><code>Nalix.Logging</code> delivers structured logs, targets, and distributor plumbing that every package resolves through <code>ILogger</code>.</p>
+<h3 id="logging-responsibilities">🔧 Logging responsibilities<a class="headerlink" href="#logging-responsibilities" title="Permanent link">&para;</a></h3>
+<p>Bootstrapping logging early keeps middleware, listeners, and SDK clients consistent.</p>
+<p><strong>Responsibilities</strong>
+- Provide the default <code>ILogger</code> implementation (<code>NLogix</code>) used across listeners, dispatchers, and SDK transports.
+- Expose configuration (<code>NLogixOptions</code>, <code>FileLogOptions</code>) so teams can route logs to files, consoles, or sinks.
+- Allow <code>ILoggerTarget</code> implementations to register with <code>ILogDistributor</code> so high-throughput scenarios stay batched and safe.</p>
+<p><strong>Key Components</strong>
+- <code>NLogix</code> – high-performance logger (extends <code>NLogixEngine</code>) that exposes <code>ILogger</code>.
+- <code>NLogix.Host</code> – host entry point that exposes <code>ILogger</code> for registration via <code>InstanceManager.Instance.Register&lt;ILogger&gt;(NLogix.Host.Instance)</code>.
+- <code>NLogixOptions</code> / <code>FileLogOptions</code> – configuration POCOs that control levels, timestamp formats, and file rotation.
+- <code>ILogDistributor</code> / <code>ILoggerTarget</code> – distributor that fans log entries to registered targets.
+- <code>NLogixEngine</code> – underlying engine publishing structured logs with sanitization and event IDs.</p>
+<p><strong>Flow</strong>
+- Register <code>ILogger</code> early via <code>InstanceManager</code> → configure <code>NLogixOptions</code>/<code>FileLogOptions</code> → log from listeners, middleware, and SDK transports with the same <code>ILogger</code> instance.</p>
+<h3 id="configuration-targets">🔧 Configuration &amp; targets<a class="headerlink" href="#configuration-targets" title="Permanent link">&para;</a></h3>
+<p><code>NLogixOptions</code> exposes a fluent API to set timestamp formats, register targets, and control concurrency limits.</p>
+<p><strong>Responsibilities</strong>
+- Set the minimum log level, timestamp format, and metadata (process ID, machine name).
+- Set the <code>ILogDistributor</code> (pipeline of <code>ILoggerTarget</code> values) and register targets before producing logs.
+- Configure file targets, concurrency limits, and timestamp granularity via <code>FileLogOptions</code>.</p>
+<p><strong>Key Components</strong>
+- <code>NLogixOptions.SetPublisher()</code> – sets the distributor used for publishing entries.
+- <code>NLogixOptions.RegisterTarget()</code> – adds additional <code>ILoggerTarget</code> instances (console, file, remote).
+- <code>FileLogOptions</code> – drives file rotation and path settings consumed by attached targets.
+- <code>NLogixOptions.ConfigureFileOptions(...)</code> – exposes <code>FileLogOptions</code> for inline configuration while preserving thread safety.</p>
+<p><strong>Flow</strong>
+- Build <code>NLogixOptions</code> → register targets via <code>RegisterTarget()</code> → call <code>InstanceManager.Instance.Register&lt;ILogger&gt;(NLogix.Host.Instance)</code> → start logging via <code>ILogger</code>.</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">public</span><span class="w"> </span><span class="n">NLogixOptions</span><span class="w"> </span><span class="nf">RegisterTarget</span><span class="p">(</span><span class="n">ILoggerTarget</span><span class="w"> </span><span class="n">target</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="p">{</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">String</span><span class="p">.</span><span class="n">IsNullOrEmpty</span><span class="p">(</span><span class="n">message</span><span class="p">))</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="p">{</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">String</span><span class="p">.</span><span class="n">Empty</span><span class="p">;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">MemoryExtensions</span><span class="p">.</span><span class="n">IndexOfAny</span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">MemoryExtensions</span><span class="p">.</span><span class="n">AsSpan</span><span class="p">(</span><span class="n">message</span><span class="p">),</span><span class="w"> </span><span class="sc">&#39;\n&#39;</span><span class="p">,</span><span class="w"> </span><span class="sc">&#39;\r&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="m">0</span><span class="p">)</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="p">{</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">message</span><span class="p">;</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">message</span><span class="p">.</span><span class="n">Replace</span><span class="p">(</span><span class="s">&quot;\r\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot; &quot;</span><span class="p">).</span><span class="n">Replace</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot; &quot;</span><span class="p">).</span><span class="n">Replace</span><span class="p">(</span><span class="s">&quot;\r&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot; &quot;</span><span class="p">);</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">}</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">ArgumentNullException</span><span class="p">.</span><span class="n">ThrowIfNull</span><span class="p">(</span><span class="n">target</span><span class="p">);</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">ObjectDisposedException</span><span class="p">.</span><span class="n">ThrowIf</span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">Threading</span><span class="p">.</span><span class="n">Interlocked</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">                                  </span><span class="p">.</span><span class="n">CompareExchange</span><span class="p">(</span><span class="k">ref</span><span class="w"> </span><span class="n">_disposed</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">0</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">nameof</span><span class="p">(</span><span class="n">NLogixOptions</span><span class="p">));</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Publisher</span><span class="o">?.</span><span class="n">RegisterTarget</span><span class="p">(</span><span class="n">target</span><span class="p">);</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">;</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">}</span>
 </span></code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>This snippet is identical to the private method in <code>src/Nalix.Logging/NLogix.cs</code>, proving the sanitizer you rely on exists exactly as shown.</p>
+<div class="admonition warning">
+<p class="admonition-title">Dispose after registration</p>
+<p>Once you call <code>NLogixOptions.Dispose()</code>, the configured distributor is released. Do not reuse the disposed options instance to register additional targets.</p>
 </div>
-<h3 id="registration-example">Registration example<a class="headerlink" href="#registration-example" title="Permanent link">&para;</a></h3>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Register</span><span class="o">&lt;</span><span class="n">ILogger</span><span class="o">&gt;</span><span class="p">(</span><span class="n">NLogix</span><span class="p">.</span><span class="n">Host</span><span class="p">.</span><span class="n">Instance</span><span class="p">);</span>
-</span></code></pre></div>
-<p>You only need to register the logger once before listeners or sessions start. The engine automatically integrates with configuration (via <code>NLogixOptions</code>) and exposes extension points in <code>Nalix.Logging.Extensions</code> for custom sinks.</p>
 
 
 

@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -672,6 +674,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Middleware Pipeline
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -688,6 +708,47 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#middleware-stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔧 Middleware stages
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling-short-circuit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔧 Error handling &amp; short-circuit
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1122,6 +1183,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#middleware-stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔧 Middleware stages
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling-short-circuit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔧 Error handling &amp; short-circuit
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1138,17 +1229,46 @@
 
 
 <h1 id="middleware-pipeline">🧠 Middleware Pipeline<a class="headerlink" href="#middleware-pipeline" title="Permanent link">&para;</a></h1>
-<p>Nalix keeps the networking pipeline explicit. <code>MiddlewarePipeline&lt;TPacket&gt;</code> splits execution into three ordered phases:</p>
-<ol>
-<li><strong>Inbound</strong> – runs before your handler and can mutate headers, authenticate, or drop packets (e.g., <code>TimeoutMiddleware</code>, <code>CustomMiddleware</code>).</li>
-<li><strong>Outbound</strong> – runs after the handler completes, in reverse registration order, and is ideal for metrics or fan-out logic.</li>
-<li><strong>OutboundAlways</strong> – invoked even when the handler throws or a cancellation token fires, perfect for cleanup and connection auditing.</li>
-</ol>
-<p>The pipeline is thread-safe and builds immutable snapshots (<code>_inbound</code>, <code>_outbound</code>, <code>_outboundAlways</code>) to avoid locking during hot-path execution. <code>ConfigureErrorHandling</code> lets you decide if <code>continueOnError</code> keeps running or if <code>errorHandler</code> should log exceptions per middleware type.</p>
-<p>Middleware implements <code>IPacketMiddleware&lt;TPacket&gt;</code> and can short-circuit a request by calling <code>context.SkipOutbound</code>. <code>INetworkBufferMiddleware</code> works on raw buffer slices when efficiency is critical.</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Register middleware through <code>PacketDispatchChannel</code> once at startup. The channel exposes <code>dispatchOptions.WithMiddleware(...)</code> so you keep middleware registration close to command/handler wiring.</p>
+<p><code>MiddlewarePipeline&lt;TPacket&gt;</code> gives you deterministic stages, metadata access, and optional short-circuiting around each handler.</p>
+<h3 id="middleware-stages">🔧 Middleware stages<a class="headerlink" href="#middleware-stages" title="Permanent link">&para;</a></h3>
+<p>The pipeline runs inbound middleware first, executes your handler, and then runs outbound and outbound-always stages.</p>
+<p><strong>Responsibilities</strong>
+- Register middleware (<code>IPacketMiddleware&lt;TPacket&gt;</code>) once per dispatch channel so execution order is deterministic.
+- Store middleware in immutable snapshots (<code>_inbound</code>, <code>_outbound</code>, <code>_outboundAlways</code>) so hot-path execution avoids locks.
+- Allow middleware to short-circuit outbound stages via <code>PacketContext&lt;TPacket&gt;.SkipOutbound</code> and to clean up resources in outbound-always.</p>
+<p><strong>Key Components</strong>
+- <code>MiddlewarePipeline&lt;TPacket&gt;</code> – internal, thread-safe pipeline used by <code>PacketDispatchChannel</code>.
+- <code>IPacketMiddleware&lt;TPacket&gt;</code> – handler contract; implementations run inside <code>ExecuteAsync</code> with access to <code>PacketContext&lt;TPacket&gt;</code> and <code>Func&lt;CancellationToken, Task&gt;</code> delegates.
+- <code>PacketContext&lt;TPacket&gt;</code> – pooled context with <code>Attributes</code>, <code>Connection</code>, <code>Packet</code>, <code>CancellationToken</code>, and <code>Sender</code>.
+- <code>PacketDispatchOptions&lt;TPacket&gt;.WithMiddleware(...)</code> – surface that calls <code>_pipeline.Use(...)</code> so <code>PacketDispatchChannel</code> wires middleware at startup.</p>
+<p><strong>Flow</strong>
+- <code>PacketDispatchChannel</code> receives a packet → <code>PacketContext&lt;TPacket&gt;</code> initializes → inbound middleware runs → handler executes → outbound-always runs → outbound runs (if <code>SkipOutbound</code> is false).</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">ConfigureErrorHandling</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">continueOnError</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">Action</span><span class="o">&lt;</span><span class="n">Exception</span><span class="p">,</span><span class="w"> </span><span class="n">Type</span><span class="o">&gt;</span><span class="w"> </span><span class="n">errorHandler</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">null</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">{</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="k">lock</span><span class="w"> </span><span class="p">(</span><span class="n">_lock</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="n">_continueOnError</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">continueOnError</span><span class="p">;</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="n">_errorHandler</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">errorHandler</span><span class="p">;</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="error-handling-short-circuit">🔧 Error handling &amp; short-circuit<a class="headerlink" href="#error-handling-short-circuit" title="Permanent link">&para;</a></h3>
+<p>Configure how the pipeline responds to middleware exceptions and decide when to bypass outbound work entirely.</p>
+<p><strong>Responsibilities</strong>
+- Control whether exceptions in middleware stop the pipeline or continue to the next stage via <code>continueOnError</code>.
+- Capture exceptions with <code>errorHandler</code> for logging or metrics without disrupting the rest of the pipeline.
+- Set <code>PacketContext&lt;TPacket&gt;.SkipOutbound = true</code> when you want to avoid running outbound middleware after a middleware short-circuit.</p>
+<p><strong>Key Components</strong>
+- <code>IPacketMiddleware&lt;TPacket&gt;</code> implementations such as <code>TimeoutMiddleware</code> that throw when deadlines expire.
+- <code>MiddlewarePipeline&lt;TPacket&gt;.ExecuteAsync</code> – snapshots middleware lists and calls <code>INVOKE_PIPELINE_ASYNC</code> for each stage.
+- <code>PacketContext&lt;TPacket&gt;.Attributes</code> – metadata collected from <code>PacketMetadataBuilder</code> so middleware can read <code>[PacketCustomAttribute]</code> values.</p>
+<p><strong>Flow</strong>
+- Middleware throws? <code>ConfigureErrorHandling</code> decides if the pipeline continues → <code>errorHandler</code> logs metadata → outbound-always runs even when cancelled.</p>
+<div class="admonition warning">
+<p class="admonition-title">Skip outbound when needed</p>
+<p>Set <code>context.SkipOutbound = true</code> from inbound middleware if you need to drop a packet before outbound work runs; otherwise outbound middleware still executes by default.</p>
 </div>
 
 

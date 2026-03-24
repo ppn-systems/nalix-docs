@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -866,10 +868,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#common-contracts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
+        🔧 Common contracts
       
     </span>
   </a>
@@ -877,30 +879,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#connection-contract" class="md-nav__link">
+  <a href="#middleware-pooling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connection contract
+        🔧 Middleware &amp; pooling
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Connection contract">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#connection-observer-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Connection observer example
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1205,10 +1190,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#common-contracts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Highlights
+        🔧 Common contracts
       
     </span>
   </a>
@@ -1216,30 +1201,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#connection-contract" class="md-nav__link">
+  <a href="#middleware-pooling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connection contract
+        🔧 Middleware &amp; pooling
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Connection contract">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#connection-observer-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Connection observer example
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1261,43 +1229,53 @@
 
 
 <h1 id="nalixcommon">Nalix.Common<a class="headerlink" href="#nalixcommon" title="Permanent link">&para;</a></h1>
-<p><code>Nalix.Common</code> hosts the shared primitives for every listener and client: connection contracts, packet metadata, security enums, middleware scaffolding, and concurrency helpers. Other packages layer on top of this foundation so they can focus on policy instead of serialization.</p>
-<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>IConnection</code> defines the minimal surface for connection lifecycle, bytes sent/received, secrets, cipher (<code>CipherSuiteType</code>), and permission (<code>PermissionLevel</code>). Servers close and dispose connections through this interface, while listeners propagate events such as <code>OnProcessEvent</code> and <code>OnCloseEvent</code>.</li>
-<li><code>PacketContext&lt;TPacket&gt;</code> and <code>PacketDispatchChannel</code> share metadata about the sender, the connection, and the ability to respond through <code>PacketSender</code>.</li>
-<li>Middleware helpers (<code>INetworkBufferMiddleware</code>, <code>IPacketMiddleware&lt;TPacket&gt;</code>, <code>MiddlewarePipeline&lt;TPacket&gt;</code>) keep per-packet sidecars in <code>PacketContext&lt;TPacket&gt;</code> and respect inbound/outbound/outbound-always semantics.</li>
-<li>Networking contracts (<code>IProtocol</code>, <code>IListener</code>, <code>IConnectionHub</code>) ensure each package can plug in custom logic (protocols, listeners, connection hubs) without re-implementing low-level sockets.</li>
-<li>Security enums (<code>CipherSuiteType</code>, <code>PermissionLevel</code>, <code>ProtocolAdvice</code>) live here so every package uses the same vocabulary when encrypting, authorizing, and erroring.</li>
-</ul>
-<h2 id="connection-contract">Connection contract<a class="headerlink" href="#connection-contract" title="Permanent link">&para;</a></h2>
-<p><code>IConnection</code> collects the telemetry every listener relies on: identity, uptime, bytes, ping, secrets, and permission levels.</p>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">public</span><span class="w"> </span><span class="k">partial</span><span class="w"> </span><span class="k">interface</span><span class="w"> </span><span class="n">IConnection</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">IDisposable</span><span class="p">,</span><span class="w"> </span><span class="n">IConnectionErrorTracked</span>
+<p><code>Nalix.Common</code> holds the networking primitives, packet definitions, and middleware contracts shared across the SDK and listener stack.</p>
+<h3 id="common-contracts">🔧 Common contracts<a class="headerlink" href="#common-contracts" title="Permanent link">&para;</a></h3>
+<p>Define packets, connections, attributes, and security enums so the dispatcher, middleware, and SDK agree on every wire characteristic.</p>
+<p><strong>Responsibilities</strong>
+- Declare <code>IPacket</code> and <code>IConnection</code> so handlers, middleware, and the SDK can read packet bytes, connection IDs, and secrets.
+- Provide <code>[PacketController]</code> / <code>[PacketOpcode]</code> attributes and <code>PacketMetadataBuilder</code> so <code>PacketDispatchChannel</code> compiles handler delegates ahead of time.
+- Surface <code>DropPolicy</code>, <code>CipherSuiteType</code>, and <code>PermissionLevel</code> enums used by <code>ConnectionHub</code>, <code>PacketSender&lt;TPacket&gt;</code>, and the encryption layer.</p>
+<p><strong>Key Components</strong>
+- <code>IPacket</code> / <code>IConnection</code> – core interfaces with <code>SequenceId</code>, <code>TransportOptions</code>, <code>Csprng</code>, and <code>PermissionLevel</code>.
+- <code>PacketControllerAttribute</code> / <code>PacketOpcodeAttribute</code> – metadata providers read by <code>PacketDispatchOptions.WithHandler</code>.
+- <code>PacketMetadataBuilder</code> – collects routing metadata and populates <code>PacketContext&lt;TPacket&gt;.Attributes</code>.
+- <code>CipherSuiteType</code> – enumerates SALSA20, CHACHA20, SALSA20-Poly1305, and CHACHA20-Poly1305 for both readers and writers.
+- <code>DropPolicy</code> – connection-level backpressure: <code>DROP_NEWEST</code>, <code>DROP_OLDEST</code>, <code>BLOCK</code>, <code>COALESCE</code>.</p>
+<p><strong>Flow</strong>
+- Define packet types implementing <code>IPacket</code> → annotate handler classes with <code>[PacketController]</code> and <code>[PacketOpcode]</code> → register controllers via <code>PacketDispatchOptions.WithHandler</code> so <code>PacketDispatchChannel</code> compiles metadata once.</p>
+<h3 id="middleware-pooling">🔧 Middleware &amp; pooling<a class="headerlink" href="#middleware-pooling" title="Permanent link">&para;</a></h3>
+<p><code>PacketContext&lt;TPacket&gt;</code> plus <code>MiddlewarePipeline&lt;TPacket&gt;</code> and <code>PacketSender&lt;TPacket&gt;</code> keep middleware deterministic and zero-allocation.</p>
+<p><strong>Responsibilities</strong>
+- Pool contexts &amp; senders to avoid allocations on the hot path.
+- Provide <code>SkipOutbound</code> and <code>CancellationToken</code> control to middleware.
+- Let middleware read handler metadata via <code>PacketContext&lt;TPacket&gt;.Attributes</code>.</p>
+<p><strong>Key Components</strong>
+- <code>PacketContext&lt;TPacket&gt;</code> – pooled context that holds <code>Packet</code>, <code>Connection</code>, <code>PacketMetadata</code>, <code>Sender</code>, <code>SkipOutbound</code>, and <code>CancellationToken</code>.
+- <code>PacketSender&lt;TPacket&gt;</code> – wraps <code>Connection</code> writes with the correct ciphertext/compression metadata.
+- <code>MiddlewarePipeline&lt;TPacket&gt;</code> – runs inbound, outbound, and outbound-always middleware without locking by creating immutable snapshots.
+- <code>IPacketMiddleware&lt;TPacket&gt;</code> – middleware contract that takes <code>PacketContext&lt;TPacket&gt;</code> and a <code>Func&lt;CancellationToken, Task&gt;</code> delegate.</p>
+<p><strong>Flow</strong>
+- <code>PacketDispatchChannel</code> builds a <code>PacketContext</code> → inbound middleware runs → handler executes → outbound-always + outbound run, subject to <code>SkipOutbound</code>.</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">internal</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">Reset</span><span class="p">()</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="p">{</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">ISnowflake</span><span class="w"> </span><span class="n">ID</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">get</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Int64</span><span class="w"> </span><span class="n">UpTime</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">get</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Int64</span><span class="w"> </span><span class="n">BytesSent</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">get</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Int64</span><span class="w"> </span><span class="n">LastPingTime</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">get</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="n">INetworkEndpoint</span><span class="w"> </span><span class="n">NetworkEndpoint</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">get</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="n">System</span><span class="p">.</span><span class="n">Byte</span><span class="p">[]</span><span class="w"> </span><span class="n">Secret</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">get</span><span class="p">;</span><span class="w"> </span><span class="k">set</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="n">PermissionLevel</span><span class="w"> </span><span class="n">Level</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">get</span><span class="p">;</span><span class="w"> </span><span class="k">set</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="n">CipherSuiteType</span><span class="w"> </span><span class="n">Algorithm</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">get</span><span class="p">;</span><span class="w"> </span><span class="k">set</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="k">event</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">EventHandler</span><span class="o">&lt;</span><span class="n">IConnectEventArgs</span><span class="o">&gt;</span><span class="w"> </span><span class="n">OnCloseEvent</span><span class="p">;</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="k">void</span><span class="w"> </span><span class="nf">Close</span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">Boolean</span><span class="w"> </span><span class="n">force</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">false</span><span class="p">);</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="k">void</span><span class="w"> </span><span class="nf">Disconnect</span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">String</span><span class="w"> </span><span class="n">reason</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">null</span><span class="p">);</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="n">Sender</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">PacketSender</span><span class="o">&lt;</span><span class="n">TPacket</span><span class="o">&gt;</span><span class="w"> </span><span class="n">concreteSender</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">        </span><span class="n">s_object</span><span class="p">.</span><span class="n">Return</span><span class="o">&lt;</span><span class="n">PacketSender</span><span class="o">&lt;</span><span class="n">TPacket</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">concreteSender</span><span class="p">);</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">Sender</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="o">!</span><span class="p">;</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">Packet</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="o">!</span><span class="p">;</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">Attributes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="p">;</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="n">Connection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="o">!</span><span class="p">;</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="n">_isInitialized</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">false</span><span class="p">;</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">}</span>
 </span></code></pre></div>
 <div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The snippet above is drawn from <code>src/Nalix.Common/Networking/IConnection.cs</code>, confirming the properties and events available to both listeners and helpers.</p>
+<p class="admonition-title">Avoid reusing contexts</p>
+<p><code>PacketContext&lt;TPacket&gt;</code> instances are pooled. Always call <code>PacketContext&lt;TPacket&gt;.Reset()</code> (handled by the dispatcher) before returning them to the pool, otherwise <code>Sender</code>/<code>Connection</code> state bleeds into the next handler.</p>
 </div>
-<h3 id="connection-observer-example">Connection observer example<a class="headerlink" href="#connection-observer-example" title="Permanent link">&para;</a></h3>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">connection</span><span class="p">.</span><span class="n">OnCloseEvent</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="n">sender</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p">{</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">GetExistingInstance</span><span class="o">&lt;</span><span class="n">ILogger</span><span class="o">&gt;</span><span class="p">()</span><span class="o">?.</span><span class="n">Info</span><span class="p">(</span><span class="s">$&quot;Client {args.Connection.ID} closed&quot;</span><span class="p">);</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">};</span>
-</span></code></pre></div>
-<p>Use <code>TimingWheel</code> for idle timeout tracking and <code>MiddlewarePipeline&lt;TPacket&gt;</code> when manipulating buffers before <code>PacketDispatchChannel</code> reaches your handlers.</p>
 
 
 

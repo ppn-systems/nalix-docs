@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -1096,10 +1098,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#build-the-listener" class="md-nav__link">
+  <a href="#server-blueprint" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Build the listener
+        🔧 Server blueprint
       
     </span>
   </a>
@@ -1107,10 +1109,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#add-handlers" class="md-nav__link">
+  <a href="#handler-expectations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Add handlers
+        🔧 Handler expectations
       
     </span>
   </a>
@@ -1188,10 +1190,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#build-the-listener" class="md-nav__link">
+  <a href="#server-blueprint" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Build the listener
+        🔧 Server blueprint
       
     </span>
   </a>
@@ -1199,10 +1201,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#add-handlers" class="md-nav__link">
+  <a href="#handler-expectations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Add handlers
+        🔧 Handler expectations
       
     </span>
   </a>
@@ -1227,34 +1229,78 @@
 
 
 <h1 id="basic-server">🛠 Basic Server<a class="headerlink" href="#basic-server" title="Permanent link">&para;</a></h1>
-<h2 id="build-the-listener">Build the listener<a class="headerlink" href="#build-the-listener" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Register shared services before creating the listener, for example <code>ILogger</code> and <code>IPacketRegistry</code> via <code>InstanceManager</code>.</li>
-<li>Register <code>PacketMetadataProviders</code> so <code>[PacketController]</code> and <code>[PacketOpcode]</code> attributes are recognized.</li>
-<li>Configure a <code>PacketDispatchChannel</code> with middleware, logging, and your handler class.</li>
-<li>Create an <code>AutoXProtocol</code> (or your own <code>Protocol</code> subclass) that consumes the dispatch channel.</li>
-<li>Instantiate a <code>TcpListenerBase</code> derivative (e.g., <code>AutoXListener</code>) and call <code>Activate()</code> once the middleware is ready.</li>
-</ol>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">PacketMetadataProviders</span><span class="p">.</span><span class="n">Register</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">PacketCustomAttributeProvider</span><span class="p">());</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">PacketDispatchChannel</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">dispatchOptions</span><span class="w"> </span><span class="o">=&gt;</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">{</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithMiddleware</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">TimeoutMiddleware</span><span class="p">());</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithHandler</span><span class="p">(()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">PingHandlers</span><span class="p">());</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithLogging</span><span class="p">(</span><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">GetExistingInstance</span><span class="o">&lt;</span><span class="n">ILogger</span><span class="o">&gt;</span><span class="p">());</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">});</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">AutoXProtocol</span><span class="w"> </span><span class="n">protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">channel</span><span class="p">);</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">AutoXListener</span><span class="w"> </span><span class="n">listener</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">protocol</span><span class="p">);</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">channel</span><span class="p">.</span><span class="n">Activate</span><span class="p">();</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">listener</span><span class="p">.</span><span class="n">Activate</span><span class="p">();</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="n">listener</span><span class="p">.</span><span class="n">GenerateReport</span><span class="p">());</span>
+<p>Wire up logger, packet metadata, middleware, and a listener before adding business logic.</p>
+<h3 id="server-blueprint">🔧 Server blueprint<a class="headerlink" href="#server-blueprint" title="Permanent link">&para;</a></h3>
+<p>Set up singletons, dispatch options, middleware, and handlers in the correct order so accept loops start safely.</p>
+<p><strong>Responsibilities</strong>
+- Register <code>ILogger</code> + <code>IPacketRegistry</code> via <code>InstanceManager</code> before constructing middleware or listeners.
+- Register metadata providers (<code>PacketMetadataProviders.Register</code>) so attributes used by handlers are available.
+- Configure <code>PacketDispatchChannel</code> with middleware, logging, error handling, and handler factories.
+- Start <code>PacketDispatchChannel</code> before calling <code>TcpListenerBase.Activate()</code> so the dispatch loop is ready.</p>
+<p><strong>Key Components</strong>
+- <code>InstanceManager</code> – caches logger + packet registry for reuse.
+- <code>PacketDispatchChannel</code> – configuration using <code>PacketDispatchOptions.WithMiddleware</code>, <code>.WithHandler</code>, <code>.WithLogging</code>, <code>.WithErrorHandling</code>.
+- <code>AutoXProtocol</code> / <code>AutoXListener</code> – sample protocol/listener pair used in the examples.
+- <code>PacketMetadataProviders</code> – register providers such as <code>PacketCustomAttributeProvider</code>.</p>
+<p><strong>Flow</strong>
+- Register <code>ILogger</code> + <code>PacketRegistry</code> → register metadata providers → configure <code>PacketDispatchChannel</code> → create <code>AutoXListener</code> → <code>channel.Activate()</code> → <code>listener.Activate()</code>.</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Register</span><span class="o">&lt;</span><span class="n">ILogger</span><span class="o">&gt;</span><span class="p">(</span><span class="n">NLogix</span><span class="p">.</span><span class="n">Host</span><span class="p">.</span><span class="n">Instance</span><span class="p">);</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">PacketRegistry</span><span class="w"> </span><span class="n">catalog</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">PacketRegistryFactory</span><span class="p">().</span><span class="n">CreateCatalog</span><span class="p">();</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Register</span><span class="o">&lt;</span><span class="n">IPacketRegistry</span><span class="o">&gt;</span><span class="p">(</span><span class="n">catalog</span><span class="p">);</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">PacketMetadataProviders</span><span class="p">.</span><span class="n">Register</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">PacketCustomAttributeProvider</span><span class="p">());</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">PacketDispatchChannel</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">dispatchOptions</span><span class="w"> </span><span class="o">=&gt;</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">{</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithMiddleware</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">TimeoutMiddleware</span><span class="p">());</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithMiddleware</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">CustomMiddleware</span><span class="p">());</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithLogging</span><span class="p">(</span><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">GetExistingInstance</span><span class="o">&lt;</span><span class="n">ILogger</span><span class="o">&gt;</span><span class="p">());</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithErrorHandling</span><span class="p">((</span><span class="n">ex</span><span class="p">,</span><span class="w"> </span><span class="n">opcode</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">GetExistingInstance</span><span class="o">&lt;</span><span class="n">ILogger</span><span class="o">&gt;</span><span class="p">()</span><span class="o">?</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">                                     </span><span class="p">.</span><span class="n">Error</span><span class="p">(</span><span class="s">$&quot;Error handling opcode={opcode}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ex</span><span class="p">));</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="n">dispatchOptions</span><span class="p">.</span><span class="n">WithHandler</span><span class="p">(()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">PingHandlers</span><span class="p">());</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="p">});</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">AutoXProtocol</span><span class="w"> </span><span class="n">protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">channel</span><span class="p">);</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">AutoXListener</span><span class="w"> </span><span class="n">listener</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">protocol</span><span class="p">);</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">channel</span><span class="p">.</span><span class="n">Activate</span><span class="p">();</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="n">listener</span><span class="p">.</span><span class="n">Activate</span><span class="p">();</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="n">listener</span><span class="p">.</span><span class="n">GenerateReport</span><span class="p">());</span>
 </span></code></pre></div>
-<h2 id="add-handlers">Add handlers<a class="headerlink" href="#add-handlers" title="Permanent link">&para;</a></h2>
-<p>Create handler classes decorated with <code>[PacketController]</code> and <code>[PacketOpcode]</code> so the dispatch channel can locate them. The handler receives a <code>PacketContext&lt;IPacket&gt;</code>, allowing you to access <code>context.Packet</code>, <code>context.Connection</code>, and <code>context.Sender</code> for replies. The example <code>PingHandlers</code> echoes PING controls and demonstrates error handling with <code>Connection.SendAsync</code>.</p>
 <div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Keep handlers stateless. Store ephemeral connection state in <code>PacketContext.Items</code> (a dictionary backed by <code>PacketContext</code>), and rely on <code>ConnectionHub</code> statistics if you need to monitor global load.</p>
+<p class="admonition-title">Activate the channel first</p>
+<p>Call <code>PacketDispatchChannel.Activate()</code> before <code>TcpListenerBase.Activate()</code> so the dispatcher’s worker loops exist before the listener accepts sockets.</p>
+</div>
+<h3 id="handler-expectations">🔧 Handler expectations<a class="headerlink" href="#handler-expectations" title="Permanent link">&para;</a></h3>
+<p>Handlers annotated with <code>[PacketController]</code> and <code>[PacketOpcode]</code> receive <code>PacketContext&lt;TPacket&gt;</code> for metadata, connections, and replies.</p>
+<p><strong>Responsibilities</strong>
+- Keep handler classes stateless; store temporary state in <code>PacketContext&lt;TPacket&gt;.Items</code>.
+- Use <code>PacketSender&lt;TPacket&gt;</code> (<code>context.Sender</code>) instead of writing directly to the <code>Connection</code> so encryption/compression flags match the handler metadata.
+- Set <code>context.SkipOutbound = true</code> when a handler already handled cleaning up or you want to skip outbound middleware.</p>
+<p><strong>Key Components</strong>
+- <code>PacketControllerAttribute</code> / <code>PacketOpcodeAttribute</code> – specify the handler class name, version, and opcode.
+- <code>PacketContext&lt;TPacket&gt;</code> – exposes <code>Packet</code>, <code>Connection</code>, <code>Attributes</code>, <code>Sender</code>, and <code>SkipOutbound</code>.
+- <code>PacketSender&lt;TPacket&gt;</code> – sends replies with the correct <code>CipherSuiteType</code> and handles pooling.</p>
+<p><strong>Flow</strong>
+- Handler decorator scanned → <code>PacketDispatchChannel</code> builds <code>PacketContext</code> → handler runs → <code>PacketSender</code> replies → <code>PacketContext.Reset()</code> returns context to the pool.</p>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="na">[PacketController(name: &quot;ExampleController&quot;, version: &quot;1.1&quot;)]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">public</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">ExampleController</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="p">{</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="k">void</span><span class="w"> </span><span class="nf">HandleLogin</span><span class="p">(</span><span class="n">LoginPacket</span><span class="w"> </span><span class="n">packet</span><span class="p">,</span><span class="w"> </span><span class="n">IConnection</span><span class="w"> </span><span class="n">connection</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="c1">// handle logic</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="k">public</span><span class="w"> </span><span class="n">ValueTask</span><span class="w"> </span><span class="nf">ProcessData</span><span class="p">(</span><span class="n">DataPacket</span><span class="w"> </span><span class="n">packet</span><span class="p">,</span><span class="w"> </span><span class="n">IConnection</span><span class="w"> </span><span class="n">connection</span><span class="p">,</span><span class="w"> </span><span class="n">CancellationToken</span><span class="w"> </span><span class="n">token</span><span class="p">)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ValueTask</span><span class="p">.</span><span class="n">CompletedTask</span><span class="p">;</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">}</span>
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Clean up outbound</p>
+<p>Set <code>context.SkipOutbound = true</code> from middleware or a handler when you have already handled cleanup or want to suppress outbound middleware execution.</p>
 </div>
 
 

@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -1263,7 +1265,11 @@ Follow these steps to prove out a connection before you layer in middleware or b
 - <code>TaskManagerOptions</code> – drives worker cleanup and dynamic concurrency for listeners and dispatchers.</p>
 <p><strong>Flow</strong>
 - Install the .NET 8 SDK → copy the default configuration into the right data dir → confirm <code>default.ini</code> values before booting the SDK or listener.</p>
-<p>!!! note \"Default configuration paths\"\n    Windows: <code>C:\\ProgramData\\Nalix\\config\\default.ini</code>\n    Linux: <code>~/.local/share/Nalix/config/default.ini</code> (set <code>XDG_DATA_HOME</code> if you need a custom base path).</p>
+<div class="admonition note">
+<p class="admonition-title">Default configuration paths</p>
+<p>Windows: <code>C:\ProgramData\Nalix\config\default.ini</code>
+Linux: <code>~/.local/share/Nalix/config/default.ini</code> (set <code>XDG_DATA_HOME</code> if you need a custom base path).</p>
+</div>
 <h3 id="install-the-sdk">🔧 Install the SDK<a class="headerlink" href="#install-the-sdk" title="Permanent link">&para;</a></h3>
 <p>Add <code>Nalix.SDK</code> so you can build clients, register packets, and reuse the same transports as the listener without bringing in the entire host stack.</p>
 <p><strong>Responsibilities</strong>
@@ -1294,7 +1300,7 @@ Follow these steps to prove out a connection before you layer in middleware or b
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Register</span><span class="p">(</span><span class="n">packetRegistry</span><span class="p">);</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">TransportOptions</span><span class="w"> </span><span class="n">options</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ConfigurationManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Get</span><span class="o">&lt;</span><span class="n">TransportOptions</span><span class="o">&gt;</span><span class="p">();</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">options</span><span class="p">.</span><span class="n">Address</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">\</span><span class="s">&quot;127.0.0.1\&quot;;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">options</span><span class="p">.</span><span class="n">Address</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;127.0.0.1&quot;</span><span class="p">;</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">options</span><span class="p">.</span><span class="n">Port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">12345</span><span class="p">;</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">options</span><span class="p">.</span><span class="n">Secret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Csprng</span><span class="p">.</span><span class="n">GetBytes</span><span class="p">(</span><span class="m">32</span><span class="p">);</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
@@ -1304,8 +1310,14 @@ Follow these steps to prove out a connection before you layer in middleware or b
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">Handshake</span><span class="w"> </span><span class="n">handshake</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">(</span><span class="n">opCode</span><span class="p">:</span><span class="w"> </span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="n">options</span><span class="p">.</span><span class="n">Secret</span><span class="p">);</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">await</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">SendAsync</span><span class="p">(</span><span class="n">handshake</span><span class="p">.</span><span class="n">Serialize</span><span class="p">());</span>
 </span></code></pre></div>
-<p>!!! warning \"Register logger and registry first\"\n    <code>PacketDispatchChannel</code> throws <code>InvalidOperationException</code> if <code>IPacketRegistry</code> is not registered in <code>InstanceManager</code>, and listeners assume <code>ILogger</code> exists before <code>TcpListenerBase.Activate()</code> runs.</p>
-<p>!!! note \"Tune <code>TransportOptions</code> before connecting\"\n    Call <code>TransportOptions.Validate()</code> (triggered automatically when <code>IoTTcpSession</code> initializes) whenever you change <code>BufferSize</code>, <code>MaxPacketSize</code>, or cipher settings so you avoid <code>ValidationException</code> at connect time.</p>
+<div class="admonition warning">
+<p class="admonition-title">Register logger and registry first</p>
+<p><code>PacketDispatchChannel</code> throws <code>InvalidOperationException</code> if <code>IPacketRegistry</code> is not registered in <code>InstanceManager</code>, and listeners assume <code>ILogger</code> exists before <code>TcpListenerBase.Activate()</code> runs.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Tune <code>TransportOptions</code> before connecting</p>
+<p>Call <code>TransportOptions.Validate()</code> (triggered automatically when <code>IoTTcpSession</code> initializes) whenever you change <code>BufferSize</code>, <code>MaxPacketSize</code>, or cipher settings so you avoid <code>ValidationException</code> at connect time.</p>
+</div>
 
 
 

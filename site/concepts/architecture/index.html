@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -616,6 +618,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -632,6 +652,47 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#layered-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔧 Layered contracts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔧 Execution stack
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1122,6 +1183,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#layered-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔧 Layered contracts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔧 Execution stack
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1138,17 +1229,37 @@
 
 
 <h1 id="architecture">🧠 Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
-<p>Nalix is composed of discrete layers that communicate through well-defined contracts: configuration, networking, middleware, logging, and orchestration. Each layer is packaged so teams can keep builds small and only reference the assemblies they need.</p>
-<ul>
-<li><strong>Platform plumbing</strong> – <code>InstanceManager</code> resolves shared singletons (<code>ILogger</code>, <code>PacketRegistry</code>, <code>TaskManager</code>, <code>TimeSynchronizer</code>) so every package accesses a consistent clock, scheduler, and dependency graph.</li>
-<li><strong>Configuration</strong> – <code>ConfigurationManager</code> binds <code>TransportOptions</code>, <code>NetworkSocketOptions</code>, <code>TaskManagerOptions</code>, and other POCOs, then validates them before the host or client starts.</li>
-<li><strong>Networking core</strong> – <code>TcpListenerBase</code> accepts sockets, applies socket tuning from <code>NetworkSocketOptions</code>, wires <code>ConnectionLimiter</code>/<code>TimingWheel</code>, and turns each accept into a <code>Connection</code> that triggers an <code>IProtocol</code> implementation such as <code>AutoXProtocol</code>.</li>
-<li><strong>Middleware &amp; dispatch</strong> – <code>PacketDispatchChannel</code> runs each <code>PacketContext</code> through <code>MiddlewarePipeline&lt;TPacket&gt;</code> (inbound, outbound, outbound-always) and finally executes attribute-safe handlers like <code>PingHandlers</code>.</li>
-<li><strong>Client layer</strong> – <code>TcpSessionBase</code>/<code>IoTTcpSession</code> expose connection events, send <code>IPacket</code> frames with compression/encryption, and surface helpers such as <code>RequestExtensions</code> and <code>ControlExtensions</code> for ping/pong and request-response workloads.</li>
-</ul>
+<p>Nalix's layers share contracts so a client, listener, logger, and scheduler all race through the same serialization, configuration, and middleware code paths.</p>
+<h3 id="layered-contracts">🔧 Layered contracts<a class="headerlink" href="#layered-contracts" title="Permanent link">&para;</a></h3>
+<p>Each assembly owns a pillar: configuration &amp; DI, networking, middleware, logging, or orchestration.</p>
+<p><strong>Responsibilities</strong>
+- Keep configuration in <code>default.ini</code> so <code>ConfigurationManager</code> hands deterministic options to every package.
+- Serialize packets once via <code>PacketRegistryFactory</code> and share the catalog through <code>InstanceManager</code>.
+- Let <code>PacketDispatchChannel</code> run middleware, compile <code>[PacketController]</code> handlers, and return responses with <code>PacketSender</code>.</p>
+<p><strong>Key Components</strong>
+- <code>ConfigurationManager</code> – binds options, debounces file watchers, and exposes <code>Get&lt;T&gt;()</code> for <code>TransportOptions</code>, <code>NetworkSocketOptions</code>, <code>TaskManagerOptions</code>, and <code>NLogixOptions</code>.
+- <code>InstanceManager</code> – caches singletons (<code>ILogger</code>, <code>IPacketRegistry</code>, <code>TaskManager</code>, <code>TimeSynchronizer</code>) with low-allocation activators.
+- <code>PacketRegistryFactory</code> – scans assemblies for <code>IPacket</code>/<code>PacketDeserializer</code> pairs and builds a fast catalog.
+- <code>PacketDispatchChannel</code> / <code>MiddlewarePipeline&lt;TPacket&gt;</code> – run inbound/outbound/outbound-always middleware and compiled handlers such as <code>PingHandlers</code>.
+- <code>IoTTcpSession</code> / <code>TcpListenerBase</code> – share the same buffers, ciphers, and diagnostics so clients and listeners behave identically.</p>
+<p><strong>Flow</strong>
+- Load <code>default.ini</code> → register shared services (<code>ILogger</code>, <code>IPacketRegistry</code>) → configure middleware + handlers → start <code>TcpListenerBase</code> and <code>IoTTcpSession</code>.</p>
+<h3 id="execution-stack">🔧 Execution stack<a class="headerlink" href="#execution-stack" title="Permanent link">&para;</a></h3>
+<p>The runtime fanout is <code>InstanceManager</code> → <code>TaskManager</code> → listener/dispatcher/handlers.</p>
+<p><strong>Responsibilities</strong>
+- Keep a single <code>TaskManager</code> so listener accept loops, dispatch loops, and recurring jobs share the same concurrency limits.
+- Route every accepted socket into <code>ConnectionHub</code> so <code>ConnectionLimiter</code>, <code>DropPolicy</code>, and username lookup are centralized.
+- Synchronize time across connections with <code>TimeSynchronizer</code> and <code>Clock.UnixMillisecondsNow</code>.</p>
+<p><strong>Key Components</strong>
+- <code>TaskManager</code> – schedules worker tasks, monitors CPU thresholds, enforces <code>MaxWorkers</code>, and exposes <code>ScheduleWorker()</code>/<code>CancelWorker()</code>.
+- <code>ConnectionHub</code> – shards connections, evicts anonymous clients when <code>MaxConnections</code> or <code>DropPolicy</code> triggers, and exposes <code>Statistics</code>.
+- <code>TimeSynchronizer</code> – keeps clocks aligned so <code>ControlExtensions.PingAsync</code> can expose RTT and optionally call <code>Clock.SynchronizeTime</code>.
+- <code>PacketContext&lt;TPacket&gt;</code> – pooled context that carries <code>Packet</code>, <code>IConnection</code>, <code>PacketMetadata</code>, and a pooled <code>PacketSender&lt;TPacket&gt;</code>.</p>
+<p><strong>Flow</strong>
+- <code>PacketDispatchChannel</code> queues packets → <code>PacketContext</code> initializes with metadata → middleware runs → compiled handler executes → <code>PacketSender</code> applies the right <code>CipherSuiteType</code>.</p>
 <div class="admonition tip">
-<p class="admonition-title">Start with the examples</p>
-<p>The <code>example/Nalix.Network.Examples</code> and <code>example/Nalix.SDK.Examples</code> projects demonstrate this architecture end-to-end. Use them as a template for new listeners, protocols, and clients so you don’t miss critical wiring (logger registration, packet metadata, and connection hub tracking).</p>
+<p class="admonition-title">Use the examples</p>
+<p>Open <code>example/Nalix.Network.Examples/Program.cs</code> and <code>example/Nalix.SDK.Examples/Program.cs</code> to see how they register the logger, catalog, metadata provider, and listener/client in a single <code>Main</code> entry point.</p>
 </div>
 
 

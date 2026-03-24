@@ -1,41 +1,80 @@
 # 🧠 Architecture
 
-Nalix's layers share contracts so a client, listener, logger, and scheduler all race through the same serialization, configuration, and middleware code paths.
+Nalix separates configuration, packet metadata, dispatch, and transport into clear layers.
 
-### 🔧 Layered contracts
-Each assembly owns a pillar: configuration & DI, networking, middleware, logging, or orchestration.
-
-**Responsibilities**
-- Keep configuration in `default.ini` so `ConfigurationManager` hands deterministic options to every package.
-- Serialize packets once via `PacketRegistryFactory` and share the catalog through `InstanceManager`.
-- Let `PacketDispatchChannel` run middleware, compile `[PacketController]` handlers, and return responses with `PacketSender`.
-
-**Key Components**
-- `ConfigurationManager` – binds options, debounces file watchers, and exposes `Get<T>()` for `TransportOptions`, `NetworkSocketOptions`, `TaskManagerOptions`, and `NLogixOptions`.
-- `InstanceManager` – caches singletons (`ILogger`, `IPacketRegistry`, `TaskManager`, `TimeSynchronizer`) with low-allocation activators.
-- `PacketRegistryFactory` – scans assemblies for `IPacket`/`PacketDeserializer` pairs and builds a fast catalog.
-- `PacketDispatchChannel` / `MiddlewarePipeline<TPacket>` – run inbound/outbound/outbound-always middleware and compiled handlers such as `PingHandlers`.
-- `IoTTcpSession` / `TcpListenerBase` – share the same buffers, ciphers, and diagnostics so clients and listeners behave identically.
-
-**Flow**
-- Load `default.ini` → register shared services (`ILogger`, `IPacketRegistry`) → configure middleware + handlers → start `TcpListenerBase` and `IoTTcpSession`.
-
-### 🔧 Execution stack
-The runtime fanout is `InstanceManager` → `TaskManager` → listener/dispatcher/handlers.
+### 🔧 High-level layout
+Each layer has a single job so shared behavior stays deterministic.
 
 **Responsibilities**
-- Keep a single `TaskManager` so listener accept loops, dispatch loops, and recurring jobs share the same concurrency limits.
-- Route every accepted socket into `ConnectionHub` so `ConnectionLimiter`, `DropPolicy`, and username lookup are centralized.
-- Synchronize time across connections with `TimeSynchronizer` and `Clock.UnixMillisecondsNow`.
+- Load configuration and logging once.
+- Build packet metadata and registry.
+- Dispatch packets through middleware and handlers.
 
 **Key Components**
-- `TaskManager` – schedules worker tasks, monitors CPU thresholds, enforces `MaxWorkers`, and exposes `ScheduleWorker()`/`CancelWorker()`.
-- `ConnectionHub` – shards connections, evicts anonymous clients when `MaxConnections` or `DropPolicy` triggers, and exposes `Statistics`.
-- `TimeSynchronizer` – keeps clocks aligned so `ControlExtensions.PingAsync` can expose RTT and optionally call `Clock.SynchronizeTime`.
-- `PacketContext<TPacket>` – pooled context that carries `Packet`, `IConnection`, `PacketMetadata`, and a pooled `PacketSender<TPacket>`.
+- `ConfigurationManager`
+- `InstanceManager`
+- `PacketRegistryFactory`
+- `PacketDispatchChannel`
 
-**Flow**
-- `PacketDispatchChannel` queues packets → `PacketContext` initializes with metadata → middleware runs → compiled handler executes → `PacketSender` applies the right `CipherSuiteType`.
+```mermaid
+flowchart LR
+    Config["ConfigurationManager"] --> Registry["PacketRegistryFactory"]
+    Registry --> Channel["PacketDispatchChannel"]
+    Channel --> Middleware["IPacketMiddleware<IPacket>"]
+    Middleware --> Handlers["[PacketController] handlers"]
+    Handlers --> Sender["PacketSender"]
+```
 
-!!! tip "Use the examples"
-    Open `example/Nalix.Network.Examples/Program.cs` and `example/Nalix.SDK.Examples/Program.cs` to see how they register the logger, catalog, metadata provider, and listener/client in a single `Main` entry point.
+### 🔧 Configuration layer
+Configuration is loaded once and shared everywhere.
+
+**Responsibilities**
+- Read `default.ini`.
+- Validate options.
+
+**Key Components**
+- `ConfigurationManager`
+- `TransportOptions`
+- `NetworkSocketOptions`
+
+```csharp
+TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
+options.Validate();
+```
+
+### 🔧 Metadata and registry layer
+Metadata providers build the catalog used by dispatch and serialization.
+
+**Responsibilities**
+- Register metadata providers.
+- Build and register the catalog.
+
+**Key Components**
+- `PacketMetadataProviders`
+- `PacketCustomAttributeProvider`
+- `PacketRegistryFactory`
+
+```csharp
+PacketMetadataProviders.Register(new PacketCustomAttributeProvider());
+IPacketRegistry registry = new PacketRegistryFactory().CreateCatalog();
+InstanceManager.Instance.Register(registry);
+```
+
+### 🔧 Dispatch layer
+Dispatch is deterministic and middleware-driven.
+
+**Responsibilities**
+- Compile handlers once.
+- Execute middleware in order.
+
+**Key Components**
+- `PacketDispatchChannel`
+- `PacketDispatchOptions`
+
+```csharp
+PacketDispatchChannel channel = new(options =>
+{
+    options.WithMiddleware(new TimeoutMiddleware());
+    options.WithHandler(() => new HandshakeHandlers());
+});
+```

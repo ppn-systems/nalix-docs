@@ -1,79 +1,93 @@
-# Nalix.Network
+# 📦 Nalix.Network
 
-`Nalix.Network` owns listener loops, connection tracking, middleware dispatch, and protocol glue so every host stays deterministic.
+Listener loops, connection hubs, and dispatch glue live here.
 
-### 🔧 Networking responsibilities
-Accept sockets, apply socket tuning, and hand packets to the dispatcher while connection hubs enforce limits.
+### 🔧 Listener runtime
+Listeners derive from `TcpListenerBase` and push frames to the dispatcher.
 
 **Responsibilities**
-- Run `TcpListenerBase` accept loops via `TaskManager` workers and the `TimingWheel` when `NetworkSocketOptions.EnableTimeout` is true.
-- Store every connection inside `ConnectionHub`, evict anonymous connections, and expose `Statistics` and events for monitoring.
-- Feed inbound packets into `PacketDispatchChannel`, which compiles `[PacketController]` handlers, runs middleware, and replies with `PacketSender<TPacket>`.
+- Accept sockets.
+- Register connections.
+- Forward buffers into `PacketDispatchChannel`.
 
 **Key Components**
-- `TcpListenerBase` – abstract listener that uses `NetworkSocketOptions`, `TaskManager`, and `PacketDispatchChannel`.
-- `ConnectionHub` – sharded dictionaries with `MaxConnections`, `DropPolicy`, and `ParallelDisconnectDegree` configured via `ConnectionHubOptions`.
-- `PacketDispatchChannel` – queue dispatcher started via `Activate()` that owns `PacketDispatchOptions`.
-- `PacketDispatchOptions<TPacket>` – configuration object with methods such as `WithMiddleware`, `WithHandler`, `WithLogging`, and `WithErrorHandling`.
-- `PacketSender<TPacket>` – auto-applies the handler’s encryption/compression metadata to replies.
-
-**Flow**
-- `TcpListenerBase` accepts → `ConnectionHub.RegisterConnection` stores the connection → `PacketDispatchChannel.HandlePacket` enqueues the packet → middleware runs → handler executes → `PacketSender` replies.
+- `TcpListenerBase`
+- `ConnectionHub`
+- `PacketDispatchChannel`
 
 ```csharp
-public PacketDispatchOptions<TPacket> WithMiddleware([System.Diagnostics.CodeAnalysis.NotNull] IPacketMiddleware<TPacket> middleware)
+PacketDispatchChannel channel = new(options =>
 {
-    System.ArgumentNullException.ThrowIfNull(middleware);
+    options.WithMiddleware(new TimeoutMiddleware());
+    options.WithHandler(() => new HandshakeHandlers());
+});
 
-    this.Logging?.Debug($"[NW.{nameof(PacketDispatchOptions<>)}:{nameof(WithMiddleware)}] middleware-added type={middleware.GetType().Name}");
-
-    _pipeline.Use(middleware);
-
-    return this;
+sealed class DemoProtocol : Protocol
+{
+    private readonly PacketDispatchChannel _dispatch;
+    public DemoProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
+    public override void ProcessMessage(object sender, IConnectEventArgs args)
+        => _dispatch.HandlePacket(args.Lease, args.Connection);
 }
+
+sealed class DemoListener : TcpListenerBase
+{
+    public DemoListener(ushort port, IProtocol protocol) : base(port, protocol) { }
+}
+
+DemoProtocol protocol = new(channel);
+DemoListener listener = new(57206, protocol);
+listener.Activate();
+```
+
+### 🔧 Connection tracking
+Connection hubs store active connections and enforce limits.
+
+**Responsibilities**
+- Track active connections.
+- Enforce connection policies.
+
+**Key Components**
+- `ConnectionHub`
+- `ConnectionHubOptions`
+
+```csharp
+ConnectionHubOptions hubOptions = ConfigurationManager.Instance.Get<ConnectionHubOptions>();
 ```
 
 ### 🔧 Protocol contracts
-Protocols and metadata providers keep the dispatcher, handlers, and middleware in sync.
+Protocols translate raw buffers into packets and dispatch them.
 
 **Responsibilities**
-- Implement `IProtocol` to plug into `TcpListenerBase` (for example `AutoXProtocol`) to validate connections, log events, and call `PacketDispatchChannel`.
-- Register `PacketMetadataProviders` so handler attributes (e.g., `PacketCustomAttribute`) populate `PacketMetadataBuilder`.
-- Pool `PacketContext<TPacket>` instances so `Packet`, `Connection`, `PacketMetadata`, and `PacketSender` stay on-stack.
+- Implement protocol parsing.
+- Call `PacketDispatchChannel.HandlePacket`.
 
 **Key Components**
-- `AutoXProtocol` – sample `Protocol` that logs accept events and calls `s_Dispatch.HandlePacket`.
-- `PacketMetadataProviders` – static registry for `IPacketMetadataProvider` implementations.
-- `PacketContext<TPacket>` – pooled context with `Initialize`/`Reset` methods that load metadata and a `PacketSender<TPacket>`.
-- `PacketDispatchChannel.HandlePacket(IBufferLease, IConnection)` – core entry point used by protocols and listeners.
-
-**Flow**
-- `Protocol.ProcessMessage` receives a lease → call `PacketDispatchChannel.HandlePacket(lease, connection)` → dispatcher builds `PacketContext` → middleware/handler executes → lease disposed.
+- `IProtocol`
+- `Protocol` (derive and call `PacketDispatchChannel.HandlePacket`)
+- `PacketDispatchChannel`
 
 ```csharp
-internal void Initialize(
-    [System.Diagnostics.CodeAnalysis.MaybeNull] TPacket packet,
-    [System.Diagnostics.CodeAnalysis.MaybeNull] IConnection connection,
-    [System.Diagnostics.CodeAnalysis.MaybeNull] PacketMetadata descriptor,
-    [System.Diagnostics.CodeAnalysis.MaybeNull] System.Threading.CancellationToken token = default)
+sealed class DemoProtocol : Protocol
 {
-    _ = System.Threading.Interlocked.Exchange(
-        ref _state,
-        (System.Int32)PacketContextState.IN_USE);
-
-    this.Packet = packet;
-    this.Connection = connection;
-    this.Attributes = descriptor;
-    this.CancellationToken = token;
-    this.Sender = s_object.Get<PacketSender<TPacket>>();
-    if (this.Sender is null)
-    {
-        throw new System.InvalidOperationException($"[{nameof(PacketContext<TPacket>)}] object pool returned null {nameof(PacketSender<TPacket>)}");
-    }
-
-    _isInitialized = true;
+    private readonly PacketDispatchChannel _dispatch;
+    public DemoProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
+    public override void ProcessMessage(object sender, IConnectEventArgs args)
+        => _dispatch.HandlePacket(args.Lease, args.Connection);
 }
 ```
 
-!!! note "Metadata provider"
-    `PacketMetadataProviders.Register()` can accept any `IPacketMetadataProvider` (example: `PacketCustomAttributeProvider`) so middleware or handlers can inspect custom attributes via `PacketContext<TPacket>.Attributes.CustomAttributes`.
+### 🔧 Metadata providers
+Metadata providers enable attribute-driven behavior.
+
+**Responsibilities**
+- Register providers.
+- Expose attributes to middleware and handlers.
+
+**Key Components**
+- `PacketMetadataProviders`
+- `PacketCustomAttributeProvider`
+
+```csharp
+PacketMetadataProviders.Register(new PacketCustomAttributeProvider());
+```

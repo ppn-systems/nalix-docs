@@ -1,85 +1,107 @@
 # 🛠 Basic Server
 
-Wire up logger, packet metadata, middleware, and a listener before adding business logic.
+Build a minimal listener with middleware and one handler.
 
-### 🔧 Server blueprint
-Set up singletons, dispatch options, middleware, and handlers in the correct order so accept loops start safely.
+### 🔧 Register services
+Register logging and the packet catalog first.
 
 **Responsibilities**
-- Register `ILogger` + `IPacketRegistry` via `InstanceManager` before constructing middleware or listeners.
-- Register metadata providers (`PacketMetadataProviders.Register`) so attributes used by handlers are available.
-- Configure `PacketDispatchChannel` with middleware, logging, error handling, and handler factories.
-- Start `PacketDispatchChannel` before calling `TcpListenerBase.Activate()` so the dispatch loop is ready.
+- Register `ILogger`.
+- Register `IPacketRegistry`.
 
 **Key Components**
-- `InstanceManager` – caches logger + packet registry for reuse.
-- `PacketDispatchChannel` – configuration using `PacketDispatchOptions.WithMiddleware`, `.WithHandler`, `.WithLogging`, `.WithErrorHandling`.
-- `AutoXProtocol` / `AutoXListener` – sample protocol/listener pair used in the examples.
-- `PacketMetadataProviders` – register providers such as `PacketCustomAttributeProvider`.
-
-**Flow**
-- Register `ILogger` + `PacketRegistry` → register metadata providers → configure `PacketDispatchChannel` → create `AutoXListener` → `channel.Activate()` → `listener.Activate()`.
+- `InstanceManager`
+- `PacketRegistryFactory`
 
 ```csharp
 InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-PacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register<IPacketRegistry>(catalog);
+IPacketRegistry registry = new PacketRegistryFactory().CreateCatalog();
+InstanceManager.Instance.Register(registry);
+```
 
+### 🔧 Register metadata
+Enable attribute-based metadata before adding handlers.
+
+**Responsibilities**
+- Register metadata providers.
+
+**Key Components**
+- `PacketMetadataProviders`
+- `PacketCustomAttributeProvider`
+
+```csharp
 PacketMetadataProviders.Register(new PacketCustomAttributeProvider());
+```
 
-PacketDispatchChannel channel = new(dispatchOptions =>
+### 🔧 Configure dispatcher
+Attach middleware and handlers to the dispatch channel.
+
+**Responsibilities**
+- Add middleware.
+- Add handler factories.
+
+**Key Components**
+- `PacketDispatchChannel`
+- `PacketDispatchOptions`
+
+```csharp
+PacketDispatchChannel channel = new(options =>
 {
-    dispatchOptions.WithMiddleware(new TimeoutMiddleware());
-    dispatchOptions.WithMiddleware(new CustomMiddleware());
-    dispatchOptions.WithLogging(InstanceManager.Instance.GetExistingInstance<ILogger>());
-    dispatchOptions.WithErrorHandling((ex, opcode)
-        => InstanceManager.Instance.GetExistingInstance<ILogger>()?
-                                     .Error($"Error handling opcode={opcode}", ex));
-    dispatchOptions.WithHandler(() => new PingHandlers());
+    options.WithMiddleware(new TimeoutMiddleware());
+    options.WithHandler(() => new HandshakeHandlers());
 });
+```
 
-AutoXProtocol protocol = new(channel);
-AutoXListener listener = new(protocol);
+### 🔧 Start listener
+Derive a protocol and listener, then activate both.
+
+**Responsibilities**
+- Activate channel first.
+- Activate listener next.
+
+**Key Components**
+- `Protocol` (derived)
+- `TcpListenerBase` (derived)
+
+```csharp
+sealed class DemoProtocol : Protocol
+{
+    private readonly PacketDispatchChannel _dispatch;
+    public DemoProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
+    public override void ProcessMessage(object sender, IConnectEventArgs args)
+        => _dispatch.HandlePacket(args.Lease, args.Connection);
+}
+
+sealed class DemoListener : TcpListenerBase
+{
+    public DemoListener(ushort port, IProtocol protocol) : base(port, protocol) { }
+}
+
+DemoProtocol protocol = new(channel);
+DemoListener listener = new(57206, protocol);
 
 channel.Activate();
 listener.Activate();
-Console.WriteLine(listener.GenerateReport());
 ```
 
-!!! tip "Activate the channel first"
-    Call `PacketDispatchChannel.Activate()` before `TcpListenerBase.Activate()` so the dispatcher’s worker loops exist before the listener accepts sockets.
-
-### 🔧 Handler expectations
-Handlers annotated with `[PacketController]` and `[PacketOpcode]` receive `PacketContext<TPacket>` for metadata, connections, and replies.
+### 🔧 Add a handler
+Handlers respond using the connection context.
 
 **Responsibilities**
-- Keep handler classes stateless; store temporary state in `PacketContext<TPacket>.Items`.
-- Use `PacketSender<TPacket>` (`context.Sender`) instead of writing directly to the `Connection` so encryption/compression flags match the handler metadata.
-- Set `context.SkipOutbound = true` when a handler already handled cleaning up or you want to skip outbound middleware.
+- Handle op codes.
+- Send replies via `IConnection`.
 
 **Key Components**
-- `PacketControllerAttribute` / `PacketOpcodeAttribute` – specify the handler class name, version, and opcode.
-- `PacketContext<TPacket>` – exposes `Packet`, `Connection`, `Attributes`, `Sender`, and `SkipOutbound`.
-- `PacketSender<TPacket>` – sends replies with the correct `CipherSuiteType` and handles pooling.
-
-**Flow**
-- Handler decorator scanned → `PacketDispatchChannel` builds `PacketContext` → handler runs → `PacketSender` replies → `PacketContext.Reset()` returns context to the pool.
+- `[PacketController]`
+- `[PacketOpcode]`
+- `IConnection`
 
 ```csharp
-[PacketController(name: "ExampleController", version: "1.1")]
-public class ExampleController
+[PacketController("HandshakeHandlers")]
+public class HandshakeHandlers
 {
-    public void HandleLogin(LoginPacket packet, IConnection connection)
-    {
-        // handle logic
-    }
-
-    public ValueTask ProcessData(DataPacket packet, IConnection connection, CancellationToken token)
-    {
-        return ValueTask.CompletedTask;
-    }
+    [PacketOpcode(1)]
+    public ValueTask HandlePing(Handshake packet, IConnection connection)
+        => connection.SendAsync(packet);
 }
 ```
-
-!!! note "Clean up outbound"
-    Set `context.SkipOutbound = true` from middleware or a handler when you have already handled cleanup or want to suppress outbound middleware execution.

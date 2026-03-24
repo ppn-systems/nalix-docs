@@ -53,6 +53,8 @@
       
     
     
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -553,10 +555,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#runtime-components" class="md-nav__link">
+  <a href="#package-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Runtime components
+        🔧 Package Matrix
       
     </span>
   </a>
@@ -564,30 +566,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#configuration-highlights" class="md-nav__link">
+  <a href="#configuration-surface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration highlights
+        🔧 Configuration surface
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Configuration highlights">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#sample-defaults-defaultini" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sample defaults (default.ini)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1205,10 +1190,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#runtime-components" class="md-nav__link">
+  <a href="#package-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Runtime components
+        🔧 Package Matrix
       
     </span>
   </a>
@@ -1216,30 +1201,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#configuration-highlights" class="md-nav__link">
+  <a href="#configuration-surface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration highlights
+        🔧 Configuration surface
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Configuration highlights">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#sample-defaults-defaultini" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sample defaults (default.ini)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1261,71 +1229,76 @@
 
 
 <h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
-<h2 id="runtime-components">Runtime components<a class="headerlink" href="#runtime-components" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Package</th>
-<th>Responsibility</th>
-<th>Key types</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Nalix.SDK</code></td>
-<td>Client helpers, localization, and shared transport configuration for both SDK consumers and host builders.</td>
-<td><code>IoTTcpSession</code>, <code>TcpSessionBase</code>, <code>TransportOptions</code>, <code>RequestOptions</code>, <code>ControlExtensions</code>, <code>RequestExtensions</code>, <code>Localizer</code>, <code>MultiLocalizer</code></td>
-</tr>
-<tr>
-<td><code>Nalix.Network</code></td>
-<td>Core listener loop, protocol dispatch, connection tracking, and middleware pipeline shared by every server application.</td>
-<td><code>TcpListenerBase</code>, <code>Protocol</code>, <code>PacketDispatchChannel</code>, <code>ConnectionHub</code>, <code>ConnectionLimiter</code>, <code>NetworkSocketOptions</code>, <code>PacketMetadataProviders</code></td>
-</tr>
-<tr>
-<td><code>Nalix.Common</code></td>
-<td>Low-level networking primitives, packet definitions, security enums, and concurrency helpers reused across SDK and listener logic.</td>
-<td><code>IConnection</code>, <code>IPacket</code>, <code>PacketContext</code>, <code>CipherSuiteType</code>, <code>PermissionLevel</code>, <code>TimingWheel</code>, <code>MiddlewarePipeline&lt;TPacket&gt;</code></td>
-</tr>
-<tr>
-<td><code>Nalix.Logging</code></td>
-<td>Structured logging, sinks, and telemetry distributors that plug into <code>ILogger</code> or the hosted logger relay.</td>
-<td><code>NLogix</code>, <code>NLogixOptions</code>, <code>NLogixEngine</code>, <code>NLogixDistributor</code></td>
-</tr>
-<tr>
-<td><code>Nalix.Framework</code></td>
-<td>Application plumbing: singleton management, configuration binding, scheduled workers, and time synchronization.</td>
-<td><code>InstanceManager</code>, <code>ConfigurationManager</code>, <code>TaskManager</code>, <code>WorkerOptions</code>, <code>TimeSynchronizer</code>, <code>Snowflake</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="configuration-highlights">Configuration highlights<a class="headerlink" href="#configuration-highlights" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>TransportOptions</code> (SDK) drives client socket tuning, reconnection, heartbeat, compression, and default ciphers. The values are validated by <code>TransportOptions.Validate()</code> before any session starts.</li>
-<li><code>NetworkSocketOptions</code> (Network) governs listener buffer pools, timeouts, backlogs, and whether the OS thread pool is tuned at start-up. These values are read in <code>TcpListenerBase</code> static constructor.</li>
-<li><code>TaskManagerOptions</code> (Framework) configures worker pool size, cleanup intervals, and dynamic scaling. <code>TaskManager</code> reads them during bootstrap and enforces concurrency via <code>SemaphoreSlim</code> gates.</li>
-<li><code>NLogixOptions</code> (Logging) controls sink registration, level overrides, and log sanitization before <code>NLogixEngine</code> publishes entries.</li>
-<li><code>PacketMetadataProviders.Register(...)</code> (Network) adds attribute-driven handler discovery so that <code>PacketController</code> classes like <code>PingHandlers</code> are wired into <code>PacketDispatchChannel</code>.</li>
-</ul>
-<h3 id="sample-defaults-defaultini">Sample defaults (<code>default.ini</code>)<a class="headerlink" href="#sample-defaults-defaultini" title="Permanent link">&para;</a></h3>
+<p>Nalix ships as focused packages so you can keep the runtime surface small. Pick the building blocks you need and mount the shared configuration that every package reads.</p>
+<h3 id="package-matrix">🔧 Package Matrix<a class="headerlink" href="#package-matrix" title="Permanent link">&para;</a></h3>
+<p>A lean installation pulls in only the packages needed for your scenario: SDK-only clients, listener-only hosts, or full-duplex services.</p>
+<p><strong>Responsibilities</strong>
+- Keep the SDK surface (<code>Nalix.SDK</code>) focused on clients and helper transports while letting hosts reference only <code>Nalix.Network</code>, <code>Nalix.Common</code>, <code>Nalix.Logging</code>, and <code>Nalix.Framework</code>.
+- Expose logging and packet metadata early so both listeners and SDK clients reuse the same <code>ILogger</code>, <code>IPacketRegistry</code>, and <code>PacketRegistryFactory</code> instances.
+- Let middleware, networking, and configuration live in dedicated assemblies so CI pipelines can test each layer independently.</p>
+<p><strong>Key Components</strong>
+- <code>Nalix.SDK</code> – <code>IoTTcpSession</code>, <code>TcpSession</code>, <code>RequestExtensions</code>, <code>TransportOptions</code>, and <code>ControlExtensions</code>.
+- <code>Nalix.Network</code> – <code>TcpListenerBase</code>, <code>AutoXListener</code>, <code>PacketDispatchChannel</code>, <code>ConnectionHub</code>, <code>PacketDispatchOptions</code>, and <code>PacketSender</code>.
+- <code>Nalix.Common</code> – <code>IPacket</code>, <code>IConnection</code>, <code>PacketControllerAttribute</code>, <code>PacketOpcodeAttribute</code>, and <code>MiddlewarePipeline&lt;TPacket&gt;</code>.
+- <code>Nalix.Logging</code> – <code>NLogix</code>, <code>NLogixOptions</code>, <code>FileLogOptions</code>, and <code>NLogix.Host</code>.
+- <code>Nalix.Framework</code> – <code>InstanceManager</code>, <code>ConfigurationManager</code>, <code>TaskManager</code>, <code>WorkerOptions</code>, and <code>TimeSynchronizer</code>.</p>
+<p><strong>Flow</strong>
+- Choose the packages for your binary → register <code>ILogger</code>/<code>IPacketRegistry</code> via <code>InstanceManager.Instance.Register</code> → start <code>PacketDispatchChannel</code>/<code>TcpListenerBase</code> or <code>IoTTcpSession</code>.</p>
+<h3 id="configuration-surface">🔧 Configuration surface<a class="headerlink" href="#configuration-surface" title="Permanent link">&para;</a></h3>
+<p>Nalix keys every behavior off the <code>ConfigurationManager</code>-backed POCOs in <code>default.ini</code>. Update the sections that matter for your role and let the watcher reload values in production.</p>
+<p><strong>Responsibilities</strong>
+- Bundle every option class with sensible defaults so you can override only a few values per environment.
+- Validate options early (<code>TransportOptions.Validate()</code>, <code>NetworkSocketOptions.Validate()</code>, <code>TaskManagerOptions.Validate()</code>, <code>ConnectionHubOptions.Validate()</code>).
+- Keep logging, randomness, and threading consistent by reading the same watchers from both clients and listeners.</p>
+<p><strong>Key Components</strong>
+- <code>TransportOptions</code> – reconnection policy, retries, heartbeat, compression thresholds, and <code>CipherSuiteType</code> choices.
+- <code>NetworkSocketOptions</code> – listener port, backlog, buffer size, keep-alive, <code>ReuseAddress</code>, <code>ProcessChannelCapacity</code>, and thread-pool tuning.
+- <code>ConnectionHubOptions</code> – shard count, <code>MaxConnections</code>, <code>DropPolicy</code>, <code>BroadcastBatchSize</code>, and cleanup behavior for <code>ConnectionHub</code>.
+- <code>TaskManagerOptions</code> – concurrency limits, CPU thresholds, cleanup interval, and latency measurement for <code>TaskManager</code>.
+- <code>NLogixOptions</code> – log level, timestamp format, <code>FileLogOptions</code>, and registered <code>ILoggerTarget</code> implementations.</p>
+<p><strong>Flow</strong>
+- Drop <code>default.ini</code> next to the configuration directory → edit the sections you care about → restart the application so <code>ConfigurationManager</code> reloads the file.</p>
 <div class="language-ini highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[NetworkSocketOptions]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="na">Port</span><span class="o">=</span><span class="s">12345</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="na">Backlog</span><span class="o">=</span><span class="s">1024</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="na">BufferSize</span><span class="o">=</span><span class="s">8192</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="na">Port</span><span class="o">=</span><span class="s">57206</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="na">Backlog</span><span class="o">=</span><span class="s">512</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="na">BufferSize</span><span class="o">=</span><span class="s">4096</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="na">EnableTimeout</span><span class="o">=</span><span class="s">true</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">[TransportOptions]</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="na">Address</span><span class="o">=</span><span class="s">127.0.0.1</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="na">Port</span><span class="o">=</span><span class="s">12345</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="na">ReconnectEnabled</span><span class="o">=</span><span class="s">true</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="na">Cipher</span><span class="o">=</span><span class="s">CHACHA20_POLY1305</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">[TaskManagerOptions]</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="na">MaxWorkers</span><span class="o">=</span><span class="s">32</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="na">CleanupInterval</span><span class="o">=</span><span class="s">00:00:30</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="na">MaxParallel</span><span class="o">=</span><span class="s">5</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="na">ProcessChannelCapacity</span><span class="o">=</span><span class="s">128</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">[TransportOptions]</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="na">Address</span><span class="o">=</span><span class="s">127.0.0.1</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="na">Port</span><span class="o">=</span><span class="s">57206</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="na">ReconnectEnabled</span><span class="o">=</span><span class="s">true</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="na">ReconnectMaxAttempts</span><span class="o">=</span><span class="s">0</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="na">MaxPacketSize</span><span class="o">=</span><span class="s">65536</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="na">EnableCompression</span><span class="o">=</span><span class="s">true</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="na">Cipher</span><span class="o">=</span><span class="s">CHACHA20_POLY1305</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="k">[ConnectionHubOptions]</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="na">MaxConnections</span><span class="o">=</span><span class="s">-1</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="na">DropPolicy</span><span class="o">=</span><span class="s">DROP_NEWEST</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="na">ShardCount</span><span class="o">=</span><span class="s">8</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="na">BroadcastBatchSize</span><span class="o">=</span><span class="s">0</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="k">[TaskManagerOptions]</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="na">MaxWorkers</span><span class="o">=</span><span class="s">100</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="na">CleanupInterval</span><span class="o">=</span><span class="s">00:00:30</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="na">DynamicAdjustmentEnabled</span><span class="o">=</span><span class="s">true</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="k">[NLogixOptions]</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="na">MinLevel</span><span class="o">=</span><span class="s">Info</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="na">TimestampFormat</span><span class="o">=</span><span class="s">yyyy-MM-dd HH:mm:ss.fff</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="na">IncludeProcessId</span><span class="o">=</span><span class="s">true</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="na">GroupConcurrencyLimit</span><span class="o">=</span><span class="s">3</span>
 </span></code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Logger must be registered first</p>
-<p><code>InstanceManager.Instance.Register&lt;ILogger&gt;(NLogix.Host.Instance);</code> must run before any listener constructs to prevent <code>NullReferenceException</code> when the listener logs diagnostics or when middleware chains call <code>InstanceManager</code> to resolve the logger.</p>
+<p><code>InstanceManager.Instance.Register&lt;ILogger&gt;(NLogix.Host.Instance)</code> must run before <code>PacketDispatchChannel</code> or <code>TcpListenerBase</code> constructs so logging calls resolve and <code>PacketDispatchChannel</code> can attach the logger it logs through.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Config watcher behavior</p>
+<p><code>ConfigurationManager</code> holds a watcher that debounces <code>FileSystemWatcher</code> events (300 ms) before calling <code>ReloadAll</code>. Call <code>SetConfigFilePath</code> if you move the file and expect the watcher to follow.</p>
 </div>
 
 
