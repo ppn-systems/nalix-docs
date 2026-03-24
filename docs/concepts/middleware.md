@@ -5,30 +5,19 @@ These attributes let you concisely control where, when, and how your middleware 
 
 ## ✨ Key Features
 
-- **Middleware Staging:**  
-  Supports three middleware execution stages:
-  - **Inbound:** Pre-handler processing (validation, rate limit, security, unwrap, etc.)
-  - **Outbound:** Post-handler transforms (wrap, audit, etc. — executed in reverse order)
-  - **OutboundAlways:** Always runs after handler, even if cancelled/error occurs
-
-- **Flexible Ordering:**  
-  Attribute-driven ordering via `[MiddlewareOrder]` and `[MiddlewareStage]` for full control
-
-- **Composable & Thread-Safe:**  
-  Register, clear, and reorder middleware at runtime; snapshot-based execution for zero locking during hot-paths
-
-- **Configurable Error Handling:**  
-  Catch middleware exceptions, choose to continue or abort the chain, pluggable error logger/handler
-
-- **Reusable for All Packet Types:**  
-  Works with any packet/business object type (`IPacket`, or custom DTO), and any server scenario
-
-- **Easy Integration:**  
-  Use as a standalone lib or drop into protocol processing path
+!!! tip "Fast scan"
+    - Stages: Inbound / Outbound / OutboundAlways  
+    - Ordering: `[MiddlewareOrder]` + `[MiddlewareStage]`  
+    - Thread-safe: snapshot execution (no locks)  
+    - Errors: continue or abort via `ConfigureErrorHandling`  
+    - Any packet type: `IPacket` or custom DTOs
 
 ---
 
 ## 🧭 Usage Example
+
+!!! tip "Flow"
+    Register middleware → configure error handling → execute with handler delegate.
 
 ```csharp
 // Register your middleware components (inbound, outbound, transform, etc)
@@ -94,6 +83,10 @@ Middleware order is automatically resolved and cached for runtime performance.
 
 ## 🧰 Supported Middleware Examples
 
+!!! tip "Pick a starter set"
+    Inbound: `UnwrapPacketMiddleware`, `PermissionMiddleware`, `ConcurrencyMiddleware`, `RateLimitMiddleware`, `TimeoutMiddleware`  
+    Outbound: `WrapPacketMiddleware`
+
 | Middleware                | Stage        | Use-case                                     |
 |---------------------------|--------------|----------------------------------------------|
 | `UnwrapPacketMiddleware`  | Inbound      | Decrypt/decompress incoming data             |
@@ -107,7 +100,10 @@ Middleware order is automatically resolved and cached for runtime performance.
 
 ## 🛡️ Error Handling
 
-Configure whether to abort or continue on exception in any middleware. Plug in a custom logger:
+!!! tip "Checklist"
+    - Decide: continue or abort on exception  
+    - Attach logger delegate  
+    - Keep `continueOnError=false` for security-critical paths
 
 ```csharp
 pipeline.ConfigureErrorHandling(
@@ -120,13 +116,18 @@ pipeline.ConfigureErrorHandling(
 
 ## 🚀 Extending / Advanced Usage
 
-- Write custom middleware for: A/B testing, metrics, request manipulation, legacy/modern protocol handling, device policies, circuit breaking, etc.
-- Use `Clear()` to remove all middleware and re-register chains dynamically.
-- All state is lock-free during execution for high-throughput server deployments.
+- Custom middleware ideas: A/B tests, metrics, request shaping, device policies, circuit breakers.
+- `Clear()` + re-register to hot-swap chains.
+- Execution is lock-free; keep middleware stateless where possible.
 
 ---
 
 ## 🏷️ Available Attributes
+
+!!! tip "Quick rule"
+    - Always set both stage and order.  
+    - Negative = early inbound, late outbound.  
+    - Use `AlwaysExecute` only for must-run outbound steps.
 
 ### 1. `MiddlewareOrderAttribute`
 
@@ -233,6 +234,9 @@ public class PermissionMiddleware : IPacketMiddleware<IPacket>
 ---
 
 ## 🧠 CustomAttributes in Metadata
+
+!!! tip "Flow"
+    Define attribute → add via `PacketMetadataBuilder.Add` → read with `GetCustomAttribute<T>()` in middleware/handler.
 
 The `CustomAttributes` feature allows dynamic extensions of packet metadata to add additional handler-specific properties beyond standard attributes such as `Timeout`, `Permission`, or `Encryption`. This is especially useful for advanced use cases like:
 

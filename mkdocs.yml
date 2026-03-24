@@ -31,14 +31,24 @@ nav:
       - Nalix.Framework: packages/nalix-framework.md
       - Nalix.Shared: packages/nalix-shared.md
   - API Reference:
-      - Overview: api/overview.md
-      - Server: api/server.md
-      - Client: api/client.md
-      - Shared Contracts: api/shared.md
-      - Security & Policies: api/security.md
-  - Guides:
-      - Basic Server: guides/basic-server.md
-      - Client Connection: guides/client-connection.md
+      - SDK:
+        - Overview: api/sdk/overview.md
+        - TCP: api/sdk/tcp-session.md
+        - Extensions: api/sdk/tcp-session-extensions.md
+      - Packet:
+        - Attributes: api/routing/packet-attributes.md
+        - Context: api/routing/packet-context.md
+        - Dispatch: api/routing/packet-dispatch.md
+      - Network:
+        - Listener: api/network/tcp-listener.md
+        - Protocol: api/network/protocol.md
+        - Connection: api/network/connection.md
+        - Connection Hub: api/network/connection-hub.md
+      - Middleware:
+        - Connection: api/middleware/connection-limiter.md
+        - Concurrency: api/middleware/concurrency-gate.md
+        - Policy Rate: api/middleware/policy-rate-limiter.md
+        - Token Bucket: api/middleware/token-bucket-limiter.md
 
 theme:
   name: material
