@@ -1,97 +1,123 @@
-# End-to-End Sample (Server + Client)
+# End-to-End Sample
 
-Spin up a minimal Nalix server and a matching client to verify handshake, ping/pong, and a custom packet handler.
+This guide shows the smallest useful Nalix TCP server flow:
 
-## Server: Program.cs
+1. register shared services
+2. build a packet dispatcher
+3. forward frames from `Protocol` into dispatch
+4. start a `TcpListenerBase`
+5. send one request and receive one response
+
+The sample is intentionally small so clients can copy the structure first and optimize later.
+
+## Server
+
+### 1. Register shared services
+
 ```csharp
-using Nalix.Framework.Configuration;
-using Nalix.Framework.Injection;
-using Nalix.Logging;
-using Nalix.Network.Listeners;
-using Nalix.Network.Protocol;
-using Nalix.Network.Routing;
-using Nalix.Shared;
-using Nalix.Shared.Packets;
+InstanceManager.Instance.Register<ILogger>(logger);
+InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
+```
 
-// Load options
-TransportOptions transport = ConfigurationManager.Instance.Get<TransportOptions>();
-transport.Address = "0.0.0.0";
-transport.Port = 57206;
+### 2. Create handlers
 
-// Register shared services
-InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register(catalog);
-
-// Build dispatch channel + handler
-PacketDispatchChannel channel = new(options =>
+```csharp
+[PacketController("SamplePingHandlers")]
+public sealed class SamplePingHandlers
 {
-    options.WithHandler(() => new DemoHandlers());
-});
-channel.Activate();
+    [PacketOpcode(0x1001)]
+    public ValueTask<PingResponse> Ping(PingRequest request, IConnection connection)
+    {
+        PingResponse response = new()
+        {
+            Message = $"pong:{request.Message}"
+        };
 
-// Wire protocol + listener
-DemoProtocol protocol = new(channel);
-TcpListenerBase listener = new(transport.Port, protocol);
-listener.Activate();
-
-Console.WriteLine("Server running on port 57206. Press ENTER to exit.");
-Console.ReadLine();
-listener.Deactivate();
-
-[PacketController("DemoHandlers")]
-public class DemoHandlers
-{
-    [PacketOpcode(1)]
-    public ValueTask Echo(Text256 msg, IConnection connection)
-        => connection.SendAsync(msg);
+        return ValueTask.FromResult(response);
+    }
 }
+```
 
-sealed class DemoProtocol : Protocol
+### 3. Build the dispatcher
+
+```csharp
+PacketDispatchChannel dispatch = new(options =>
+{
+    options.WithLogging(logger)
+           .WithHandler(() => new SamplePingHandlers());
+});
+
+dispatch.Activate();
+```
+
+### 4. Bridge protocol to dispatch
+
+```csharp
+public sealed class SampleProtocol : Protocol
 {
     private readonly PacketDispatchChannel _dispatch;
-    public DemoProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
+
+    public SampleProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
+
     public override void ProcessMessage(object sender, IConnectEventArgs args)
         => _dispatch.HandlePacket(args.Lease, args.Connection);
 }
 ```
 
-## Client: Program.cs
+### 5. Start the listener
+
 ```csharp
-using Nalix.Framework.Configuration;
-using Nalix.Logging;
-using Nalix.SDK;
-using Nalix.Shared;
-using Nalix.Shared.Packets;
+public sealed class SampleTcpListener : TcpListenerBase
+{
+    public SampleTcpListener(ushort port, IProtocol protocol) : base(port, protocol) { }
+}
 
-TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
-options.Address = "127.0.0.1";
-options.Port = 57206;
-
-InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register(catalog);
-
-IoTTcpSession client = new();
-await client.ConnectAsync(options.Address, options.Port);
-
-// Handshake
-Handshake hs = new(0, Csprng.GetBytes(32));
-await client.SendAsync(hs.Serialize());
-
-// Ping
-await ControlExtensions.PingAsync(client, CancellationToken.None);
-
-// Echo roundtrip
-Text256 hello = new("hello nalix");
-await client.SendAsync(hello.Serialize());
+SampleTcpListener listener = new(57206, new SampleProtocol(dispatch));
+listener.Activate();
 ```
 
-## Expected output
-- Server log: listener running, dispatch activated, packets handled without errors.
-- Client: handshake success, ping/pong returns, echo receives same payload.
+## Client
 
-## Tips
-- Use one shared `PacketRegistryFactory` on both ends.
-- Validate `TransportOptions` before activation.
-- Keep `InstanceManager` registrations singletons; avoid per-request creation.
+The transport/session abstraction can vary on your side, but the request/response pattern is:
+
+```csharp
+PingRequest request = new()
+{
+    Message = "hello"
+};
+
+await client.SendAsync(request.Serialize());
+PingResponse response = await WaitForPingResponseAsync();
+
+Console.WriteLine(response.Message); // pong:hello
+```
+
+## Full flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Listener as TcpListenerBase
+    participant Protocol as SampleProtocol
+    participant Dispatch as PacketDispatchChannel
+    participant Handler as SamplePingHandlers
+
+    Client->>Listener: TCP frame
+    Listener->>Protocol: connection message event
+    Protocol->>Dispatch: HandlePacket(lease, connection)
+    Dispatch->>Handler: Ping(request, connection)
+    Handler-->>Dispatch: PingResponse
+    Dispatch-->>Client: serialized response
+```
+
+## What to customize next
+
+- add middleware
+- add packet attributes such as timeout, permission, or rate limit
+- switch some handlers to `PacketContext<TPacket>` when you need explicit manual sending
+
+## Related pages
+
+- [TCP Request/Response](./tcp-request-response.md)
+- [Custom Middleware](./custom-middleware-end-to-end.md)
+- [Packet Dispatch](../api/routing/packet-dispatch.md)

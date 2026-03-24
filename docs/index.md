@@ -1,86 +1,59 @@
 # Nalix
 
-Nalix is a high-performance real-time server framework for .NET.
-It keeps server and client stacks aligned so packets, middleware, and ciphers behave the same everywhere.
+Nalix is a .NET networking stack for building TCP and UDP systems with a shared packet model across server and client code.
 
-### 🧭 Framework at a glance
+The docs are organized around the parts people actually use:
 
-Nalix centers on shared configuration, shared packet catalogs, and a deterministic dispatch pipeline.
+- `Nalix.Network` for listeners, connections, dispatch, middleware, and server-side limits
+- `Nalix.SDK` for client TCP sessions, request helpers, handshakes, and directives
+- `Nalix.Framework` for configuration, service registration, and background workers
+- `Nalix.Common` and `Nalix.Shared` for contracts, packet attributes, and built-in frames
 
-**Responsibilities**
-- Keep configuration and logging singletons stable through `ConfigurationManager` and `InstanceManager`.
-- Build one packet catalog with `PacketRegistryFactory` and reuse it across listeners and clients.
-- Route packets through middleware and handlers via `PacketDispatchChannel`.
+## Start here
 
-**Key Components**
-- `ConfigurationManager` – loads and validates options from `default.ini`.
-- `InstanceManager` – caches shared services like `ILogger` and `IPacketRegistry`.
-- `PacketRegistryFactory` – builds the packet catalog used by both listener and SDK.
-- `PacketDispatchChannel` – executes middleware and handlers in a fixed order.
+If you are new to the project, read in this order:
 
-**Flow**
-- Load options -> register shared services -> build packet catalog -> activate channel + listener.
+1. [Introduction](./introduction.md)
+2. [Installation](./installation.md)
+3. [Quick Start](./quickstart.md)
+4. [Packages Overview](./packages/overview.md)
 
-### 🛠️ Shared runtime services
+If you are building a server, continue with:
 
-Register services once so every part of the stack uses the same instances.
+- [Nalix.Network](./packages/nalix-network.md)
+- [Architecture](./concepts/architecture.md)
+- [Server Blueprint](./guides/server-blueprint.md)
 
-**Responsibilities**
-- Register `ILogger` for consistent logging.
-- Register the packet catalog so middleware and handlers resolve metadata.
+If you are building a client, continue with:
 
-**Key Components**
-- `InstanceManager.Instance.Register<T>()` – service registration.
-- `PacketRegistryFactory.CreateCatalog()` – catalog factory.
+- [Nalix.SDK](./packages/nalix-sdk.md)
+- [SDK Overview](./api/sdk/overview.md)
+- [TCP Session](./api/sdk/tcp-session.md)
 
-```csharp
-InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register(catalog);
+## Core runtime idea
+
+The normal Nalix flow is:
+
+1. load typed configuration
+2. register shared services such as `ILogger` and `IPacketRegistry`
+3. build packet dispatch
+4. start a listener or connect a client session
+5. exchange packets through the same registry and metadata rules
+
+## Minimal example
+
+```mermaid
+flowchart LR
+    A["Configuration"] --> B["InstanceManager"]
+    B --> C["PacketRegistry"]
+    C --> D["Dispatch or Session"]
+    D --> E["Handlers / Requests"]
 ```
 
-### 📚 Packet catalog
+## What this site tries to answer
 
-The catalog binds op codes to packet types and deserializers.
-
-**Responsibilities**
-- Build catalog once.
-- Reuse the same catalog in listeners and clients.
-
-**Key Components**
-- `PacketRegistryFactory`
-- `IPacketRegistry`
-
-```csharp
-PacketRegistryFactory factory = new();
-IPacketRegistry registry = factory.CreateCatalog();
-InstanceManager.Instance.Register(registry);
-```
-
-!!! tip "Keep catalogs aligned"
-    Always reuse the same catalog instance in both the listener and SDK to keep op codes and metadata consistent.
-
-### 🔁 Dispatch pipeline
-
-The channel compiles handlers and applies middleware to every packet.
-
-**Responsibilities**
-- Attach middleware.
-- Register handler groups.
-- Activate the channel before the listener.
-
-**Key Components**
-
-- `PacketDispatchChannel`
-- `PacketDispatchOptions`
-- `[PacketController]`
-
-```csharp
-PacketDispatchChannel channel = new(options =>
-{
-    options.WithMiddleware(new TimeoutMiddleware());
-    options.WithHandler(() => new HandshakeHandlers());
-});
-
-channel.Activate();
-```
+- which package to install
+- how to start a server
+- how to start a client
+- how dispatch, middleware, and metadata fit together
+- which runtime options matter in production

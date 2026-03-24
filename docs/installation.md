@@ -1,58 +1,48 @@
-# 🚀 Installation
+# Installation
 
-Install only the packages you need and keep configuration in `default.ini`.
+Install only the packages you need for your role.
 
-### 🧳 Client install
-Use the SDK when you only need client transport and helpers.
+!!! info "Current package version"
+    Verified on 2026-03-24:
 
-!!! tip "Client flow"
-    `dotnet add package Nalix.SDK` → keep shared packet assemblies referenced → validate `TransportOptions`.
+    - `Nalix.Network`: `11.8.0`
+    - `Nalix.SDK`: `11.8.0`
 
-**Responsibilities**
-- Add the SDK package.
-- Keep shared packet assemblies referenced.
+## Client packages
 
-**Key Components**
-- `Nalix.SDK`
-- `PacketRegistryFactory`
+For a client application, start with:
+
+### Quick example
 
 ```bash
 dotnet add package Nalix.SDK
+dotnet add package Nalix.Shared
+dotnet add package Nalix.Common
 ```
 
-### 🏗️ Server install
-Add hosting packages when you build a listener or gateway.
+Add `Nalix.Framework` too if you want to load `TransportOptions` through `ConfigurationManager` instead of constructing them manually.
 
-!!! tip "Server flow"
-    Add packages → add logging if needed → ensure `Nalix.Shared` stays referenced with packets.
+## Server packages
 
-**Responsibilities**
-- Add networking and framework packages.
-- Include logging if you want built-in sinks.
+For a server application, the common baseline is:
 
-**Key Components**
-- `Nalix.Network`
-- `Nalix.Framework`
-- `Nalix.Logging`
-- `Nalix.Common`
+### Quick example
 
 ```bash
 dotnet add package Nalix.Network
 dotnet add package Nalix.Framework
 dotnet add package Nalix.Logging
+dotnet add package Nalix.Shared
 dotnet add package Nalix.Common
 ```
 
-### ⚙️ Configure options
-Create `default.ini` and place it in the Nalix config directory.
+## Configuration file
 
-**Responsibilities**
-- Define ports and cipher options.
-- Align client and server settings.
+Most server setups and many SDK examples assume a `default.ini` file loaded through `ConfigurationManager`.
 
-**Key Components**
-- `NetworkSocketOptions`
-- `TransportOptions`
+Typical sections:
+
+### Quick example
 
 ```ini
 [NetworkSocketOptions]
@@ -60,27 +50,28 @@ Port=57206
 Backlog=512
 
 [TransportOptions]
+Address=127.0.0.1
+Port=57206
 ConnectTimeoutMillis=7000
 MaxPacketSize=65536
 ```
 
-### ✅ Validate options at startup
-Run validation before opening sockets.
+## Validate early
 
-**Output to expect**
+Validate options before opening sockets or creating sessions:
+
+### Quick example
+
+```csharp
+NetworkSocketOptions socket = ConfigurationManager.Instance.Get<NetworkSocketOptions>();
+socket.Validate();
+
+TransportOptions transport = ConfigurationManager.Instance.Get<TransportOptions>();
+transport.Validate();
 ```
-TransportOptions: validated (Address=127.0.0.1, Port=57206)
-```
 
-**Responsibilities**
-- Load the options.
-- Validate and adjust if needed.
+## What to read next
 
-**Key Components**
-- `ConfigurationManager`
-- `TransportOptions.Validate()`
-
-```csharp linenums="1"
-TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
-options.Validate();
-```
+- [Introduction](./introduction.md)
+- [Quick Start](./quickstart.md)
+- [Packages Overview](./packages/overview.md)

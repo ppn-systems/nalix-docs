@@ -1,96 +1,144 @@
-# 📦 Nalix.Network
+# Nalix.Network
 
-Listener loops, connection hubs, and dispatch glue live here.
+`Nalix.Network` is the runtime package for listeners, connections, protocol flow, packet dispatch, middleware, and network-facing safeguards.
 
-### 🏗️ Listener runtime
-Listeners derive from `TcpListenerBase` and push frames to the dispatcher.
+If you are building the server side of a Nalix-based system, this is usually the package you live in most.
 
-!!! tip "Flow"
-    Accept socket → ConnectionHub stores → Protocol routes → Dispatch channel runs middleware/handlers.
+## What it gives you
 
-**Responsibilities**
-- Accept sockets.
-- Register connections.
-- Forward buffers into `PacketDispatchChannel`.
+### Listener runtime
 
-**Key Components**
+Core entry points:
+
 - `TcpListenerBase`
-- `ConnectionHub`
+- `UdpListenerBase`
+- `Protocol`
+
+These types let you:
+
+- accept TCP or UDP traffic
+- keep connection/session state
+- bridge traffic into dispatch
+
+### Dispatch and handlers
+
+Core entry points:
+
 - `PacketDispatchChannel`
+- `PacketContext<TPacket>`
+- packet attributes
+- handler controllers with `[PacketController]` and `[PacketOpcode]`
 
-```csharp
-PacketDispatchChannel channel = new(options =>
-{
-    options.WithMiddleware(new TimeoutMiddleware());
-    options.WithHandler(() => new HandshakeHandlers());
-});
+This is the part most application logic plugs into.
 
-sealed class DemoProtocol : Protocol
-{
-    private readonly PacketDispatchChannel _dispatch;
-    public DemoProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
-    public override void ProcessMessage(object sender, IConnectEventArgs args)
-        => _dispatch.HandlePacket(args.Lease, args.Connection);
-}
+### Connection management
 
-sealed class DemoListener : TcpListenerBase
-{
-    public DemoListener(ushort port, IProtocol protocol) : base(port, protocol) { }
-}
+Core entry points:
 
-DemoProtocol protocol = new(channel);
-DemoListener listener = new(57206, protocol);
-listener.Activate();
-```
-
-### 📊 Connection tracking
-Connection hubs store active connections and enforce limits.
-
-**Responsibilities**
-- Track active connections.
-- Enforce connection policies.
-
-**Key Components**
+- `Connection`
 - `ConnectionHub`
 - `ConnectionHubOptions`
+- `ConnectionLimiter`
+
+Use these when you need:
+
+- live connection tracking
+- user/session lookup
+- forced disconnects
+- per-endpoint admission control
+
+### Middleware and safeguards
+
+Core entry points:
+
+- packet middleware
+- buffer middleware
+- `ConcurrencyGate`
+- `TokenBucketLimiter`
+- `PolicyRateLimiter`
+
+Use these to keep the server stable under real traffic.
+
+### Runtime tuning
+
+Core option types:
+
+- `NetworkSocketOptions`
+- `DispatchOptions`
+- `ConnectionLimitOptions`
+- `ConnectionHubOptions`
+- `TimingWheelOptions`
+- `PoolingOptions`
+- `NetworkCallbackOptions`
+
+## Suggested reading order for clients
+
+If you are new to the package, read in this order:
+
+1. [TCP Listener](../api/network/tcp-listener.md)
+2. [Protocol](../api/network/protocol.md)
+3. [Packet Dispatch](../api/routing/packet-dispatch.md)
+4. [Packet Context](../api/routing/packet-context.md)
+5. [Connection](../api/network/connection.md)
+6. [Connection Hub](../api/network/connection-hub.md)
+7. [Network Options](../api/network/options.md)
+
+Then continue with the guides:
+
+- [End-to-End Sample](../guides/end-to-end.md)
+- [Custom Middleware](../guides/custom-middleware-end-to-end.md)
+- [Custom Metadata Provider](../guides/custom-metadata-provider.md)
+- [TCP Request/Response](../guides/tcp-request-response.md)
+- [UDP Auth Flow](../guides/udp-auth-flow.md)
+
+## Minimal server shape
+
+### Quick example
 
 ```csharp
-ConnectionHubOptions hubOptions = ConfigurationManager.Instance.Get<ConnectionHubOptions>();
-```
+PacketDispatchChannel dispatch = new(options =>
+{
+    options.WithLogging(logger)
+           .WithHandler(() => new SamplePingHandlers());
+});
 
-### 🔌 Protocol contracts
-Protocols translate raw buffers into packets and dispatch them.
+[PacketController("SamplePingHandlers")]
+public sealed class SamplePingHandlers
+{
+    [PacketOpcode(0x1001)]
+    public ValueTask<PingResponse> Handle(PingRequest request, IConnection connection)
+        => ValueTask.FromResult(new PingResponse { Message = $"pong:{request.Message}" });
+}
 
-**Responsibilities**
-- Implement protocol parsing.
-- Call `PacketDispatchChannel.HandlePacket`.
-
-**Key Components**
-- `IProtocol`
-- `Protocol` (derive and call `PacketDispatchChannel.HandlePacket`)
-- `PacketDispatchChannel`
-
-```csharp
-sealed class DemoProtocol : Protocol
+public sealed class SampleProtocol : Protocol
 {
     private readonly PacketDispatchChannel _dispatch;
-    public DemoProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
+
+    public SampleProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
+
     public override void ProcessMessage(object sender, IConnectEventArgs args)
         => _dispatch.HandlePacket(args.Lease, args.Connection);
 }
+
+public sealed class SampleTcpListener : TcpListenerBase
+{
+    public SampleTcpListener(ushort port, IProtocol protocol) : base(port, protocol) { }
+}
 ```
 
-### 🧩 Metadata providers
-Metadata providers enable attribute-driven behavior.
+## Where metadata fits
 
-**Responsibilities**
-- Register providers.
-- Expose attributes to middleware and handlers.
+Packet metadata is a real part of the package design, not just decoration.
 
-**Key Components**
-- `PacketMetadataProviders`
-- `PacketCustomAttributeProvider`
+It drives:
 
-```csharp
-PacketMetadataProviders.Register(new PacketCustomAttributeProvider());
-```
+- permissions
+- timeout behavior
+- rate limiting
+- concurrency limits
+- custom conventions through metadata providers
+
+## Related pages
+
+- [Architecture](../concepts/architecture.md)
+- [Real-time Engine](../concepts/real-time.md)

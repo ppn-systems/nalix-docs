@@ -1,56 +1,86 @@
-# Connection & IConnection — Socket Connection and Transport for Nalix.Network
+# Connection
 
-`Connection` is the default `IConnection` implementation. It wraps the low-level socket, framing helpers, transport adapters, encryption state, and lifecycle events that the server relies on to dispatch packets, manage stats, and drive middleware.
+`Connection` is the default `IConnection` implementation used by Nalix.Network after a socket is accepted. It wraps the framed socket transport, owns connection identity and endpoint information, exposes TCP/UDP adapters, and bridges low-level transport callbacks into the higher-level events consumed by listeners, protocols, and dispatch code.
 
-- **Namespace (impl):** `Nalix.Network.Connections`
-- **Interface:** `Nalix.Common.Networking.Abstractions.IConnection`
+## Source mapping
 
----
+- `src/Nalix.Network/Connections/Connection.cs`
+- `src/Nalix.Network/Connections/Connection.Extensions.cs`
+- `src/Nalix.Network/Connections/Connection.Transmission.cs`
+- `src/Nalix.Network/Connections/Connection.EventArgs.cs`
+- `src/Nalix.Network/Connections/Connection.Endpoint.cs`
 
-## Key concepts
+## Core state
 
-Checklist:
-- Identity: Snowflake `ID`, `NetworkEndpoint`.
-- Transport: TCP always, UDP via `GetOrCreateUDP`.
-- Security: `Secret`, `Algorithm`, `PermissionLevel`.
-- Observability: `BytesSent`, `UpTime`, `LastPingTime`, `ErrorCount`.
+| Member | Meaning |
+|---|---|
+| `ID` | Snowflake session ID created at construction time. |
+| `NetworkEndpoint` | Remote endpoint resolved from the accepted socket. |
+| `TCP` | Always-present TCP transport facade backed by `FramedSocketConnection`. |
+| `UDP` | UDP transport facade when provisioned by the connection. |
+| `Secret` | Session secret / keying material. |
+| `Algorithm` | Current cipher suite, defaulting to `CHACHA20_POLY1305`. |
+| `Level` | Permission level for authorization-sensitive handlers. |
+| `BytesSent` | Total transmitted bytes, read atomically. |
+| `ErrorCount` | Number of transport / dispatch errors recorded for this connection. |
+| `UpTime`, `LastPingTime` | Metrics exposed through the framed socket cache. |
 
-- **Identity:** `ID` (Snowflake) uniquely identifies each connection and `NetworkEndpoint` captures the remote address/port.
-- **Transport:** `TCP` is always available, and `GetOrCreateUDP(ref IPEndPoint)` lazily provisions a pooled `UdpTransport` instance when UDP messaging is required.
-- **Session/verifier:** `Secret` + `Algorithm` store the negotiated cipher suite (default `CHACHA20_POLY1305`). Use `PermissionLevel` to gate access.
-- **Stats:** `BytesSent`, `UpTime`, `LastPingTime`, and `ErrorCount` report health, while `TCP` exposes raw send/receive helpers used throughout the dispatch pipeline.
-- **Events:** `OnProcessEvent`, `OnPostProcessEvent`, and `OnCloseEvent` mirror the packet handling stages; they are invoked from the internal `FramedSocketConnection` bridges and respect the event callbacks registered on the connection.
+## Event bridges
 
----
+The connection exposes three events:
 
-## Event hooks & lifecycle
+- `OnCloseEvent`
+- `OnProcessEvent`
+- `OnPostProcessEvent`
 
-- `OnProcessEvent` fires while a packet is being processed, allowing middleware/loggers to peek at the active payload or connection state.
-- `OnPostProcessEvent` occurs after the handler completes, even if an error is raised; use it for cleanup or final auditing.
-- `OnCloseEvent` is triggered once when the connection shuts down (the internal `_closeSignaled` guard prevents duplicate calls).
-- `Close(force = false)` / `Disconnect(reason)` cascade to the framed socket and fire the close bridge, while `Dispose()` gracefully tears down TCP/UDP helpers, releases the UDP transport back to the pool, and suppresses finalization.
+These are bridged from `FramedSocketConnection.SetCallback(...)`:
 
-The connection also exposes `IncrementErrorCount()` and logs errors via the shared `ILogger` whenever `FramedSocketConnection` signals issues.
+- close callbacks use `AsyncCallback.InvokeHighPriority(...)`
+- process and post-process callbacks use `AsyncCallback.Invoke(...)`
 
----
+`_closeSignaled` ensures the close event is emitted only once.
 
-## Transmission helpers
+## Lifecycle
 
-| Member | Description |
-|--------|-------------|
-| `TCP` | Primary transport for framing, `SendAsync(IPacket)`, `SendAsync(ReadOnlyMemory<byte>)`, and `BeginReceive`.
-| `UDP` | Lazily created by `GetOrCreateUDP`; ideal for low-latency control or telemetry frames.
-| `Secret` / `Algorithm` | Use to encrypt/decrypt payloads via `TcpSession` handshake, directives, or middleware.
-| `BytesSent`, `ErrorCount` | Observability used by monitoring surfaces (e.g., `ConnectionHub.GenerateReport`). |
+- Construction creates the session ID, resolves the remote endpoint, creates `ConnectionEventArgs`, and initializes `FramedSocketConnection`.
+- `Close(force = false)` forwards to the close bridge.
+- `Disconnect(reason)` currently aliases `Close(force: true)`.
+- `Dispose()` marks the instance disposed, disconnects, disposes the framed socket, and returns any pooled UDP transport to `ObjectPoolManager`.
 
-`ConnectionExtensions.SendAsync(ControlType, ...)` builds a `Directive`/`Control` frame into a pooled buffer and transmits it over TCP. This helper logs send failures and reuses the shared `ObjectPoolManager`.
+## Directive sending helper
 
----
+`ConnectionExtensions.SendAsync(...)` sends a protocol `Directive` over TCP.
 
-## Extension points
+Current behavior:
 
-Implement custom behavior through:
+- rents a pooled `Directive`
+- serializes using either a small path or a rented `BufferLease`
+- sends through `connection.TCP.SendAsync(...)`
+- logs failures and returns the directive to the pool
 
-- **Middleware** in the dispatch pipeline (`PacketDispatchChannel`). The connection simply exposes the events that the dispatcher attaches to.
-- **Protocol-level hooks**: register handlers for the `OnProcessEvent` and `OnPostProcessEvent` if you need to respond to per-packet signals (e.g., custom logging or throttling records) before the dispatcher or after the handler finishes.
-- **Control directives**: call `connection.SendAsync(ControlType.THROTTLE, ...)` or any directive via `ConnectionExtensions` to reply with status, fail frames, or disconnect instructions.
+Use this helper for throttle, fail, timeout, or other control replies.
+
+## Integration
+
+- `TcpListenerBase` subscribes protocol and limiter handlers to the connection events.
+- `Protocol.ProcessMessage` and `Protocol.PostProcessMessage` usually attach to the process events.
+- `ConnectionLimiter.OnConnectionClosed` should be attached to `OnCloseEvent` so per-endpoint counters stay accurate.
+
+## Basic usage
+
+```csharp
+connection.OnProcessEvent += protocol.ProcessMessage;
+connection.OnPostProcessEvent += protocol.PostProcessMessage;
+
+await connection.TCP.SendAsync(new PingResponse(), ct);
+connection.Close();
+```
+
+## Related APIs
+
+- [TcpListener](./tcp-listener.md)
+- [Connection Hub](./connection-hub.md)
+- [Connection Events](./connection-events.md)
+- [Connection Extensions](./connection-extensions.md)
+- [Connection Contracts](../common/connection-contracts.md)
+- [Packet Dispatch](../routing/packet-dispatch.md)

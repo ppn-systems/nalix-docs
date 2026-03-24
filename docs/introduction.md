@@ -1,172 +1,59 @@
-# 🚀 Getting Started
+# Introduction
 
-Start with configuration and shared services before opening any sockets.  
-This keeps listener and client behavior aligned.
+The easiest way to think about Nalix is:
 
-### ✅ Environment checklist
+- `Nalix.Network` runs the server side
+- `Nalix.SDK` runs the client side
+- both sides share packet contracts and metadata through `Nalix.Common` and `Nalix.Shared`
 
-Make sure the runtime and config files exist.
+## What stays shared
 
-!!! tip "Prep flow"
-    1) Verify .NET 10 SDK.  
-    2) Drop `default.ini` into the config folder.  
-    3) Open ports matching `NetworkSocketOptions.Port`.  
-    4) Plan one shared `PacketRegistryFactory` for server + client.
+Across the stack, Nalix tries to keep these pieces aligned:
 
-**Responsibilities**
+- packet types and opcodes
+- middleware-related metadata
+- configuration-driven runtime options
+- logging and service registration patterns
 
-- Install .NET 10 SDK or later.
-- Place `default.ini` in the Nalix config directory.
-- Align ports with `NetworkSocketOptions.Port`.
+That is why a typical setup registers shared services early:
 
-**Key Components**
-
-- `ConfigurationManager`
-- `NetworkSocketOptions`
-
-!!! note "Default config locations"
-    **Windows**  
-    `C:\ProgramData\Nalix\config\default.ini`  
-
-    **Linux / macOS**  
-    `~/.local/share/Nalix/config/default.ini`
-
-    **Docker / Container**  
-    `/config/default.ini`
-
-!!! info "Container behavior"
-    When running inside a container, Nalix automatically uses:
-
-    - `/config` for configuration  
-    - `/data` for application data  
-    - `/logs` for logs  
-
-    unless overridden via environment variables.
-
-!!! tip "Override via environment variables"
-    You can override paths using:
-
-    ```bash
-    NALIX_CONFIG_PATH=/config
-    NALIX_DATA_PATH=/data
-    NALIX_LOGS_PATH=/logs
-    NALIX_STORAGE_PATH=/storage
-    NALIX_DB_PATH=/db
-    ```
-
----
-
-### 📦 Install packages
-
-Add only the packages you need.
-
-**Responsibilities**
-
-- Use `Nalix.SDK` for client-only apps.
-- Add server-side packages when hosting a listener.
-
-**Key Components**
-
-- `Nalix.SDK`
-- `Nalix.Network`
-- `Nalix.Common`
-- `Nalix.Logging`
-- `Nalix.Framework`
-
-```bash
-dotnet add package Nalix.SDK
-```
-
-```bash
-dotnet add package Nalix.Network
-dotnet add package Nalix.Common
-dotnet add package Nalix.Logging
-dotnet add package Nalix.Framework
-```
-
-### ⚙️ Load configuration
-
-Pull validated options before you create sessions.
-
-**Responsibilities**
-
-- Read options from `ConfigurationManager`.
-- Validate before changing buffer or cipher settings.
-
-**Key Components**
-
-- `TransportOptions`
-- `ConfigurationManager.Instance.Get<T>()`
+## Minimal example
 
 ```csharp
-TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
-options.Validate();
+InstanceManager.Instance.Register<ILogger>(logger);
+InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
 ```
 
-### 🛠️ Register shared services
+## Server mental model
 
-Register the logger and packet catalog once.
+A server usually looks like this:
 
-**Responsibilities**
+1. load `NetworkSocketOptions`, `DispatchOptions`, and related options
+2. register `ILogger` and `IPacketRegistry`
+3. build `PacketDispatchChannel`
+4. create a `Protocol`
+5. start `TcpListenerBase` or `UdpListenerBase`
 
-- Register `ILogger`.
-- Register `IPacketRegistry`.
+## Client mental model
 
-**Key Components**
+A client usually looks like this:
 
-- `InstanceManager`
-- `PacketRegistryFactory`
+1. load or create `TransportOptions`
+2. create `TcpSession` or `IoTTcpSession`
+3. connect
+4. perform handshake or control flow if needed
+5. use `RequestAsync`, `PingAsync`, or direct send helpers
 
-```csharp
-InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register(catalog);
-```
+## Recommended first reading
 
-### 🤝 Verify a basic handshake
+- [Installation](./installation.md)
+- [Quick Start](./quickstart.md)
+- [Nalix.Network](./packages/nalix-network.md)
+- [Nalix.SDK](./packages/nalix-sdk.md)
 
-Send a `Handshake` to confirm client and listener agree on secrets.
+## Version note
 
-**Responsibilities**
+Latest verified stable package version on 2026-03-24:
 
-- Generate a secret.
-- Serialize and send `Handshake`.
-
-**Key Components**
-
-- `Handshake`
-- `Csprng`
-- `TcpSession`
-
-```csharp
-TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
-options.Address = "127.0.0.1";
-options.Port = 57206;
-options.Secret = Csprng.GetBytes(32);
-
-TcpSession client = new();
-await client.ConnectAsync(options.Address, options.Port);
-Handshake handshake = new(0, options.Secret);
-await client.SendAsync(handshake.Serialize());
-```
-
-
-### 🐳 Example: Docker Compose
-
-Run Nalix with mounted config and persistent storage.
-
-```yaml
-services:
-  nalix:
-    image: your-image
-    ports:
-      - "57206:57206"
-    volumes:
-      - ./config:/config
-      - ./data:/data
-      - ./logs:/logs
-    environment:
-      - NALIX_CONFIG_PATH=/config
-      - NALIX_DATA_PATH=/data
-      - NALIX_LOGS_PATH=/logs
-```
+- `Nalix.Network`: `11.8.0`
+- `Nalix.SDK`: `11.8.0`

@@ -1,66 +1,78 @@
-# 📦 Nalix.Framework
+# Nalix.Framework
 
-Configuration, service registry, scheduling, and time synchronization.
+`Nalix.Framework` holds the runtime services that other Nalix packages lean on for configuration, instance registration, scheduling, IDs, and low-level time helpers.
 
-### 🛠️ Instance management
-Use a single registry for shared services.
+## What belongs here
 
-**Responsibilities**
-- Register services once.
-- Retrieve existing instances safely.
+- `ConfigurationManager` for loading and reloading typed options from INI files
+- `InstanceManager` for registering or creating shared singleton-like services
+- `TaskManager` for background workers and recurring jobs
+- `Snowflake` for generated IDs
+- `Clock` and `TimingScope` for monotonic timing and lightweight latency measurement
 
-**Key Components**
-- `InstanceManager`
-- `ILogger`
-- `IPacketRegistry`
+## Configuration
 
-```csharp
-InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register(catalog);
-```
+`ConfigurationManager` is the entry point for typed options. It loads `ConfigurationLoader` classes, caches them, and can hot-reload when the watched INI file changes.
 
-### ⚙️ Configuration management
-Configuration is loaded from `default.ini`.
-
-**Responsibilities**
-- Load options on startup.
-- Share options across packages.
-
-**Key Components**
-- `ConfigurationManager`
-- `TransportOptions`
-- `NetworkSocketOptions`
+### Quick example
 
 ```csharp
-TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
-NetworkSocketOptions socket = ConfigurationManager.Instance.Get<NetworkSocketOptions>();
+ConnectionHubOptions hub = ConfigurationManager.Instance.Get<ConnectionHubOptions>();
+TaskManagerOptions taskOptions = ConfigurationManager.Instance.Get<TaskManagerOptions>();
 ```
 
-### ⏱️ Scheduling and workers
-Task scheduling is centralized to keep background work consistent.
+Use it when you want one shared config source across `Nalix.Network`, `Nalix.SDK`, and your own option classes.
 
-**Responsibilities**
-- Schedule workers with consistent limits.
-- Track worker state.
+## Instance registration
 
-**Key Components**
-- `TaskManager`
-- `WorkerOptions`
+`InstanceManager` is the common registry used across the stack. It can register existing instances or lazily create new ones.
+
+### Quick example
+
+```csharp
+InstanceManager.Instance.Register<ILogger>(logger);
+
+TaskManager taskManager = InstanceManager.Instance.GetOrCreateInstance<TaskManager>();
+IPacketRegistry registry = InstanceManager.Instance.GetOrCreateInstance<PacketRegistryFactory>()
+                                                   .CreateCatalog();
+```
+
+This is the normal place to publish infrastructure such as loggers, packet registries, or shared services used by handlers and listeners.
+
+## Background work
+
+`TaskManager` is not just a timer helper. It manages:
+
+- named workers
+- recurring jobs
+- cancellation by ID or group
+- group concurrency limits
+- execution reporting
+
+### Quick example
 
 ```csharp
 TaskManager manager = InstanceManager.Instance.GetOrCreateInstance<TaskManager>();
-WorkerOptions worker = new();
+
+manager.ScheduleRecurring(
+    "session.cleanup",
+    System.TimeSpan.FromSeconds(30),
+    async ct => await CleanupExpiredSessionsAsync(ct));
 ```
 
-### ⏲️ Time and IDs
-Nalix includes time synchronization and ID generation utilities.
+For long-running server processes, this is the preferred place for cleanup loops, reporting jobs, and maintenance work.
 
-**Responsibilities**
-- Keep time in sync for telemetry.
-- Generate consistent IDs.
+## Time and IDs
 
-**Key Components**
-- `TimeSynchronizer`
-- `Clock`
-- `Snowflake`
+Use:
+
+- `Clock` when you need monotonic timestamps or Unix time
+- `TimingScope` when you need cheap elapsed-time measurement
+- `Snowflake` when you need compact sortable IDs
+
+`TimeSynchronizer` is part of `Nalix.Network`, not `Nalix.Framework`.
+
+## When to add this package
+
+- Add `Nalix.Framework` on the server when you use `ConfigurationManager`, `InstanceManager`, or `TaskManager`.
+- Add it on the client only if your SDK app also wants the same config and service-registration model.

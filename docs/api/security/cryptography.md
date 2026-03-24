@@ -1,119 +1,39 @@
-# X25519 — High-Performance Curve25519 ECDH for .NET
+# Cryptography
 
-`X25519` provides fast, allocation-minimal methods for generating and using Curve25519 X25519 key pairs and shared secrets,
-enabling secure ECDH (Elliptic Curve Diffie–Hellman) handshakes and end-to-end encryption in your .NET apps.
+Nalix ships several cryptography primitives in `Nalix.Shared.Security`, but they are easier to read as separate topics than as one long page.
 
-- **Namespace:** `Nalix.Shared.Security.Asymmetric`
-- **Class:** `X25519` (static)
-- **Based on:** RFC 7748, Montgomery ladder, secure CSPRNG, constant-time arithmetic
+## Source mapping
 
----
+- `src/Nalix.Shared/Security/Asymmetric/*`
+- `src/Nalix.Shared/Security/Hashing/*`
+- `src/Nalix.Shared/Security/Symmetric/*`
+- `src/Nalix.Shared/Security/Aead/*`
+- `src/Nalix.Shared/Security/Engine/*`
+- `src/Nalix.Shared/Security/Credentials/*`
+- `src/Nalix.Shared/Security/EnvelopeCipher.cs`
 
-## Features
+## What is in this package
 
-- Secure, random X25519 keypair generation (32 bytes, clamped)
-- Stateless, single-allocation ECDH shared secret computation
-- Functionality for keypair derivation from existing private key
-- Constant-time, side-channel-resistant math
-- Designed for performance and cryptographic safety
+| Topic | Main types | Read next |
+|---|---|---|
+| Key agreement | `X25519` | [Key Agreement](./key-agreement.md) |
+| Hashing and MAC | `Keccak256`, `Poly1305` | [Hashing and MAC](./hashing-and-mac.md) |
+| AEAD and envelope encryption | `ChaCha20Poly1305`, `Salsa20Poly1305`, `EnvelopeCipher` | [AEAD and Envelope](./aead-and-envelope.md) |
+| Credential hashing and legacy surface | `Pbkdf2`, `PBKDF2_I`, `Ed25519` | [Credentials and Legacy](./credentials-and-legacy.md) |
 
----
+## Quick guidance
 
-## Typical Usage
+- use `X25519` for session key agreement
+- use `Keccak256` only when you explicitly want Keccak, not FIPS SHA3
+- use `EnvelopeCipher` when you want the high-level transport-facing encryption entry point
+- use `Pbkdf2` for credential hashing helpers
+- treat `Ed25519` as legacy because it is marked obsolete in source
 
-### Generate a New Keypair
+## Related APIs
 
-```csharp
-using Nalix.Shared.Security.Asymmetric;
-
-var keypair = X25519.GenerateKeyPair();
-// keypair.PrivateKey (32 bytes — keep safe!)
-// keypair.PublicKey  (32 bytes — for sending/sharing)
-```
-
-### ECDH Agreement (Shared Secret)
-
-```csharp
-byte[] myPrivate  = ...; // 32 bytes, your private key
-byte[] theirPublic = ...; // 32 bytes, other party's public key
-
-byte[] sharedSecret = X25519.Agreement(myPrivate, theirPublic); // 32 bytes
-// Use 'sharedSecret' as the basis for session keys/mac...
-```
-
-### Derive Public Key from Private Key
-
-```csharp
-var existingPrivate = ...; // 32 bytes
-var keypair = X25519.GenerateKeyFromPrivateKey(existingPrivate);
-byte[] pub = keypair.PublicKey;
-```
-
----
-
-## Key Types
-
-| Type           | Purpose                                            |
-|----------------|----------------------------------------------------|
-| `X25519KeyPair`| Value struct of `{ byte[] PrivateKey, PublicKey }` |
-
----
-
-## API Summary
-
-| Method                                                                      | Returns               | Description                                    |
-|-----------------------------------------------------------------------------|-----------------------|------------------------------------------------|
-| `GenerateKeyPair()`                                                         | `X25519KeyPair`       | Secure random key pair (new private/public)    |
-| `GenerateKeyFromPrivateKey(byte[] priv)`                                    | `X25519KeyPair`       | Build keypair from user-supplied 32B private   |
-| `Agreement(byte[] myPriv, byte[] theirPub)`                                 | `byte[]` (32)         | X25519 ECDH: shared secret (32B)               |
-
-> *All byte arrays are exactly 32 bytes. Private keys are securely “clamped” as per standard.*
-
----
-
-## Security Notes
-
-- **Do not** reuse private keys across protocols unless required. Always keep the private key secret and use secure storage.
-- Output shared secrets are not human-readable; pass them through a key-derivation function (KDF) before use as symmetric keys.
-- All arithmetic is constant-time and side-channel-safe.
-
----
-
-## Under the Hood
-
-- Scalar multiplication implemented via Montgomery ladder, stack-only `FieldElement` for no heap churn
-- Basepoint per RFC 7748
-- Scalability: Single allocation for output; no heap churn in inner arithmetic
-- Fails fast if given non-32-byte keys
-
----
-
-## Example: Classic ECDH Exchange
-
-```csharp
-// Alice
-var alice = X25519.GenerateKeyPair();
-
-// Bob
-var bob = X25519.GenerateKeyPair();
-
-// Alice computes shared secret
-byte[] aliceShared = X25519.Agreement(alice.PrivateKey, bob.PublicKey);
-
-// Bob computes shared secret (should match Alice)
-byte[] bobShared = X25519.Agreement(bob.PrivateKey, alice.PublicKey);
-
-// Comparison
-bool same = aliceShared.SequenceEqual(bobShared); // always true
-```
-
----
-
-## Error Handling
-
-- Throws `ArgumentException` if any key is not 32 bytes.
-- Throws `InvalidOperationException` on bad/low-order points (rare unless input is intentionally crafted).
-- Never returns null.
-
----
-
+- [Key Agreement](./key-agreement.md)
+- [Hashing and MAC](./hashing-and-mac.md)
+- [AEAD and Envelope](./aead-and-envelope.md)
+- [Credentials and Legacy](./credentials-and-legacy.md)
+- [SDK Extensions](../sdk/tcp-session-extensions.md)
+- [UDP Auth Flow](../../guides/udp-auth-flow.md)

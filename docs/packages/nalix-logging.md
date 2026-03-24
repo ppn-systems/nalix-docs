@@ -1,8 +1,8 @@
-# 📦 Nalix.Logging
+# Nalix.Logging
 
 Structured logging, log targets, and a shared `ILogger` implementation.
 
-### 🚀 Logging bootstrap
+### Logging bootstrap
 Register the logger once to keep all subsystems consistent.
 
 **Responsibilities**
@@ -14,11 +14,13 @@ Register the logger once to keep all subsystems consistent.
 - `NLogix.Host`
 - `ILogger`
 
+### Quick example
+
 ```csharp
 InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
 ```
 
-### 🎯 Options and targets
+### Options and targets
 Options describe log level, formatting, and targets.
 
 **Responsibilities**
@@ -29,6 +31,8 @@ Options describe log level, formatting, and targets.
 - `NLogixOptions`
 - `FileLogOptions`
 - `ILoggerTarget`
+
+### Quick example
 
 ```csharp
 NLogixOptions options = new();

@@ -1,38 +1,73 @@
-# Nalix.SDK — Client Transport and Extensions
+# Nalix.SDK API Overview
 
-**Nalix.SDK** provides client-side transport (TCP/UDP), auto-reconnect, protocol extensions, and optional localization. It is intended for .NET applications that connect to Nalix.Network (or compatible) servers.
+`Nalix.SDK` is the client transport layer for Nalix-based TCP applications. The current source tree centers on reliable TCP sessions plus helper extensions for control packets, requests, directives, and handshakes.
 
----
+## Source mapping
 
-## Module Summary
+- `src/Nalix.SDK/Transport/TcpSessionBase.cs`
+- `src/Nalix.SDK/Transport/TcpSession.cs`
+- `src/Nalix.SDK/Transport/IoTTcpSession.cs`
+- `src/Nalix.SDK/Configuration/TransportOptions.cs`
+- `src/Nalix.SDK/Configuration/RequestOptions.cs`
+- `src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/DirectiveClientExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/TcpSessionSubscriptions.cs`
 
-| Component            | Description                                                                                          |
-|----------------------|------------------------------------------------------------------------------------------------------|
-| **TcpSessionBase / TcpSession / IoTTcpSession** | Reliable TCP session stack: shared base plumbing, TcpSession (auto-reconnect, heartbeat monitor, bandwidth stats) and IoTTcpSession (IoT-friendly connect guard). |
-| **UnreliableClient** | Lightweight UDP client for low-latency, best-effort messaging.                                       |
-| **Extensions**       | Fluent control/directive builders, handshake (X25519), time sync, throttle handling, subscriptions.  |
-| **Configuration**    | `TransportOptions` and related settings.                                                             |
-| **L10N**             | Optional localization (e.g. `Localizer`, `MultiLocalizer`, PoFile).                                  |
+## Module summary
 
----
+| Component | Description |
+| --- | --- |
+| `TcpSessionBase`, `TcpSession`, `IoTTcpSession` | Shared TCP transport base plus two client implementations. |
+| `TransportOptions` | Client transport configuration loaded through `ConfigurationManager`. |
+| `RequestOptions` | Timeout, retry, and encryption controls for `RequestAsync`. |
+| `Transport.Extensions` | Control, directive, handshake, request, and subscription helpers. |
+| `L10N` | Optional localization helpers such as `Localizer` and `MultiLocalizer`. |
 
-## Quick Start
+## Quick start
 
 Checklist:
 
-- Configure `TransportOptions` (address/port/timeout/reconnect/secret).
-- Register `IPacketRegistry` in `InstanceManager`.
-- Hook events: `OnConnected`, `OnMessageReceived`, `OnDisconnected`.
-- Connect → send packet/handshake → disconnect/dispose.
+- register an `IPacketRegistry`
+- load or construct `TransportOptions`
+- create `TcpSession` or `IoTTcpSession`
+- hook events you need
+- connect, send, await responses, disconnect
 
 ```csharp
-var client = new TcpSession();
-client.OnConnected += (s, _) => { /* ... */ };
-client.OnMessageReceived += (s, buf) => { /* handle packet; dispose buf if ownership taken */ };
+InstanceManager.Instance.Register<IPacketRegistry>(catalog);
 
-await client.ConnectAsync("host.example.com", 12345);
+TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
+
+var client = new TcpSession();
+client.OnConnected += (_, _) => { };
+client.OnDisconnected += (_, ex) => { };
+
+await client.ConnectAsync(options.Address, options.Port);
 await client.SendAsync(myPacket);
-// Use extensions for handshake, ping, directives, etc.
 await client.DisconnectAsync();
 client.Dispose();
 ```
+
+## What changed in the current runtime
+
+Compared with older docs/examples, the current SDK shape is:
+
+- TCP-focused in the public source tree
+- reconnect-aware through `TransportOptions`
+- request-safe through `PACKET_AWAITER`-backed helpers
+- able to perform handshake and directive flows without hand-written boilerplate
+
+Use the detail pages next:
+
+- [TCP Session](./tcp-session.md)
+- [TCP Session Extensions](./tcp-session-extensions.md)
+
+## Related APIs
+
+- [TCP Session](./tcp-session.md)
+- [TCP Session Extensions](./tcp-session-extensions.md)
+- [Subscriptions](./subscriptions.md)
+- [Transport Options](./transport-options.md)
+- [Request Options](./request-options.md)

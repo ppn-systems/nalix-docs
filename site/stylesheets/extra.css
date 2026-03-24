@@ -1,7 +1,12 @@
-@import "base/variables.css";
-@import "base/typography.css";
+/* .md-grid {
+  max-width: 1220px;
+} */
 
-@import "components/code-block.css";
-@import "components/syntax-csharp.css";
+.md-grid {
+  max-width: 90%;
+}
 
-@import "themes/dracula.css";
+.md-nav__link {
+  white-space: normal !important;
+  word-break: break-word;
+}

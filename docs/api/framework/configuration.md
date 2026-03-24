@@ -1,292 +1,119 @@
-# Configuration System Documentation
+# Configuration and DI
 
-## Overview
+This page covers the two framework services most Nalix applications touch first:
 
-The Configuration System provides a high-performance, thread-safe mechanism for managing application configuration through INI files. It consists of three main components:
+- `ConfigurationManager`
+- `InstanceManager`
 
-1. `ConfiguredShared`: A singleton manager for configuration containers
-2. `ConfiguredBinder`: A base class for configuration containers with property binding
-3. `ConfiguredIgnoreAttribute`: An attribute to exclude properties from configuration binding
+## Source mapping
 
-## ConfiguredShared
+- `src/Nalix.Framework/Configuration/ConfigurationManager.cs`
+- `src/Nalix.Framework/Configuration/Binding/ConfigurationLoader.cs`
+- `src/Nalix.Framework/Configuration/Binding/ConfigurationLoader.Metadata.cs`
+- `src/Nalix.Framework/Configuration/Binding/ConfigurationLoader.SectionName.cs`
+- `src/Nalix.Framework/Injection/InstanceManager.cs`
 
-### Purpose
+## ConfigurationManager
 
-Manages configuration containers and provides access to the INI file system with optimized performance for high-throughput applications.
+`ConfigurationManager` loads typed option objects that derive from `ConfigurationLoader`.
 
-### Usage
+It is responsible for:
+
+- locating and watching the active INI file
+- initializing option objects from sections
+- caching loaded option instances
+- reloading already-created option objects when the file changes
+
+### Basic usage
 
 ```csharp
-// Access the configuration manager
-var config = ConfiguredShared.Instance;
+NetworkSocketOptions socket = ConfigurationManager.Instance.Get<NetworkSocketOptions>();
+socket.Validate();
 
-// Get or create a configuration container
-var myConfig = config.Get<MyAppConfig>();
-
-// Reload all configurations
-config.ReloadAll();
+TransportOptions transport = ConfigurationManager.Instance.Get<TransportOptions>();
+transport.Validate();
 ```
 
-### Key Features
+### Current runtime behavior
 
-- Thread-safe operations
-- Lazy loading of configuration files
-- Caching of configuration containers
-- Automatic directory creation
-- Flush capabilities for persistence
+The current implementation in `src/Nalix.Framework` is:
 
-### Example Implementation
+- thread-safe
+- watcher-based with debounce
+- able to switch config file path through `SetConfigFilePath(...)`
+- able to reload already-initialized containers through `ReloadAll()`
+
+### ConfigurationLoader
+
+Your typed options should inherit from `ConfigurationLoader`:
 
 ```csharp
-public class MyAppConfig : ConfiguredBinder
+public sealed class MyServerOptions : ConfigurationLoader
 {
-    public string ApplicationName { get; set; } = "DefaultApp";
-    public int MaxConnections { get; set; } = 100;
-    
-    [ConfiguredIgnore]
-    public string RuntimeValue { get; set; }
-}
-
-// Usage
-var config = ConfiguredShared.Instance;
-var appConfig = config.Get<MyAppConfig>();
-Console.WriteLine(appConfig.ApplicationName);
-```
-
-## ConfiguredBinder
-
-### Purpose
-
-Base class for configuration containers that provides automatic property binding from INI files.
-
-### Features
-
-- High-performance reflection with caching
-- Automatic type conversion
-- Default value handling
-- Property metadata caching
-- Clone capability
-
-### Supported Types
-
-```csharp
-// Supported property types:
-- char
-- byte, sbyte
-- string
-- boolean
-- decimal
-- short, ushort
-- int, uint
-- long, ulong
-- float, double
-- DateTime
-```
-
-### Example Configuration Class
-
-```csharp
-public class ServerConfig : ConfiguredBinder
-{
-    public string Host { get; set; } = "localhost";
-    public int Port { get; set; } = 8080;
-    public bool EnableSsl { get; set; } = false;
-    public DateTime StartTime { get; set; } = DateTime.UtcNow;
-    
-    [ConfiguredIgnore]
-    public string RuntimeStatus { get; set; }
+    public string Name { get; set; } = "sample";
+    public int Port { get; set; } = 57206;
 }
 ```
 
-## Configuration File Structure
+Section names are derived from the type name. A class such as `ConnectionHubOptions` maps to the `[ConnectionHubOptions]` section.
 
-The system uses INI file format with sections derived from class names:
+Use `IniCommentAttribute` for readable generated comments and `ConfiguredIgnoreAttribute` for runtime-only properties.
 
-```ini
-[Server]
-Host=localhost
-Port=8080
-EnableSsl=false
-StartTime=2025-03-02T12:59:08Z
-```
-
-## Best Practices
-
-### 1. Configuration Class Design
+### Common operations
 
 ```csharp
-public class DatabaseConfig : ConfiguredBinder
-{
-    // Provide default values
-    public string ConnectionString { get; set; } = "default_connection";
-    
-    // Use ConfiguredIgnore for runtime-only properties
-    [ConfiguredIgnore]
-    public int ActiveConnections { get; set; }
-}
+bool reloaded = ConfigurationManager.Instance.ReloadAll();
+
+bool changed = ConfigurationManager.Instance.SetConfigFilePath(
+    @"E:\config\staging.ini",
+    autoReload: true);
 ```
 
-### 2. Thread-Safe Access
+## InstanceManager
+
+`InstanceManager` is the shared service registry used throughout the Nalix stack.
+
+Use it to:
+
+- register a shared `ILogger`
+- register an `IPacketRegistry`
+- create or retrieve shared singleton-like services such as `TaskManager`
+
+### Basic usage
 
 ```csharp
-public class ConfigurationManager
-{
-    private readonly DatabaseConfig _dbConfig;
-    
-    public ConfigurationManager()
-    {
-        _dbConfig = ConfiguredShared.Instance.Get<DatabaseConfig>();
-    }
-}
+InstanceManager.Instance.Register<ILogger>(logger);
+InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
+
+TaskManager taskManager = InstanceManager.Instance.GetOrCreateInstance<TaskManager>();
 ```
 
-### 3. Handling Configuration Reloads
+### What it actually does
+
+The current runtime implementation provides:
+
+- fast type-based caching
+- optional interface registration when registering a concrete instance
+- activator-based lazy creation
+- disposable tracking for owned instances
+
+## Typical startup pattern
 
 ```csharp
-public class Service
-{
-    public void ReloadConfiguration()
-    {
-        if (ConfiguredShared.Instance.ReloadAll())
-        {
-            // Configuration reloaded successfully
-            OnConfigurationReloaded();
-        }
-    }
-}
+ILogger logger = BuildLogger();
+IPacketRegistry registry = BuildPacketRegistry();
+
+InstanceManager.Instance.Register<ILogger>(logger);
+InstanceManager.Instance.Register<IPacketRegistry>(registry);
+
+NetworkSocketOptions socket = ConfigurationManager.Instance.Get<NetworkSocketOptions>();
+socket.Validate();
 ```
 
-## Performance Considerations
+## Related APIs
 
-1. **Caching**
-   - Configuration containers are cached
-   - Property metadata is cached
-   - Section names are cached
-
-2. **Lazy Loading**
-
-   ```csharp
-   // Configuration is only loaded when accessed
-   private readonly Lazy<ConfiguredIniFile> _iniFile;
-   ```
-
-3. **Thread Synchronization**
-
-   ```csharp
-   // Using ReaderWriterLockSlim for optimal concurrent access
-   private readonly ReaderWriterLockSlim _configLock = 
-       new(LockRecursionPolicy.NoRecursion);
-   ```
-
-## Error Handling
-
-### 1. File System Errors
-
-```csharp
-try
-{
-    var config = ConfiguredShared.Instance.Get<AppConfig>();
-}
-catch (InvalidOperationException ex)
-{
-    // Handle configuration directory creation failure
-}
-```
-
-### 2. Configuration Loading Errors
-
-```csharp
-if (!ConfiguredShared.Instance.ReloadAll())
-{
-    // Handle reload failure
-    // Previous configuration remains active
-}
-```
-
-## Implementation Example
-
-```csharp
-public class ApplicationConfig : ConfiguredBinder
-{
-    public string Environment { get; set; } = "Development";
-    public int MaxThreads { get; set; } = 4;
-    public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
-    
-    [ConfiguredIgnore]
-    public string BuildVersion { get; set; }
-}
-
-public class ConfigurationService : IDisposable
-{
-    private readonly ConfiguredShared _configManager;
-    private readonly ApplicationConfig _appConfig;
-    
-    public ConfigurationService()
-    {
-        _configManager = ConfiguredShared.Instance;
-        _appConfig = _configManager.Get<ApplicationConfig>();
-    }
-    
-    public void Reload()
-    {
-        if (_configManager.ReloadAll())
-        {
-            // Configuration updated
-        }
-    }
-    
-    public void Dispose()
-    {
-        _configManager.Flush();
-        _configManager.Dispose();
-    }
-}
-```
-
-## Thread Safety Considerations
-
-### 1. Reading Configuration
-
-```csharp
-// Thread-safe read access
-public string GetEnvironment()
-{
-    return ConfiguredShared.Instance
-        .Get<ApplicationConfig>()
-        .Environment;
-}
-```
-
-### 2. Reloading Configuration
-
-```csharp
-// Thread-safe reload with lock
-public void ReloadConfig()
-{
-    if (ConfiguredShared.Instance.ReloadAll())
-    {
-        // Configuration reloaded
-        NotifyConfigurationChanged();
-    }
-}
-```
-
-## Cleanup and Disposal
-
-```csharp
-public void Shutdown()
-{
-    var config = ConfiguredShared.Instance;
-    
-    try
-    {
-        // Ensure changes are persisted
-        config.Flush();
-    }
-    finally
-    {
-        // Clean up resources
-        config.Dispose();
-    }
-}
-```
+- [Task Manager](./task-manager.md)
+- [Snowflake](./snowflake.md)
+- [Directories](../common/directories.md)
+- [Network Options](../network/options.md)
+- [Server Blueprint](../../guides/server-blueprint.md)

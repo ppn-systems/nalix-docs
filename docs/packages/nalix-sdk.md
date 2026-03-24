@@ -1,72 +1,79 @@
-# 📦 Nalix.SDK
+# Nalix.SDK
 
-Client transport, helpers, and localization live here.
+`Nalix.SDK` is the client-side transport package for connecting .NET applications to a Nalix server over TCP.
 
-### 🧭 What it provides
-Use the SDK to open sessions and run request-response flows.
+## Core pieces
 
-**Responsibilities**
-- Provide client sessions.
-- Validate transport options.
-- Offer helper extensions for common flows.
-
-**Key Components**
-- `IoTTcpSession`
 - `TcpSession`
+- `IoTTcpSession`
 - `TransportOptions`
-- `ControlExtensions`
-- `RequestExtensions`
+- `RequestOptions`
+- transport extensions such as `ControlExtensions`, `HandshakeExtensions`, `DirectiveClientExtensions`, and `RequestExtensions`
+
+## Sessions
+
+Use `TcpSession` for the normal client runtime. It includes:
+
+- automatic reconnect with backoff
+- heartbeat / keep-alive
+- bandwidth sampling
+- TaskManager-backed receive and monitor loops
+
+Use `IoTTcpSession` when you want a simpler client shape with a serialized connect path and a lighter receive model.
+
+### Quick example
 
 ```csharp
 TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
 options.Address = "127.0.0.1";
 options.Port = 57206;
 
-IoTTcpSession client = new();
+TcpSession client = new();
 await client.ConnectAsync(options.Address, options.Port);
 ```
 
-### 🔁 Request helpers
-Helpers register awaiters before sending packets.
+## Request and control helpers
 
-!!! tip "Flow"
-    PingAsync → confirm RTT → RequestAsync<T> with predicate → auto retry on timeout only.
+The extension layer covers the common client flows:
 
-**Responsibilities**
-- Ping the remote endpoint.
-- Send a request with a typed response.
+- `PingAsync`
+- `RequestAsync<TResponse>(...)`
+- handshake setup
+- directive handling such as throttle, redirect, and notice packets
 
-**Key Components**
-- `ControlExtensions`
-- `RequestExtensions`
-- `RequestOptions`
+### Quick example
 
 ```csharp
-await ControlExtensions.PingAsync(client, CancellationToken.None);
+var pong = await client.PingAsync();
+
+LoginResponse reply = await client.RequestAsync<LoginResponse>(
+    request,
+    RequestOptions.Default.WithTimeout(3_000),
+    r => r.CorrelationId == request.CorrelationId);
 ```
 
-```csharp
-Control ctrl = client.NewControl(3, ControlType.PING).WithSeq(7).Build();
-Control response = await RequestExtensions.RequestAsync<Control>(
-    client,
-    ctrl,
-    RequestOptions.Default,
-    p => p.Type == ControlType.PONG);
-```
+The request helpers subscribe before sending, so they avoid the usual race where the response arrives before the awaiter is ready.
 
-### 🌐 Localization utilities
-Localization and format helpers stay aligned with runtime configuration.
+## Transport options
 
-**Responsibilities**
-- Load localized strings.
-- Apply consistent formats.
+`TransportOptions` belongs to `Nalix.SDK`, even though it is commonly loaded through `ConfigurationManager`.
 
-**Key Components**
+It controls:
+
+- address and port
+- connect timeout
+- reconnect policy
+- keep-alive interval
+- socket tuning
+- max packet size
+- compression and encryption settings
+
+## Localization
+
+The package also includes optional localization utilities such as:
+
 - `Localizer`
 - `MultiLocalizer`
-- `Formats`
+- `PoFile`
 
-```csharp
-string message = Localizer.Get("errors.network.timeout");
-string plural = MultiLocalizer.GetPlural("users.online", 3);
-```
+These are useful when the client package is reused in desktop or device apps that need localized runtime messages.

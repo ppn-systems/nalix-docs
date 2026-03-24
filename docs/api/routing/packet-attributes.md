@@ -5,6 +5,16 @@ You use these attributes to declaratively control **dispatch, security, rate lim
 
 ---
 
+## Source mapping
+
+- `src/Nalix.Common/Networking/PacketControllerAttribute.cs`
+- `src/Nalix.Common/Networking/PacketOpcodeAttribute.cs`
+- `src/Nalix.Common/Networking/PacketPermissionAttribute.cs`
+- `src/Nalix.Common/Networking/PacketConcurrencyLimitAttribute.cs`
+- `src/Nalix.Common/Networking/PacketRateLimitAttribute.cs`
+- `src/Nalix.Common/Networking/PacketEncryptionAttribute.cs`
+- `src/Nalix.Common/Networking/PacketTimeoutAttribute.cs`
+
 ## Overview Table
 
 | Attribute                         |  Used On  | Purpose / Controls                                         |
@@ -18,6 +28,18 @@ You use these attributes to declaratively control **dispatch, security, rate lim
 | `PacketTimeoutAttribute`          | method    | Sets max processing time (ms); triggers fail timeout       |
 
 ---
+
+## Basic usage
+
+```csharp
+[PacketOpcode(0x1802)]
+[PacketPermission(PermissionLevel.USER)]
+[PacketRateLimit(8, burst: 1.5)]
+public static Task HandleAsync(PingRequest packet, IConnection connection)
+{
+    return Task.CompletedTask;
+}
+```
 
 ## Supported Handler Return Types
 
@@ -179,3 +201,10 @@ public class ExampleCtrl
 - Use permission/concurrency/rate/timeout for robust production command protection
 - Encryption required for business-critical/PII
 - Timeout required for potentially long-running tasks (defensive fail)
+
+## Related APIs
+
+- [Packet Metadata](./packet-metadata.md)
+- [Packet Context](./packet-context.md)
+- [Handler Results](./handler-results.md)
+- [Middleware Pipeline](../middleware/pipeline.md)

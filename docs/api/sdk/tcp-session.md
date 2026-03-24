@@ -6,6 +6,13 @@
 - **Base class:** `TcpSessionBase` (abstract)
 - **Derived classes:** `TcpSession`, `IoTTcpSession`
 
+## Source mapping
+
+- `src/Nalix.SDK/Transport/TcpSessionBase.cs`
+- `src/Nalix.SDK/Transport/TcpSession.cs`
+- `src/Nalix.SDK/Transport/IoTTcpSession.cs`
+- `src/Nalix.SDK/Transport/TcpSessionState.cs`
+
 ---
 
 ## Class hierarchy at a glance
@@ -100,3 +107,10 @@ session.Dispose();
 ```
 
 > **Tip:** configure `TransportOptions` (via `ConfigurationManager`) before creating the session, and register an `IPacketRegistry` on `InstanceManager` for packet deserialization.
+
+## Related APIs
+
+- [SDK Overview](./overview.md)
+- [TCP Session Extensions](./tcp-session-extensions.md)
+- [Subscriptions](./subscriptions.md)
+- [Transport Options](./transport-options.md)

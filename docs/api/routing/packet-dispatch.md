@@ -1,153 +1,75 @@
 # Packet Dispatch
 
-The `PacketDispatchChannel` and `PacketDispatchOptions<TPacket>` system is a robust, asynchronous, multi-core event dispatch/handler engine designed for modern .NET network servers (TCP, RELIABLE, IoT, game backends, etc.).  
-It supports DI, full error handling, middleware/microservice-style handler registration, and high-concurrency, zero-leak packet queueing.
+`PacketDispatchChannel` is the main asynchronous dispatch loop for raw network frames. It accepts `IBufferLease` payloads, queues them by connection and packet priority, runs buffer middleware, deserializes `IPacket`, and then invokes the compiled handler pipeline from `PacketDispatcherBase<IPacket>`.
 
----
+## Source mapping
 
-## Key Features
+- `src/Nalix.Network/Routing/PacketDispatchChannel.cs`
+- `src/Nalix.Network/Routing/PacketDispatcherBase.cs`
+- `src/Nalix.Network/Routing/Options/PacketDispatchOptions.cs`
+- `src/Nalix.Network/Routing/Options/PacketDispatchOptions.Execution.cs`
+- `src/Nalix.Network/Routing/Options/PacketDispatchOptions.PublicMethods.cs`
 
-- **Queue-based async dispatch:**  
-  Incoming data/leases are queued for processing, enabling scalable, backpressure-friendly handling (ideal for many-core servers).
+## Runtime model
 
-- **Multi-worker, parallel execution:**  
-  Auto-scales worker loops according to server core count, maxing out at 12 for fairness and cache locality.
+- `_dispatch` is a priority-aware `DispatchChannel<IPacket>`
+- `_semaphore` signals worker loops when leases are available
+- `Activate(...)` starts `DispatchLoopCount` workers, or defaults to `clamp(Environment.ProcessorCount / 2, 1, 12)`
+- `Deactivate(...)` cancels workers and releases the semaphore so blocked loops can exit
 
-- **Handler/Controller registry:**  
-  Simple, attribute-based registration of packet handler methods (controller-style: annotate methods with packet opcodes).
+## Input paths
 
-- **Middleware pipeline:**  
-  Integrates with `MiddlewarePipeline<TPacket>` for inbound/outbound pre/post-processing (validation, security, transform...).
+`HandlePacket(IBufferLease, IConnection)`:
 
-- **Full error mapping & reporting:**  
-  Handler exceptions are mapped to protocol-correct codes/actions; all uncaught exceptions are logged and responded to.
+- rejects empty leases
+- pushes the lease into `_dispatch`
+- releases the semaphore once
 
-- **Diagnostic reporting:**  
-  Provides live, introspectable report string exposing queue depth/state, semaphore counts, handler registry, and more.
+`HandlePacket(IPacket, IConnection)`:
 
----
+- bypasses the queue and directly executes the compiled handler pipeline
 
-## Usage Example
+## Worker loop
 
-!!! tip "Flow"
-    Configure options → register middleware + handlers → `Activate()` → `HandlePacket(...)`.
+Each worker:
 
-### Basic Registration and Activation
+1. waits on `_semaphore`
+2. pulls the next `(connection, lease)` pair from `_dispatch`
+3. runs `Options.NetworkPipeline.ExecuteAsync(...)`
+4. deserializes through `IPacketRegistry.TryDeserialize(...)`
+5. calls `ExecutePacketHandlerAsync(packet, connection)`
+6. disposes the lease
 
-```csharp
-var dispatcher = new PacketDispatchChannel(opts =>
-{
-    opts.WithLogging(myLogger)
-        .WithMiddleware(new MyInboundMiddleware())
-        .WithHandler<MyPacketController>();
-});
+If middleware returns `null`, the packet is dropped before deserialization. If deserialization fails, the dispatcher logs the packet head in hex and drops the lease.
 
-dispatcher.Activate();
-// Now dispatcher.HandlePacket(...) can be called safely from concurrent threads
-```
+## Diagnostics
 
-#### Register Custom Handlers/Controllers
+`GenerateReport()` includes:
 
-```csharp
-public class MyPacketController
-{
-    [PacketOpcode(0x1000)]
-    public async Task OnMove(MyMovePacket packet, IConnection conn) { ... }
+- running state
+- dispatch loop count
+- total pending packets
+- total and ready connection counts
+- pending ready connections per priority
+- top connections by pending packet count
+- semaphore count and cancellation status
+- packet registry type
 
-    [PacketOpcode(0x1001)]
-    public async Task OnChat(MyChatPacket packet, IConnection conn) { ... }
-
-      [PacketOpcode(0x1003)]
-    public async Task OnFly(PacketContext<MyChatPacket> ctx) { ... }
-}
-
-// Registration:
-opts.WithHandler<MyPacketController>();
-```
-
-#### Pushing Packets
+## Basic usage
 
 ```csharp
-dispatcher.HandlePacket(dataLease, connection); // Queues for worker(s)
-// or, if you have a decoded packet:
-dispatcher.HandlePacket(myPacket, connection);  // Executes handler directly
+dispatch.Activate(ct);
+
+await dispatch.HandlePacket(lease, connection);
+
+string report = dispatch.GenerateReport();
+Console.WriteLine(report);
 ```
 
----
+## Related APIs
 
-## Middleware, Error Handling & Logging
-
-!!! tip "Checklist"
-    - Add middleware (security/unwrap)  
-    - Set error handling delegate  
-    - Attach logger before activation
-
-- **Add middleware:** `opts.WithMiddleware(new MySecurityMiddleware());`
-- **Control error handling granularity:**  
-  - Use `WithErrorHandling((ex, opcode) => Logger.Error(...))` for handler-level errors
-  - Use `WithErrorHandlingMiddleware(continueOnError, errorHandler)` for pipeline middleware
-- **Activate logging:**  
-  - `WithLogging(logger)`
-
----
-
-## Handler Resolution / Routing
-
-You can directly resolve handlers:
-
-```csharp
-if (opts.TryResolveHandler(0x1000, out var handler))
-    await handler(packet, connection);
-```
-
----
-
-## Diagnostic Reporting Example
-
-Call `dispatcher.GenerateReport()` for a human-friendly state dump:
-
-```log
-[2026-03-12 13:37:00] PacketDispatchChannel:
-Running: yes | DispatchLoops: 8 | PendingPackets: 179
-------------------------------------------------------------------------------------------------------------------------
-Semaphore.CurrentCount: 2 | CTS.Cancelled: False
-
-DispatchChannel diagnostics (best-effort via reflection):
-  Ready queues (per-priority) - approximate queued connections:
-    NORMAL   :   110
-    HIGH     :    69
-...
-PacketRegistry: MyServer.PacketRegistry
-...
-Notes:
- - semaphore = semaphore (synchronization counter)
- - CTS = CancellationTokenSource
- - pending packets = packets waiting inside dispatch channel
-```
-
----
-
-## Tuning/Scaling
-
-- The channel auto-adjusts worker loop count based on server hardware (no manual tuning required).
-- Each packet type/controller is compiled and cached for handler lookup performance.
-- Use large pools and increase backing queue size for very high-throughput scenarios (see PoolingOptions.md).
-
----
-
-## Best Practices
-
-- Always register handlers **before activating** the dispatcher.
-- For proper shutdown, call `.Deactivate()` and `.Dispose()` cleanly.
-- Use middleware for security (authz, anti-spam, throttling) and cross-cutting (audit, decompress/decrypt, etc).
-- Use `.HandlePacket(lease, conn)` for high-throughput (lease-based) applications; direct packet dispatch only for small/test use.
-
----
-
-## PacketDispatchOptions Deep Dive
-
-- **Network buffer preprocessing:** `PacketDispatchOptions<TPacket>` wires a `NetworkBufferMiddlewarePipeline` that runs frame decryption/decompression before `PacketDispatchChannel` deserializes `IPacket`s, so the dispatcher always sees well-formed packets.
-- **Handler registration & validation:** `WithHandler<TController>()` compiles `[PacketOpcode]` methods, prevents duplicate opcodes, and captures the concrete packet type expected (or notes `PacketContext<TPacket>` handlers). A fast lookup (`_packetTypeMap`) guards against type mismatches; the dispatcher responds with `ControlType.FAIL` instead of crashing on a bad packet.
-- **Execution flow:** `_pipeline.ExecuteAsync` runs inbound middleware before the handler, and `ReturnTypeHandlerFactory` handles outbound packets unless `PacketContext.SkipOutbound` was set. `PacketContext<TPacket>` gives handlers access to `Packet`, `Connection`, attributes, `Sender`, and cancellation.
-- **Error mapping:** Exceptions flow through `_errorHandler`/`MapExceptionToProtocol` and produce protocol-correct replies (`FAIL`, `TIMEOUT`, `NETWORK_ERROR`, etc.). You can inject custom error handling with `WithErrorHandling` or `WithErrorHandlingMiddleware`.
-- **Handler helpers:** `TryResolveHandler(opcode, out handler)` and `TryResolveHandlerDescriptor` let you inspect or call registered handlers directly (useful for diagnostics or ad-hoc dispatch).
+- [Packet Context](./packet-context.md)
+- [Packet Metadata](./packet-metadata.md)
+- [Handler Results](./handler-results.md)
+- [Middleware Pipeline](../middleware/pipeline.md)
+- [Protocol](../network/protocol.md)

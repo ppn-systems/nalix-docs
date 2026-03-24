@@ -1,42 +1,64 @@
-# Network Options Reference
+# Network Options
 
-Condensed guide to the main configuration objects used by Nalix.Network. Load them via `ConfigurationManager` and validate before activation.
+This page summarizes the main `Nalix.Network.Configurations` types that shape listener behavior, dispatch pressure, throttling, compression, idle cleanup, and object pooling.
 
-## NetworkSocketOptions
-- `Port`, `Address`, `Backlog`, `MaxParallelAccepts`
-- `EnableTimeout`, `KeepAlive`, `DualMode`, `ReuseAddress`
-- Buffer sizes for send/receive
+## Source mapping
 
-## PoolingOptions
-- Controls pool sizes for `SocketAsyncEventArgs`, buffers, and context objects.
-- Tune `MaxPoolSize`, `Preallocated`, `SegmentSize` for high connection churn.
+- `src/Nalix.Network/Configurations/NetworkSocketOptions.cs`
+- `src/Nalix.Network/Configurations/PoolingOptions.cs`
+- `src/Nalix.Network/Configurations/DispatchOptions.cs`
+- `src/Nalix.Network/Configurations/ConnectionLimitOptions.cs`
+- `src/Nalix.Network/Configurations/ConnectionHubOptions.cs`
+- `src/Nalix.Network/Configurations/TimingWheelOptions.cs`
+- `src/Nalix.Network/Configurations/NetworkCallbackOptions.cs`
+- `src/Nalix.Network/Configurations/CompressionOptions.cs`
+- `src/Nalix.Network/Configurations/CacheSizeOptions.cs`
+- `src/Nalix.Network/Configurations/TokenBucketOptions.cs`
 
-## DispatchOptions
-- `MiddlewareLimit`, `HandlerLimit`, `Timeout`
-- `WorkerGroup` tags for task scheduling
-- Hooks for metrics/reporting
+## Core option types
 
-## ConnectionLimitOptions
-- Global caps: `MaxConnections`, `MaxConnectionsPerIP`
-- Burst/penalty controls for abusive clients
+| Type | Purpose | Examples |
+|---|---|---|
+| `NetworkSocketOptions` | Listen socket and accept worker tuning. | `Port`, `Backlog`, `MaxParallel`, `KeepAlive`, `ReuseAddress`, `EnableTimeout`, `EnableIPv6` |
+| `PoolingOptions` | Pool capacities and preallocation for listener/dispatch objects. | accept context pool, socket args pool, packet context pool |
+| `DispatchOptions` | Per-connection queue behavior inside dispatch. | `MaxPerConnectionQueue`, `DropPolicy`, `BlockTimeout` |
+| `ConnectionLimitOptions` | Per-endpoint connection caps and burst bans. | concurrent cap, rate window, ban duration, cleanup |
+| `ConnectionHubOptions` | Hub sharding, username rules, broadcast behavior. | `ShardCount`, `MaxConnections`, `DropPolicy`, `BroadcastBatchSize` |
+| `TimingWheelOptions` | Idle connection timeout wheel. | bucket count, tick duration, idle timeout |
+| `NetworkCallbackOptions` | Callback flood protection and pending callback caps. | per-connection and per-IP pending limits |
+| `CompressionOptions` | Frame compression trigger rules. | enable flag, minimum size |
+| `CacheSizeOptions` | Receive-side cache sizes. | incoming buffer depth |
+| `TokenBucketOptions` | Token bucket limiter behavior. | burst capacity, refill, cleanup, sharding |
 
-## TimingWheelOptions
-- Idle timeout wheel for automatic disconnects.
-- `TickDuration`, `SlotCount`, `MaxTimeout` control resolution and memory use.
+## How they are used
 
-## TokenBucketOptions / PolicyRateLimiterOptions / ConcurrencyGateOptions
-- Throttling primitives used by middleware:
-  - Token bucket: `Capacity`, `RefillPerSecond`.
-  - Policy rate: per-rule burst + sustain windows.
-  - Concurrency gate: `MaxConcurrent`, optional queue length.
+- `TcpListenerBase` depends on `NetworkSocketOptions`, `PoolingOptions`, `TimingWheelOptions`, and `ConnectionLimitOptions`.
+- `UdpListenerBase` uses `NetworkSocketOptions`.
+- `ConnectionHub` reads `ConnectionHubOptions`.
+- `PacketDispatchChannel` and routing infrastructure depend on `DispatchOptions`, `NetworkCallbackOptions`, `CompressionOptions`, and pooling-related settings.
+- throttling components consume `TokenBucketOptions` and related limits.
 
-## How to apply
+## Basic usage
+
 ```csharp
-NetworkSocketOptions sock = ConfigurationManager.Instance.Get<NetworkSocketOptions>();
-sock.Validate();
+NetworkSocketOptions socket = ConfigurationManager.Instance.Get<NetworkSocketOptions>();
+socket.Validate();
 
-PoolingOptions pools = ConfigurationManager.Instance.Get<PoolingOptions>();
-DispatchOptions dispatch = ConfigurationManager.Instance.Get<DispatchOptions>();
+PoolingOptions pooling = ConfigurationManager.Instance.Get<PoolingOptions>();
+pooling.Validate();
+
+ConnectionLimitOptions limits = ConfigurationManager.Instance.Get<ConnectionLimitOptions>();
+limits.Validate();
 ```
 
-Start with defaults, measure, then adjust `MaxParallelAccepts`, buffer sizes, and throttling limits based on real traffic.
+## Notes
+
+- Validate options during startup, before activating listeners or dispatchers.
+- `MaxConnections = -1` typically means unlimited where that pattern is used.
+- Timeout-related options only take effect when the owning runtime path enables them, for example `NetworkSocketOptions.EnableTimeout`.
+
+## Related APIs
+
+- [Tcp Listener](./tcp-listener.md)
+- [Connection Hub](./connection-hub.md)
+- [Connection Limiter](../middleware/connection-limiter.md)

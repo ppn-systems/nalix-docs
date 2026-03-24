@@ -1,28 +1,39 @@
-# 📦 Packages Overview
+# Packages Overview
 
-Use these building blocks together or individually depending on your role.
+Use these packages together or separately depending on whether you are building the server, the client, or shared contracts.
+
+!!! info "Version note"
+    Latest verified public package version on 2026-03-24:
+
+    - `Nalix.Network`: `11.8.0`
+    - `Nalix.SDK`: `11.8.0`
 
 | Package | Use it for | Key types |
 | --- | --- | --- |
-| Nalix.SDK | Client sessions, handshakes, ping/request helpers | `IoTTcpSession`, `TransportOptions`, `ControlExtensions`, `RequestExtensions` |
-| Nalix.Network | Listeners, connection hubs, dispatch pipeline | `TcpListenerBase`, `ConnectionHub`, `PacketDispatchChannel`, `PacketDispatchOptions` |
-| Nalix.Common | Shared contracts, packet metadata, middleware | `IPacket`, `IConnection`, `PacketControllerAttribute`, `PacketOpcodeAttribute`, `PacketContext<T>` |
+| Nalix.SDK | Client TCP sessions, request helpers, handshakes, directives | `TcpSession`, `IoTTcpSession`, `TransportOptions`, `RequestOptions` |
+| Nalix.Network | Listeners, connections, dispatch pipeline, server-side throttling | `TcpListenerBase`, `UdpListenerBase`, `ConnectionHub`, `PacketDispatchChannel` |
+| Nalix.Common | Shared contracts, packet attributes, middleware contracts | `IPacket`, `IConnection`, `PacketControllerAttribute`, `PacketOpcodeAttribute` |
 | Nalix.Logging | Structured logging and targets | `NLogix`, `NLogixOptions`, `ILoggerTarget` |
-| Nalix.Framework | Configuration, DI, scheduling, time/IDs | `ConfigurationManager`, `InstanceManager`, `TaskManager`, `TimeSynchronizer`, `Snowflake` |
-| Nalix.Shared | Built-in frames and packet registry | `PacketRegistryFactory`, `PacketRegistry`, `Handshake`, `Control`, `Text256/512/1024` |
+| Nalix.Framework | Configuration, service registry, scheduling, IDs, timing helpers | `ConfigurationManager`, `InstanceManager`, `TaskManager`, `Snowflake`, `Clock` |
+| Nalix.Shared | Built-in frames, packet registry, serializer-adjacent transport types | `PacketRegistryFactory`, `PacketRegistry`, `Handshake`, `Control`, `Text256/512/1024` |
 
-## 🔗 Minimal wiring map
+## Minimal wiring map
 
-- Client-only: `Nalix.SDK` + `Nalix.Common` + `Nalix.Shared`.
-- Server-only: `Nalix.Network` + `Nalix.Common` + `Nalix.Framework` + `Nalix.Shared` (+ `Nalix.Logging` for logs).
-- Full stack: all packages; share one `PacketRegistryFactory` catalog via `InstanceManager`.
+- Client-only: `Nalix.SDK` + `Nalix.Common` + `Nalix.Shared` and optionally `Nalix.Framework` if you want `ConfigurationManager` / `InstanceManager`.
+- Server-only: `Nalix.Network` + `Nalix.Common` + `Nalix.Framework` + `Nalix.Shared`.
+- Full stack: all packages, with one shared packet catalog shape on both sides.
+
+## Quick example
 
 ```mermaid
 flowchart TD
-    SDK[Nalix.SDK] --> Shared[Nalix.Shared]
-    Network[Nalix.Network] --> Shared
-    Shared --> Common[Nalix.Common]
-    Framework[Nalix.Framework] --> Common
-    Logging[Nalix.Logging] --> Common
-    SDK --> Framework
+    SDK["Nalix.SDK"] --> Shared["Nalix.Shared"]
+    SDK --> Common["Nalix.Common"]
+    SDK --> Framework["Nalix.Framework"]
+
+    Network["Nalix.Network"] --> Shared
+    Network --> Common
+    Network --> Framework
+
+    Logging["Nalix.Logging"] --> Common
 ```

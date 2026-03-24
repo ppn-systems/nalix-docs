@@ -1,152 +1,87 @@
-# ConnectionHub — High-Performance, Sharded Connection Manager for .NET Servers
+# Connection Hub
 
-The `ConnectionHub` class provides the central connection tracking and management infrastructure for scalable, modern .NET backends (e.g., multiplayer games, API relays, gateways).
-It combines high-throughput sharding with robust concurrency, bulk ops, username/ID mapping, and stats.
+`ConnectionHub` is the central in-memory registry for live `IConnection` instances in Nalix.Network. It shards connections across multiple dictionaries, keeps username mappings, supports broadcast and forced disconnect flows, and exposes runtime diagnostics.
 
----
+## Source mapping
 
-## Key Features
+- `src/Nalix.Network/Connections/Connection.Hub.cs`
+- `src/Nalix.Network/Connections/Connection.Hub.Statistics.cs`
+- `src/Nalix.Network/Connections/Connection.Hub.EventArgs.cs`
+- `src/Nalix.Network/Configurations/ConnectionHubOptions.cs`
 
-- Checklist:
-    - Sharded connection dictionaries
-    - Username ↔ ID mapping with policies
-    - Anonymous eviction queue
-    - Broadcast helpers (all or predicate)
-    - Drop policy: newest vs oldest
-    - Live report via `GenerateReport`
+## Core design
 
-- **True sharding:**  
-  - All connections are partitioned by ID across multiple dictionaries (per-CPU by default) for fast, lock-free access and O(1) concurrency scaling.
-- **Username/user ID bi-directional map:**  
-  - Efficient and safe handling of username associations, rebinding, and reverse lookups.
-  - Applies regex/trim/length policies (configurable via ConnectionHubOptions) when associating usernames.
-- **Anonymous/evictable queue:**  
-  - Automatic O(1)-amortized eviction of "anonymous" (non-authenticated) connections under connection pressure.
-- **Optimized broadcast:**  
-  - Mass-message all, or subset, of connections with memory-efficient bulk sends or predicate-based targeting.
-- **Eviction/drop policies:**  
-  - Configurable: `DROP_NEWEST` (reject new when at cap) or `DROP_OLDEST` (autoevict oldest anonymous).
-- **Connection info/monitoring:**  
-  - Maintains per-connection stats (bytes sent, uptime, status, algorithm), and exposes live diagnostics/reporting.
-- **Thread-safe, minimal allocations:**  
-  - Carefully uses fast concurrent collections; can scale to tens of thousands of connections.
+- Connections are distributed across internal shards using the connection ID hash.
+- Usernames are tracked in two maps:
+  - `ID -> username`
+  - `username -> ID`
+- Anonymous connections are also queued in FIFO order so `DROP_OLDEST` can evict them efficiently.
+- `Statistics` returns a structured snapshot with connection count, drop policy, shard count, anonymous queue depth, evicted count, and rejected count.
 
----
+## Main operations
 
-## Typical Usage Example
+| Method | Purpose |
+|---|---|
+| `RegisterConnection(connection)` | Adds a connection and subscribes the close event. |
+| `UnregisterConnection(connection)` | Removes the connection, username mapping, and event subscription. |
+| `AssociateUsername(connection, username)` | Applies trim/length/regex rules and stores the username mapping. |
+| `GetConnection(id)` / `GetConnection(username)` | Resolves an active connection. |
+| `ListConnections()` | Returns a snapshot of active connections. |
+| `BroadcastAsync(...)` | Sends to all active connections. |
+| `BroadcastWhereAsync(...)` | Sends to matching connections only. |
+| `ForceClose(endpoint)` | Disconnects all matching connections by address. |
+| `CloseAllConnections(reason)` | Disconnects everything in parallel. |
+| `GenerateReport()` | Returns a runtime summary string. |
 
-Flow: register → (optional) associate username → lookup/broadcast → report.
+## Capacity behavior
+
+When `MaxConnections` is reached:
+
+- `DROP_NEWEST` disconnects the incoming connection and increments rejected count.
+- `DROP_OLDEST` searches the anonymous FIFO for an evictable connection and disconnects it.
+
+In both cases the hub raises `CapacityLimitReached`.
+
+## Broadcast behavior
+
+- `BroadcastBatchSize > 0` enables batched `Task.WhenAll(...)` fan-out.
+- Without batching, the hub partitions the connection list and processes partitions in parallel.
+- `ParallelDisconnectDegree` controls bulk disconnect parallelism.
+
+## Username rules
+
+`AssociateUsername(...)` currently:
+
+- ignores null/whitespace usernames
+- optionally trims according to `TrimUsernames`
+- truncates to `MaxUsernameLength`
+- only accepts `^[a-zA-Z0-9_]+$`
+
+## Diagnostics
+
+`GenerateReport()` includes:
+
+- total, anonymous, and authenticated connection counts
+- evicted and rejected counts
+- shard count and anonymous queue depth
+- configured max connection count and drop policy
+- bytes sent and uptime aggregates
+- per-status and per-algorithm summaries
+- the first 15 active connections with usernames
+
+## Basic usage
 
 ```csharp
-var hub = new ConnectionHub();
+hub.RegisterConnection(connection);
+hub.AssociateUsername(connection, "sample_user");
 
-// Register new connection
-if (hub.RegisterConnection(conn))
-{
-    // connection is now trackable via ID, username, or hub.ListConnections()
-}
-
-// Map a username (post-auth)
-hub.AssociateUsername(conn, "player123");
-
-// Get by ID or username
-var conn1 = hub.GetConnection(someId);
-var conn2 = hub.GetConnection("player123");
-
-// Broadcast to all
-await hub.BroadcastAsync(msg, async (c, m) => await c.SendAsync(m), cancellationToken);
-
-// Force close all for an IP
-hub.ForceClose(new NetworkEndpoint("192.0.2.111"));
-
-// Report & stats
-Console.WriteLine(hub.GenerateReport());
+IConnection? sameConnection = hub.GetConnection(connection.ID);
+await hub.BroadcastAsync(new PingResponse(), ct);
 ```
 
----
+## Related APIs
 
-## Drop/Eviction Policy
-
-- When `MaxConnections` is reached, one of:
-  - Drop newest (refuse new connections)
-  - Drop oldest (evict the oldest anonymous/non-authenticated connections)
-- Automatic queue logic for anonymous connections tracks FIFO order for efficient eviction.
-
----
-
-## Methods Reference
-
-| Method                                              | Description                                                        |
-|-----------------------------------------------------|--------------------------------------------------------------------|
-| `RegisterConnection(connection)`                    | Add a connection, returns bool success                             |
-| `UnregisterConnection(connection)`                  | Remove connection from hub                                         |
-| `AssociateUsername(connection, username)`           | Link a username to conn, updates maps                              |
-| `GetConnection(id)`                                 | Get by connection ID                                               |
-| `GetConnection(username)`                           | Get by associated username                                         |
-| `ListConnections()`                                 | Return all current connections (read-only collection)              |
-| `BroadcastAsync(msg, sendFunc, ct)`                 | Send message to all connections (sharded, batched, parallel)       |
-| `BroadcastWhereAsync(msg, sendFunc, predicate, ct)` | Sends to matching subset                                           |
-| `ForceClose(networkEndpoint)`                       | Disconnect all connections for a given IP/network endpoint         |
-| `CloseAllConnections(reason)`                       | Gracefully disconnect ALL connections                              |
-| `GenerateReport()`                                  | Produces a summary report (stats & per-connection listing)         |
-| `Dispose()`                                         | Cleans up all resources, forcibly disconnects all connections      |
-
-## Events
-
-- `ConnectionUnregistered` is raised after a connection is removed; subscribe to clean up per-connection caches/middleware when the hub drops a client.
-
-
----
-
-## Diagnostics Example
-
-Calling `hub.GenerateReport()` produces a full cluster and connection status summary:
-
-```log
-[2026-03-12 15:35:00] ConnectionHub Status:
-Total Connections    : 1752
-Anonymous Users      : 800
-Authenticated Users  : 952
-Evicted Connections  : 9
-Rejected Connections : 3
-Total Bytes Sent     : 1,234,567
-Average Uptime       : 935s
-Max Connection Time  : 4223s
-Min Connection Time  : 1s
-
-Connection Status Summary:
-Status          | Count
-------------------------
-USER            |   950
-ADMIN           |     2
-GUEST           |   800
-
-Algorithm Summary:
-Algorithm         | Count
--------------------------
-CHACHA20_POLY1305 |   950
-NONE              |   800
-
-Active Connections:
-ID             | Username
--------------------------
-15654513...    | player123
-12341513...    | (anonymous)
-...
-```
-
----
-
-## Best Practices
-
-- Use a **large enough MaxConnections** for your workload, but not so large it causes memory pressure.
-- Assign a **username as soon as auth is complete** for fastest lookups and robust eviction handling.
-- For broadcast-heavy environments, tune `BroadcastBatchSize` as needed.
-- Always call `Dispose()` on shutdown to avoid dangling socket resources.
-- Subscribe to `ConnectionUnregistered` to release per-connection caches or middleware state when a connection leaves the hub.
-
-Checklist:
-- Set `MaxConnections` and `DropPolicy`.
-- Decide username policy (trim/regex) via `ConnectionHubOptions`.
-- Wire `ConnectionUnregistered` for cleanup.
-- Use `GenerateReport()` in monitoring.
+- [Connection](./connection.md)
+- [Connection Events](./connection-events.md)
+- [Connection Hub Options](./connection-hub-options.md)
+- [Network Options](./options.md)

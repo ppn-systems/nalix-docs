@@ -1,9 +1,9 @@
-# 🧠 Middleware Pipeline
+# Middleware Pipeline
 
 This package provides core attributes to control middleware ordering, execution stages, and pipeline-managed transformations in any .NET backend/server using a middleware pipeline (e.g., `MiddlewarePipeline<TPacket>`).  
 These attributes let you concisely control where, when, and how your middleware gets invoked — without manual pipeline wiring.
 
-## ✨ Key Features
+## Key features
 
 !!! tip "Fast scan"
     - Stages: Inbound / Outbound / OutboundAlways  
@@ -14,7 +14,7 @@ These attributes let you concisely control where, when, and how your middleware 
 
 ---
 
-## 🧭 Usage Example
+## Usage example
 
 !!! tip "Flow"
     Register middleware → configure error handling → execute with handler delegate.
@@ -45,7 +45,7 @@ await pipeline.ExecuteAsync(
 
 ---
 
-## 📄 Middleware Implementation Contract
+## Middleware implementation contract
 
 Implement a middleware as below (example: Permission check):
 
@@ -72,7 +72,7 @@ public class PermissionMiddleware : IPacketMiddleware<IPacket>
 
 ---
 
-## 🧩 Attribute-Driven Ordering & Staging
+## Attribute-driven ordering and staging
 
 - **[MiddlewareOrder(N)]**: Set execution order (lower runs first for inbound, last for outbound)
 - **[MiddlewareStage(Inbound|Outbound|Both, AlwaysExecute = ...)]**: Bind to pipeline stages
@@ -81,7 +81,7 @@ Middleware order is automatically resolved and cached for runtime performance.
 
 ---
 
-## 🧰 Supported Middleware Examples
+## Supported middleware examples
 
 !!! tip "Pick a starter set"
     Inbound: `UnwrapPacketMiddleware`, `PermissionMiddleware`, `ConcurrencyMiddleware`, `RateLimitMiddleware`, `TimeoutMiddleware`  
@@ -98,7 +98,7 @@ Middleware order is automatically resolved and cached for runtime performance.
 
 ---
 
-## 🛡️ Error Handling
+## Error handling
 
 !!! tip "Checklist"
     - Decide: continue or abort on exception  
@@ -114,7 +114,7 @@ pipeline.ConfigureErrorHandling(
 
 ---
 
-## 🚀 Extending / Advanced Usage
+## Extending and advanced usage
 
 - Custom middleware ideas: A/B tests, metrics, request shaping, device policies, circuit breakers.
 - `Clear()` + re-register to hot-swap chains.
@@ -122,7 +122,7 @@ pipeline.ConfigureErrorHandling(
 
 ---
 
-## 🏷️ Available Attributes
+## Available attributes
 
 !!! tip "Quick rule"
     - Always set both stage and order.  
@@ -207,7 +207,7 @@ public enum MiddlewareStage : byte
 
 ---
 
-## ✅ Best Practices
+## Best practices
 
 - Always annotate your middleware with both `[MiddlewareOrder]` and `[MiddlewareStage]` for predictable execution.
 - Use negative orders for critical security rules and protocol unwrapping.  
@@ -216,7 +216,7 @@ public enum MiddlewareStage : byte
 
 ---
 
-## 🧪 Example: Complete Custom Middleware
+## Example: complete custom middleware
 
 ```csharp
 [MiddlewareOrder(-50)]
@@ -233,7 +233,7 @@ public class PermissionMiddleware : IPacketMiddleware<IPacket>
 
 ---
 
-## 🧠 CustomAttributes in Metadata
+## Custom attributes in metadata
 
 !!! tip "Flow"
     Define attribute → add via `PacketMetadataBuilder.Add` → read with `GetCustomAttribute<T>()` in middleware/handler.
@@ -244,7 +244,7 @@ The `CustomAttributes` feature allows dynamic extensions of packet metadata to a
 - **Experimental features** without modifying primary metadata structures.
 - Adding **tags or flags** specific to business logic.
 
-### 🔧 How to Use CustomAttributes
+### How to use custom attributes
 
 1. **Add Custom Attribute to the Builder**  
    During metadata creation, use `PacketMetadataBuilder.Add` to add custom attributes dynamically. Example:
@@ -269,7 +269,7 @@ The `CustomAttributes` feature allows dynamic extensions of packet metadata to a
 
 Here’s an end-to-end example demonstrating the definition and usage of `CustomAttributes`:
 
-#### 🪪 Step 1: Define a Custom Attribute  
+#### Step 1: Define a custom attribute
 
 You can define your custom attribute class:
 
@@ -285,7 +285,7 @@ public class PacketTagAttribute : Attribute
 }
 ```
 
-#### 🧷 Step 2: Attach Custom Attributes in Metadata Provider  
+#### Step 2: Attach custom attributes in metadata provider
 
 Use `IPacketMetadataProvider` to assign your custom attributes dynamically for packets:
 
@@ -306,7 +306,7 @@ public class ExampleMetadataProvider : IPacketMetadataProvider
 }
 ```
 
-#### 🔎 Step 3: Retrieve Custom Attributes During Execution  
+#### Step 3: Retrieve custom attributes during execution
 
 Access and process the custom attributes during middleware execution:
 
@@ -341,7 +341,7 @@ public class LogPacketTagMiddleware : IPacketMiddleware<IPacket>
 
 ---
 
-### 🎯 CustomAttributes Use Cases
+### Custom attribute use cases
 
 Here are some practical examples leveraging `CustomAttributes`:
 
@@ -354,7 +354,7 @@ Here are some practical examples leveraging `CustomAttributes`:
 
 ---
 
-### ✅ Best Practices for CustomAttributes
+### Best practices for custom attributes
 
 - Use `CustomAttributes` for extending existing metadata **without breaking core functionality**.
 - Dynamically add attributes using `PacketMetadataBuilder.Add()` in combination with specific `MethodInfo` metadata.

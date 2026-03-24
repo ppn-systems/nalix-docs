@@ -2,6 +2,14 @@
 
 The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`TcpSession` with helpers for protocol control packets, directives, secure handshakes, request/response coordination, throttling safety, and subscription management. The helpers keep receive loops resilient by owning leases and catching handler faults.
 
+## Source mapping
+
+- `src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/DirectiveClientExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/TcpSessionSubscriptions.cs`
+
 ---
 
 ## Key capabilities
@@ -81,3 +89,26 @@ Flow: connect session → perform handshake → optionally handle directives/thr
 - When sending throttled traffic, wrap `SendWithThrottleAsync` around your packets so you never violate server directives.
 - Pin server public keys via `HandshakeAsync(... validateServerPublicKey: ...)` to harden clients against MITM.
 - Use `RequestOptions.WithEncrypt()` only on `TcpSession`/`IoTTcpSession` instances; the base class exposes `SendAsync(packet, encrypt: true)` for encryption-aware transports.
+
+## Example
+
+```csharp
+await session.HandshakeAsync(validateServerPublicKey: key => key.SequenceEqual(expectedKey), ct);
+
+using var sub = session.On<PingResponse>((packet, lease) =>
+{
+    Console.WriteLine("pong received");
+});
+
+PingResponse reply = await session.RequestAsync<PingRequest, PingResponse>(
+    new PingRequest(),
+    RequestOptions.Default.WithTimeout(TimeSpan.FromSeconds(3)),
+    ct);
+```
+
+## Related APIs
+
+- [TCP Session](./tcp-session.md)
+- [Subscriptions](./subscriptions.md)
+- [Request Options](./request-options.md)
+- [Cryptography](../security/cryptography.md)

@@ -1,11 +1,19 @@
 # TaskManager — Powerful Background Task & Scheduling Manager
 
-**TaskManager** provides robust scheduling for background workers and recurring tasks — with advanced features like group limiting, dynamic concurrency, diagnostics, and sophisticated error/backoff handling.  
-It is ideal for distributed background processing, regular polling, periodic health checks, or complex ETL jobs.
+**TaskManager** provides robust scheduling for background workers and recurring tasks, with group limiting, dynamic concurrency, and diagnostics.
+It is a good fit for maintenance loops, polling, health checks, listener-side cleanup, and other long-running application jobs.
 
 - **Namespace:** `Nalix.Framework.Tasks`
 - **Class:** `TaskManager`
 - **Configurable via:** `TaskManagerOptions`, `WorkerOptions`, `RecurringOptions` (set directly or via `ConfigurationManager`)
+
+## Source mapping
+
+- `src/Nalix.Framework/Tasks/TaskManager.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.Names.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.PrivateMethods.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.State.cs`
+- `src/Nalix.Framework/Options/TaskManagerOptions.cs`
 
 ---
 
@@ -241,7 +249,13 @@ Console.WriteLine(tm.GenerateReport());
 
 - All APIs are thread-safe and robust for use in modern .NET apps.
 - Concurrency limits and adaptive throttling make this manager scalable for cloud/server tasks.
-- Configuration can be set in code or by `ConfigurationManager` from ini/json.
+- Configuration can be set in code or loaded through `ConfigurationManager` from INI-backed option classes.
 
 ---
+
+## Related APIs
+
+- [Configuration and DI](./configuration.md)
+- [Worker Options](./worker-options.md)
+- [Recurring Options](./recurring-options.md)
 

@@ -1,8 +1,8 @@
-# 📦 Nalix.Common
+# Nalix.Common
 
 Shared contracts, packet metadata, and middleware primitives.
 
-### 🧭 Core contracts
+### Core contracts
 These contracts keep SDK and server code aligned.
 
 **Responsibilities**
@@ -15,9 +15,11 @@ These contracts keep SDK and server code aligned.
 - `PacketControllerAttribute`
 - `PacketOpcodeAttribute`
 
+### Quick example
+
 ```csharp
-[PacketController("HandshakeHandlers")]
-public class HandshakeHandlers
+[PacketController("SamplePingHandlers")]
+public class SamplePingHandlers
 {
     [PacketOpcode(1)]
     public ValueTask HandlePing(Handshake packet, IConnection connection)
@@ -25,7 +27,7 @@ public class HandshakeHandlers
 }
 ```
 
-### 🧩 Metadata and attributes
+### Metadata and attributes
 Metadata is built once and attached to each context.
 
 **Responsibilities**
@@ -36,11 +38,13 @@ Metadata is built once and attached to each context.
 - `PacketMetadataBuilder`
 - `PacketContext<TPacket>`
 
+### Quick example
+
 ```csharp
-PacketMetadataProviders.Register(new PacketCustomAttributeProvider());
+PacketMetadataProviders.Register(new SampleTenantMetadataProvider());
 ```
 
-### 🛠️ Middleware primitives
+### Middleware primitives
 Middleware runs over packet contexts and can short-circuit outbound flows.
 
 **Responsibilities**
@@ -52,19 +56,21 @@ Middleware runs over packet contexts and can short-circuit outbound flows.
 - `PacketContext<TPacket>`
 - `PacketSender<TPacket>`
 
+### Quick example
+
 ```csharp
-public class CustomMiddleware : IPacketMiddleware<IPacket>
+public sealed class SamplePacketMiddleware : IPacketMiddleware<IPacket>
 {
-    public async ValueTask HandleAsync(
+    public async Task InvokeAsync(
         PacketContext<IPacket> context,
-        Func<CancellationToken, ValueTask> next)
+        Func<CancellationToken, Task> next)
     {
         await next(context.CancellationToken);
     }
 }
 ```
 
-### 🔐 Shared enums
+### Shared enums
 Enums keep policies consistent across the stack.
 
 **Responsibilities**
