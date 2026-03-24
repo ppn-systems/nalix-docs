@@ -26,6 +26,7 @@ Make sure the runtime and config files exist.
 
 !!! note "Default config locations"
     Windows: `C:\ProgramData\Nalix\config\default.ini`  
+
     Linux: `~/.local/share/Nalix/config/default.ini`
 
 ### 📦 Install packages

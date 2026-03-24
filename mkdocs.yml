@@ -13,9 +13,11 @@ extra:
       link: mailto:ppn.system@gmail.com
 
 nav:
-  - Overview: index.md
+  - Overview:
+      - Overview: index.md
+      - Architecture: architecture.md
   - Getting Started:
-      - Introduction: getting-started.md
+      - Introduction: introduction.md
       - Installation: installation.md
   - Your First App: quickstart.md
   - Core Concepts:
@@ -23,11 +25,13 @@ nav:
       - Real-time Engine: concepts/real-time.md
       - Middleware Pipeline: concepts/middleware.md
   - Packages:
+      - Overview: packages/overview.md
       - Nalix.SDK: packages/nalix-sdk.md
       - Nalix.Network: packages/nalix-network.md
       - Nalix.Common: packages/nalix-common.md
       - Nalix.Logging: packages/nalix-logging.md
       - Nalix.Framework: packages/nalix-framework.md
+      - Nalix.Shared: packages/nalix-shared.md
   - API Reference:
       - Overview: api/overview.md
       - Server: api/server.md
@@ -48,13 +52,13 @@ theme:
     code: "Fira Code"
   palette:
     - scheme: default
-      primary: indigo
+      primary: black
       accent: cyan
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - scheme: slate
-      primary: indigo
+      primary: black
       accent: cyan
       toggle:
         icon: material/weather-sunny

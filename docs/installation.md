@@ -80,7 +80,7 @@ TransportOptions: validated (Address=127.0.0.1, Port=57206)
 - `ConfigurationManager`
 - `TransportOptions.Validate()`
 
-```csharp
+```csharp linenums="1"
 TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
 options.Validate();
 ```
