@@ -13,9 +13,7 @@ extra:
       link: mailto:ppn.system@gmail.com
 
 nav:
-  - Overview:
-      - Overview: index.md
-      - Architecture: architecture.md
+  - Overview: index.md
   - Getting Started:
       - Introduction: introduction.md
       - Installation: installation.md
