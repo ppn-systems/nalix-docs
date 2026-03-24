@@ -1,15 +1,25 @@
 # Nalix
 
-Nalix is a high-performance real-time server framework for .NET that puts deterministic networking, low-latency middleware, and secure cryptography under a single, opinionated roof. The framework spans five packages with clearly defined responsibilities so you can compose only what your service needs.
+Nalix is a high-performance real-time server framework for .NET with shared sockets, deterministic middleware, and secure transports.
+Every package is scoped so you can compose only the bits your host, client, or tooling needs.
 
-## Core pillars
+### 🔧 Framework Overview
+A deterministic core stitches together configuration, dependency resolution, and networking so every host and SDK client observes the same timing, serialization, and logging policies.
 
-- **Networking built for thousands of connections** – `TcpListenerBase` orchestrates accept loops, pooled buffers, connection limits, and diagnostics while `ConnectionHub` keeps fast, shard-aware lookup tables for active clients.
-- **Client and host symmetry** – `IoTTcpSession` and `TcpSessionBase` share the same serialization/cipher stack as the server, so your example client behaves like production agents. Helpers such as `RequestExtensions`, `ControlExtensions`, `TransportOptions`, and `RequestOptions` make retries, encryption, and timing predictable.
-- **Programmable middleware** – `PacketDispatchChannel` and `MiddlewarePipeline<TPacket>` run inbound/outbound/outbound-always hooks in order, support logging/mode switches, and tuck error-handling under `PacketContext`.
-- **Framework plumbing** – `InstanceManager`, `TaskManager`, `ConfigurationManager`, and `TimeSynchronizer` provide injection, scheduling, configuration binding, and global clocks for every host.
+**Responsibilities**
+- Keep configuration, randomness, and logging singletons stable through `InstanceManager` and `ConfigurationManager`.
+- Provide a thin SDK surface for clients (`IoTTcpSession`, `TcpSession`) that mirrors the production listener stack (`TcpListenerBase`, `AutoXListener`).
+- Orchestrate packet dispatch, middleware, and handlers with `PacketDispatchChannel`, `PacketContext`, and `PacketSender` so packets carry metadata, encryption state, and connection context.
 
-!!! tip "Plan your surface"
-    Keep the client and server stacks aligned by reusing `PacketRegistry` instances and registering the same metadata providers for `PacketController` handlers. That way the packets your actor reads on the server are identical to those the SDK serializes on the client.
+**Key Components**
+- `InstanceManager` – caches loggers, registries, and schedulers with high-performance pooling.
+- `ConfigurationManager` – watches `default.ini`, validates `TransportOptions`, `NetworkSocketOptions`, and other POCOs, and exposes them via `Get<T>()`.
+- `PacketRegistryFactory` – scans assemblies and builds a lock-free catalog of `IPacket` deserializers used by both listeners and SDK clients.
+- `PacketDispatchChannel` – compiles `[PacketController]` handlers, injects middleware, and streams packets through inbound/outbound/outbound-always stages.
+- `IoTTcpSession` / `TcpListenerBase` – share transports, ciphers, and buffer pools so tests and production behave identically.
 
-Explore the Getting Started page to install the SDK and wire `IoTTcpSession` to your service host, then jump to the Concepts section for architecture and middleware guidance.
+**Flow**
+- Register global services (`ILogger`, `IPacketRegistry`) → build packets with `PacketRegistryFactory.CreateCatalog()` → configure middleware with `PacketDispatchChannel` → start `TcpListenerBase` + `IoTTcpSession`.
+
+!!! tip "Keep registries in sync"
+    Instantiate `PacketRegistryFactory` once and register the same catalog with both your listener and client via `InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry)` so handler metadata, op codes, and cipher negotiations align.

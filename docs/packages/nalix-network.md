@@ -1,56 +1,79 @@
 # Nalix.Network
 
-`Nalix.Network` exposes the server runtime: listeners, connection management, routing, middleware, and protocol hooks. It builds on `Nalix.Common` primitives to accept sockets, policy-check them, and drive `PacketContext` through `PacketDispatchChannel` so your handlers run on a predictable, thread-safe path.
+`Nalix.Network` owns listener loops, connection tracking, middleware dispatch, and protocol glue so every host stays deterministic.
 
-## Highlights
+### 🔧 Networking responsibilities
+Accept sockets, apply socket tuning, and hand packets to the dispatcher while connection hubs enforce limits.
 
-- `TcpListenerBase` configures pools, `NetworkSocketOptions`, connection limits, and a dedicated process channel before passing each `IConnection` to your `Protocol` implementation.
-- `PacketDispatchChannel` wires `PacketMetadataProviders`, inbound/outbound middleware, logging, and error handling, producing `PacketContext<IPacket>` that handler methods consume.
-- `ConnectionHub` shards active connections, exposes `Statistics`, raises `CapacityLimitReached` events, and publishes `ConnectionUnregistered` so you can free resources.
-- `MiddlewarePipeline<TPacket>` runs `IPacketMiddleware` through inbound → handler → outbound → outbound-always stages, with `INetworkBufferMiddleware` for buffer-level instrumentation.
-- Routing helpers (`PacketDispatcherBase`, `PacketDispatcherChannel`, `PacketTransmitter`) keep metadata, channel options, and throttling in sync while maintaining the connection lifecycle.
+**Responsibilities**
+- Run `TcpListenerBase` accept loops via `TaskManager` workers and the `TimingWheel` when `NetworkSocketOptions.EnableTimeout` is true.
+- Store every connection inside `ConnectionHub`, evict anonymous connections, and expose `Statistics` and events for monitoring.
+- Feed inbound packets into `PacketDispatchChannel`, which compiles `[PacketController]` handlers, runs middleware, and replies with `PacketSender<TPacket>`.
 
-## Listener flow
+**Key Components**
+- `TcpListenerBase` – abstract listener that uses `NetworkSocketOptions`, `TaskManager`, and `PacketDispatchChannel`.
+- `ConnectionHub` – sharded dictionaries with `MaxConnections`, `DropPolicy`, and `ParallelDisconnectDegree` configured via `ConnectionHubOptions`.
+- `PacketDispatchChannel` – queue dispatcher started via `Activate()` that owns `PacketDispatchOptions`.
+- `PacketDispatchOptions<TPacket>` – configuration object with methods such as `WithMiddleware`, `WithHandler`, `WithLogging`, and `WithErrorHandling`.
+- `PacketSender<TPacket>` – auto-applies the handler’s encryption/compression metadata to replies.
 
-`TcpListenerBase.ProcessConnection` finalizes accepts by invoking your `IProtocol` and recording diagnostics, which is why every handler runs on a fully-configured `IConnection`.
+**Flow**
+- `TcpListenerBase` accepts → `ConnectionHub.RegisterConnection` stores the connection → `PacketDispatchChannel.HandlePacket` enqueues the packet → middleware runs → handler executes → `PacketSender` replies.
 
 ```csharp
-protected void ProcessConnection(IConnection connection)
+public PacketDispatchOptions<TPacket> WithMiddleware([System.Diagnostics.CodeAnalysis.NotNull] IPacketMiddleware<TPacket> middleware)
 {
-    try
-    {
-        _protocol.OnAccept(connection, _cancellationToken);
-        _metrics.RECORD_ACCEPTED();
-        s_logger?.Trace($"[NW.{nameof(TcpListenerBase)}:{nameof(ProcessConnection)}] new={connection?.NetworkEndpoint}");
-    }
-    catch (System.Exception ex)
-    {
-        s_logger?.Error($"[NW.{nameof(TcpListenerBase)}:{nameof(ProcessConnection)}] process-error={connection?.NetworkEndpoint}", ex);
-        connection.Close();
-    }
+    System.ArgumentNullException.ThrowIfNull(middleware);
+
+    this.Logging?.Debug($"[NW.{nameof(PacketDispatchOptions<>)}:{nameof(WithMiddleware)}] middleware-added type={middleware.GetType().Name}");
+
+    _pipeline.Use(middleware);
+
+    return this;
 }
 ```
 
-!!! tip
-    The snippet above is taken verbatim from `src/Nalix.Network/Listeners/TcpListener/TcpListener.Handle.cs`, so you can trace how connections move from sockets into your protocol.
+### 🔧 Protocol contracts
+Protocols and metadata providers keep the dispatcher, handlers, and middleware in sync.
 
-### Server wiring example
+**Responsibilities**
+- Implement `IProtocol` to plug into `TcpListenerBase` (for example `AutoXProtocol`) to validate connections, log events, and call `PacketDispatchChannel`.
+- Register `PacketMetadataProviders` so handler attributes (e.g., `PacketCustomAttribute`) populate `PacketMetadataBuilder`.
+- Pool `PacketContext<TPacket>` instances so `Packet`, `Connection`, `PacketMetadata`, and `PacketSender` stay on-stack.
+
+**Key Components**
+- `AutoXProtocol` – sample `Protocol` that logs accept events and calls `s_Dispatch.HandlePacket`.
+- `PacketMetadataProviders` – static registry for `IPacketMetadataProvider` implementations.
+- `PacketContext<TPacket>` – pooled context with `Initialize`/`Reset` methods that load metadata and a `PacketSender<TPacket>`.
+- `PacketDispatchChannel.HandlePacket(IBufferLease, IConnection)` – core entry point used by protocols and listeners.
+
+**Flow**
+- `Protocol.ProcessMessage` receives a lease → call `PacketDispatchChannel.HandlePacket(lease, connection)` → dispatcher builds `PacketContext` → middleware/handler executes → lease disposed.
 
 ```csharp
-PacketDispatchChannel channel = new(dispatchOptions =>
+internal void Initialize(
+    [System.Diagnostics.CodeAnalysis.MaybeNull] TPacket packet,
+    [System.Diagnostics.CodeAnalysis.MaybeNull] IConnection connection,
+    [System.Diagnostics.CodeAnalysis.MaybeNull] PacketMetadata descriptor,
+    [System.Diagnostics.CodeAnalysis.MaybeNull] System.Threading.CancellationToken token = default)
 {
-    dispatchOptions.WithMiddleware(new TimeoutMiddleware());
-    dispatchOptions.WithHandler(() => new PingHandlers());
-    dispatchOptions.WithLogging(InstanceManager.Instance.GetExistingInstance<ILogger>());
-});
+    _ = System.Threading.Interlocked.Exchange(
+        ref _state,
+        (System.Int32)PacketContextState.IN_USE);
 
-AutoXProtocol protocol = new(channel);
-AutoXListener listener = new(protocol);
+    this.Packet = packet;
+    this.Connection = connection;
+    this.Attributes = descriptor;
+    this.CancellationToken = token;
+    this.Sender = s_object.Get<PacketSender<TPacket>>();
+    if (this.Sender is null)
+    {
+        throw new System.InvalidOperationException($"[{nameof(PacketContext<TPacket>)}] object pool returned null {nameof(PacketSender<TPacket>)}");
+    }
 
-channel.Activate();
-listener.Activate();
+    _isInitialized = true;
+}
 ```
 
-The listener is a lightweight subclass of `TcpListenerBase` (`AutoXListener`) that plugs an `IProtocol` such as `AutoXProtocol`. The protocol registers handlers via `PacketDispatchChannel` and records connections in `ConnectionHub`.
-
-Always register `IPacketRegistry` and `ILogger` before activating channels or listeners to ensure metadata-driven handlers resolve correctly.
+!!! note "Metadata provider"
+    `PacketMetadataProviders.Register()` can accept any `IPacketMetadataProvider` (example: `PacketCustomAttributeProvider`) so middleware or handlers can inspect custom attributes via `PacketContext<TPacket>.Attributes.CustomAttributes`.

@@ -1,19 +1,55 @@
 # 🛠 Client Connection
 
-## Create a client
+Connect the SDK client, measure latency, and keep the handshake secret in sync with the listener.
+
+### 🔧 Client connection flow
+Register singletons, connect via `IoTTcpSession`, and send a `Handshake` so both sides share secrets.
+
+**Responsibilities**
+- Register `ILogger` and `IPacketRegistry` before creating the client so the transport resolves dependencies.
+- Configure `TransportOptions` (address, port, cipher, reconnection) via `ConfigurationManager`.
+- Use `Handshake`/`Csprng` to prove the client and listener share the same secret.
+
+**Key Components**
+- `IoTTcpSession` / `TcpSession` – validate options, manage heartbeats, and expose lifecycle events.
+- `Handshake` – `PacketBase` used by examples to share 32-byte secrets and report `MagicNumber`.
+- `ControlExtensions.PingAsync` – measure RTT and optionally sync clocks via `Clock.SynchronizeTime`.
+- `RequestExtensions.RequestAsync<TRequest, TResponse>` – built-in request-response flow.
+
+**Flow**
+- Register `ILogger` + `IPacketRegistry` → set `TransportOptions` → `TcpSession.ConnectAsync(address, port)` → send `Handshake`.
 
 ```csharp
 InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
-PacketRegistry clientRegistry = new PacketRegistryFactory().CreateCatalog();
-InstanceManager.Instance.Register<IPacketRegistry>(clientRegistry);
+PacketRegistry packetRegistry = new PacketRegistryFactory().CreateCatalog();
+InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
 
-IoTTcpSession client = new();
-await client.ConnectAsync("127.0.0.1", 12345);
+TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
+options.Address = "127.0.0.1";
+options.Port = 57206;
+
+Handshake handshake = new(0, Csprng.GetBytes(32));
+
+TcpSession client = new();
+await client.ConnectAsync(options.Address, options.Port);
+await client.SendAsync(handshake.Serialize());
 ```
 
-`IoTTcpSession` validates `TransportOptions`, wires `PacketRegistry`, and exposes `OnMessageReceived`/`OnDisconnected`/`OnReconnected`. Use `RequestExtensions.RequestAsync` and `ControlExtensions.PingAsync` to simplify request-response flows or latency checks.
+### 🔧 Resilience and events
+Listen for `OnMessageReceived`, `OnDisconnected`, and `OnReconnected` while honoring reconnection and event leases.
 
-## Message handling
+**Responsibilities**
+- Handle pooled leases from `OnMessageReceived` and dispose them when finished.
+- Use `OnDisconnected` / `OnReconnected` to alert your UI or retry logic.
+- Respect `TransportOptions.ReconnectEnabled` / `ReconnectMaxAttempts` settings so clients automatically retry.
+
+**Key Components**
+- `IoTTcpSession.OnMessageReceived` – raises events with pooled `Lease<TPacket>` instances.
+- `IoTTcpSession.OnDisconnected` / `OnReconnected` – notify when the transport loses or regains connectivity.
+- `RequestExtensions` / `ControlExtensions` – keep RTT in sync and allow request-response flows with timeouts.
+
+**Flow**
+- Subscribe to events → dispose leases after processing (`lease.Dispose()`) → rely on `TransportOptions` for retries → call `RequestExtensions` or `ControlExtensions` once stable.
 
 ```csharp
 client.OnMessageReceived += (sender, lease) =>
@@ -21,7 +57,7 @@ client.OnMessageReceived += (sender, lease) =>
     try
     {
         Console.WriteLine($"Message {lease.Packet.SequenceId} received");
-        // Handle the packet; lease will be disposed automatically after the handler returns
+        // handle packet
     }
     finally
     {
@@ -30,12 +66,5 @@ client.OnMessageReceived += (sender, lease) =>
 };
 ```
 
-You can also register typed handlers by subclassing `PacketController` classes and using the same `PacketDispatchChannel` logic on the server side to keep serialization in sync.
-
-## Resilience
-
-- `TransportOptions.ReconnectEnabled` enables automatic reconnects; `IoTTcpSession.OnReconnected` notifies you when the link returns.
-- `RequestOptions.WithRetry` lets you issue idempotent requests with tight `TimeoutMs` windows. Retries are only triggered on `TimeoutException` so fatal errors bubble immediately.
-
-!!! note
-    Register `ILogger` and `IPacketRegistry` before any session is created. The SDK resolves them from `InstanceManager`, so pumping `ConnectAsync` before registration causes `InvalidOperationException`.
+!!! note "Retry logic"
+    `TransportOptions.ReconnectEnabled = true` plus `ReconnectMaxAttempts` let `IoTTcpSession` stay online. The override in `TransportOptions` defaults (retries unlimited) so manual logic rarely needs to change.

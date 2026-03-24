@@ -1,12 +1,41 @@
 # 🧠 Architecture
 
-Nalix is composed of discrete layers that communicate through well-defined contracts: configuration, networking, middleware, logging, and orchestration. Each layer is packaged so teams can keep builds small and only reference the assemblies they need.
+Nalix's layers share contracts so a client, listener, logger, and scheduler all race through the same serialization, configuration, and middleware code paths.
 
-- **Platform plumbing** – `InstanceManager` resolves shared singletons (`ILogger`, `PacketRegistry`, `TaskManager`, `TimeSynchronizer`) so every package accesses a consistent clock, scheduler, and dependency graph.
-- **Configuration** – `ConfigurationManager` binds `TransportOptions`, `NetworkSocketOptions`, `TaskManagerOptions`, and other POCOs, then validates them before the host or client starts.
-- **Networking core** – `TcpListenerBase` accepts sockets, applies socket tuning from `NetworkSocketOptions`, wires `ConnectionLimiter`/`TimingWheel`, and turns each accept into a `Connection` that triggers an `IProtocol` implementation such as `AutoXProtocol`.
-- **Middleware & dispatch** – `PacketDispatchChannel` runs each `PacketContext` through `MiddlewarePipeline<TPacket>` (inbound, outbound, outbound-always) and finally executes attribute-safe handlers like `PingHandlers`.
-- **Client layer** – `TcpSessionBase`/`IoTTcpSession` expose connection events, send `IPacket` frames with compression/encryption, and surface helpers such as `RequestExtensions` and `ControlExtensions` for ping/pong and request-response workloads.
+### 🔧 Layered contracts
+Each assembly owns a pillar: configuration & DI, networking, middleware, logging, or orchestration.
 
-!!! tip "Start with the examples"
-    The `example/Nalix.Network.Examples` and `example/Nalix.SDK.Examples` projects demonstrate this architecture end-to-end. Use them as a template for new listeners, protocols, and clients so you don’t miss critical wiring (logger registration, packet metadata, and connection hub tracking).
+**Responsibilities**
+- Keep configuration in `default.ini` so `ConfigurationManager` hands deterministic options to every package.
+- Serialize packets once via `PacketRegistryFactory` and share the catalog through `InstanceManager`.
+- Let `PacketDispatchChannel` run middleware, compile `[PacketController]` handlers, and return responses with `PacketSender`.
+
+**Key Components**
+- `ConfigurationManager` – binds options, debounces file watchers, and exposes `Get<T>()` for `TransportOptions`, `NetworkSocketOptions`, `TaskManagerOptions`, and `NLogixOptions`.
+- `InstanceManager` – caches singletons (`ILogger`, `IPacketRegistry`, `TaskManager`, `TimeSynchronizer`) with low-allocation activators.
+- `PacketRegistryFactory` – scans assemblies for `IPacket`/`PacketDeserializer` pairs and builds a fast catalog.
+- `PacketDispatchChannel` / `MiddlewarePipeline<TPacket>` – run inbound/outbound/outbound-always middleware and compiled handlers such as `PingHandlers`.
+- `IoTTcpSession` / `TcpListenerBase` – share the same buffers, ciphers, and diagnostics so clients and listeners behave identically.
+
+**Flow**
+- Load `default.ini` → register shared services (`ILogger`, `IPacketRegistry`) → configure middleware + handlers → start `TcpListenerBase` and `IoTTcpSession`.
+
+### 🔧 Execution stack
+The runtime fanout is `InstanceManager` → `TaskManager` → listener/dispatcher/handlers.
+
+**Responsibilities**
+- Keep a single `TaskManager` so listener accept loops, dispatch loops, and recurring jobs share the same concurrency limits.
+- Route every accepted socket into `ConnectionHub` so `ConnectionLimiter`, `DropPolicy`, and username lookup are centralized.
+- Synchronize time across connections with `TimeSynchronizer` and `Clock.UnixMillisecondsNow`.
+
+**Key Components**
+- `TaskManager` – schedules worker tasks, monitors CPU thresholds, enforces `MaxWorkers`, and exposes `ScheduleWorker()`/`CancelWorker()`.
+- `ConnectionHub` – shards connections, evicts anonymous clients when `MaxConnections` or `DropPolicy` triggers, and exposes `Statistics`.
+- `TimeSynchronizer` – keeps clocks aligned so `ControlExtensions.PingAsync` can expose RTT and optionally call `Clock.SynchronizeTime`.
+- `PacketContext<TPacket>` – pooled context that carries `Packet`, `IConnection`, `PacketMetadata`, and a pooled `PacketSender<TPacket>`.
+
+**Flow**
+- `PacketDispatchChannel` queues packets → `PacketContext` initializes with metadata → middleware runs → compiled handler executes → `PacketSender` applies the right `CipherSuiteType`.
+
+!!! tip "Use the examples"
+    Open `example/Nalix.Network.Examples/Program.cs` and `example/Nalix.SDK.Examples/Program.cs` to see how they register the logger, catalog, metadata provider, and listener/client in a single `Main` entry point.

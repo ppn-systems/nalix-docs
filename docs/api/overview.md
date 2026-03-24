@@ -1,20 +1,69 @@
 # 🔌 API Overview
 
-## Server surface
+Nalix exposes server, client, and shared contracts so listeners and SDKs stay deterministic.
 
-- `TcpListenerBase` sets up accept loops, configures `NetworkSocketOptions`, and hands each `IConnection` to an `IProtocol` implementation such as `AutoXProtocol`.
-- `IProtocol` exposes hooks (`OnAccept`, `ProcessMessage`, `PostProcessMessage`, `ValidateConnection`) so you can plug custom validation, authorization, and dispatch.
-- `PacketDispatchChannel` builds `PacketContext<IPacket>` objects, runs registered `IPacketMiddleware<TPacket>`, and resolves `[PacketController]` handlers via `PacketMetadataProviders`.
-- `PacketDispatcherBase`, `PacketContext`, and `PacketSender` work together to retry, log, and respond to packets with the correct `CipherSuiteType` and `PermissionLevel`.
+### 🔧 Server APIs
+Listeners rely on `TcpListenerBase`, `ConnectionHub`, and `PacketDispatchChannel` to accept sockets and run middleware + handlers.
 
-## Client surface
+**Responsibilities**
+- Accept sockets with `TcpListenerBase` and tune them using `NetworkSocketOptions`.
+- Register connections in `ConnectionHub`, enforce `DropPolicy`, and emit `ConnectionHubEventArgs`.
+- Route received data through `PacketDispatchChannel`, `PacketContext`, and compiled handlers.
 
-- `TcpSessionBase`/`IoTTcpSession` expose `ConnectAsync`, `SendAsync`, `OnMessageReceived`, `OnDisconnected`, and `OnReconnected` events; they rely on `TransportOptions` for heartbeats, reconnection, and ciphers.
-- `RequestExtensions.RequestAsync<TRequest, TResponse>` sends a request packet and awaits a matching response, while `ControlExtensions.PingAsync` measures RTT and keeps clocks synchronized via `Clock.SynchronizeTime`.
-- `TransportOptions` configures buffer sizes, compression flags, and encryption; `RequestOptions` adds fluent `WithTimeout`, `WithRetry`, and `WithEncrypt` helpers.
+**Key Components**
+- `TcpListenerBase` – host that consumes `IProtocol`, schedules accept workers via `TaskManager`, and invokes `GenerateReport()`.
+- `PacketDispatchChannel` – queue dispatcher configured with `PacketDispatchOptions` that calls `WithMiddleware`, `WithHandler`, and `WithLogging`.
+- `PacketDispatchOptions<TPacket>` – methods such as `WithMiddleware`, `WithHandler`, and `WithErrorHandling` control how packets progress.
+- `IProtocol` – interface for custom protocols (see `AutoXProtocol`) with hooks `OnAccept`, `ProcessMessage`, and `ValidateConnection`.
+- `PacketContext<TPacket>` + `PacketSender<TPacket>` – pooled helpers passed to middleware and handlers for replies.
 
-## Core contracts
+**Flow**
+- `TcpListenerBase` accepts → `ConnectionHub.RegisterConnection` stores the connection → `Protocol.ProcessMessage` calls `PacketDispatchChannel.HandlePacket(...)` → middleware/handlers execute → replies send via `PacketSender`.
 
-- `IConnection` defines IDs, ping time, bytes transferred, secrets, and permission levels. `ConnectionHub` keeps sharded dictionaries for fast lookup and exposes `Statistics`.
-- `IPacketMiddleware<TPacket>` and `MiddlewarePipeline<TPacket>` power both client and server middleware stages (inbound/outbound/outbound-always).
-- `IConnectionHub`, `IListener`, `IProtocol`, and `INetworkEndpoint` connect the listener, dispatcher, and connection implementations so you can test each tier independently.
+```csharp
+public void HandlePacket(
+    [System.Diagnostics.CodeAnalysis.MaybeNull] IBufferLease lease,
+    [System.Diagnostics.CodeAnalysis.NotNull] IConnection connection)
+{
+    Logging?.Debug($"[{nameof(PacketDispatchChannel)}:{nameof(HandlePacket)}] empty-payload ep={connection.NetworkEndpoint}");
+    lease?.Dispose();
+}
+```
+
+### 🔧 Client APIs
+SDK transports reuse the same `TransportOptions`, `Handshake`, and request helpers so clients behave like listeners.
+
+**Responsibilities**
+- Validate `TransportOptions` and `RequestOptions` before `IoTTcpSession.ConnectAsync`.
+- Surface `OnMessageReceived`, `OnDisconnected`, and `OnReconnected` events with pooled leases.
+- Offer helpers (`ControlExtensions`, `RequestExtensions`) for ping/pong and request-response flows.
+
+**Key Components**
+- `TcpSessionBase` / `IoTTcpSession` – enforce options, manage heartbeats, and serialize packets with pooling.
+- `TransportOptions` – controls address, port, buffer size, compression, and `CipherSuiteType`.
+- `Handshake` – `PacketBase` used by SDK examples to share secrets (`Csprng.GetBytes(32)`).
+- `RequestExtensions` / `ControlExtensions` – extensions that register predicates, send packets, and optionally call `Clock.SynchronizeTime`.
+
+**Flow**
+- Register `ILogger`/`IPacketRegistry` → configure `TransportOptions` → call `IoTTcpSession.ConnectAsync()` → `ControlExtensions.PingAsync()` or `RequestExtensions.RequestAsync()` for latency/response flows.
+
+### 🔧 Shared contracts
+Shared interfaces and metadata keep middleware, listeners, and SDK clients aligned.
+
+**Responsibilities**
+- Define `IPacket`, `IConnection`, and handler attributes so `PacketDispatchChannel` can discover and execute methods.
+- Provide metadata (`PacketMetadata`, `PacketMetadataBuilder`) via `PacketMetadataProviders`.
+- Offer pooled contexts and senders to keep middleware zero-allocation.
+
+**Key Components**
+- `IPacket` / `IConnection` – fundamental wire contracts with IDs, permission levels, and encryption secrets.
+- `PacketControllerAttribute` / `PacketOpcodeAttribute` – markers discovered by `PacketDispatchOptions.WithHandler`.
+- `PacketMetadataProviders` – register `IPacketMetadataProvider` to add custom attributes (see `PacketCustomAttributeProvider`).
+- `PacketContext<TPacket>` – pooled object with `Initialize(...)`, `SkipOutbound`, and `Sender`.
+- `PacketSender<TPacket>` – ensures replies honor the handler’s cipher/compression metadata.
+
+**Flow**
+- Handler method decorated with `[PacketController]` & `[PacketOpcode]` → `PacketMetadataProviders` populate metadata → `PacketContext` initializes → handler executes → `PacketSender` replies.
+
+!!! warning "Register metadata + logger"
+    Every dispatcher requires `InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance)` and `IPacketRegistry` before `PacketDispatchChannel` starts; otherwise `PacketDispatchChannel` throws `InvalidOperationException`.

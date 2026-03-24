@@ -61,12 +61,20 @@ plugins:
 
 markdown_extensions:
   - admonition
+  - pymdownx.details
   - attr_list
-  - codehilite:
-      guess_lang: false
+  - pymdownx.highlight:
+      anchor_linenums: true
+      pygments_lang_class: true
+      line_spans: __span
   - toc:
       permalink: true
   - pymdownx.superfences
   - pymdownx.inlinehilite
   - pymdownx.betterem:
       smart_enable: all
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_css:
+  - stylesheets/extra.css
