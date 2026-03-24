@@ -25,6 +25,41 @@ await client.SendAsync(handshake.Serialize());
 
 This example mirrors `example/Nalix.SDK.Examples`: normalize the registry, register the logger, then use the SDK transports to open a socket and send a serialized `Handshake` frame.
 
+## Request helpers
+
+`RequestExtensions.RequestAsync<TRequest, TResponse>` combines the subscribe/send/await cycle so you never miss a response. The method registers the predicate before sending, applies timeout+retry semantics, and delegates the race-free wait to `PACKET_AWAITER`.
+
+```csharp
+public static System.Threading.Tasks.Task<TResponse> RequestAsync<TRequest, TResponse>(
+    this IClientConnection client,
+    TRequest request,
+    System.Func<TResponse, System.Boolean> predicate,
+    System.Int32 timeoutMs = 5000,
+    System.Threading.CancellationToken ct = default)
+    where TRequest : class, IPacket
+    where TResponse : class, IPacket
+{
+    System.ArgumentNullException.ThrowIfNull(client);
+    System.ArgumentNullException.ThrowIfNull(request);
+    System.ArgumentNullException.ThrowIfNull(predicate);
+
+    if (!client.IsConnected)
+    {
+        throw new System.InvalidOperationException("Client is not connected.");
+    }
+
+    return PACKET_AWAITER.AwaitAsync(
+        client,
+        predicate,
+        timeoutMs,
+        sendAsync: token => client.SendAsync(request, token),
+        ct);
+}
+```
+
+!!! tip
+    The snippet above is directly from `src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs`, so you can follow the source if you need to customize the awaiter or add new overloads.
+
 ## Localization
 
 - `Localizer` loads PO catalogs and exposes `Get`, `GetParticular`, `GetPlural`, and `GetParticularPlural` so you can resolve contextualized strings.

@@ -10,6 +10,30 @@
 - `MiddlewarePipeline<TPacket>` runs `IPacketMiddleware` through inbound → handler → outbound → outbound-always stages, with `INetworkBufferMiddleware` for buffer-level instrumentation.
 - Routing helpers (`PacketDispatcherBase`, `PacketDispatcherChannel`, `PacketTransmitter`) keep metadata, channel options, and throttling in sync while maintaining the connection lifecycle.
 
+## Listener flow
+
+`TcpListenerBase.ProcessConnection` finalizes accepts by invoking your `IProtocol` and recording diagnostics, which is why every handler runs on a fully-configured `IConnection`.
+
+```csharp
+protected void ProcessConnection(IConnection connection)
+{
+    try
+    {
+        _protocol.OnAccept(connection, _cancellationToken);
+        _metrics.RECORD_ACCEPTED();
+        s_logger?.Trace($"[NW.{nameof(TcpListenerBase)}:{nameof(ProcessConnection)}] new={connection?.NetworkEndpoint}");
+    }
+    catch (System.Exception ex)
+    {
+        s_logger?.Error($"[NW.{nameof(TcpListenerBase)}:{nameof(ProcessConnection)}] process-error={connection?.NetworkEndpoint}", ex);
+        connection.Close();
+    }
+}
+```
+
+!!! tip
+    The snippet above is taken verbatim from `src/Nalix.Network/Listeners/TcpListener/TcpListener.Handle.cs`, so you can trace how connections move from sockets into your protocol.
+
 ### Server wiring example
 
 ```csharp
