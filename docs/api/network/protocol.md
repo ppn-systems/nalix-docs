@@ -1,4 +1,4 @@
-# Protocol
+# Protocol Base Library — Abstract Network Protocol Framework for .NET
 
 The `Protocol` class forms the core of a flexible, pluggable network protocol system—used as a base for all server protocol logic in your TCP service stack.  
 It is designed to separate message routing, session and connection lifecycle, metrics, and error management, making it easy to compose complex server protocols for modern production networking.
@@ -6,13 +6,6 @@ It is designed to separate message routing, session and connection lifecycle, me
 ---
 
 ## Features
-
-- Checklist
-    - Accept/reject connections (`SetConnectionAcceptance`, `ValidateConnection`)
-    - Main loop: `ProcessMessage`
-    - Post hook: `OnPostProcess`
-    - Error hook: `OnConnectionError`
-    - Metrics: `TotalMessages`, `TotalErrors`, `GenerateReport`
 
 - **Abstracts protocol flow:** Standardizes how protocols handle new connections, message processing, cleanup, and errors.
 - **Safe, reusable**: Always thread-safe (all state/control is internally atomic).
@@ -25,8 +18,6 @@ It is designed to separate message routing, session and connection lifecycle, me
 ---
 
 ## Typical Usage
-
-Flow: derive protocol → implement `ProcessMessage` (+ optional hooks) → plug into listener → `Activate()`.
 
 Sub-class `Protocol` to implement your business logic:
 
@@ -103,12 +94,6 @@ Keep Connections Open   : False
 - **Graceful Error Handling:** Use `OnConnectionError` or override `PostProcessMessage` for custom session clean-ups or business error handling.
 - **Metrics & Maintenance:** Use `SetConnectionAcceptance(false)` for maintenance, keep accepting-state visible to orchestration.
 - **Auto-Close:** Set `KeepConnectionOpen = false` to auto-disconnect connections unless you need long-lived sessions.
-
-Checklist:
-- Implement `ProcessMessage`.
-- Optional: `ValidateConnection`, `OnPostProcess`, `OnConnectionError`.
-- Use `SetConnectionAcceptance` for maintenance windows.
-- Use `GenerateReport()` for diagnostics.
 
 ---
 

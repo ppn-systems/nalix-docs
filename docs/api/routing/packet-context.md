@@ -1,4 +1,4 @@
-# PacketContext
+# Packet Context
 
 `PacketContext<TPacket>` is the object passed into packet handlers. It holds the current packet, connection, metadata, cancellation, and a sender that applies encryption/compression according to handler attributes.
 

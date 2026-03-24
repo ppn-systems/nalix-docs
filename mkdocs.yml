@@ -22,6 +22,10 @@ nav:
       - Architecture: concepts/architecture.md
       - Real-time Engine: concepts/real-time.md
       - Middleware Pipeline: concepts/middleware.md
+  - Guides:
+      - End-to-End Sample: guides/end-to-end.md
+      - Middleware Recipes: guides/middleware.md
+      - Troubleshooting: guides/troubleshooting.md
   - Packages:
       - Overview: packages/overview.md
       - Nalix.SDK: packages/nalix-sdk.md
@@ -31,6 +35,9 @@ nav:
       - Nalix.Framework: packages/nalix-framework.md
       - Nalix.Shared: packages/nalix-shared.md
   - API Reference:
+      - Framework:
+        - Configuration & DI: api/framework/configuration.md
+        - Task Manager: api/framework/task-manager.md
       - SDK:
         - Overview: api/sdk/overview.md
         - TCP: api/sdk/tcp-session.md
@@ -44,11 +51,15 @@ nav:
         - Protocol: api/network/protocol.md
         - Connection: api/network/connection.md
         - Connection Hub: api/network/connection-hub.md
+        - Tcp Listener: api/network/listener.md
+        - Network Options: api/network/options.md
       - Middleware:
         - Connection: api/middleware/connection-limiter.md
         - Concurrency: api/middleware/concurrency-gate.md
         - Policy Rate: api/middleware/policy-rate-limiter.md
         - Token Bucket: api/middleware/token-bucket-limiter.md
+      - Logging: api/logging/index.md
+      - Cryptography: api/security/cryptography.md
 
 theme:
   name: material

@@ -1,6 +1,6 @@
 # 🚀 Getting Started
 
-Start with configuration and shared services before opening any sockets.
+Start with configuration and shared services before opening any sockets.  
 This keeps listener and client behavior aligned.
 
 ### ✅ Environment checklist
@@ -25,9 +25,36 @@ Make sure the runtime and config files exist.
 - `NetworkSocketOptions`
 
 !!! note "Default config locations"
-    Windows: `C:\ProgramData\Nalix\config\default.ini`  
+    **Windows**  
+    `C:\ProgramData\Nalix\config\default.ini`  
 
-    Linux: `~/.local/share/Nalix/config/default.ini`
+    **Linux / macOS**  
+    `~/.local/share/Nalix/config/default.ini`
+
+    **Docker / Container**  
+    `/config/default.ini`
+
+!!! info "Container behavior"
+    When running inside a container, Nalix automatically uses:
+
+    - `/config` for configuration  
+    - `/data` for application data  
+    - `/logs` for logs  
+
+    unless overridden via environment variables.
+
+!!! tip "Override via environment variables"
+    You can override paths using:
+
+    ```bash
+    NALIX_CONFIG_PATH=/config
+    NALIX_DATA_PATH=/data
+    NALIX_LOGS_PATH=/logs
+    NALIX_STORAGE_PATH=/storage
+    NALIX_DB_PATH=/db
+    ```
+
+---
 
 ### 📦 Install packages
 
@@ -121,4 +148,25 @@ TcpSession client = new();
 await client.ConnectAsync(options.Address, options.Port);
 Handshake handshake = new(0, options.Secret);
 await client.SendAsync(handshake.Serialize());
+```
+
+
+### 🐳 Example: Docker Compose
+
+Run Nalix with mounted config and persistent storage.
+
+```yaml
+services:
+  nalix:
+    image: your-image
+    ports:
+      - "57206:57206"
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - ./logs:/logs
+    environment:
+      - NALIX_CONFIG_PATH=/config
+      - NALIX_DATA_PATH=/data
+      - NALIX_LOGS_PATH=/logs
 ```
