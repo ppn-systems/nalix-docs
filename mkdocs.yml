@@ -1,0 +1,72 @@
+site_name: Nalix Documentation
+site_description: High-performance real-time server framework for .NET
+site_url: https://nalix.example.com/docs
+
+nav:
+  - Home: index.md
+  - 🚀 Getting Started:
+    - Getting Started: getting-started.md
+    - Installation: installation.md
+  - ⚡ Quick Start: quickstart.md
+  - 🧠 Concepts:
+    - Architecture: concepts/architecture.md
+    - Real-time Engine: concepts/real-time.md
+    - Middleware Pipeline: concepts/middleware.md
+  - 📦 Packages:
+    - Nalix.SDK: packages/nalix-sdk.md
+    - Nalix.Network: packages/nalix-network.md
+    - Nalix.Common: packages/nalix-common.md
+    - Nalix.Logging: packages/nalix-logging.md
+    - Nalix.Framework: packages/nalix-framework.md
+  - 🔌 API:
+    - Overview: api/overview.md
+  - 🛠 Guides:
+    - Basic Server: guides/basic-server.md
+    - Client Connection: guides/client-connection.md
+
+theme:
+  name: material
+  language: en
+  logo: assets/nalix.png
+  favicon: assets/nalix.ico
+  font:
+    text: Inter
+    code: "Fira Code"
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.instant
+    - header.sticky
+    - navigation.expand
+    - search.highlight
+    - content.action.edit
+    - content.tabs
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - codehilite:
+      guess_lang: false
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.betterem:
+      smart_enable: all
