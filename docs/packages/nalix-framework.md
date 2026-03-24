@@ -2,7 +2,7 @@
 
 Configuration, service registry, scheduling, and time synchronization.
 
-### 🔧 Instance management
+### 🛠️ Instance management
 Use a single registry for shared services.
 
 **Responsibilities**
@@ -20,7 +20,7 @@ IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
 InstanceManager.Instance.Register(catalog);
 ```
 
-### 🔧 Configuration management
+### ⚙️ Configuration management
 Configuration is loaded from `default.ini`.
 
 **Responsibilities**
@@ -37,7 +37,7 @@ TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>()
 NetworkSocketOptions socket = ConfigurationManager.Instance.Get<NetworkSocketOptions>();
 ```
 
-### 🔧 Scheduling and workers
+### ⏱️ Scheduling and workers
 Task scheduling is centralized to keep background work consistent.
 
 **Responsibilities**
@@ -53,7 +53,7 @@ TaskManager manager = InstanceManager.Instance.GetOrCreateInstance<TaskManager>(
 WorkerOptions worker = new();
 ```
 
-### 🔧 Time and IDs
+### ⏲️ Time and IDs
 Nalix includes time synchronization and ID generation utilities.
 
 **Responsibilities**

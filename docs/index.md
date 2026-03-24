@@ -3,7 +3,7 @@
 Nalix is a high-performance real-time server framework for .NET.
 It keeps server and client stacks aligned so packets, middleware, and ciphers behave the same everywhere.
 
-### 🔧 Framework at a glance
+### 🧭 Framework at a glance
 Nalix centers on shared configuration, shared packet catalogs, and a deterministic dispatch pipeline.
 
 **Responsibilities**
@@ -20,7 +20,7 @@ Nalix centers on shared configuration, shared packet catalogs, and a determinist
 **Flow**
 - Load options -> register shared services -> build packet catalog -> activate channel + listener.
 
-### 🔧 Shared runtime services
+### 🛠️ Shared runtime services
 Register services once so every part of the stack uses the same instances.
 
 **Responsibilities**
@@ -37,7 +37,7 @@ IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
 InstanceManager.Instance.Register(catalog);
 ```
 
-### 🔧 Packet catalog
+### 📚 Packet catalog
 The catalog binds op codes to packet types and deserializers.
 
 **Responsibilities**
@@ -57,7 +57,7 @@ InstanceManager.Instance.Register(registry);
 !!! tip "Keep catalogs aligned"
     Always reuse the same catalog instance in both the listener and SDK to keep op codes and metadata consistent.
 
-### 🔧 Dispatch pipeline
+### 🔁 Dispatch pipeline
 The channel compiles handlers and applies middleware to every packet.
 
 **Responsibilities**

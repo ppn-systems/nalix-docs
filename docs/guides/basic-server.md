@@ -2,7 +2,7 @@
 
 Build a minimal listener with middleware and one handler.
 
-### 🔧 Register services
+### 🛠️ Register services
 Register logging and the packet catalog first.
 
 **Responsibilities**
@@ -19,7 +19,7 @@ IPacketRegistry registry = new PacketRegistryFactory().CreateCatalog();
 InstanceManager.Instance.Register(registry);
 ```
 
-### 🔧 Register metadata
+### 🧠 Register metadata
 Enable attribute-based metadata before adding handlers.
 
 **Responsibilities**
@@ -33,8 +33,11 @@ Enable attribute-based metadata before adding handlers.
 PacketMetadataProviders.Register(new PacketCustomAttributeProvider());
 ```
 
-### 🔧 Configure dispatcher
+### ⚙️ Configure dispatcher
 Attach middleware and handlers to the dispatch channel.
+
+!!! tip "Flow"
+    Register services → Add middleware → Add handler → Activate channel → Activate listener.
 
 **Responsibilities**
 - Add middleware.
@@ -52,7 +55,7 @@ PacketDispatchChannel channel = new(options =>
 });
 ```
 
-### 🔧 Start listener
+### 🏗️ Start listener
 Derive a protocol and listener, then activate both.
 
 **Responsibilities**
@@ -84,7 +87,7 @@ channel.Activate();
 listener.Activate();
 ```
 
-### 🔧 Add a handler
+### 🧩 Add a handler
 Handlers respond using the connection context.
 
 **Responsibilities**

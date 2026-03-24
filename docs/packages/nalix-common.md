@@ -2,7 +2,7 @@
 
 Shared contracts, packet metadata, and middleware primitives.
 
-### 🔧 Core contracts
+### 🧭 Core contracts
 These contracts keep SDK and server code aligned.
 
 **Responsibilities**
@@ -25,7 +25,7 @@ public class HandshakeHandlers
 }
 ```
 
-### 🔧 Metadata and attributes
+### 🧩 Metadata and attributes
 Metadata is built once and attached to each context.
 
 **Responsibilities**
@@ -40,7 +40,7 @@ Metadata is built once and attached to each context.
 PacketMetadataProviders.Register(new PacketCustomAttributeProvider());
 ```
 
-### 🔧 Middleware primitives
+### 🛠️ Middleware primitives
 Middleware runs over packet contexts and can short-circuit outbound flows.
 
 **Responsibilities**
@@ -64,7 +64,7 @@ public class CustomMiddleware : IPacketMiddleware<IPacket>
 }
 ```
 
-### 🔧 Shared enums
+### 🔐 Shared enums
 Enums keep policies consistent across the stack.
 
 **Responsibilities**

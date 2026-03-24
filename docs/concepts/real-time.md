@@ -2,7 +2,7 @@
 
 Nalix uses shared sessions and packet catalogs to keep traffic consistent across clients and servers.
 
-### 🔧 Connection lifecycle
+### 🔌 Connection lifecycle
 Connections go from handshake to steady-state messaging.
 
 **Responsibilities**
@@ -25,7 +25,7 @@ Handshake handshake = new(0, Csprng.GetBytes(32));
 await client.SendAsync(handshake.Serialize());
 ```
 
-### 🔧 Message delivery
+### 📤 Message delivery
 Handlers send replies using the same connection context.
 
 **Responsibilities**
@@ -42,7 +42,7 @@ public ValueTask HandlePing(Handshake packet, IConnection connection)
     => connection.SendAsync(packet);
 ```
 
-### 🔧 Request-response helpers
+### 🔁 Request-response helpers
 The SDK provides helpers for ping and request flows.
 
 **Responsibilities**

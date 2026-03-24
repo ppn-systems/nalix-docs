@@ -2,7 +2,7 @@
 
 SDK-side contracts for connecting, sending handshakes, and running request flows.
 
-### 🔧 Connect sessions
+### 🔌 Connect sessions
 Clients connect with validated transport options.
 
 **Responsibilities**
@@ -20,7 +20,7 @@ IoTTcpSession client = new();
 await client.ConnectAsync(options.Address, options.Port);
 ```
 
-### 🔧 Handshake exchange
+### 🤝 Handshake exchange
 Send a handshake to align secrets and protocol flags.
 
 **Responsibilities**
@@ -36,7 +36,7 @@ Handshake handshake = new(0, Csprng.GetBytes(32));
 await client.SendAsync(handshake.Serialize());
 ```
 
-### 🔧 Request helpers
+### 🔁 Request helpers
 Use helpers that register awaiters before sending packets.
 
 **Responsibilities**
@@ -65,7 +65,7 @@ Control request = client.NewControl(4, ControlType.CUSTOM).Build();
 Control reply = await RequestExtensions.RequestAsync<Control>(client, request, options);
 ```
 
-### 🔧 Events and leases
+### 🔔 Events and leases
 Subscribe to session events and dispose leases.
 
 **Responsibilities**

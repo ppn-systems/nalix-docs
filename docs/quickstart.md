@@ -1,19 +1,35 @@
 # ⚡ Quick Start
 
-Spin up a listener and a client with the same catalog, middleware, and cipher settings.
+Spin up a minimal listener + client, prove the handshake, and send a ping.
 
-### 🔧 Server setup
-Create a dispatch channel, a protocol that forwards to the channel, and a listener derived from `TcpListenerBase`.
+### 🛰️ Flow overview
 
-**Responsibilities**
-- Register `ILogger` and `IPacketRegistry`.
-- Configure middleware and handlers.
-- Activate the channel and listener.
+- One catalog, one dispatcher, one listener.
+- One client handshake, one ping/pong.
 
-**Key Components**
-- `PacketDispatchChannel`
-- `Protocol` (derived)
-- `TcpListenerBase` (derived)
+```mermaid
+flowchart LR
+    A[Register services] --> B[Build dispatch channel]
+    B --> C[Protocol routes frames]
+    C --> D[Listener accepts sockets]
+    D --> E[Client connects + handshake]
+    E --> F[Ping/Pong via ControlExtensions]
+```
+
+!!! tip "Checklist"
+    - Register `ILogger` and `IPacketRegistry` once.  
+    - Attach middleware and a handler.  
+    - Derive `Protocol` + `TcpListenerBase` to bridge sockets into the dispatcher.  
+    - Connect the client, send `Handshake`, then `PingAsync`.
+
+### 🏗️ Listener setup
+
+Derive a protocol and listener that forward frames into the dispatch channel.
+
+**Do this**
+- Register shared services.
+- Add middleware + handler.
+- Derive `Protocol` and `TcpListenerBase`.
 
 ```csharp
 InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
@@ -46,71 +62,54 @@ channel.Activate();
 listener.Activate();
 ```
 
-### 🔧 Add middleware
-Use middleware to guard packets and record telemetry.
-
-**Responsibilities**
-- Enforce timeouts.
-- Inspect attributes and metadata.
-
-**Key Components**
-- `TimeoutMiddleware`
-- `CustomMiddleware`
-- `PacketContext<TPacket>`
-
-```csharp
-PacketDispatchChannel channel = new(options =>
-{
-    options.WithMiddleware(new TimeoutMiddleware());
-    options.WithMiddleware(new CustomMiddleware());
-});
+**Expected output**
+```
+[NW.TcpListenerBase] port=57206 state=Running backlog=512
+Dispatch: middleware=2 handlers=1
 ```
 
-### 🔧 Add handlers
-Handlers use `[PacketController]` and `[PacketOpcode]`.
+### 🧩 Handler example
 
-**Responsibilities**
-- Group handlers by controller.
-- Implement per-opcode methods.
-
-**Key Components**
-- `[PacketController]`
-- `[PacketOpcode]`
-- `PacketContext<TPacket>`
+Handlers are discovered via attributes and run inside the dispatch pipeline.
 
 ```csharp
 [PacketController("HandshakeHandlers")]
 public class HandshakeHandlers
 {
     [PacketOpcode(1)]
-    public ValueTask HandlePing(Handshake packet, IConnection connection)
+    public ValueTask Handle(Handshake packet, IConnection connection)
         => connection.SendAsync(packet);
 }
 ```
 
-### 🔧 Client connect
-Open a session and send a handshake.
+### 🤝 Client handshake
 
-**Responsibilities**
-- Load `TransportOptions`.
-- Send the `Handshake`.
-
-**Key Components**
-- `IoTTcpSession`
-- `Handshake`
-- `Csprng`
+Connect with the SDK and prove both sides share the same secret.
 
 ```csharp
 TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
 options.Address = "127.0.0.1";
 options.Port = 57206;
 
-Handshake handshake = new(0, Csprng.GetBytes(32));
-
 IoTTcpSession client = new();
 await client.ConnectAsync(options.Address, options.Port);
+
+Handshake handshake = new(0, Csprng.GetBytes(32));
 await client.SendAsync(handshake.Serialize());
 ```
 
-!!! tip "Ping helpers"
-    Use `ControlExtensions.PingAsync` or `RequestExtensions.RequestAsync` to test request-response flows after the session is live.
+### 🔁 Ping and request
+Use SDK helpers that register awaiters before sending.
+
+```csharp
+await ControlExtensions.PingAsync(client, CancellationToken.None);
+```
+
+```csharp
+Control ctrl = client.NewControl(3, ControlType.PING).WithSeq(42).Build();
+Control pong = await RequestExtensions.RequestAsync<Control>(
+    client,
+    ctrl,
+    RequestOptions.Default,
+    p => p.Type == ControlType.PONG);
+```

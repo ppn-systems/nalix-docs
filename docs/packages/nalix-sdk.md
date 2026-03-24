@@ -2,7 +2,7 @@
 
 Client transport, helpers, and localization live here.
 
-### 🔧 What it provides
+### 🧭 What it provides
 Use the SDK to open sessions and run request-response flows.
 
 **Responsibilities**
@@ -26,8 +26,11 @@ IoTTcpSession client = new();
 await client.ConnectAsync(options.Address, options.Port);
 ```
 
-### 🔧 Request helpers
+### 🔁 Request helpers
 Helpers register awaiters before sending packets.
+
+!!! tip "Flow"
+    PingAsync → confirm RTT → RequestAsync<T> with predicate → auto retry on timeout only.
 
 **Responsibilities**
 - Ping the remote endpoint.
@@ -51,7 +54,7 @@ Control response = await RequestExtensions.RequestAsync<Control>(
     p => p.Type == ControlType.PONG);
 ```
 
-### 🔧 Localization utilities
+### 🌐 Localization utilities
 Localization and format helpers stay aligned with runtime configuration.
 
 **Responsibilities**

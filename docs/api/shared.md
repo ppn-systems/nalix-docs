@@ -2,7 +2,7 @@
 
 Interfaces and attributes that both listener and SDK rely on.
 
-### 🔧 Packets and connections
+### 📦 Packets and connections
 Common interfaces define how packets and connections behave.
 
 **Responsibilities**
@@ -19,7 +19,7 @@ IPacketRegistry catalog = new PacketRegistryFactory().CreateCatalog();
 InstanceManager.Instance.Register(catalog);
 ```
 
-### 🔧 Handler discovery
+### 🧭 Handler discovery
 Attributes mark controller classes and opcode methods.
 
 **Responsibilities**
@@ -40,7 +40,7 @@ public class HandshakeHandlers
 }
 ```
 
-### 🔧 Context and sender
+### 🛠️ Context and sender
 Packet contexts carry metadata through middleware and handlers.
 
 **Responsibilities**
@@ -56,7 +56,7 @@ PacketContext<IPacket> context = new();
 context.Initialize(packet, connection, metadata);
 ```
 
-### 🔧 Metadata providers
+### 🧠 Metadata providers
 Providers enrich metadata for middleware and handlers.
 
 **Responsibilities**

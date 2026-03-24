@@ -2,7 +2,7 @@
 
 Middleware runs in a strict order and can inspect metadata before handlers execute.
 
-### 🔧 Pipeline order
+### 🧭 Pipeline order
 Inbound middleware runs before handlers, outbound after.
 
 **Responsibilities**
@@ -17,7 +17,7 @@ Inbound middleware runs before handlers, outbound after.
 **Flow**
 - Inbound middleware -> handler -> outbound middleware -> `PacketSender`.
 
-### 🔧 Register middleware
+### 🛠️ Register middleware
 Attach middleware when you build the dispatch channel.
 
 **Responsibilities**
@@ -35,7 +35,7 @@ PacketDispatchChannel channel = new(options =>
 });
 ```
 
-### 🔧 Read packet metadata
+### 🧩 Read packet metadata
 Middleware can read attributes attached to a packet or controller.
 
 **Responsibilities**
@@ -52,7 +52,7 @@ PacketCustomAttribute? attribute = context.Attributes.CustomAttributes
     .FirstOrDefault();
 ```
 
-### 🔧 Error handling
+### 🚧 Error handling
 Capture middleware and handler exceptions in one place.
 
 **Responsibilities**

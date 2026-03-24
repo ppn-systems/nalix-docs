@@ -2,8 +2,11 @@
 
 Listener loops, connection hubs, and dispatch glue live here.
 
-### 🔧 Listener runtime
+### 🏗️ Listener runtime
 Listeners derive from `TcpListenerBase` and push frames to the dispatcher.
+
+!!! tip "Flow"
+    Accept socket → ConnectionHub stores → Protocol routes → Dispatch channel runs middleware/handlers.
 
 **Responsibilities**
 - Accept sockets.
@@ -40,7 +43,7 @@ DemoListener listener = new(57206, protocol);
 listener.Activate();
 ```
 
-### 🔧 Connection tracking
+### 📊 Connection tracking
 Connection hubs store active connections and enforce limits.
 
 **Responsibilities**
@@ -55,7 +58,7 @@ Connection hubs store active connections and enforce limits.
 ConnectionHubOptions hubOptions = ConfigurationManager.Instance.Get<ConnectionHubOptions>();
 ```
 
-### 🔧 Protocol contracts
+### 🔌 Protocol contracts
 Protocols translate raw buffers into packets and dispatch them.
 
 **Responsibilities**
@@ -77,7 +80,7 @@ sealed class DemoProtocol : Protocol
 }
 ```
 
-### 🔧 Metadata providers
+### 🧩 Metadata providers
 Metadata providers enable attribute-driven behavior.
 
 **Responsibilities**

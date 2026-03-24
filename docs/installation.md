@@ -2,8 +2,11 @@
 
 Install only the packages you need and keep configuration in `default.ini`.
 
-### 🔧 Client install
+### 🧳 Client install
 Use the SDK when you only need client transport and helpers.
+
+!!! tip "Client flow"
+    `dotnet add package Nalix.SDK` → keep shared packet assemblies referenced → validate `TransportOptions`.
 
 **Responsibilities**
 - Add the SDK package.
@@ -17,8 +20,11 @@ Use the SDK when you only need client transport and helpers.
 dotnet add package Nalix.SDK
 ```
 
-### 🔧 Server install
+### 🏗️ Server install
 Add hosting packages when you build a listener or gateway.
+
+!!! tip "Server flow"
+    Add packages → add logging if needed → ensure `Nalix.Shared` stays referenced with packets.
 
 **Responsibilities**
 - Add networking and framework packages.
@@ -37,7 +43,7 @@ dotnet add package Nalix.Logging
 dotnet add package Nalix.Common
 ```
 
-### 🔧 Configure options
+### ⚙️ Configure options
 Create `default.ini` and place it in the Nalix config directory.
 
 **Responsibilities**
@@ -58,8 +64,13 @@ ConnectTimeoutMillis=7000
 MaxPacketSize=65536
 ```
 
-### 🔧 Validate options at startup
+### ✅ Validate options at startup
 Run validation before opening sockets.
+
+**Output to expect**
+```
+TransportOptions: validated (Address=127.0.0.1, Port=57206)
+```
 
 **Responsibilities**
 - Load the options.

@@ -2,7 +2,7 @@
 
 Connect, handshake, and run a simple request flow.
 
-### 🔧 Prepare options
+### 🧭 Prepare options
 Load options before creating the session.
 
 **Responsibilities**
@@ -19,8 +19,11 @@ options.Address = "127.0.0.1";
 options.Port = 57206;
 ```
 
-### 🔧 Connect and handshake
+### 🤝 Connect and handshake
 Open a session and send the shared secret.
+
+!!! tip "Flow"
+    Get `TransportOptions` → Connect → Send `Handshake` → Ping → RequestAsync.
 
 **Responsibilities**
 - Connect the session.
@@ -39,7 +42,7 @@ Handshake handshake = new(0, Csprng.GetBytes(32));
 await client.SendAsync(handshake.Serialize());
 ```
 
-### 🔧 Ping the server
+### 🔔 Ping the server
 Use control helpers to verify latency.
 
 **Responsibilities**
@@ -53,7 +56,7 @@ Use control helpers to verify latency.
 await ControlExtensions.PingAsync(client, CancellationToken.None);
 ```
 
-### 🔧 Request-response
+### 🔁 Request-response
 Send a request and wait for a typed response.
 
 **Responsibilities**

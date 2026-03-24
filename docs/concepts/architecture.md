@@ -2,8 +2,11 @@
 
 Nalix separates configuration, packet metadata, dispatch, and transport into clear layers.
 
-### 🔧 High-level layout
+### 🧭 High-level layout
 Each layer has a single job so shared behavior stays deterministic.
+
+!!! tip "Flow"
+    Config → Registry → Dispatch → Middleware → Handlers → Sender.
 
 **Responsibilities**
 - Load configuration and logging once.
@@ -25,7 +28,7 @@ flowchart LR
     Handlers --> Sender["PacketSender"]
 ```
 
-### 🔧 Configuration layer
+### ⚙️ Configuration layer
 Configuration is loaded once and shared everywhere.
 
 **Responsibilities**
@@ -42,7 +45,7 @@ TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>()
 options.Validate();
 ```
 
-### 🔧 Metadata and registry layer
+### 🧩 Metadata and registry layer
 Metadata providers build the catalog used by dispatch and serialization.
 
 **Responsibilities**
@@ -60,7 +63,7 @@ IPacketRegistry registry = new PacketRegistryFactory().CreateCatalog();
 InstanceManager.Instance.Register(registry);
 ```
 
-### 🔧 Dispatch layer
+### 🔁 Dispatch layer
 Dispatch is deterministic and middleware-driven.
 
 **Responsibilities**

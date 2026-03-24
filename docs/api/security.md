@@ -2,7 +2,7 @@
 
 Cipher choices, backpressure policies, and validation options.
 
-### 🔧 Cipher suites
+### 🔐 Cipher suites
 Choose a suite that both client and listener support.
 
 **Responsibilities**
@@ -18,7 +18,7 @@ TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>()
 options.Algorithm = CipherSuiteType.CHACHA20_POLY1305;
 ```
 
-### 🔧 Drop policies
+### ⚖️ Drop policies
 Control what happens when queues are full.
 
 **Responsibilities**
@@ -34,7 +34,7 @@ ConnectionHubOptions hub = ConfigurationManager.Instance.Get<ConnectionHubOption
 hub.DropPolicy = DropPolicy.DROP_OLDEST;
 ```
 
-### 🔧 Timeouts and limits
+### ⏱️ Timeouts and limits
 Use options to cap connect time and packet sizes.
 
 **Responsibilities**

@@ -2,7 +2,7 @@
 
 Listener-side contracts for accepting connections and dispatching packets.
 
-### 🔧 Accept and dispatch
+### 🏗️ Accept and dispatch
 Listeners accept sockets and push frames to the dispatcher.
 
 **Responsibilities**
@@ -40,7 +40,7 @@ DemoListener listener = new(57206, protocol);
 listener.Activate();
 ```
 
-### 🔧 Dispatch configuration
+### ⚙️ Dispatch configuration
 Configure middleware, handlers, and logging on the channel.
 
 **Responsibilities**
@@ -64,7 +64,7 @@ PacketDispatchChannel channel = new(options =>
 });
 ```
 
-### 🔧 Handler registration
+### 🧩 Handler registration
 Handlers are discovered from attributes on controller classes.
 
 **Responsibilities**
@@ -83,7 +83,7 @@ PacketDispatchChannel channel = new(options =>
 });
 ```
 
-### 🔧 Metadata providers
+### 🧠 Metadata providers
 Attach custom metadata for middleware and handlers.
 
 **Responsibilities**
