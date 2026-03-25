@@ -1,13 +1,9 @@
 # Nalix.Common
 
-Shared contracts, packet metadata, and middleware primitives.
+Shared contracts, packet metadata, and middleware primitives used across SDK and server code.
 
 ### Core contracts
 These contracts keep SDK and server code aligned.
-
-**Responsibilities**
-- Define packet and connection contracts.
-- Provide handler attributes.
 
 **Key Components**
 - `IPacket`
@@ -28,11 +24,7 @@ public class SamplePingHandlers
 ```
 
 ### Metadata and attributes
-Metadata is built once and attached to each context.
-
-**Responsibilities**
-- Build metadata during handler registration.
-- Expose attributes through `PacketContext`.
+Metadata is built once during handler registration and later exposed through `PacketContext`.
 
 **Key Components**
 - `PacketMetadataBuilder`
@@ -46,10 +38,6 @@ PacketMetadataProviders.Register(new SampleTenantMetadataProvider());
 
 ### Middleware primitives
 Middleware runs over packet contexts and can short-circuit outbound flows.
-
-**Responsibilities**
-- Run inbound/outbound middleware.
-- Allow `SkipOutbound` when needed.
 
 **Key Components**
 - `IPacketMiddleware<TPacket>`
@@ -73,9 +61,14 @@ public sealed class SamplePacketMiddleware : IPacketMiddleware<IPacket>
 ### Shared enums
 Enums keep policies consistent across the stack.
 
-**Responsibilities**
-- Describe cipher and drop behavior.
-
 **Key Components**
 - `CipherSuiteType`
 - `DropPolicy`
+
+## Key API pages
+
+- [Packet Contracts](../api/common/packet-contracts.md)
+- [Connection Contracts](../api/common/connection-contracts.md)
+- [Packet Attributes](../api/routing/packet-attributes.md)
+- [Packet Metadata](../api/routing/packet-metadata.md)
+- [Concurrency Contracts](../api/common/concurrency-contracts.md)

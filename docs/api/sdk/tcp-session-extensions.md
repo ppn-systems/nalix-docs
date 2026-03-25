@@ -37,6 +37,17 @@ The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`Tcp
 - `SendControlAsync` materializes the builder, applies any extra configuration, and transmits the CONTROL frame.
 - All helpers use `PACKET_AWAITER` to avoid races and to ensure timeouts/reconnects are handled uniformly.
 
+### Example
+
+```csharp
+Control pong = await session.AwaitControlAsync(
+    c => c.Type == ControlType.PONG,
+    timeoutMs: 3000,
+    ct);
+
+var (rttMs, _) = await session.PingAsync(timeoutMs: 3000, ct: ct);
+```
+
 ---
 
 ## Handshake (HandshakeExtensions)
@@ -46,6 +57,16 @@ The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`Tcp
 - Sensitive material (private key + shared secret) is zeroed when the handshake completes or fails.
 - A temporary subscription (`SubscribeTemp`) ensures the handshake response is captured without leaking listeners or leases.
 
+### Example
+
+```csharp
+bool ok = await session.HandshakeAsync(
+    opCode: 1,
+    timeoutMs: 5000,
+    validateServerPublicKey: key => key.SequenceEqual(expectedKey),
+    ct: ct);
+```
+
 ---
 
 ## Directive handling (DirectiveClientExtensions)
@@ -53,10 +74,24 @@ The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`Tcp
 - `TryHandleDirectiveAsync` inspects an incoming `Directive` packet and handles the four protocol control types:
   - `THROTTLE`: records the throttle window in monotonic ticks and triggers `OnThrottle` callbacks.
   - `REDIRECT`: optionally delegates to a callback, otherwise resolves `(host, port)` from the directive args, updates `TransportOptions`, disconnects, and reconnects.
-  - `NACK` / `NOTICE`: forwards to callbacks and logs the reason.
+- `NACK` / `NOTICE`: forwards to callbacks and logs the reason.
 - `IsThrottled(out TimeSpan remaining)` reports active throttle windows based on monotonic clocks.
 - `SendWithThrottleAsync` waits for the active throttle window before sending a packet, keeping the client protocol-compliant.
 - `ClearThrottle` resets any stored throttle state for the client.
+
+### Example
+
+```csharp
+bool handled = await session.TryHandleDirectiveAsync(
+    directive,
+    callbacks: callbacks,
+    ct: ct);
+
+if (session.IsThrottled(out TimeSpan remaining))
+{
+    Console.WriteLine($"throttled for {remaining.TotalMilliseconds} ms");
+}
+```
 
 ---
 
@@ -69,6 +104,16 @@ The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`Tcp
 - `RequestAsync<TResponse>(IPacket request, RequestOptions? options = null, Func<TResponse, bool>? predicate = null)` handles both wildcard and filtered waits.
 - The helpers log retry attempts via `ILogger` when `InstanceManager` provides one.
 
+### Example
+
+```csharp
+LoginResponse reply = await session.RequestAsync<LoginRequest, LoginResponse>(
+    request,
+    r => r.CorrelationId == request.CorrelationId,
+    timeoutMs: 5000,
+    ct: ct);
+```
+
 ---
 
 ## Subscription helpers (TcpSessionSubscriptions)
@@ -78,6 +123,20 @@ The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`Tcp
 - `SubscribeTemp<TPacket>` combines a temporary message handler with an optional `OnDisconnected` hook for request/response scenarios.
 - `Subscribe` op encodes multiple subscriptions into a `CompositeSubscription` for easy disposal.
 - Exceptions thrown by subscribers are caught and logged so that the receive loop never faults.
+
+### Example
+
+```csharp
+using var sub = session.On<PingResponse>(packet =>
+{
+    Console.WriteLine(packet.ToString());
+});
+
+using var once = session.OnOnce<Directive>(directive =>
+{
+    Console.WriteLine(directive.Type);
+});
+```
 
 ---
 
@@ -112,3 +171,4 @@ PingResponse reply = await session.RequestAsync<PingRequest, PingResponse>(
 - [Subscriptions](./subscriptions.md)
 - [Request Options](./request-options.md)
 - [Cryptography](../security/cryptography.md)
+- [Built-in Frames](../shared/built-in-frames.md)

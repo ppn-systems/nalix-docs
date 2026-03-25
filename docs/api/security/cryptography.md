@@ -29,6 +29,15 @@ Nalix ships several cryptography primitives in `Nalix.Shared.Security`, but they
 - use `Pbkdf2` for credential hashing helpers
 - treat `Ed25519` as legacy because it is marked obsolete in source
 
+## Quick example
+
+```csharp
+var keys = X25519.GenerateKeyPair();
+byte[] digest = Keccak256.HashData(payload);
+
+Pbkdf2.Hash("secret", out byte[] salt, out byte[] hash);
+```
+
 ## Related APIs
 
 - [Key Agreement](./key-agreement.md)

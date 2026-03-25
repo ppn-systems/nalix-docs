@@ -52,7 +52,7 @@ LoginResponse reply = await client.RequestAsync<LoginResponse>(
     r => r.CorrelationId == request.CorrelationId);
 ```
 
-The request helpers subscribe before sending, so they avoid the usual race where the response arrives before the awaiter is ready.
+The request helpers subscribe before sending, so they avoid the usual response race.
 
 ## Transport options
 
@@ -77,3 +77,11 @@ The package also includes optional localization utilities such as:
 - `PoFile`
 
 These are useful when the client package is reused in desktop or device apps that need localized runtime messages.
+
+## Key API pages
+
+- [SDK Overview](../api/sdk/overview.md)
+- [TCP Session](../api/sdk/tcp-session.md)
+- [Session Extensions](../api/sdk/tcp-session-extensions.md)
+- [Request Options](../api/sdk/request-options.md)
+- [Session Diagnostics](../api/sdk/diagnostics.md)

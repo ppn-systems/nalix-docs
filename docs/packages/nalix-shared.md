@@ -1,11 +1,11 @@
 # Nalix.Shared
 
-Shared packet frames, registry, and serializers used by both SDK and Network.
+Shared packet frames, packet registry, and serialization helpers used by both SDK and Network.
 
 ### Purpose
-- Define built-in frames (controls/text).
-- Build an immutable packet registry with zero-allocation lookups.
-- Provide the base `PacketRegistryFactory` used everywhere else.
+- Define built-in frames.
+- Build an immutable packet registry.
+- Provide shared serialization helpers.
 
 ### Key components
 - `PacketRegistryFactory` — scans packet types and binds deserialize function pointers.
@@ -28,12 +28,19 @@ await client.SendAsync(hs.Serialize());
 
 ### Registry build flow
 - Add assemblies or namespaces if you have custom packets.
-- Call `CreateCatalog()` once; reuse the result in listeners and clients.
+- Call `CreateCatalog()` once and reuse the result in listeners and clients.
 
 ### Quick example
 
 ```csharp
 PacketRegistryFactory factory = new();
-factory.AddNamespace("MyApp.Packets", recursive: true);
+factory.IncludeNamespaceRecursive("MyApp.Packets");
 IPacketRegistry catalog = factory.CreateCatalog();
 ```
+
+## Key API pages
+
+- [Packet Registry](../api/shared/packet-registry.md)
+- [Built-in Frames](../api/shared/built-in-frames.md)
+- [Serialization Helpers](../api/shared/serialization.md)
+- [Buffer and Pooling](../api/shared/buffer-and-pooling.md)

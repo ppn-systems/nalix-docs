@@ -2,7 +2,7 @@
 
 `Nalix.Network` is the runtime package for listeners, connections, protocol flow, packet dispatch, middleware, and network-facing safeguards.
 
-If you are building the server side of a Nalix-based system, this is usually the package you live in most.
+If you are building the server side of a Nalix-based system, this is the package you will use most.
 
 ## What it gives you
 
@@ -29,7 +29,7 @@ Core entry points:
 - packet attributes
 - handler controllers with `[PacketController]` and `[PacketOpcode]`
 
-This is the part most application logic plugs into.
+This is where most application logic plugs in.
 
 ### Connection management
 
@@ -142,3 +142,11 @@ It drives:
 
 - [Architecture](../concepts/architecture.md)
 - [Real-time Engine](../concepts/real-time.md)
+
+## Key API pages
+
+- [TCP Listener](../api/network/tcp-listener.md)
+- [Protocol](../api/network/protocol.md)
+- [Packet Dispatch](../api/routing/packet-dispatch.md)
+- [Connection Hub](../api/network/connection-hub.md)
+- [Network Options](../api/network/options.md)

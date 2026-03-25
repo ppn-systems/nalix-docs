@@ -1,6 +1,6 @@
 # Nalix.Framework
 
-`Nalix.Framework` holds the runtime services that other Nalix packages lean on for configuration, instance registration, scheduling, IDs, and low-level time helpers.
+`Nalix.Framework` provides shared runtime services for configuration, instance registration, scheduling, IDs, and time helpers.
 
 ## What belongs here
 
@@ -21,7 +21,7 @@ ConnectionHubOptions hub = ConfigurationManager.Instance.Get<ConnectionHubOption
 TaskManagerOptions taskOptions = ConfigurationManager.Instance.Get<TaskManagerOptions>();
 ```
 
-Use it when you want one shared config source across `Nalix.Network`, `Nalix.SDK`, and your own option classes.
+Use it when you want one shared config source across packages.
 
 ## Instance registration
 
@@ -37,7 +37,7 @@ IPacketRegistry registry = InstanceManager.Instance.GetOrCreateInstance<PacketRe
                                                    .CreateCatalog();
 ```
 
-This is the normal place to publish infrastructure such as loggers, packet registries, or shared services used by handlers and listeners.
+This is the normal place to publish infrastructure such as loggers, packet registries, and shared services.
 
 ## Background work
 
@@ -60,7 +60,7 @@ manager.ScheduleRecurring(
     async ct => await CleanupExpiredSessionsAsync(ct));
 ```
 
-For long-running server processes, this is the preferred place for cleanup loops, reporting jobs, and maintenance work.
+For long-running server processes, this is the preferred place for cleanup loops and maintenance work.
 
 ## Time and IDs
 
@@ -74,5 +74,13 @@ Use:
 
 ## When to add this package
 
-- Add `Nalix.Framework` on the server when you use `ConfigurationManager`, `InstanceManager`, or `TaskManager`.
-- Add it on the client only if your SDK app also wants the same config and service-registration model.
+- Add it on the server when you use `ConfigurationManager`, `InstanceManager`, or `TaskManager`.
+- Add it on the client only if you want the same config and service-registration model there too.
+
+## Key API pages
+
+- [Configuration and DI](../api/framework/configuration.md)
+- [Task Manager](../api/framework/task-manager.md)
+- [Clock](../api/framework/clock.md)
+- [Timing Scope](../api/framework/timing-scope.md)
+- [Snowflake](../api/framework/snowflake.md)
