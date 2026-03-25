@@ -9,6 +9,10 @@ This page shows the shortest useful server flow:
 
 This sample is intentionally minimal. It is meant to prove the runtime shape first, then let you layer middleware, metadata, options, and production concerns afterward.
 
+!!! note "Start small on purpose"
+    This page is only about getting one request from a listener into one handler and back out again.
+    If you need a cleaner startup layout or production wiring, jump to [Server Blueprint](./guides/server-blueprint.md) after this page works.
+
 ## Register shared services
 
 ```csharp
@@ -92,6 +96,9 @@ To stay short, this page does not include:
 - UDP authentication
 - production option tuning
 - logging/reporting beyond the minimum wiring
+
+!!! tip "Best next step"
+    Once this sample runs, add only one improvement at a time: first logging, then one middleware, then option validation, then diagnostics.
 
 Once this basic flow is clear, move on to the guides below.
 

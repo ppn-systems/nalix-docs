@@ -10,6 +10,8 @@ This example shows a complete TCP request/response flow using:
 
 The goal is clarity, not production completeness.
 
+Use it when you want one canonical TCP sample before adding middleware, metadata, or more complex client behavior.
+
 ## Scenario
 
 Client sends a `PingRequest`.

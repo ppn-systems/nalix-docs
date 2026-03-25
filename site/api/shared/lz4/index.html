@@ -6,12 +6,12 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
 <meta content="High-performance real-time server framework for .NET" name="description"/>
-<link href="https://ppn-systems.github.io/nalix-docs/api/sdk/overview/" rel="canonical"/>
-<link href="../../network/token-bucket-options/" rel="prev"/>
-<link href="../tcp-session/" rel="next"/>
+<link href="https://ppn-systems.github.io/nalix-docs/api/shared/lz4/" rel="canonical"/>
+<link href="../built-in-frames/" rel="prev"/>
+<link href="../buffer-and-pooling/" rel="next"/>
 <link href="../../../assets/nalix.ico" rel="icon"/>
 <meta content="mkdocs-1.6.1, mkdocs-material-9.7.6" name="generator"/>
-<title>Overview - Nalix</title>
+<title>LZ4 - Nalix</title>
 <link href="../../../assets/stylesheets/main.484c7ddc.min.css" rel="stylesheet"/>
 <link href="../../../assets/stylesheets/palette.ab4e12ef.min.css" rel="stylesheet"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
@@ -25,7 +25,7 @@
 <input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
 <label class="md-overlay" for="__drawer"></label>
 <div data-md-component="skip">
-<a class="md-skip" href="#nalixsdk-api-overview">
+<a class="md-skip" href="#lz4">
           Skip to content
         </a>
 </div>
@@ -49,7 +49,7 @@
 <div class="md-header__topic" data-md-component="header-topic">
 <span class="md-ellipsis">
             
-              Overview
+              LZ4
             
           </span>
 </div>
@@ -872,8 +872,8 @@
 </ul>
 </nav>
 </li>
-<li class="md-nav__item md-nav__item--section md-nav__item--nested">
-<input class="md-nav__toggle md-toggle" id="__nav_6_2" type="checkbox"/>
+<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_6_2" type="checkbox"/>
 <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="">
 <span class="md-ellipsis">
     
@@ -885,7 +885,7 @@
   </span>
 <span class="md-nav__icon md-icon"></span>
 </label>
-<nav aria-expanded="false" aria-labelledby="__nav_6_2_label" class="md-nav" data-md-level="2">
+<nav aria-expanded="true" aria-labelledby="__nav_6_2_label" class="md-nav" data-md-level="2">
 <label class="md-nav__title" for="__nav_6_2">
 <span class="md-nav__icon md-icon"></span>
             
@@ -896,7 +896,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../shared/packet-registry/">
+<a class="md-nav__link" href="../packet-registry/">
 <span class="md-ellipsis">
     
   
@@ -908,7 +908,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../shared/built-in-frames/">
+<a class="md-nav__link" href="../built-in-frames/">
 <span class="md-ellipsis">
     
   
@@ -919,8 +919,20 @@
   </span>
 </a>
 </li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="../../shared/lz4/">
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+<span class="md-ellipsis">
+    
+  
+    LZ4
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
 <span class="md-ellipsis">
     
   
@@ -930,9 +942,107 @@
     
   </span>
 </a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#source-mapping">
+<span class="md-ellipsis">
+      
+        Source mapping
+      
+    </span>
+</a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../shared/buffer-and-pooling/">
+<a class="md-nav__link" href="#main-types">
+<span class="md-ellipsis">
+      
+        Main types
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#what-it-does">
+<span class="md-ellipsis">
+      
+        What it does
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#runtime-shape">
+<span class="md-ellipsis">
+      
+        Runtime shape
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#block-format">
+<span class="md-ellipsis">
+      
+        Block format
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#encode-overloads">
+<span class="md-ellipsis">
+      
+        Encode overloads
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#decode-overloads">
+<span class="md-ellipsis">
+      
+        Decode overloads
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#example">
+<span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#important-notes">
+<span class="md-ellipsis">
+      
+        Important notes
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#related-apis">
+<span class="md-ellipsis">
+      
+        Related APIs
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../buffer-and-pooling/">
 <span class="md-ellipsis">
     
   
@@ -944,7 +1054,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../shared/serialization/">
+<a class="md-nav__link" href="../serialization/">
 <span class="md-ellipsis">
     
   
@@ -1730,8 +1840,8 @@
 </ul>
 </nav>
 </li>
-<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-<input checked="" class="md-nav__toggle md-toggle" id="__nav_6_9" type="checkbox"/>
+<li class="md-nav__item md-nav__item--section md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_6_9" type="checkbox"/>
 <label class="md-nav__link" for="__nav_6_9" id="__nav_6_9_label" tabindex="">
 <span class="md-ellipsis">
     
@@ -1743,7 +1853,7 @@
   </span>
 <span class="md-nav__icon md-icon"></span>
 </label>
-<nav aria-expanded="true" aria-labelledby="__nav_6_9_label" class="md-nav" data-md-level="2">
+<nav aria-expanded="false" aria-labelledby="__nav_6_9_label" class="md-nav" data-md-level="2">
 <label class="md-nav__title" for="__nav_6_9">
 <span class="md-nav__icon md-icon"></span>
             
@@ -1753,20 +1863,8 @@
 
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
-<li class="md-nav__item md-nav__item--active">
-<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
-<label class="md-nav__link md-nav__link--active" for="__toc">
-<span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-<span class="md-nav__icon md-icon"></span>
-</label>
-<a class="md-nav__link md-nav__link--active" href="./">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../sdk/overview/">
 <span class="md-ellipsis">
     
   
@@ -1776,71 +1874,9 @@
     
   </span>
 </a>
-<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
-<label class="md-nav__title" for="__toc">
-<span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
-<li class="md-nav__item">
-<a class="md-nav__link" href="#client-runtime-shape">
-<span class="md-ellipsis">
-      
-        Client runtime shape
-      
-    </span>
-</a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#source-mapping">
-<span class="md-ellipsis">
-      
-        Source mapping
-      
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#module-summary">
-<span class="md-ellipsis">
-      
-        Module summary
-      
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#quick-start">
-<span class="md-ellipsis">
-      
-        Quick start
-      
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#what-changed-in-the-current-runtime">
-<span class="md-ellipsis">
-      
-        What changed in the current runtime
-      
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#related-apis">
-<span class="md-ellipsis">
-      
-        Related APIs
-      
-    </span>
-</a>
-</li>
-</ul>
-</nav>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="../tcp-session/">
+<a class="md-nav__link" href="../../sdk/tcp-session/">
 <span class="md-ellipsis">
     
   
@@ -1852,7 +1888,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../tcp-session-extensions/">
+<a class="md-nav__link" href="../../sdk/tcp-session-extensions/">
 <span class="md-ellipsis">
     
   
@@ -1864,7 +1900,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../diagnostics/">
+<a class="md-nav__link" href="../../sdk/diagnostics/">
 <span class="md-ellipsis">
     
   
@@ -1876,7 +1912,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../subscriptions/">
+<a class="md-nav__link" href="../../sdk/subscriptions/">
 <span class="md-ellipsis">
     
   
@@ -1888,7 +1924,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../thread-dispatching/">
+<a class="md-nav__link" href="../../sdk/thread-dispatching/">
 <span class="md-ellipsis">
     
   
@@ -1923,7 +1959,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="../transport-options/">
+<a class="md-nav__link" href="../../sdk/transport-options/">
 <span class="md-ellipsis">
     
   
@@ -1935,7 +1971,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../request-options/">
+<a class="md-nav__link" href="../../sdk/request-options/">
 <span class="md-ellipsis">
     
   
@@ -1970,15 +2006,6 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#client-runtime-shape">
-<span class="md-ellipsis">
-      
-        Client runtime shape
-      
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
 <a class="md-nav__link" href="#source-mapping">
 <span class="md-ellipsis">
       
@@ -1988,28 +2015,73 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#module-summary">
+<a class="md-nav__link" href="#main-types">
 <span class="md-ellipsis">
       
-        Module summary
+        Main types
       
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#quick-start">
+<a class="md-nav__link" href="#what-it-does">
 <span class="md-ellipsis">
       
-        Quick start
+        What it does
       
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#what-changed-in-the-current-runtime">
+<a class="md-nav__link" href="#runtime-shape">
 <span class="md-ellipsis">
       
-        What changed in the current runtime
+        Runtime shape
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#block-format">
+<span class="md-ellipsis">
+      
+        Block format
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#encode-overloads">
+<span class="md-ellipsis">
+      
+        Encode overloads
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#decode-overloads">
+<span class="md-ellipsis">
+      
+        Decode overloads
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#example">
+<span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#important-notes">
+<span class="md-ellipsis">
+      
+        Important notes
       
     </span>
 </a>
@@ -2046,120 +2118,107 @@
 </a>
 </li>
 <li class="md-path__item">
-<a class="md-path__link" href="./">
+<a class="md-path__link" href="../packet-registry/">
 <span class="md-ellipsis">
-    SDK
+    Shared
   </span>
 </a>
 </li>
 </ol>
 </nav>
 <article class="md-content__inner md-typeset">
-<a class="md-content__button md-icon" href="https://github.com/ppn-systems/ppn-systems.github.io/edit/main/docs/api/sdk/overview.md" rel="edit" title="Edit this page">
+<a class="md-content__button md-icon" href="https://github.com/ppn-systems/ppn-systems.github.io/edit/main/docs/api/shared/lz4.md" rel="edit" title="Edit this page">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"></path></svg>
 </a>
-<a class="md-content__button md-icon" href="https://github.com/ppn-systems/ppn-systems.github.io/raw/main/docs/api/sdk/overview.md" title="View source of this page">
+<a class="md-content__button md-icon" href="https://github.com/ppn-systems/ppn-systems.github.io/raw/main/docs/api/shared/lz4.md" title="View source of this page">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"></path></svg>
 </a>
-<h1 id="nalixsdk-api-overview">Nalix.SDK API Overview<a class="headerlink" href="#nalixsdk-api-overview" title="Permanent link">¶</a></h1>
-<p><code>Nalix.SDK</code> is the client transport layer for Nalix-based TCP applications. The current source tree centers on reliable TCP sessions plus helper extensions for control packets, requests, directives, and handshakes.</p>
-<div class="admonition tip">
-<p class="admonition-title">Start with TcpSession unless you have a reason not to</p>
-<p><code>TcpSession</code> is the best default for most clients because it already carries reconnect, monitoring, and helper flow that teams usually need.</p>
-</div>
-<h2 id="client-runtime-shape">Client runtime shape<a class="headerlink" href="#client-runtime-shape" title="Permanent link">¶</a></h2>
-<pre class="mermaid"><code>flowchart LR
-    A["TransportOptions"] --&gt; B["TcpSession / IoTTcpSession"]
-    B --&gt; C["Connect / reconnect logic"]
-    C --&gt; D["Extensions"]
-    D --&gt; E["Request matching / subscriptions"]
-</code></pre>
+<h1 id="lz4">LZ4<a class="headerlink" href="#lz4" title="Permanent link">¶</a></h1>
+<p>This page covers the public compression surface in <code>Nalix.Shared.LZ4</code>.</p>
 <h2 id="source-mapping">Source mapping<a class="headerlink" href="#source-mapping" title="Permanent link">¶</a></h2>
 <ul>
-<li><code>src/Nalix.SDK/Transport/TcpSessionBase.cs</code></li>
-<li><code>src/Nalix.SDK/Transport/TcpSession.cs</code></li>
-<li><code>src/Nalix.SDK/Transport/IoTTcpSession.cs</code></li>
-<li><code>src/Nalix.SDK/Configuration/TransportOptions.cs</code></li>
-<li><code>src/Nalix.SDK/Configuration/RequestOptions.cs</code></li>
-<li><code>src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs</code></li>
-<li><code>src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs</code></li>
-<li><code>src/Nalix.SDK/Transport/Extensions/DirectiveClientExtensions.cs</code></li>
-<li><code>src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs</code></li>
-<li><code>src/Nalix.SDK/Transport/Extensions/TcpSessionSubscriptions.cs</code></li>
+<li><code>src/Nalix.Shared/LZ4/LZ4Codec.cs</code></li>
+<li><code>src/Nalix.Shared/LZ4/LZ4BlockHeader.cs</code></li>
+<li><code>src/Nalix.Shared/LZ4/Encoders/*</code></li>
+<li><code>src/Nalix.Shared/LZ4/Engine/*</code></li>
 </ul>
-<h2 id="module-summary">Module summary<a class="headerlink" href="#module-summary" title="Permanent link">¶</a></h2>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TcpSessionBase</code>, <code>TcpSession</code>, <code>IoTTcpSession</code></td>
-<td>Shared TCP transport base plus two client implementations.</td>
-</tr>
-<tr>
-<td><code>TransportOptions</code></td>
-<td>Client transport configuration loaded through <code>ConfigurationManager</code>.</td>
-</tr>
-<tr>
-<td><code>RequestOptions</code></td>
-<td>Timeout, retry, and encryption controls for <code>RequestAsync</code>.</td>
-</tr>
-<tr>
-<td><code>Transport.Extensions</code></td>
-<td>Control, directive, handshake, request, and subscription helpers.</td>
-</tr>
-<tr>
-<td><code>L10N</code></td>
-<td>Optional localization helpers such as <code>Localizer</code> and <code>MultiLocalizer</code>.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">¶</a></h2>
-<p>Checklist:</p>
+<h2 id="main-types">Main types<a class="headerlink" href="#main-types" title="Permanent link">¶</a></h2>
 <ul>
-<li>register an <code>IPacketRegistry</code></li>
-<li>load or construct <code>TransportOptions</code></li>
-<li>create <code>TcpSession</code> or <code>IoTTcpSession</code></li>
-<li>hook events you need</li>
-<li>connect, send, await responses, disconnect</li>
+<li><code>LZ4Codec</code></li>
+<li><code>LZ4BlockHeader</code></li>
 </ul>
-<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Register</span><span class="o">&lt;</span><span class="n">IPacketRegistry</span><span class="o">&gt;</span><span class="p">(</span><span class="n">catalog</span><span class="p">);</span>
+<h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">¶</a></h2>
+<p>This layer provides:</p>
+<ul>
+<li>block compression into a caller-supplied span</li>
+<li>block compression into a pooled <code>BufferLease</code></li>
+<li>block decompression into a caller-supplied span</li>
+<li>block decompression into a rented <code>BufferLease</code></li>
+<li>block decompression into a new <code>byte[]</code></li>
+</ul>
+<h2 id="runtime-shape">Runtime shape<a class="headerlink" href="#runtime-shape" title="Permanent link">¶</a></h2>
+<pre class="mermaid"><code>flowchart LR
+    A["ReadOnlySpan<byte> input"] --&gt; B["LZ4Codec"]
+    B --&gt; C["Span<byte> output"]
+    B --&gt; D["BufferLease output"]
+    B --&gt; E["byte[] output"]
+</byte></byte></code></pre>
+<h2 id="block-format">Block format<a class="headerlink" href="#block-format" title="Permanent link">¶</a></h2>
+<p>Compressed payloads include an <code>LZ4BlockHeader</code> before the body.</p>
+<p>The header stores:</p>
+<ul>
+<li><code>OriginalLength</code></li>
+<li><code>CompressedLength</code></li>
+</ul>
+<p><code>LZ4BlockHeader.Size</code> is currently <code>8</code> bytes.</p>
+<h2 id="encode-overloads">Encode overloads<a class="headerlink" href="#encode-overloads" title="Permanent link">¶</a></h2>
+<p><code>LZ4Codec.Encode(...)</code> supports:</p>
+<ul>
+<li><code>Encode(ReadOnlySpan&lt;byte&gt; input, Span&lt;byte&gt; output)</code></li>
+<li><code>Encode(ReadOnlySpan&lt;byte&gt; input, out BufferLease? lease, out int bytesWritten)</code></li>
+</ul>
+<p>Use the span overload when you already own the destination buffer.</p>
+<p>Use the <code>BufferLease</code> overload when you want a pooled, zero-copy-friendly path.</p>
+<h2 id="decode-overloads">Decode overloads<a class="headerlink" href="#decode-overloads" title="Permanent link">¶</a></h2>
+<p><code>LZ4Codec.Decode(...)</code> supports:</p>
+<ul>
+<li><code>Decode(ReadOnlySpan&lt;byte&gt; input, Span&lt;byte&gt; output)</code></li>
+<li><code>Decode(ReadOnlySpan&lt;byte&gt; input, out byte[]? output, out int bytesWritten)</code></li>
+<li><code>Decode(ReadOnlySpan&lt;byte&gt; input, out BufferLease? lease, out int bytesWritten)</code></li>
+</ul>
+<p>Use the <code>byte[]</code> overload when convenience matters more than allocation pressure.</p>
+<p>Use the <code>BufferLease</code> overload on hot paths where you want pooled output.</p>
+<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">¶</a></h2>
+<div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">ReadOnlySpan</span><span class="o">&lt;</span><span class="kt">byte</span><span class="o">&gt;</span><span class="w"> </span><span class="n">input</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">payload</span><span class="p">;</span>
 </span><span id="__span-0-2"><a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="n">TransportOptions</span><span class="w"> </span><span class="n">options</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ConfigurationManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Get</span><span class="o">&lt;</span><span class="n">TransportOptions</span><span class="o">&gt;</span><span class="p">();</span>
-</span><span id="__span-0-4"><a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="kt">var</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">TcpSession</span><span class="p">();</span>
-</span><span id="__span-0-6"><a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="n">client</span><span class="p">.</span><span class="n">OnConnected</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="n">_</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">};</span>
-</span><span id="__span-0-7"><a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">client</span><span class="p">.</span><span class="n">OnDisconnected</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="n">ex</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">};</span>
-</span><span id="__span-0-8"><a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="k">await</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">ConnectAsync</span><span class="p">(</span><span class="n">options</span><span class="p">.</span><span class="n">Address</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">.</span><span class="n">Port</span><span class="p">);</span>
-</span><span id="__span-0-10"><a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="k">await</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">SendAsync</span><span class="p">(</span><span class="n">myPacket</span><span class="p">);</span>
-</span><span id="__span-0-11"><a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="k">await</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">DisconnectAsync</span><span class="p">();</span>
-</span><span id="__span-0-12"><a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="n">client</span><span class="p">.</span><span class="n">Dispose</span><span class="p">();</span>
+</span><span id="__span-0-3"><a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">LZ4Codec</span><span class="p">.</span><span class="n">Encode</span><span class="p">(</span><span class="n">input</span><span class="p">,</span><span class="w"> </span><span class="k">out</span><span class="w"> </span><span class="n">BufferLease</span><span class="o">?</span><span class="w"> </span><span class="n">compressed</span><span class="p">,</span><span class="w"> </span><span class="k">out</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">written</span><span class="p">))</span>
+</span><span id="__span-0-4"><a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="p">{</span>
+</span><span id="__span-0-5"><a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="w">    </span><span class="k">using</span><span class="w"> </span><span class="p">(</span><span class="n">compressed</span><span class="p">)</span>
+</span><span id="__span-0-6"><a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-0-7"><a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">LZ4Codec</span><span class="p">.</span><span class="n">Decode</span><span class="p">(</span><span class="n">compressed</span><span class="p">.</span><span class="n">Span</span><span class="p">,</span><span class="w"> </span><span class="k">out</span><span class="w"> </span><span class="n">BufferLease</span><span class="o">?</span><span class="w"> </span><span class="n">restored</span><span class="p">,</span><span class="w"> </span><span class="k">out</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">restoredBytes</span><span class="p">))</span>
+</span><span id="__span-0-8"><a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="w">        </span><span class="p">{</span>
+</span><span id="__span-0-9"><a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="w">            </span><span class="k">using</span><span class="w"> </span><span class="p">(</span><span class="n">restored</span><span class="p">)</span>
+</span><span id="__span-0-10"><a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="w">            </span><span class="p">{</span>
+</span><span id="__span-0-11"><a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="w">                </span><span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="n">restoredBytes</span><span class="p">);</span>
+</span><span id="__span-0-12"><a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="w">            </span><span class="p">}</span>
+</span><span id="__span-0-13"><a href="#__codelineno-0-13" id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-0-14"><a href="#__codelineno-0-14" id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-15"><a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="p">}</span>
 </span></code></pre></div>
-<h2 id="what-changed-in-the-current-runtime">What changed in the current runtime<a class="headerlink" href="#what-changed-in-the-current-runtime" title="Permanent link">¶</a></h2>
-<p>Compared with older docs/examples, the current SDK shape is:</p>
-<ul>
-<li>TCP-focused in the public source tree</li>
-<li>reconnect-aware through <code>TransportOptions</code></li>
-<li>request-safe through <code>PACKET_AWAITER</code>-backed helpers</li>
-<li>able to perform handshake and directive flows without hand-written boilerplate</li>
-</ul>
-<p>Use the detail pages next:</p>
-<ul>
-<li><a href="../tcp-session/">TCP Session</a></li>
-<li><a href="../tcp-session-extensions/">TCP Session Extensions</a></li>
-</ul>
+<h2 id="important-notes">Important notes<a class="headerlink" href="#important-notes" title="Permanent link">¶</a></h2>
+<div class="admonition tip">
+<p class="admonition-title">Prefer pooled paths on hot routes</p>
+<p>The <code>BufferLease</code> overloads are the best default when compression is part of a high-throughput network path.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">The span encode path expects enough space</p>
+<p><code>Encode(input, output)</code> returns <code>-1</code> if the destination is too small or cannot fit the header and compressed block.</p>
+</div>
 <h2 id="related-apis">Related APIs<a class="headerlink" href="#related-apis" title="Permanent link">¶</a></h2>
 <ul>
-<li><a href="../tcp-session/">TCP Session</a></li>
-<li><a href="../tcp-session-extensions/">TCP Session Extensions</a></li>
-<li><a href="../subscriptions/">Subscriptions</a></li>
-<li><a href="../transport-options/">Transport Options</a></li>
-<li><a href="../request-options/">Request Options</a></li>
+<li><a href="../buffer-and-pooling/">Buffer and Pooling</a></li>
+<li><a href="../serialization/">Serialization</a></li>
+<li><a href="../../network/compression-options/">Compression Options</a></li>
 </ul>
 </article>
 </div>

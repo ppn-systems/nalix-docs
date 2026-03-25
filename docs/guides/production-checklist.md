@@ -4,6 +4,8 @@ Use this checklist before calling your Nalix server “production ready”.
 
 The goal is not perfection. The goal is to catch the common failure points that show up once real traffic starts.
 
+Use it as a release gate, not as a general introduction to the framework.
+
 ## 1. Startup and configuration
 
 Confirm that all important option types are loaded and validated during startup:

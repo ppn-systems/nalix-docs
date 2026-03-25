@@ -8,6 +8,10 @@ Use these packages together or separately depending on whether you are building 
     - `Nalix.Network`: `11.8.0`
     - `Nalix.SDK`: `11.8.0`
 
+!!! tip "Safe default package choice"
+    If you are building a server, start with `Nalix.Network`, `Nalix.Common`, `Nalix.Shared`, and `Nalix.Framework`.
+    If you are building a client, start with `Nalix.SDK`, `Nalix.Common`, and `Nalix.Shared`.
+
 | Package | Use it for | Key types |
 | --- | --- | --- |
 | Nalix.SDK | Client TCP sessions, request helpers, handshakes, directives | `TcpSession`, `IoTTcpSession`, `TransportOptions`, `RequestOptions` |

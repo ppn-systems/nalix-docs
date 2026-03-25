@@ -2,6 +2,8 @@
 
 This guide explains the actual UDP authentication shape used by `UdpListenerBase` today, in a client-friendly way.
 
+Use it when you already know you need UDP and want to understand the trust and replay rules before implementing a client.
+
 ## What the runtime expects
 
 When `UdpListenerBase` receives a datagram, it expects the payload to end with authentication metadata:

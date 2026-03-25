@@ -2,6 +2,20 @@
 
 `Nalix.Framework` provides shared runtime services for configuration, instance registration, scheduling, IDs, and time helpers.
 
+!!! note "This package is infrastructure, not business logic"
+    Use it to centralize configuration, shared services, workers, and timing primitives that other packages rely on.
+
+## Runtime services map
+
+```mermaid
+flowchart LR
+    A["ConfigurationManager"] --> B["Typed options"]
+    B --> C["InstanceManager"]
+    C --> D["TaskManager"]
+    C --> E["Application services"]
+    D --> F["Recurring workers / cleanup jobs"]
+```
+
 ## What belongs here
 
 - `ConfigurationManager` for loading and reloading typed options from INI files

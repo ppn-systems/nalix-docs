@@ -2,6 +2,17 @@
 
 Shared contracts, packet metadata, and middleware primitives used across SDK and server code.
 
+## Where it fits
+
+```mermaid
+flowchart LR
+    A["Nalix.Common"] --> B["Contracts"]
+    A --> C["Packet attributes"]
+    A --> D["Middleware contracts"]
+    B --> E["Nalix.Network"]
+    B --> F["Nalix.SDK"]
+```
+
 ### Core contracts
 These contracts keep SDK and server code aligned.
 

@@ -10,6 +10,8 @@ This guide shows the smallest useful Nalix TCP server flow:
 
 The sample is intentionally small so clients can copy the structure first and optimize later.
 
+Use it when you want the shortest path from a listener to a handler reply.
+
 ## Server
 
 ### 1. Register shared services

@@ -34,33 +34,38 @@ nav:
       - Installation: installation.md
       - Quick Start: quickstart.md
   - Concepts:
+      - Choose the Right Building Block: concepts/choose-the-right-building-block.md
       - Architecture: concepts/architecture.md
-      - Real-time Engine: concepts/real-time.md
       - Packet Lifecycle: concepts/packet-lifecycle.md
       - Middleware: concepts/middleware.md
       - Configuration and Runtime: concepts/configuration-and-runtime.md
+      - Real-time Engine: concepts/real-time.md
       - Security Model: concepts/security-model.md
-      - Choose the Right Building Block: concepts/choose-the-right-building-block.md
       - Glossary: concepts/glossary.md
   - Guides:
-    - Getting Started:
+    - Build a Server:
         - Starter Template: guides/starter-template.md
         - End-to-End Sample: guides/end-to-end.md
         - Server Blueprint: guides/server-blueprint.md
-
-    - Core Features:
+    - Extend Behavior:
         - Middleware Guide: guides/middleware.md
         - Custom Middleware: guides/custom-middleware-end-to-end.md
         - Custom Metadata Provider: guides/custom-metadata-provider.md
-
-    - Networking:
+    - Networking Patterns:
         - TCP Request/Response: guides/tcp-request-response.md
         - UDP Server: guides/udp-server.md
         - UDP Auth Flow: guides/udp-auth-flow.md
-
-    - Production:
+    - Operate and Debug:
         - Production Checklist: guides/production-checklist.md
         - Troubleshooting: guides/troubleshooting.md
+  - Packages:
+      - Overview: packages/overview.md
+      - Nalix.Common: packages/nalix-common.md
+      - Nalix.Shared: packages/nalix-shared.md
+      - Nalix.Framework: packages/nalix-framework.md
+      - Nalix.Logging: packages/nalix-logging.md
+      - Nalix.Network: packages/nalix-network.md
+      - Nalix.SDK: packages/nalix-sdk.md
   - API:
       - Common:
         - Directories: api/common/directories.md
@@ -68,6 +73,12 @@ nav:
         - Packet Contracts: api/common/packet-contracts.md
         - Connection Contracts: api/common/connection-contracts.md
         - Concurrency Contracts: api/common/concurrency-contracts.md
+      - Shared:
+        - Packet Registry: api/shared/packet-registry.md
+        - Built-in Frames: api/shared/built-in-frames.md
+        - LZ4: api/shared/lz4.md
+        - Buffer and Pooling: api/shared/buffer-and-pooling.md
+        - Serialization: api/shared/serialization.md
       - Framework:
         - Configuration & DI: api/framework/configuration.md
         - Task Manager: api/framework/task-manager.md
@@ -76,35 +87,42 @@ nav:
         - Timing Scope: api/framework/timing-scope.md
         - Worker Options: api/framework/worker-options.md
         - Recurring Options: api/framework/recurring-options.md
-      - SDK:
-        - Overview: api/sdk/overview.md
-        - TCP Session: api/sdk/tcp-session.md
-        - Session Diagnostics: api/sdk/diagnostics.md
-        - Session Subscriptions: api/sdk/subscriptions.md
-        - Session Extensions: api/sdk/tcp-session-extensions.md
-        - Thread Dispatching: api/sdk/thread-dispatching.md
-        - Options:
-          - Transport Options: api/sdk/transport-options.md
-          - Request Options: api/sdk/request-options.md
+      - Logging:
+        - Overview: api/logging/index.md
+        - Options: api/logging/options.md
+        - Extensions: api/logging/extensions.md
+        - Targets: api/logging/targets.md
+      - Cryptography:
+        - Overview: api/security/cryptography.md
+        - Key Agreement: api/security/key-agreement.md
+        - Hashing and MAC: api/security/hashing-and-mac.md
+        - AEAD and Envelope: api/security/aead-and-envelope.md
+        - Credentials and Legacy: api/security/credentials-and-legacy.md
       - Routing:
         - Attributes: api/routing/packet-attributes.md
         - Metadata: api/routing/packet-metadata.md
         - Context: api/routing/packet-context.md
-        - Dispatch: api/routing/packet-dispatch.md
         - Dispatch Contracts: api/routing/dispatch-contracts.md
+        - Dispatch: api/routing/packet-dispatch.md
         - Dispatch Channel and Router: api/routing/dispatch-channel-and-router.md
         - Handler Return Types: api/routing/handler-results.md
+      - Middleware:
+        - Pipeline: api/middleware/pipeline.md
+        - Connection Limiter: api/middleware/connection-limiter.md
+        - Concurrency Gate: api/middleware/concurrency-gate.md
+        - Policy Rate Limiter: api/middleware/policy-rate-limiter.md
+        - Token Bucket Limiter: api/middleware/token-bucket-limiter.md
       - Network:
+        - Protocol: api/network/protocol.md
         - TCP Listener: api/network/tcp-listener.md
         - UDP Listener: api/network/udp-listener.md
-        - Time Synchronizer: api/network/time-synchronizer.md
-        - Timing Wheel: api/network/timing-wheel.md
-        - Protocol: api/network/protocol.md
         - Connection:
           - Overview: api/network/connection.md
           - Hub: api/network/connection-hub.md
           - Events: api/network/connection-events.md
           - Extensions: api/network/connection-extensions.md
+        - Time Synchronizer: api/network/time-synchronizer.md
+        - Timing Wheel: api/network/timing-wheel.md
         - Options:
           - Overview: api/network/options.md
           - Network Socket: api/network/network-socket-options.md
@@ -116,36 +134,16 @@ nav:
           - Network Callback Options: api/network/network-callback-options.md
           - Compression Options: api/network/compression-options.md
           - Token Bucket Options: api/network/token-bucket-options.md
-      - Middleware:
-        - Pipeline: api/middleware/pipeline.md
-        - Connection Limiter: api/middleware/connection-limiter.md
-        - Concurrency Gate: api/middleware/concurrency-gate.md
-        - Policy Rate Limiter: api/middleware/policy-rate-limiter.md
-        - Token Bucket Limiter: api/middleware/token-bucket-limiter.md
-      - Logging:
-        - Overview: api/logging/index.md
-        - Options: api/logging/options.md
-        - Extensions: api/logging/extensions.md
-        - Targets: api/logging/targets.md
-      - Shared:
-        - Packet Registry: api/shared/packet-registry.md
-        - Built-in Frames: api/shared/built-in-frames.md
-        - Buffer and Pooling: api/shared/buffer-and-pooling.md
-        - Serialization Helpers: api/shared/serialization.md
-      - Cryptography:
-        - Overview: api/security/cryptography.md
-        - Key Agreement: api/security/key-agreement.md
-        - Hashing and MAC: api/security/hashing-and-mac.md
-        - AEAD and Envelope: api/security/aead-and-envelope.md
-        - Credentials and Legacy: api/security/credentials-and-legacy.md
-  - Packages:
-      - Overview: packages/overview.md
-      - Nalix.SDK: packages/nalix-sdk.md
-      - Nalix.Network: packages/nalix-network.md
-      - Nalix.Common: packages/nalix-common.md
-      - Nalix.Logging: packages/nalix-logging.md
-      - Nalix.Framework: packages/nalix-framework.md
-      - Nalix.Shared: packages/nalix-shared.md
+      - SDK:
+        - Overview: api/sdk/overview.md
+        - TCP Session: api/sdk/tcp-session.md
+        - Session Extensions: api/sdk/tcp-session-extensions.md
+        - Session Diagnostics: api/sdk/diagnostics.md
+        - Session Subscriptions: api/sdk/subscriptions.md
+        - Thread Dispatching: api/sdk/thread-dispatching.md
+        - Options:
+          - Transport Options: api/sdk/transport-options.md
+          - Request Options: api/sdk/request-options.md
 
 theme:
   name: material

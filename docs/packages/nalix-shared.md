@@ -2,16 +2,29 @@
 
 Shared packet frames, packet registry, and serialization helpers used by both SDK and Network.
 
+## Registry flow
+
+```mermaid
+flowchart LR
+    A["PacketRegistryFactory"] --> B["Include assemblies / namespaces"]
+    B --> C["CreateCatalog()"]
+    C --> D["PacketRegistry"]
+    D --> E["Nalix.Network"]
+    D --> F["Nalix.SDK"]
+```
+
 ### Purpose
 - Define built-in frames.
 - Build an immutable packet registry.
 - Provide shared serialization helpers.
+- Provide pooled LZ4 compression primitives.
 
 ### Key components
 - `PacketRegistryFactory` — scans packet types and binds deserialize function pointers.
 - `PacketRegistry` — frozen catalog of deserializers/transformers.
 - `Handshake` — control frame used to establish shared secret and protocol flags.
 - `Control` / `Directive` / `Text256/512/1024` — built-in frame types.
+- `LZ4Codec` — pooled block compression and decompression.
 
 ### Quick example
 
@@ -42,5 +55,6 @@ IPacketRegistry catalog = factory.CreateCatalog();
 
 - [Packet Registry](../api/shared/packet-registry.md)
 - [Built-in Frames](../api/shared/built-in-frames.md)
-- [Serialization Helpers](../api/shared/serialization.md)
+- [LZ4](../api/shared/lz4.md)
+- [Serialization](../api/shared/serialization.md)
 - [Buffer and Pooling](../api/shared/buffer-and-pooling.md)

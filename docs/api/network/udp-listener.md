@@ -2,6 +2,21 @@
 
 `UdpListenerBase` is the base class for UDP-based listeners in Nalix.Network. It owns the `UdpClient`, activation and deactivation flow, datagram receive worker, protocol integration, authentication hook, time-sync wiring, and runtime counters used in diagnostics.
 
+!!! caution "UDP is not a shortcut around session security"
+    In Nalix, UDP should usually extend an already trusted session model.
+    If you do not have a clear session and authentication story yet, start with TCP first.
+
+## Datagram flow
+
+```mermaid
+flowchart LR
+    A["UDP datagram"] --> B["Receive worker"]
+    B --> C["Find connection / session"]
+    C --> D["IsAuthenticated(...)"]
+    D -->|pass| E["Protocol handling"]
+    D -->|fail| F["Drop + diagnostics"]
+```
+
 ## Source mapping
 
 - `src/Nalix.Network/Listeners/UdpListener/UdpListener.Core.cs`
@@ -57,6 +72,10 @@ The class keeps counters for:
 - `Activate(...)` is currently marked `[Obsolete]` in source, so treat the API as legacy but supported.
 - `IsTimeSyncEnabled` cannot be changed while the listener is running.
 - The scheduled worker uses `NetworkSocketOptions.MaxGroupConcurrency` as its concurrency limit.
+
+!!! tip "Keep authentication fast"
+    `IsAuthenticated(...)` should be deterministic and cheap.
+    Expensive lookups or slow policy checks belong in a safer layer upstream of sustained UDP traffic.
 
 ## Basic usage
 

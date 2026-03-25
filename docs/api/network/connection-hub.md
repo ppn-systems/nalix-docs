@@ -2,6 +2,20 @@
 
 `ConnectionHub` is the central in-memory registry for live `IConnection` instances in Nalix.Network. It shards connections across multiple dictionaries, keeps username mappings, supports broadcast and forced disconnect flows, and exposes runtime diagnostics.
 
+!!! tip "Use the hub as the session registry"
+    If your server needs lookups, broadcasts, username association, or force-close behavior, keep that logic centered on `ConnectionHub` instead of scattering separate connection maps across the app.
+
+## Hub model
+
+```mermaid
+flowchart LR
+    A["RegisterConnection"] --> B["Shard by connection ID"]
+    B --> C["Active connection maps"]
+    C --> D["Username maps"]
+    C --> E["Broadcast / lookup / force close"]
+    C --> F["GenerateReport"]
+```
+
 ## Source mapping
 
 - `src/Nalix.Network/Connections/Connection.Hub.cs`

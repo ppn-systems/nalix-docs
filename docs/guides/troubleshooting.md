@@ -2,6 +2,8 @@
 
 This page collects the most common Nalix setup failures and the fastest places to check first.
 
+Use it after the basic server shape exists and runtime behavior is not matching what you expect.
+
 ## 1. Server starts but no packets reach handlers
 
 **Symptoms**

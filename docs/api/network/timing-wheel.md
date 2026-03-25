@@ -2,6 +2,17 @@
 
 `TimingWheel` is the idle-timeout scheduler used by the network runtime.
 
+## Timeout flow
+
+```mermaid
+flowchart LR
+    A["Register(connection)"] --> B["Wheel slot"]
+    B --> C["Periodic tick"]
+    C --> D{"Idle too long?"}
+    D -->|No| E["Re-schedule / keep tracking"]
+    D -->|Yes| F["Close connection"]
+```
+
 ## Source mapping
 
 - `src/Nalix.Network/Timekeeping/TimingWheel.cs`

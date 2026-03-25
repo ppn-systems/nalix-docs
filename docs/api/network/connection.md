@@ -2,6 +2,21 @@
 
 `Connection` is the default `IConnection` implementation used by Nalix.Network after a socket is accepted. It wraps the framed socket transport, owns connection identity and endpoint information, exposes TCP/UDP adapters, and bridges low-level transport callbacks into the higher-level events consumed by listeners, protocols, and dispatch code.
 
+!!! note "Treat connection state as live session state"
+    `Connection` is not just a socket wrapper.
+    It carries identity, permission, transport helpers, and runtime counters that other network components depend on.
+
+## Lifecycle overview
+
+```mermaid
+flowchart LR
+    A["Accepted socket"] --> B["Connection"]
+    B --> C["TCP / UDP transport facades"]
+    B --> D["Process / post-process / close events"]
+    D --> E["Protocol / listener callbacks"]
+    E --> F["Close / disconnect / dispose"]
+```
+
 ## Source mapping
 
 - `src/Nalix.Network/Connections/Connection.cs`

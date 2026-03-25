@@ -2,6 +2,21 @@
 
 `PacketMetadata` is the descriptor Nalix.Network builds for each handler method. It is the bridge between attributes on your handler and the runtime behavior applied by dispatch, middleware, rate limiting, permissions, timeout handling, and encryption rules.
 
+!!! note "Metadata is runtime behavior, not decoration"
+    Packet attributes become real dispatch and middleware rules.
+    If middleware is behaving differently than expected, metadata resolution is one of the first places to inspect.
+
+## Build overview
+
+```mermaid
+flowchart LR
+    A["Handler method"] --> B["Attributes"]
+    B --> C["PacketMetadataBuilder"]
+    D["IPacketMetadataProvider"] --> C
+    C --> E["PacketMetadata"]
+    E --> F["PacketContext.Attributes"]
+```
+
 ## Source mapping
 
 - `src/Nalix.Network/Routing/Metadata/PacketMetadata.cs`

@@ -2,6 +2,19 @@
 
 `Nalix.SDK` is the client-side transport package for connecting .NET applications to a Nalix server over TCP.
 
+!!! tip "Keep the client simple first"
+    Get one working `TcpSession` request flow online before adding handshake policy, directives, localization, or custom request orchestration.
+
+## Client flow
+
+```mermaid
+flowchart LR
+    A["TransportOptions"] --> B["TcpSession"]
+    B --> C["ConnectAsync"]
+    C --> D["Request / directive helpers"]
+    D --> E["Response matching / subscriptions"]
+```
+
 ## Core pieces
 
 - `TcpSession`

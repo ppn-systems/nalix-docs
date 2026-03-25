@@ -4,6 +4,20 @@
 
 If you are building the server side of a Nalix-based system, this is the package you will use most.
 
+!!! note "This package is the server runtime core"
+    Most production server concerns in Nalix live here: listeners, dispatch, connection state, throttling, and transport-facing diagnostics.
+
+## Runtime map
+
+```mermaid
+flowchart LR
+    A["TcpListenerBase / UdpListenerBase"] --> B["Protocol"]
+    B --> C["PacketDispatchChannel"]
+    C --> D["Packet middleware"]
+    D --> E["Handlers"]
+    E --> F["Connection / ConnectionHub"]
+```
+
 ## What it gives you
 
 ### Listener runtime

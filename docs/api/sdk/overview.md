@@ -2,6 +2,19 @@
 
 `Nalix.SDK` is the client transport layer for Nalix-based TCP applications. The current source tree centers on reliable TCP sessions plus helper extensions for control packets, requests, directives, and handshakes.
 
+!!! tip "Start with TcpSession unless you have a reason not to"
+    `TcpSession` is the best default for most clients because it already carries reconnect, monitoring, and helper flow that teams usually need.
+
+## Client runtime shape
+
+```mermaid
+flowchart LR
+    A["TransportOptions"] --> B["TcpSession / IoTTcpSession"]
+    B --> C["Connect / reconnect logic"]
+    C --> D["Extensions"]
+    D --> E["Request matching / subscriptions"]
+```
+
 ## Source mapping
 
 - `src/Nalix.SDK/Transport/TcpSessionBase.cs`

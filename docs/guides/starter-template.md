@@ -2,6 +2,12 @@
 
 This page gives you a copy-paste server template for a new Nalix project.
 
+Use it when you want one working server shape first, and plan to split it into cleaner files after the runtime is already alive.
+
+!!! note "Copy first, refactor second"
+    The template is intentionally compact.
+    Get one working server online first, then split startup, handlers, middleware, and metadata into cleaner files.
+
 It is intentionally opinionated:
 
 - one startup file
@@ -259,6 +265,9 @@ When copying this template into a real project, replace:
 - the sample middleware logic
 
 Those placeholders are there only to give your team a stable starting shape.
+
+!!! caution "Do not ship the placeholders"
+    Replace `BuildLogger()`, `BuildPacketRegistry()`, and the sample packet and metadata types before treating this as production code.
 
 ## Related pages
 

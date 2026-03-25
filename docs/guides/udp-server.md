@@ -2,6 +2,8 @@
 
 This guide shows when to use `UdpListenerBase` and what to implement first.
 
+Use it when you have decided UDP is the right transport, but want the safest minimal server shape before layering in more game or telemetry logic.
+
 ## When UDP makes sense
 
 Choose UDP when you care more about:
@@ -25,6 +27,8 @@ public sealed class SampleUdpListener : UdpListenerBase
 }
 ```
 
+That is the minimum surface, but a real UDP server still needs a session story, an authentication story, and a diagnostics story.
+
 ## What you must decide
 
 ### 1. Authentication
@@ -45,6 +49,12 @@ Decide whether your protocol:
 - forwards decoded messages into your own game or app logic
 - shares some semantics with your TCP protocol
 
+For most teams, the easiest model is:
+
+- use TCP to establish session state
+- use UDP to carry fast authenticated datagrams
+- keep both paths tied to the same `ConnectionHub`
+
 ### 3. Runtime tuning
 
 Start with:
@@ -52,6 +62,21 @@ Start with:
 - `NetworkSocketOptions.Port`
 - `NetworkSocketOptions.BufferSize`
 - `NetworkSocketOptions.MaxGroupConcurrency`
+
+Also decide intentionally whether you want time sync and timeout behavior enabled for this deployment.
+
+## Recommended startup order
+
+The safest startup order is:
+
+1. validate socket and dispatch options
+2. register logger and packet registry
+3. build dispatch
+4. build protocol
+5. build `UdpListenerBase`
+6. activate dispatch, then activate the listener
+
+That keeps transport setup and application setup aligned.
 
 ## Diagnostics you get for free
 
@@ -75,7 +100,16 @@ receive datagram
   -> optional diagnostics / time sync logic
 ```
 
+## What teams often miss
+
+- UDP should not invent a second identity model separate from TCP sessions
+- unauthenticated drops should be visible in diagnostics
+- replay and timestamp assumptions should be explicit on both client and server
+- `IsAuthenticated(...)` should stay fast and deterministic
+
 ## Related APIs
 
 - [UDP Listener](../api/network/udp-listener.md)
 - [Protocol](../api/network/protocol.md)
+- [UDP Auth Flow](./udp-auth-flow.md)
+- [Security Model](../concepts/security-model.md)

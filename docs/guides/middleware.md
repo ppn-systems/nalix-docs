@@ -1,72 +1,119 @@
-# Middleware Recipes (Based on Nalix Throttling Components)
+# Middleware Guide
 
-This guide maps common needs to the actual Nalix middleware/limiters and shows correct setup drawn from the Nalix.Network throttling docs.
+Use this guide when you know you need request policy or frame processing, but you are not yet sure which Nalix middleware layer should own it.
 
-## When to use what
-- **ConnectionLimiter** — guard accepts: per-IP concurrent cap + ban window for connect floods.
-- **TokenBucketLimiter** — per-endpoint token bucket; smooths sustained traffic with soft/hard lockout.
-- **PolicyRateLimiter** — per-handler tiered RPS/burst via `[PacketRateLimit]`; shares limiters across tiers.
-- **ConcurrencyGate** — per-OpCode concurrency slots with optional FIFO queue and circuit breaker.
+## Start with the right question
 
-## Typical ordering (accept → dispatch)
-1) `ConnectionLimiter` (before/at accept)  
-2) `TokenBucketLimiter` or `PolicyRateLimiter` (ingress rate)  
-3) `ConcurrencyGate` (in-flight handler cap)  
-4) Business handlers
+Before writing middleware, ask:
 
-## ConnectionLimiter (accept protection)
-```csharp
-var connOpts = ConfigurationManager.Instance.Get<ConnectionLimitOptions>();
-connOpts.Validate();
-var limiter = new ConnectionLimiter(connOpts);
+- do I need raw bytes, or a deserialized packet?
+- am I enforcing transport safety, or application policy?
+- should this behavior live in one middleware, or become handler metadata?
 
-if (!limiter.IsConnectionAllowed(remoteEndPoint)) return; // reject/bounce
-connection.OnCloseEvent += limiter.OnConnectionClosed;
+Those questions usually decide the correct shape before code does.
+
+## The two middleware layers
+
+Nalix has two middleware paths:
+
+- buffer middleware before deserialization
+- packet middleware after deserialization
+
+```mermaid
+flowchart LR
+    A["Inbound frame"] --> B["Buffer middleware"]
+    B --> C["Deserialize packet"]
+    C --> D["Packet middleware"]
+    D --> E["Handler"]
 ```
-- Use for DDoS bursts; bans when attempts/window exceeded; cleanup via internal TaskManager job.
 
-## TokenBucketLimiter (per-endpoint tokens)
+## Choose buffer middleware when
+
+Use buffer middleware when the request is not safe to deserialize yet.
+
+Typical cases:
+
+- decrypting wrapped frames
+- decompressing payloads
+- validating frame shape
+- dropping malformed or obviously abusive traffic early
+
+This layer is cheap and early, but it does not know handler metadata yet.
+
+## Choose packet middleware when
+
+Use packet middleware when the request is already a packet and the decision depends on application state.
+
+Typical cases:
+
+- permission checks
+- timeout rules
+- rate limiting
+- concurrency limits
+- tenant or region policy
+- auditing and tracing
+
+This is the default choice for most application teams.
+
+## A safe build order
+
+For most projects, middleware grows cleanly in this order:
+
+1. start with one packet middleware
+2. add metadata-driven policy only when repeated rules appear
+3. add buffer middleware only when raw-frame handling is truly needed
+
+That path keeps debugging simple and avoids inventing transport complexity too early.
+
+## Example: one packet middleware
+
 ```csharp
-var tbOpts = ConfigurationManager.Instance.Get<TokenBucketOptions>();
-var limiter = new TokenBucketLimiter(tbOpts);
-var decision = limiter.Check(endpoint);
-if (!decision.Allowed) { /* send retry-after using decision.RetryAfterMs */ return; }
+PacketDispatchChannel dispatch = new(options =>
+{
+    options.WithLogging(logger)
+           .WithMiddleware(new SampleAuditMiddleware<IPacket>())
+           .WithHandler(() => new SamplePingHandlers());
+});
 ```
-- Good for steady streams; supports soft throttle, hard lockout, max tracked endpoints, cleanup/eviction.
 
-## PolicyRateLimiter (per-handler RPS tiers)
+That one middleware can already:
+
+- log opcode and endpoint
+- enforce permission rules
+- short-circuit bad requests
+
+## Example: one buffer middleware
+
 ```csharp
-[PacketRateLimit(8, burst: 2.5)]
-public async Task HandleChat(ChatPacket p, IConnection c) { ... }
-
-var prl = new PolicyRateLimiter(new PolicyRateLimiterOptions(maxPolicies: 64));
-var decision = prl.Check(opCode, packetContext);
-if (!decision.Allowed) { /* reject or retry-after */ return; }
+options.NetworkPipeline.Use(new SampleAuditBufferMiddleware());
 ```
-- RPS/burst values are rounded up to fixed tiers (RPS: 1–128; Burst: 0.1–64). Policies auto-evict when idle.
 
-## ConcurrencyGate (per-OpCode slots)
-```csharp
-[PacketConcurrencyLimit(4, queue: true, queueMax: 32)]
-public async Task HandleUpload(UploadPacket pkt, IConnection conn) { ... }
-```
-or imperatively:
-```csharp
-using var lease = await concurrencyGate.EnterAsync(opCode,
-    new PacketConcurrencyLimitAttribute(4, queue: true, queueMax: 32),
-    ct);
-// do work
-```
-- Queue optional; circuit breaker opens if rejection rate >95% with enough samples; cleanup removes idle opcode state.
+Keep buffer middleware narrow. If the logic starts depending on handler attributes or application roles, it probably belongs in packet middleware instead.
 
-## Diagnostics
-- `ConnectionLimiter.GenerateReport()` → top endpoints, reject rate, bans.
-- `TokenBucketLimiter.GenerateReport()` → credit, blocked endpoints, retry-after.
-- `PolicyRateLimiter.GenerateReport()` → active policies, tier usage.
-- `ConcurrencyGate.GenerateReport()` → per-opcode load, queue, circuit status.
+## Common mistakes
 
-## Tuning tips
-- Keep `MaxTrackedEndpoints` (token bucket) and `MaxPolicies` (policy limiter) bounded to avoid RAM blowup.
-- For bursty but acceptable latency, enable queueing in `ConcurrencyGate`; for expensive ops, set `queue: false` (fail fast).
-- Align handler attributes: `[PacketRateLimit]` for rate, `[PacketConcurrencyLimit]` for in-flight slots.
-- Always wire `OnConnectionClosed` for `ConnectionLimiter` so counts drop correctly.
+- using buffer middleware for app-level permission checks
+- putting too many unrelated policies in one middleware
+- adding custom metadata before proving you need it
+- forgetting that middleware order changes behavior
+
+## Good default patterns
+
+For public traffic:
+
+- `ConnectionLimiter` at accept time
+- one packet middleware for permission or audit policy
+- built-in rate or concurrency controls where needed
+
+For internal traffic:
+
+- keep middleware minimal
+- add metadata only for repeated conventions
+- prefer simple handler returns over manual send flow
+
+## Read this next
+
+- [Custom Middleware End-to-End](./custom-middleware-end-to-end.md)
+- [Custom Metadata Provider](./custom-metadata-provider.md)
+- [Middleware](../concepts/middleware.md)
+- [Middleware Pipeline](../api/middleware/pipeline.md)

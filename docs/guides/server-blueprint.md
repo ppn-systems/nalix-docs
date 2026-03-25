@@ -4,6 +4,8 @@ This page is the recommended blueprint for a real Nalix server project.
 
 It is not the smallest sample. It is the shape that scales best when a client team starts adding real handlers, middleware, options, and operational checks.
 
+Use it when the starter template is too small and you need a cleaner production-oriented startup shape.
+
 ## Recommended project flow
 
 Build your server startup in this order:

@@ -2,6 +2,21 @@
 
 `TcpListenerBase` is the main TCP server foundation in Nalix.Network. It owns the listen socket, accept workers, connection limiter, object-pool setup, process-channel backpressure, timing-wheel integration, and the handoff from newly accepted sockets into `Protocol.OnAccept(...)`.
 
+!!! note "Think of this as transport infrastructure"
+    `TcpListenerBase` should stay focused on socket acceptance, connection admission, and runtime safety.
+    Business logic should still live in dispatch handlers and middleware, not in the listener itself.
+
+## Runtime flow
+
+```mermaid
+flowchart LR
+    A["Accept worker"] --> B["ConnectionLimiter"]
+    B --> C["Connection"]
+    C --> D["Bounded process channel"]
+    D --> E["Protocol.OnAccept(...)"]
+    E --> F["BeginReceive / packet flow"]
+```
+
 ## Source mapping
 
 - `src/Nalix.Network/Listeners/TcpListener/TcpListener.Core.cs`
@@ -56,6 +71,10 @@ Accepted connections are not processed directly on accept workers. Instead:
 - dropped connections increment rejected metrics and are closed immediately
 
 This keeps new-connection setup from starving packet-processing callbacks.
+
+!!! warning "Dropped channel writes are intentional protection"
+    When the bounded process channel is full, new accepted connections can be closed immediately.
+    Treat that as a signal to review backlog, dispatch pressure, and connection limits instead of trying to bypass the backpressure path.
 
 ## Shutdown flow
 
