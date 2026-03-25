@@ -76,12 +76,6 @@ nav:
         - Packet Contracts: api/common/packet-contracts.md
         - Connection Contracts: api/common/connection-contracts.md
         - Concurrency Contracts: api/common/concurrency-contracts.md
-      - Shared:
-        - Packet Registry: api/shared/packet-registry.md
-        - Built-in Frames: api/shared/built-in-frames.md
-        - LZ4: api/shared/lz4.md
-        - Buffer and Pooling: api/shared/buffer-and-pooling.md
-        - Serialization: api/shared/serialization.md
       - Framework:
         - Configuration & DI: api/framework/configuration.md
         - Task Manager: api/framework/task-manager.md
@@ -90,6 +84,11 @@ nav:
         - Timing Scope: api/framework/timing-scope.md
         - Worker Options: api/framework/worker-options.md
         - Recurring Options: api/framework/recurring-options.md
+        - Packet Registry: api/framework/packet-registry.md
+        - Built-in Frames: api/framework/built-in-frames.md
+        - LZ4: api/framework/lz4.md
+        - Buffer and Pooling: api/framework/buffer-and-pooling.md
+        - Serialization: api/framework/serialization.md
       - Logging:
         - Overview: api/logging/index.md
         - Options: api/logging/options.md
@@ -174,6 +173,7 @@ theme:
     - navigation.tabs
     - navigation.top
     - navigation.instant
+    - navigation.instant.prefetch
     - navigation.tabs.sticky
     - navigation.sections
     - header.sticky
