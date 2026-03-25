@@ -26,6 +26,9 @@ extra:
       content: Nalix Documentation
     - property: og:description
       content: High-performance real-time server framework for .NET
+  analytics:
+    provider: google
+    property: G-1MR49ERG6K
 
 nav:
   - Overview: index.md
