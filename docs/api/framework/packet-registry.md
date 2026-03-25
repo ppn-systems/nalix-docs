@@ -1,11 +1,11 @@
 # Packet Registry
 
-This page covers the packet catalog APIs in `Nalix.Shared.Frames`.
+This page covers the packet catalog APIs in `Nalix.Framework.Frames`.
 
 ## Source mapping
 
-- `src/Nalix.Shared/Frames/PacketRegistryFactory.cs`
-- `src/Nalix.Shared/Frames/PacketRegistry.cs`
+- `src/Nalix.Framework/Frames/PacketRegistryFactory.cs`
+- `src/Nalix.Framework/Frames/PacketRegistry.cs`
 
 ## Main types
 

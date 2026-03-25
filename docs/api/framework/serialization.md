@@ -1,15 +1,15 @@
 # Serialization
 
-This page covers the public serialization surface in `Nalix.Shared.Serialization`.
+This page covers the public serialization surface in `Nalix.Framework.Serialization`.
 
 ## Source mapping
 
-- `src/Nalix.Shared/Serialization/IFormatter.cs`
-- `src/Nalix.Shared/Serialization/FormatterProvider.cs`
-- `src/Nalix.Shared/Serialization/LiteSerializer.cs`
-- `src/Nalix.Shared/Serialization/Formatters/Primitives/*`
-- `src/Nalix.Shared/Serialization/Formatters/Collections/*`
-- `src/Nalix.Shared/Serialization/Formatters/Automatic/*`
+- `src/Nalix.Framework/Serialization/IFormatter.cs`
+- `src/Nalix.Framework/Serialization/FormatterProvider.cs`
+- `src/Nalix.Framework/Serialization/LiteSerializer.cs`
+- `src/Nalix.Framework/Serialization/Formatters/Primitives/*`
+- `src/Nalix.Framework/Serialization/Formatters/Collections/*`
+- `src/Nalix.Framework/Serialization/Formatters/Automatic/*`
 
 ## Main types
 

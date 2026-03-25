@@ -4,12 +4,12 @@ This page covers the built-in packet types that Nalix ships out of the box.
 
 ## Source mapping
 
-- `src/Nalix.Shared/Frames/Controls/Control.cs`
-- `src/Nalix.Shared/Frames/Controls/Directive.cs`
-- `src/Nalix.Shared/Frames/Controls/Handshake.cs`
-- `src/Nalix.Shared/Frames/Text/Text256.cs`
-- `src/Nalix.Shared/Frames/Text/Text512.cs`
-- `src/Nalix.Shared/Frames/Text/Text1024.cs`
+- `src/Nalix.Framework/Frames/Controls/Control.cs`
+- `src/Nalix.Framework/Frames/Controls/Directive.cs`
+- `src/Nalix.Framework/Frames/Controls/Handshake.cs`
+- `src/Nalix.Framework/Frames/Text/Text256.cs`
+- `src/Nalix.Framework/Frames/Text/Text512.cs`
+- `src/Nalix.Framework/Frames/Text/Text1024.cs`
 
 ## Main types
 

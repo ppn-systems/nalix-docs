@@ -19,23 +19,21 @@ Use these packages together or separately depending on whether you are building 
 | Nalix.Common | Shared contracts, packet attributes, middleware contracts | `IPacket`, `IConnection`, `PacketControllerAttribute`, `PacketOpcodeAttribute` |
 | Nalix.Logging | Structured logging and targets | `NLogix`, `NLogixOptions`, `ILoggerTarget` |
 | Nalix.Framework | Configuration, service registry, scheduling, IDs, timing helpers | `ConfigurationManager`, `InstanceManager`, `TaskManager`, `Snowflake`, `Clock` |
-| Nalix.Shared | Built-in frames, packet registry, serializer-adjacent transport types | `PacketRegistryFactory`, `PacketRegistry`, `Handshake`, `Control`, `Text256/512/1024` |
+| Nalix.Framework | Built-in frames, packet registry, serializer-adjacent transport types | `PacketRegistryFactory`, `PacketRegistry`, `Handshake`, `Control`, `Text256/512/1024` |
 
 ## Minimal wiring map
 
-- Client-only: `Nalix.SDK` + `Nalix.Common` + `Nalix.Shared` and optionally `Nalix.Framework` if you want `ConfigurationManager` / `InstanceManager`.
-- Server-only: `Nalix.Network` + `Nalix.Common` + `Nalix.Framework` + `Nalix.Shared`.
+- Client-only: `Nalix.SDK` + `Nalix.Common` and optionally `Nalix.Framework` if you want `ConfigurationManager` / `InstanceManager`.
+- Server-only: `Nalix.Network` + `Nalix.Common` + `Nalix.Framework`.
 - Full stack: all packages, with one shared packet catalog shape on both sides.
 
 ## Quick example
 
 ```mermaid
 flowchart TD
-    SDK["Nalix.SDK"] --> Shared["Nalix.Shared"]
     SDK --> Common["Nalix.Common"]
     SDK --> Framework["Nalix.Framework"]
 
-    Network["Nalix.Network"] --> Shared
     Network --> Common
     Network --> Framework
 

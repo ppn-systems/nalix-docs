@@ -4,11 +4,11 @@ This page covers the shared lease and pooling APIs used across networking and di
 
 ## Source mapping
 
-- `src/Nalix.Common/Shared/IBufferLease.cs`
-- `src/Nalix.Shared/Memory/Buffers/BufferLease.cs`
-- `src/Nalix.Shared/Memory/Pools/ObjectPool.cs`
-- `src/Nalix.Shared/Memory/Objects/ObjectPoolManager.cs`
-- `src/Nalix.Shared/Memory/Objects/TypedObjectPoolAdapter.cs`
+- `src/Nalix.Common/Abstractions/IBufferLease.cs`
+- `src/Nalix.Framework/Memory/Buffers/BufferLease.cs`
+- `src/Nalix.Framework/Memory/Pools/ObjectPool.cs`
+- `src/Nalix.Framework/Memory/Objects/ObjectPoolManager.cs`
+- `src/Nalix.Framework/Memory/Objects/TypedObjectPoolAdapter.cs`
 
 ## Main types
 

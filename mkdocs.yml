@@ -64,7 +64,6 @@ nav:
   - Packages:
       - Overview: packages/overview.md
       - Nalix.Common: packages/nalix-common.md
-      - Nalix.Shared: packages/nalix-shared.md
       - Nalix.Framework: packages/nalix-framework.md
       - Nalix.Logging: packages/nalix-logging.md
       - Nalix.Network: packages/nalix-network.md

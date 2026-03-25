@@ -1,6 +1,6 @@
 # Nalix.Framework
 
-`Nalix.Framework` provides shared runtime services for configuration, instance registration, scheduling, IDs, and time helpers.
+`Nalix.Framework` provides shared runtime services for configuration, instance registration, scheduling, IDs, frames, packet registry, and serialization helpers used by both SDK and Network.
 
 !!! note "This package is infrastructure, not business logic"
     Use it to centralize configuration, shared services, workers, and timing primitives that other packages rely on.
@@ -28,7 +28,7 @@ flowchart LR
 
 `ConfigurationManager` is the entry point for typed options. It loads `ConfigurationLoader` classes, caches them, and can hot-reload when the watched INI file changes.
 
-### Quick example
+### TaskManager example
 
 ```csharp
 ConnectionHubOptions hub = ConfigurationManager.Instance.Get<ConnectionHubOptions>();
@@ -91,6 +91,58 @@ Use:
 - Add it on the server when you use `ConfigurationManager`, `InstanceManager`, or `TaskManager`.
 - Add it on the client only if you want the same config and service-registration model there too.
 
+## Registry flow
+
+```mermaid
+flowchart LR
+    A["PacketRegistryFactory"] --> B["Include assemblies / namespaces"]
+    B --> C["CreateCatalog()"]
+    C --> D["PacketRegistry"]
+    D --> E["Nalix.Network"]
+    D --> F["Nalix.SDK"]
+```
+
+### Purpose
+
+- Define built-in frames.
+- Build an immutable packet registry.
+- Provide shared serialization helpers.
+- Provide pooled LZ4 compression primitives.
+
+### Key components
+
+- `PacketRegistryFactory` — scans packet types and binds deserialize function pointers.
+- `PacketRegistry` — frozen catalog of deserializers/transformers.
+- `Handshake` — control frame used to establish shared secret and protocol flags.
+- `Control` / `Directive` / `Text256/512/1024` — built-in frame types.
+- `LZ4Codec` — pooled block compression and decompression.
+
+### Quick example
+
+```csharp
+// Build and register the shared catalog
+PacketRegistryFactory factory = new();
+IPacketRegistry registry = factory.CreateCatalog();
+InstanceManager.Instance.Register(registry);
+
+// Handshake frame
+Handshake hs = new(0, Csprng.GetBytes(32));
+await client.SendAsync(hs.Serialize());
+```
+
+### Registry build flow
+
+- Add assemblies or namespaces if you have custom packets.
+- Call `CreateCatalog()` once and reuse the result in listeners and clients.
+
+### Quick example
+
+```csharp
+PacketRegistryFactory factory = new();
+factory.IncludeNamespaceRecursive("MyApp.Packets");
+IPacketRegistry catalog = factory.CreateCatalog();
+```
+
 ## Key API pages
 
 - [Configuration and DI](../api/framework/configuration.md)
@@ -98,3 +150,8 @@ Use:
 - [Clock](../api/framework/clock.md)
 - [Timing Scope](../api/framework/timing-scope.md)
 - [Snowflake](../api/framework/snowflake.md)
+- [Packet Registry](../api/framework/packet-registry.md)
+- [Built-in Frames](../api/framework/built-in-frames.md)
+- [LZ4](../api/framework/lz4.md)
+- [Serialization](../api/framework/serialization.md)
+- [Buffer and Pooling](../api/framework/buffer-and-pooling.md)
