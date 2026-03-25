@@ -29,8 +29,8 @@ Contract:
 Task<IBufferLease> InvokeAsync(
     IBufferLease buffer,
     IConnection connection,
-    CancellationToken ct,
-    Func<IBufferLease, CancellationToken, Task<IBufferLease>> next)
+    Func<IBufferLease, CancellationToken, Task<IBufferLease>> next,
+    CancellationToken ct)
 ```
 
 ## Packet middleware
