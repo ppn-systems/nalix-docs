@@ -7,7 +7,7 @@
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
 <meta content="High-performance real-time server framework for .NET" name="description"/>
 <link href="https://ppn-systems.github.io/nalix-docs/concepts/choose-the-right-building-block/" rel="canonical"/>
-<link href="../middleware/" rel="prev"/>
+<link href="../security-model/" rel="prev"/>
 <link href="../glossary/" rel="next"/>
 <link href="../../assets/nalix.ico" rel="icon"/>
 <meta content="mkdocs-1.6.1, mkdocs-material-9.7.6" name="generator"/>
@@ -317,11 +317,47 @@
 </a>
 </li>
 <li class="md-nav__item">
+<a class="md-nav__link" href="../packet-lifecycle/">
+<span class="md-ellipsis">
+    
+  
+    Packet Lifecycle
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
 <a class="md-nav__link" href="../middleware/">
 <span class="md-ellipsis">
     
   
-    Middleware Pipeline
+    Middleware
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../configuration-and-runtime/">
+<span class="md-ellipsis">
+    
+  
+    Configuration and Runtime
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../security-model/">
+<span class="md-ellipsis">
+    
+  
+    Security Model
   
 
     
@@ -438,6 +474,15 @@
 <span class="md-ellipsis">
       
         Suggested first path for most clients
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#a-safe-default">
+<span class="md-ellipsis">
+      
+        A safe default
       
     </span>
 </a>
@@ -2047,6 +2092,15 @@
 </a>
 </li>
 <li class="md-nav__item">
+<a class="md-nav__link" href="#a-safe-default">
+<span class="md-ellipsis">
+      
+        A safe default
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
 <a class="md-nav__link" href="#related-pages">
 <span class="md-ellipsis">
       
@@ -2088,6 +2142,7 @@
 </a>
 <h1 id="choose-the-right-building-block">Choose the Right Building Block<a class="headerlink" href="#choose-the-right-building-block" title="Permanent link">¶</a></h1>
 <p>If you are new to Nalix, this page helps you choose the right entry point quickly.</p>
+<p>Use it when you know the problem you are solving, but not yet which Nalix piece should own it.</p>
 <h2 id="decision-diagram">Decision diagram<a class="headerlink" href="#decision-diagram" title="Permanent link">¶</a></h2>
 <pre class="mermaid"><code>flowchart TD
     A["What are you trying to solve?"] --&gt; B{"Need reliable ordered request/response?"}
@@ -2183,9 +2238,19 @@
 <li>UDP</li>
 </ol>
 <p>That path is easier to debug and easier for teams to adopt.</p>
+<h2 id="a-safe-default">A safe default<a class="headerlink" href="#a-safe-default" title="Permanent link">¶</a></h2>
+<p>If you do not have a strong reason to customize early, start with:</p>
+<ul>
+<li>TCP</li>
+<li>built-in packet attributes</li>
+<li>one small packet middleware</li>
+<li>no custom metadata provider yet</li>
+</ul>
+<p>That gives you the cleanest learning path and the fewest moving parts.</p>
 <h2 id="related-pages">Related pages<a class="headerlink" href="#related-pages" title="Permanent link">¶</a></h2>
 <ul>
 <li><a href="../glossary/">Glossary</a></li>
+<li><a href="../middleware/">Middleware</a></li>
 <li><a href="../../guides/tcp-request-response/">TCP Request/Response</a></li>
 <li><a href="../../guides/udp-auth-flow/">UDP Auth Flow</a></li>
 <li><a href="../../guides/custom-middleware-end-to-end/">Custom Middleware</a></li>

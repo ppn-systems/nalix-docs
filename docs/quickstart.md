@@ -7,6 +7,8 @@ This page shows the shortest useful server flow:
 3. bridge protocol to dispatch
 4. start a TCP listener
 
+This sample is intentionally minimal. It is meant to prove the runtime shape first, then let you layer middleware, metadata, options, and production concerns afterward.
+
 ## Register shared services
 
 ```csharp
@@ -80,6 +82,18 @@ flowchart LR
     C --> D["SamplePingHandlers"]
     D --> E["PingResponse"]
 ```
+
+## What this sample skips
+
+To stay short, this page does not include:
+
+- custom middleware
+- custom metadata providers
+- UDP authentication
+- production option tuning
+- logging/reporting beyond the minimum wiring
+
+Once this basic flow is clear, move on to the guides below.
 
 ## What to read next
 

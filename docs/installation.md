@@ -8,6 +8,16 @@ Install only the packages you need for your role.
     - `Nalix.Network`: `11.8.0`
     - `Nalix.SDK`: `11.8.0`
 
+## Minimum package sets
+
+Use one of these starting points:
+
+| Scenario | Packages |
+|---|---|
+| Server only | `Nalix.Network`, `Nalix.Framework`, `Nalix.Logging`, `Nalix.Shared`, `Nalix.Common` |
+| Client only | `Nalix.SDK`, `Nalix.Shared`, `Nalix.Common` |
+| Full stack | server set + client set, with one shared packet model |
+
 ## Client packages
 
 For a client application, start with:

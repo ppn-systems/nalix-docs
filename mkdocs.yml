@@ -36,7 +36,10 @@ nav:
   - Concepts:
       - Architecture: concepts/architecture.md
       - Real-time Engine: concepts/real-time.md
-      - Middleware Pipeline: concepts/middleware.md
+      - Packet Lifecycle: concepts/packet-lifecycle.md
+      - Middleware: concepts/middleware.md
+      - Configuration and Runtime: concepts/configuration-and-runtime.md
+      - Security Model: concepts/security-model.md
       - Choose the Right Building Block: concepts/choose-the-right-building-block.md
       - Glossary: concepts/glossary.md
   - Guides:

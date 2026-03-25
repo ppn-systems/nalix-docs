@@ -2,6 +2,8 @@
 
 This page defines the core Nalix terms that appear repeatedly across the docs.
 
+Use it as a quick refresher when the API pages start to feel too implementation-heavy.
+
 ## Protocol
 
 `Protocol` is the bridge between a live connection and the dispatch pipeline.
@@ -104,3 +106,4 @@ Examples:
 
 - [Choose the Right Building Block](./choose-the-right-building-block.md)
 - [Architecture](./architecture.md)
+- [Middleware](./middleware.md)

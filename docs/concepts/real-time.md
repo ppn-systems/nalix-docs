@@ -8,6 +8,8 @@ Nalix is designed around a simple real-time server model:
 - TCP for reliable request/response
 - UDP for low-latency datagrams when needed
 
+Use this page when you want to understand the runtime mindset behind the network layer, not just individual types.
+
 ## Mental model
 
 ```mermaid
@@ -93,6 +95,7 @@ That metadata is resolved once, then reused through dispatch and middleware. Thi
 ## Read this next
 
 - [Architecture](./architecture.md)
+- [Middleware](./middleware.md)
 - [Packet Dispatch](../api/routing/packet-dispatch.md)
 - [TCP Request/Response](../guides/tcp-request-response.md)
 - [UDP Auth Flow](../guides/udp-auth-flow.md)

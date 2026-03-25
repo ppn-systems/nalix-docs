@@ -2,6 +2,8 @@
 
 This page describes the current server-side shape of `Nalix.Network` as it exists in `src`, without the older placeholder layers and renamed runtime pieces.
 
+Use this page when you want the big picture before diving into API pages.
+
 ## Runtime map
 
 At a high level, a Nalix server is built from:
@@ -112,6 +114,7 @@ The exact middleware stack depends on your configuration and metadata. Packet at
 ## Recommended next pages
 
 - [Real-time Engine](./real-time.md)
+- [Middleware](./middleware.md)
 - [Packet Dispatch](../api/routing/packet-dispatch.md)
 - [Connection Hub](../api/network/connection-hub.md)
 - [Server Blueprint](../guides/server-blueprint.md)

@@ -1,363 +1,127 @@
-# Middleware Pipeline
+# Middleware
 
-This package provides core attributes to control middleware ordering, execution stages, and pipeline-managed transformations in any .NET backend/server using a middleware pipeline (e.g., `MiddlewarePipeline<TPacket>`).  
-These attributes let you concisely control where, when, and how your middleware gets invoked — without manual pipeline wiring.
+This page explains how middleware fits into the Nalix request path.
 
-## Key features
+Use this page when you need to decide where custom logic belongs before you start writing handlers.
 
-!!! tip "Fast scan"
-    - Stages: Inbound / Outbound / OutboundAlways  
-    - Ordering: `[MiddlewareOrder]` + `[MiddlewareStage]`  
-    - Thread-safe: snapshot execution (no locks)  
-    - Errors: continue or abort via `ConfigureErrorHandling`  
-    - Any packet type: `IPacket` or custom DTOs
+## The simple model
 
----
+Nalix has two middleware layers:
 
-## Usage example
+- buffer middleware for raw frames before packet deserialization
+- packet middleware for policy and flow around handler execution
 
-!!! tip "Flow"
-    Register middleware → configure error handling → execute with handler delegate.
+That split matters more than any individual middleware type. Most mistakes come from choosing the wrong layer first.
 
-```csharp
-// Register your middleware components (inbound, outbound, transform, etc)
-var pipeline = new MiddlewarePipeline<IPacket>();
-pipeline.Use(new UnwrapPacketMiddleware());
-pipeline.Use(new PermissionMiddleware());
-pipeline.Use(new ConcurrencyMiddleware());
-pipeline.Use(new RateLimitMiddleware());
-pipeline.Use(new TimeoutMiddleware());
-pipeline.Use(new WrapPacketMiddleware()); // Outbound
-
-// Configure global error handling behavior
-pipeline.ConfigureErrorHandling(
-    continueOnError: true,
-    errorHandler: (ex, type) => logger.Error($"MW error in {type.Name}: {ex}")
-);
-
-// When handling a request:
-await pipeline.ExecuteAsync(
-    context,              // PacketContext<TPacket> with all connection/packet info
-    async ct => { await MyHandler(context.Packet, ct); },  // Final business handler
-    cancellationToken     // Cancellation
-);
+```mermaid
+flowchart LR
+    A["Socket frame"] --> B["Buffer middleware"]
+    B --> C["Deserialize packet"]
+    C --> D["Packet middleware"]
+    D --> E["Handler"]
+    E --> F["Return handler / reply"]
 ```
 
----
+## Buffer middleware
 
-## Middleware implementation contract
+Buffer middleware runs before a packet exists.
 
-Implement a middleware as below (example: Permission check):
+Use it when you need to work with raw bytes:
+
+- decrypt or decompress a frame
+- reject invalid or suspicious frame shapes early
+- perform low-level protocol checks
+- stop bad traffic before packet allocation and handler lookup
+
+The important tradeoff is simple:
+
+- you get early control
+- you do not get `PacketContext`
+
+## Packet middleware
+
+Packet middleware runs after deserialization.
+
+Use it when you need application-aware behavior:
+
+- permissions
+- timeout rules
+- rate limits
+- concurrency limits
+- auditing
+- tenant or product policy checks
+
+This is where `PacketContext<TPacket>` and resolved metadata become useful.
+
+## How metadata fits in
+
+Middleware becomes powerful because dispatch resolves metadata before packet middleware runs.
+
+That means packet middleware can read:
+
+- `PacketOpcode`
+- permission rules
+- timeout rules
+- rate-limit rules
+- concurrency rules
+- custom attributes added by metadata providers
+
+So the usual flow is:
+
+1. declare attributes on handlers
+2. optionally enrich them with `IPacketMetadataProvider`
+3. read the resolved metadata inside middleware
+
+## How to choose the right layer
+
+Choose buffer middleware when:
+
+- the packet is not safe to deserialize yet
+- the decision depends on bytes, framing, crypto, or compression
+
+Choose packet middleware when:
+
+- the request is already a packet
+- the decision depends on handler metadata, permissions, or connection state
+
+If you are unsure, start with packet middleware. It is easier to test, easier to debug, and usually the right layer for app-level policy.
+
+## Example decisions
+
+| Need | Best fit |
+|---|---|
+| Reject a malformed frame before packet creation | Buffer middleware |
+| Decrypt a wrapped payload | Buffer middleware |
+| Block a packet by permission level | Packet middleware |
+| Apply per-handler timeout rules | Packet middleware |
+| Read a custom tenant tag from metadata | Packet middleware |
+
+## Minimal example
 
 ```csharp
-[MiddlewareOrder(-50)]
-[MiddlewareStage(MiddlewareStage.Inbound)]
-public class PermissionMiddleware : IPacketMiddleware<IPacket>
+PacketDispatchChannel dispatch = new(options =>
 {
-    public async Task InvokeAsync(
-        PacketContext<IPacket> context,
-        Func<CancellationToken, Task> next)
-    {
-        if (context.Attributes.Permission is null
-            || context.Attributes.Permission.Level <= context.Connection.Level)
-        {
-            await next(context.CancellationToken);
-            return;
-        }
-
-        // Optionally: send a fail message, log, etc...
-    }
-}
+    options.NetworkPipeline.Use(new SampleAuditBufferMiddleware());
+    options.PacketPipeline.Use(new SampleAuditMiddleware<IPacket>());
+});
 ```
 
----
+In that example:
 
-## Attribute-driven ordering and staging
+- `NetworkPipeline` handles raw-frame work
+- `PacketPipeline` handles packet-aware policy
 
-- **[MiddlewareOrder(N)]**: Set execution order (lower runs first for inbound, last for outbound)
-- **[MiddlewareStage(Inbound|Outbound|Both, AlwaysExecute = ...)]**: Bind to pipeline stages
+## Common advice
 
-Middleware order is automatically resolved and cached for runtime performance.
+- keep buffer middleware narrow and cheap
+- keep packet middleware policy-focused
+- use metadata providers for conventions, not runtime decisions
+- short-circuit early when the request should not continue
+- prefer one clear middleware per concern over one giant policy class
 
----
+## Read this next
 
-## Supported middleware examples
-
-!!! tip "Pick a starter set"
-    Inbound: `UnwrapPacketMiddleware`, `PermissionMiddleware`, `ConcurrencyMiddleware`, `RateLimitMiddleware`, `TimeoutMiddleware`  
-    Outbound: `WrapPacketMiddleware`
-
-| Middleware                | Stage        | Use-case                                     |
-|---------------------------|--------------|----------------------------------------------|
-| `UnwrapPacketMiddleware`  | Inbound      | Decrypt/decompress incoming data             |
-| `PermissionMiddleware`    | Inbound      | Permission/auth guard                        |
-| `ConcurrencyMiddleware`   | Inbound      | Dynamic request throttling                   |
-| `RateLimitMiddleware`     | Inbound      | Global/IP/attribute-driven rate limits       |
-| `TimeoutMiddleware`       | Inbound      | Per-packet/handler timeout+fail response     |
-| `WrapPacketMiddleware`    | Outbound     | Encrypt/compress outgoing data               |
-
----
-
-## Error handling
-
-!!! tip "Checklist"
-    - Decide: continue or abort on exception  
-    - Attach logger delegate  
-    - Keep `continueOnError=false` for security-critical paths
-
-```csharp
-pipeline.ConfigureErrorHandling(
-    continueOnError: false, // Or true to log and skip faulty MW
-    errorHandler: (ex, type) => Log.Error($"[Middleware {type.Name}] {ex}")
-);
-```
-
----
-
-## Extending and advanced usage
-
-- Custom middleware ideas: A/B tests, metrics, request shaping, device policies, circuit breakers.
-- `Clear()` + re-register to hot-swap chains.
-- Execution is lock-free; keep middleware stateless where possible.
-
----
-
-## Available attributes
-
-!!! tip "Quick rule"
-    - Always set both stage and order.  
-    - Negative = early inbound, late outbound.  
-    - Use `AlwaysExecute` only for must-run outbound steps.
-
-### 1. `MiddlewareOrderAttribute`
-
-Marks the execution **priority/order** of a middleware class in the pipeline.
-
-```csharp
-[MiddlewareOrder(50)]
-public class MyBusinessMiddleware : IPacketMiddleware<IPacket> { ... }
-```
-
-- **Order value meaning:**
-  - **Lower = earlier in inbound, later in outbound.**
-  - Negative: executes before default (e.g., security, unwrapping)
-  - Zero: default order
-  - Positive: executes after default (e.g., limits, post-processing)
-
-| Order Value | Common Use Case                                   |
-|-------------|---------------------------------------------------|
-| -100        | Critical pre-processing (unwrapping, decryption)  |
-| -50         | Security/authentication checks                    |
-| 0           | Default logic                                     |
-| 50          | Business, throttling, rate/concurrency limits     |
-| 100         | Post-processing (wrapping, encryption)            |
-
----
-
-### 2. `MiddlewareStageAttribute`
-
-Indicates **which stage** (inbound, outbound, both) this middleware should run in the pipeline.
-
-```csharp
-[MiddlewareStage(MiddlewareStage.Inbound)]
-public class AuthGuardMiddleware : IPacketMiddleware<IPacket> { ... }
-
-[MiddlewareStage(MiddlewareStage.Outbound, AlwaysExecute = true)]
-public class AuditLogMiddleware : IPacketMiddleware<IPacket> { ... }
-```
-
-- **Inbound:** Executed *before* the main handler (verification, unwrapping)
-- **Outbound:** Executed *after* handler (logging, wrapping)
-- **Both:** Included in both stages
-
-#### `AlwaysExecute` (for Outbound)
-
-- By default, outbound middleware can be **skipped** if packet context signals `SkipOutbound`.
-- `AlwaysExecute = true`: Middleware always runs, even if outbound phase is being skipped (e.g., for auditing, hard security policy).
-
----
-
-### 3. `PipelineManagedTransformAttribute`
-
-```csharp
-[PipelineManagedTransform]
-public class RawPassthroughPacket : IPacket { ... }
-```
-
-- **Purpose:**  
-  Marks a packet type as “handled by pipeline,” not by its own per-type transformer logic.  
-  Catalog builder skips auto-binding transformer methods for these.
-- **Use Case:**  
-  For message types that *must not* be transformed by the traversal logic (e.g., raw system/control packets, pipeline-managed records).
-
----
-
-## Enum: `MiddlewareStage`
-
-Enum values for the above attribute:
-
-```csharp
-public enum MiddlewareStage : byte
-{
-    Inbound = 0,
-    Outbound = 1,
-    Both = 2
-}
-```
-
----
-
-## Best practices
-
-- Always annotate your middleware with both `[MiddlewareOrder]` and `[MiddlewareStage]` for predictable execution.
-- Use negative orders for critical security rules and protocol unwrapping.  
-- Use positive orders for limits, logs, or post-processing wrappers.
-- Use `AlwaysExecute` for mandatory outbound steps (compliance logging, etc).
-
----
-
-## Example: complete custom middleware
-
-```csharp
-[MiddlewareOrder(-50)]
-[MiddlewareStage(MiddlewareStage.Inbound)]
-public class PermissionMiddleware : IPacketMiddleware<IPacket>
-{
-    public async Task InvokeAsync(PacketContext<IPacket> context, Func<CancellationToken, Task> next)
-    {
-        // ...permission logic here
-        await next(context.CancellationToken);
-    }
-}
-```
-
----
-
-## Custom attributes in metadata
-
-!!! tip "Flow"
-    Define attribute → add via `PacketMetadataBuilder.Add` → read with `GetCustomAttribute<T>()` in middleware/handler.
-
-The `CustomAttributes` feature allows dynamic extensions of packet metadata to add additional handler-specific properties beyond standard attributes such as `Timeout`, `Permission`, or `Encryption`. This is especially useful for advanced use cases like:
-
-- Supporting **third-party systems**.
-- **Experimental features** without modifying primary metadata structures.
-- Adding **tags or flags** specific to business logic.
-
-### How to use custom attributes
-
-1. **Add Custom Attribute to the Builder**  
-   During metadata creation, use `PacketMetadataBuilder.Add` to add custom attributes dynamically. Example:
-
-   ```csharp
-   builder.Add(new PacketRateLimitAttribute(requestsPerSecond: 50));
-   builder.Add(new ExampleCustomAttribute("Version", "v1.1"));
-   ```
-
-2. **Get Custom Attribute**  
-   Retrieve custom attributes during pipeline execution using `PacketMetadata.GetCustomAttribute<T>`. Example:
-
-   ```csharp
-   var versionAttribute = metadata.GetCustomAttribute<ExampleCustomAttribute>();
-   if (versionAttribute != null)
-   {
-       Console.WriteLine($"Packet Version: {versionAttribute.Value}");
-   }
-   ```
-
-### Full CustomAttributes Example
-
-Here’s an end-to-end example demonstrating the definition and usage of `CustomAttributes`:
-
-#### Step 1: Define a custom attribute
-
-You can define your custom attribute class:
-
-```csharp
-public class PacketTagAttribute : Attribute
-{
-    public string Tag { get; }
-
-    public PacketTagAttribute(string tag)
-    {
-        Tag = tag;
-    }
-}
-```
-
-#### Step 2: Attach custom attributes in metadata provider
-
-Use `IPacketMetadataProvider` to assign your custom attributes dynamically for packets:
-
-```csharp
-public class ExampleMetadataProvider : IPacketMetadataProvider
-{
-    public void Populate(MethodInfo method, PacketMetadataBuilder builder)
-    {
-        // Assign a custom tag attribute
-        builder.Add(new PacketTagAttribute("Experimental"));
-
-        // Add more optional attributes based on the method
-        if (method.Name == "HandleCritical")
-        {
-            builder.Add(new PacketTagAttribute("Critical"));
-        }
-    }
-}
-```
-
-#### Step 3: Retrieve custom attributes during execution
-
-Access and process the custom attributes during middleware execution:
-
-```csharp
-[MiddlewareOrder(-25)]
-[MiddlewareStage(MiddlewareStage.Inbound)]
-public class LogPacketTagMiddleware : IPacketMiddleware<IPacket>
-{
-    public async Task InvokeAsync(PacketContext<IPacket> context, Func<CancellationToken, Task> next)
-    {
-        var builder = new PacketMetadataBuilder();
-        foreach (var provider in PacketMetadataProviders.Providers)
-        {
-            provider.Populate(context.Method, builder);
-        }
-
-        // Build metadata
-        var metadata = builder.Build();
-
-        // Log custom attributes (e.g., PacketTag)
-        var tag = metadata.GetCustomAttribute<PacketTagAttribute>()?.Tag;
-        if (tag != null)
-        {
-            Console.WriteLine($"Processing packet with Tag: {tag}");
-        }
-
-        // Continue the pipeline
-        await next(context.CancellationToken);
-    }
-}
-```
-
----
-
-### Custom attribute use cases
-
-Here are some practical examples leveraging `CustomAttributes`:
-
-| Use Case                        | Attribute                                                   | Example                                   |
-|---------------------------------|-------------------------------------------------------------|-------------------------------------------|
-| **Tagging packets**             | `PacketTagAttribute`                                        | Add tags like "HighPriority" or "System"  |
-| **Packet versioning**           | `PacketVersionAttribute`                                    | Track experimental packet versions        |
-| **Third-party integrations**    | `PacketExternalSystemAttribute` (link to external tool ID)  | Integrate with external analytics tools   |
-| **Tracing/Diagnostics**         | Add unique diagnostic flags                                 | Debugging server message paths            |
-
----
-
-### Best practices for custom attributes
-
-- Use `CustomAttributes` for extending existing metadata **without breaking core functionality**.
-- Dynamically add attributes using `PacketMetadataBuilder.Add()` in combination with specific `MethodInfo` metadata.
-- Always include a fallback mechanism in case a `CustomAttribute` is missing while retrieving it.
-
----
+- [Choose the Right Building Block](./choose-the-right-building-block.md)
+- [Middleware Pipeline](../api/middleware/pipeline.md)
+- [Packet Metadata](../api/routing/packet-metadata.md)
+- [Custom Middleware End-to-End](../guides/custom-middleware-end-to-end.md)

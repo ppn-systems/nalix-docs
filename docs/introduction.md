@@ -24,6 +24,15 @@ InstanceManager.Instance.Register<ILogger>(logger);
 InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
 ```
 
+## If you are here for
+
+| Goal | Start with |
+|---|---|
+| Build a TCP or UDP server | [Quick Start](./quickstart.md) |
+| Build a TCP client | [Nalix.SDK](./packages/nalix-sdk.md) |
+| Understand package layout | [Packages Overview](./packages/overview.md) |
+| Understand packet metadata and dispatch | [Nalix.Network](./packages/nalix-network.md) |
+
 ## Server mental model
 
 A server usually looks like this:

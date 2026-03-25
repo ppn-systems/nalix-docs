@@ -2,6 +2,8 @@
 
 If you are new to Nalix, this page helps you choose the right entry point quickly.
 
+Use it when you know the problem you are solving, but not yet which Nalix piece should own it.
+
 ## Decision diagram
 
 ```mermaid
@@ -82,9 +84,21 @@ If you are unsure, choose this order:
 
 That path is easier to debug and easier for teams to adopt.
 
+## A safe default
+
+If you do not have a strong reason to customize early, start with:
+
+- TCP
+- built-in packet attributes
+- one small packet middleware
+- no custom metadata provider yet
+
+That gives you the cleanest learning path and the fewest moving parts.
+
 ## Related pages
 
 - [Glossary](./glossary.md)
+- [Middleware](./middleware.md)
 - [TCP Request/Response](../guides/tcp-request-response.md)
 - [UDP Auth Flow](../guides/udp-auth-flow.md)
 - [Custom Middleware](../guides/custom-middleware-end-to-end.md)

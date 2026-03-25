@@ -338,6 +338,15 @@
 </a>
 </li>
 <li class="md-nav__item">
+<a class="md-nav__link" href="#what-this-sample-skips">
+<span class="md-ellipsis">
+      
+        What this sample skips
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
 <a class="md-nav__link" href="#what-to-read-next">
 <span class="md-ellipsis">
       
@@ -400,11 +409,47 @@
 </a>
 </li>
 <li class="md-nav__item">
+<a class="md-nav__link" href="../concepts/packet-lifecycle/">
+<span class="md-ellipsis">
+    
+  
+    Packet Lifecycle
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
 <a class="md-nav__link" href="../concepts/middleware/">
 <span class="md-ellipsis">
     
   
-    Middleware Pipeline
+    Middleware
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../concepts/configuration-and-runtime/">
+<span class="md-ellipsis">
+    
+  
+    Configuration and Runtime
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../concepts/security-model/">
+<span class="md-ellipsis">
+    
+  
+    Security Model
   
 
     
@@ -1985,6 +2030,15 @@
 </a>
 </li>
 <li class="md-nav__item">
+<a class="md-nav__link" href="#what-this-sample-skips">
+<span class="md-ellipsis">
+      
+        What this sample skips
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
 <a class="md-nav__link" href="#what-to-read-next">
 <span class="md-ellipsis">
       
@@ -2032,6 +2086,7 @@
 <li>bridge protocol to dispatch</li>
 <li>start a TCP listener</li>
 </ol>
+<p>This sample is intentionally minimal. It is meant to prove the runtime shape first, then let you layer middleware, metadata, options, and production concerns afterward.</p>
 <h2 id="register-shared-services">Register shared services<a class="headerlink" href="#register-shared-services" title="Permanent link">¶</a></h2>
 <div class="language-csharp highlight"><pre><span></span><code><span id="__span-0-1"><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Register</span><span class="o">&lt;</span><span class="n">ILogger</span><span class="o">&gt;</span><span class="p">(</span><span class="n">logger</span><span class="p">);</span>
 </span><span id="__span-0-2"><a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="n">InstanceManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">Register</span><span class="o">&lt;</span><span class="n">IPacketRegistry</span><span class="o">&gt;</span><span class="p">(</span><span class="n">packetRegistry</span><span class="p">);</span>
@@ -2088,6 +2143,16 @@
     C --&gt; D["SamplePingHandlers"]
     D --&gt; E["PingResponse"]
 </code></pre>
+<h2 id="what-this-sample-skips">What this sample skips<a class="headerlink" href="#what-this-sample-skips" title="Permanent link">¶</a></h2>
+<p>To stay short, this page does not include:</p>
+<ul>
+<li>custom middleware</li>
+<li>custom metadata providers</li>
+<li>UDP authentication</li>
+<li>production option tuning</li>
+<li>logging/reporting beyond the minimum wiring</li>
+</ul>
+<p>Once this basic flow is clear, move on to the guides below.</p>
 <h2 id="what-to-read-next">What to read next<a class="headerlink" href="#what-to-read-next" title="Permanent link">¶</a></h2>
 <ul>
 <li><a href="../guides/end-to-end/">End-to-End Sample</a></li>
