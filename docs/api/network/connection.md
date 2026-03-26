@@ -28,7 +28,7 @@ flowchart LR
 ## Core state
 
 | Member | Meaning |
-|---|---|
+|--------|---------|
 | `ID` | Snowflake session ID created at construction time. |
 | `NetworkEndpoint` | Remote endpoint resolved from the accepted socket. |
 | `TCP` | Always-present TCP transport facade backed by `FramedSocketConnection`. |
@@ -39,6 +39,29 @@ flowchart LR
 | `BytesSent` | Total transmitted bytes, read atomically. |
 | `ErrorCount` | Number of transport / dispatch errors recorded for this connection. |
 | `UpTime`, `LastPingTime` | Metrics exposed through the framed socket cache. |
+| `Attributes`        | **ObjectMap** storing arbitrary session metadata as key/value pairs (user data/context/etc).  |
+
+### Attributes (ObjectMap)
+
+The `Attributes` property is an `ObjectMap<string, object>` allocated with every Connection, meant for storing arbitrary metadata (key/value pairs) relevant to the session: user data, flags, tokens, auxiliary context, etc.
+
+- **Type:** `IObjectMap<string, object>`
+- **Lifetime:** Automatically managed and returned to its pool when the Connection is disposed, for optimal memory usage.
+- **Usage Examples:**
+
+    ```csharp
+    // Store a user name
+    connection.Attributes["UserName"] = "phcnguyen";
+
+    // Retrieve a value
+    if (connection.Attributes.TryGetValue("UserName", out var user))
+    {
+        var name = user.ToString();
+    }
+
+    // Remove a key
+    connection.Attributes.Remove("UserName");
+    ```
 
 ## Event bridges
 

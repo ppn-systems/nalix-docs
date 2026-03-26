@@ -3,28 +3,14 @@ name: Deploy Docs
 on:
   push:
     branches: [main]
-    paths:
-      - docs/**
-      - mkdocs.yml
-      - requirements.txt
-      - .github/workflows/docs.yml
   pull_request:
     branches: [main]
-    paths:
-      - docs/**
-      - mkdocs.yml
-      - requirements.txt
-      - .github/workflows/docs.yml
   workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
-
-concurrency:
-  group: docs-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   lint:
@@ -71,7 +57,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
