@@ -76,18 +76,20 @@ nav:
         - Connection Contracts: api/common/connection-contracts.md
         - Concurrency Contracts: api/common/concurrency-contracts.md
       - Framework:
-        - Configuration & DI: api/framework/configuration.md
-        - Task Manager: api/framework/task-manager.md
-        - Snowflake: api/framework/snowflake.md
-        - Clock: api/framework/clock.md
-        - Timing Scope: api/framework/timing-scope.md
-        - Worker Options: api/framework/worker-options.md
-        - Recurring Options: api/framework/recurring-options.md
-        - Packet Registry: api/framework/packet-registry.md
-        - Built-in Frames: api/framework/built-in-frames.md
-        - LZ4: api/framework/lz4.md
-        - Buffer and Pooling: api/framework/buffer-and-pooling.md
-        - Serialization: api/framework/serialization.md
+        - Configuration & DI: api/framework/runtime/configuration.md
+        - Task Manager: api/framework/runtime/task-manager.md
+        - Snowflake: api/framework/runtime/snowflake.md
+        - Clock: api/framework/runtime/clock.md
+        - Timing Scope: api/framework/runtime/timing-scope.md
+        - Worker Options: api/framework/options/worker-options.md
+        - Recurring Options: api/framework/options/recurring-options.md
+        - Frame Model: api/framework/packets/frame-model.md
+        - Packet Registry: api/framework/packets/packet-registry.md
+        - Built-in Frames: api/framework/packets/built-in-frames.md
+        - Fragmentation: api/framework/packets/fragmentation.md
+        - LZ4: api/framework/memory/lz4.md
+        - Buffer and Pooling: api/framework/memory/buffer-and-pooling.md
+        - Serialization: api/framework/packets/serialization.md
       - Logging:
         - Overview: api/logging/index.md
         - Options: api/logging/options.md
@@ -114,27 +116,28 @@ nav:
         - Policy Rate Limiter: api/middleware/policy-rate-limiter.md
         - Token Bucket Limiter: api/middleware/token-bucket-limiter.md
       - Network:
-        - Protocol: api/network/protocol.md
-        - TCP Listener: api/network/tcp-listener.md
-        - UDP Listener: api/network/udp-listener.md
+        - Protocol: api/network/runtime/protocol.md
+        - TCP Listener: api/network/runtime/tcp-listener.md
+        - UDP Listener: api/network/runtime/udp-listener.md
+        - Socket Connection: api/network/runtime/socket-connection.md
         - Connection:
-          - Overview: api/network/connection.md
-          - Hub: api/network/connection-hub.md
-          - Events: api/network/connection-events.md
-          - Extensions: api/network/connection-extensions.md
-        - Time Synchronizer: api/network/time-synchronizer.md
-        - Timing Wheel: api/network/timing-wheel.md
+          - Overview: api/network/connection/connection.md
+          - Hub: api/network/connection/connection-hub.md
+          - Events: api/network/connection/connection-events.md
+          - Extensions: api/network/connection/connection-extensions.md
+        - Time Synchronizer: api/network/runtime/time-synchronizer.md
+        - Timing Wheel: api/network/runtime/timing-wheel.md
         - Options:
-          - Overview: api/network/options.md
-          - Network Socket: api/network/network-socket-options.md
-          - Dispatch Options: api/network/dispatch-options.md
-          - Connection Limit: api/network/connection-limit-options.md
-          - Connection Hub Options: api/network/connection-hub-options.md
-          - Timing Wheel Options: api/network/timing-wheel-options.md
-          - Pooling Options: api/network/pooling-options.md
-          - Network Callback Options: api/network/network-callback-options.md
-          - Compression Options: api/network/compression-options.md
-          - Token Bucket Options: api/network/token-bucket-options.md
+          - Overview: api/network/options/options.md
+          - Network Socket: api/network/options/network-socket-options.md
+          - Dispatch Options: api/network/options/dispatch-options.md
+          - Connection Limit: api/network/options/connection-limit-options.md
+          - Connection Hub Options: api/network/connection/connection-hub-options.md
+          - Timing Wheel Options: api/network/options/timing-wheel-options.md
+          - Pooling Options: api/network/options/pooling-options.md
+          - Network Callback Options: api/network/options/network-callback-options.md
+          - Compression Options: api/network/options/compression-options.md
+          - Token Bucket Options: api/network/options/token-bucket-options.md
       - SDK:
         - Overview: api/sdk/overview.md
         - TCP Session: api/sdk/tcp-session.md
@@ -143,8 +146,8 @@ nav:
         - Session Subscriptions: api/sdk/subscriptions.md
         - Thread Dispatching: api/sdk/thread-dispatching.md
         - Options:
-          - Transport Options: api/sdk/transport-options.md
-          - Request Options: api/sdk/request-options.md
+          - Transport Options: api/sdk/options/transport-options.md
+          - Request Options: api/sdk/options/request-options.md
 
 theme:
   name: material

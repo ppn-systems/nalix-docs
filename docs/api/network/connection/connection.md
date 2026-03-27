@@ -31,7 +31,7 @@ flowchart LR
 |--------|---------|
 | `ID` | Snowflake session ID created at construction time. |
 | `NetworkEndpoint` | Remote endpoint resolved from the accepted socket. |
-| `TCP` | Always-present TCP transport facade backed by `FramedSocketConnection`. |
+| `TCP` | Always-present TCP transport facade backed by `SocketConnection`. |
 | `UDP` | UDP transport facade when provisioned by the connection. |
 | `Secret` | Session secret / keying material. |
 | `Algorithm` | Current cipher suite, defaulting to `CHACHA20_POLY1305`. |
@@ -71,7 +71,7 @@ The connection exposes three events:
 - `OnProcessEvent`
 - `OnPostProcessEvent`
 
-These are bridged from `FramedSocketConnection.SetCallback(...)`:
+These are bridged from `SocketConnection.SetCallback(...)`:
 
 - close callbacks use `AsyncCallback.InvokeHighPriority(...)`
 - process and post-process callbacks use `AsyncCallback.Invoke(...)`
@@ -80,7 +80,7 @@ These are bridged from `FramedSocketConnection.SetCallback(...)`:
 
 ## Lifecycle
 
-- Construction creates the session ID, resolves the remote endpoint, creates `ConnectionEventArgs`, and initializes `FramedSocketConnection`.
+- Construction creates the session ID, resolves the remote endpoint, creates `ConnectionEventArgs`, and initializes `SocketConnection`.
 - `Close(force = false)` forwards to the close bridge.
 - `Disconnect(reason)` currently aliases `Close(force: true)`.
 - `Dispose()` marks the instance disposed, disconnects, disposes the framed socket, and returns any pooled UDP transport to `ObjectPoolManager`.
@@ -104,6 +104,10 @@ Use this helper for throttle, fail, timeout, or other control replies.
 - `Protocol.ProcessMessage` and `Protocol.PostProcessMessage` usually attach to the process events.
 - `ConnectionLimiter.OnConnectionClosed` should be attached to `OnCloseEvent` so per-endpoint counters stay accurate.
 
+## Transport implementation details
+
+If you want the lower-level TCP framing, receive loop, callback wiring, fragmentation, and send-path behavior behind `connection.TCP`, see [Socket Connection](../runtime/socket-connection.md).
+
 ## Basic usage
 
 ```csharp
@@ -120,5 +124,6 @@ connection.Close();
 - [Connection Hub](./connection-hub.md)
 - [Connection Events](./connection-events.md)
 - [Connection Extensions](./connection-extensions.md)
+- [Socket Connection](../runtime/socket-connection.md)
 - [Connection Contracts](../../common/connection-contracts.md)
 - [Packet Dispatch](../../routing/packet-dispatch.md)

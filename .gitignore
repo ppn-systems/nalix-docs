@@ -39,3 +39,4 @@ bld/
 
 # Uncomment if publishing code to a public repository
 #*.env
+site/
