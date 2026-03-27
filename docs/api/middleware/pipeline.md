@@ -95,5 +95,6 @@ options.PacketPipeline.Use(new SampleAuditMiddleware());
 
 ## Related APIs
 
+- [Network Buffer Pipeline](./network-buffer-pipeline.md)
 - [Packet Dispatch](../routing/packet-dispatch.md)
 - [Packet Metadata](../routing/packet-metadata.md)

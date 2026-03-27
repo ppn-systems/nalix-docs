@@ -30,6 +30,75 @@ extra:
     provider: google
     property: G-1MR49ERG6K
 
+theme:
+  name: material
+  language: en
+  logo: assets/nalix.png
+  favicon: assets/nalix.ico
+  font:
+    text: Inter
+    code: "Fira Code"
+  palette:
+    - scheme: default
+      primary: black
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.path
+    - navigation.tabs
+    - navigation.top
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.tabs.sticky
+    # - navigation.sections
+    - header.sticky
+    - search.highlight
+    - search.suggest 
+    - content.action.edit
+    - content.action.view
+    - content.tabs
+    - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+
+plugins:
+  - search:
+      separator: '[\s\-\.]+'
+  - mermaid2
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - pymdownx.highlight:
+      use_pygments: true
+      anchor_linenums: true
+      pygments_lang_class: true
+      line_spans: __span
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom
+  - pymdownx.inlinehilite
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_css:
+  - stylesheets/extra.css
+
 nav:
   - Overview: index.md
   - Start Here:
@@ -105,12 +174,14 @@ nav:
         - Attributes: api/routing/packet-attributes.md
         - Metadata: api/routing/packet-metadata.md
         - Context: api/routing/packet-context.md
+        - Packet Sender: api/routing/packet-sender.md
         - Dispatch Contracts: api/routing/dispatch-contracts.md
         - Dispatch: api/routing/packet-dispatch.md
         - Dispatch Channel and Router: api/routing/dispatch-channel-and-router.md
         - Handler Return Types: api/routing/handler-results.md
       - Middleware:
         - Pipeline: api/middleware/pipeline.md
+        - Network Buffer Pipeline: api/middleware/network-buffer-pipeline.md
         - Connection Limiter: api/middleware/connection-limiter.md
         - Concurrency Gate: api/middleware/concurrency-gate.md
         - Policy Rate Limiter: api/middleware/policy-rate-limiter.md
@@ -129,6 +200,7 @@ nav:
         - Timing Wheel: api/network/runtime/timing-wheel.md
         - Options:
           - Overview: api/network/options/options.md
+          - Cache Size: api/network/options/cache-size-options.md
           - Network Socket: api/network/options/network-socket-options.md
           - Dispatch Options: api/network/options/dispatch-options.md
           - Connection Limit: api/network/options/connection-limit-options.md
@@ -148,72 +220,3 @@ nav:
         - Options:
           - Transport Options: api/sdk/options/transport-options.md
           - Request Options: api/sdk/options/request-options.md
-
-theme:
-  name: material
-  language: en
-  logo: assets/nalix.png
-  favicon: assets/nalix.ico
-  font:
-    text: Inter
-    code: "Fira Code"
-  palette:
-    - scheme: default
-      primary: black
-      accent: cyan
-      toggle:
-        icon: material/weather-night
-        name: Switch to dark mode
-    - scheme: slate
-      primary: black
-      accent: cyan
-      toggle:
-        icon: material/weather-sunny
-        name: Switch to light mode
-  features:
-    - navigation.path
-    - navigation.tabs
-    - navigation.top
-    - navigation.instant
-    - navigation.instant.prefetch
-    - navigation.tabs.sticky
-    - navigation.sections
-    - header.sticky
-    - search.highlight
-    - search.suggest 
-    - content.action.edit
-    - content.action.view
-    - content.tabs
-    - content.code.copy
-    - content.code.annotate
-    - content.tooltips
-
-plugins:
-  - search:
-      separator: '[\s\-\.]+'
-  - mermaid2
-
-markdown_extensions:
-  - admonition
-  - pymdownx.details
-  - attr_list
-  - pymdownx.highlight:
-      use_pygments: true
-      anchor_linenums: true
-      pygments_lang_class: true
-      line_spans: __span
-  - toc:
-      permalink: true
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:mermaid2.fence_mermaid_custom
-  - pymdownx.inlinehilite
-  - pymdownx.betterem:
-      smart_enable: all
-  - pymdownx.tabbed:
-      alternate_style: true
-
-extra_css:
-  - stylesheets/extra.css

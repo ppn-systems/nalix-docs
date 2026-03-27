@@ -47,5 +47,6 @@ Returning a packet uses the normal return-type pipeline. Sending through `contex
 - [Packet Dispatch](./packet-dispatch.md)
 - [Packet Attributes](./packet-attributes.md)
 - [Packet Metadata](./packet-metadata.md)
+- [Packet Sender](./packet-sender.md)
 - [Handler Results](./handler-results.md)
 - [Connection](../network/connection/connection.md)

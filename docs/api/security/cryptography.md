@@ -27,6 +27,7 @@ Nalix ships several cryptography primitives in `Nalix.Framework.Security`, but t
 - use `Keccak256` only when you explicitly want Keccak, not FIPS SHA3
 - use `EnvelopeCipher` when you want the high-level transport-facing encryption entry point
 - use `Pbkdf2` for credential hashing helpers
+- use `Csprng` when you need secure random bytes, nonces, or unbiased random integers
 - treat `Ed25519` as legacy because it is marked obsolete in source
 
 ## Quick example
@@ -36,6 +37,26 @@ var keys = X25519.GenerateKeyPair();
 byte[] digest = Keccak256.HashData(payload);
 
 Pbkdf2.Hash("secret", out byte[] salt, out byte[] hash);
+```
+
+## Randomness helper
+
+Nalix also ships `Csprng` in `Nalix.Framework.Random`:
+
+- `src/Nalix.Framework/Random/Csprng.cs`
+
+Use it for:
+
+- secure byte generation with `GetBytes(...)` or `Fill(...)`
+- nonce generation with `CreateNonce(...)`
+- unbiased integer sampling with `GetInt32(...)`
+
+### Quick example
+
+```csharp
+byte[] key = Csprng.GetBytes(32);
+byte[] nonce = Csprng.CreateNonce();
+int shard = Csprng.GetInt32(0, 8);
 ```
 
 ## Related APIs

@@ -3,7 +3,7 @@
 } */
 
 .md-grid {
-  max-width: 90%;
+  max-width: 95%;
 }
 
 .md-nav__link {
@@ -72,4 +72,26 @@
   background: rgba(0, 210, 255, 0.3);
   color: #fff;
   border-radius: 4px;
+}
+
+/* Keep the mobile drawer scroll area clear of the footer/meta block. */
+@media screen and (max-width: 76.234375em) {
+  .md-sidebar--primary .md-sidebar__scrollwrap,
+  .md-sidebar--primary .md-sidebar__inner,
+  .md-nav--primary .md-nav__title ~ .md-nav__list {
+    padding-bottom: 4.5rem;
+  }
+
+  .md-sidebar--primary .md-sidebar__scrollwrap {
+    overscroll-behavior: contain;
+  }
+}
+
+/* Keep API groups collapsed by default without affecting other sectioned nav trees. */
+.md-sidebar--primary .api-nav-collapsible > .md-nav > .md-nav__list > .md-nav__item > .md-nav {
+  display: none;
+}
+
+.md-sidebar--primary .api-nav-collapsible > .md-nav > .md-nav__list > .md-nav__item > .md-nav__toggle:checked ~ .md-nav {
+  display: block;
 }

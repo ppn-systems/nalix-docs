@@ -59,6 +59,7 @@ limits.Validate();
 
 ## Related APIs
 
+- [Cache Size Options](./cache-size-options.md)
 - [Tcp Listener](../runtime/tcp-listener.md)
 - [Connection Hub](../connection/connection-hub.md)
 - [Connection Limiter](../../middleware/connection-limiter.md)

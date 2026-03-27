@@ -253,6 +253,30 @@ Console.WriteLine(tm.GenerateReport());
 
 ---
 
+## TaskNaming
+
+`TaskNaming` is the companion helper for stable worker, group, and recurring-job names.
+
+## Source mapping
+
+- `src/Nalix.Framework/Tasks/TaskManager.Names.cs`
+
+It gives you:
+
+- `TaskNaming.Tags` for canonical tokens such as `accept`, `cleanup`, `dispatch`, and `worker`
+- `TaskNaming.Recurring.CleanupJobId(prefix, instanceKey)` for predictable recurring IDs
+- `TaskNaming.SanitizeToken(...)` to normalize arbitrary input into safe task-name tokens
+
+### Quick example
+
+```csharp
+string group = $"net/tcp/{port}";
+string workerName = $"{TaskNaming.SanitizeToken(\"tcp\")}.{TaskNaming.Tags.Accept}.{port}.0";
+string cleanupJob = TaskNaming.Recurring.CleanupJobId("session", port);
+```
+
+---
+
 ## Related APIs
 
 - [Configuration and DI](./configuration.md)
