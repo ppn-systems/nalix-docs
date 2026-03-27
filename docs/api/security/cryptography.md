@@ -1,16 +1,16 @@
 # Cryptography
 
-Nalix ships several cryptography primitives in `Nalix.Shared.Security`, but they are easier to read as separate topics than as one long page.
+Nalix ships several cryptography primitives in `Nalix.Framework.Security`, but they are easier to read as separate topics than as one long page.
 
 ## Source mapping
 
-- `src/Nalix.Shared/Security/Asymmetric/*`
-- `src/Nalix.Shared/Security/Hashing/*`
-- `src/Nalix.Shared/Security/Symmetric/*`
-- `src/Nalix.Shared/Security/Aead/*`
-- `src/Nalix.Shared/Security/Engine/*`
-- `src/Nalix.Shared/Security/Credentials/*`
-- `src/Nalix.Shared/Security/EnvelopeCipher.cs`
+- `src/Nalix.Framework/Security/Asymmetric/*`
+- `src/Nalix.Framework/Security/Hashing/*`
+- `src/Nalix.Framework/Security/Symmetric/*`
+- `src/Nalix.Framework/Security/Aead/*`
+- `src/Nalix.Framework/Security/Engine/*`
+- `src/Nalix.Framework/Security/Credentials/*`
+- `src/Nalix.Framework/Security/EnvelopeCipher.cs`
 
 ## What is in this package
 

@@ -1,11 +1,11 @@
 # Packet Registry
 
-This page covers the packet catalog APIs in `Nalix.Framework.Frames`.
+This page covers the packet catalog APIs in `Nalix.Framework.DataFrames`.
 
 ## Source mapping
 
-- `src/Nalix.Framework/Frames/PacketRegistryFactory.cs`
-- `src/Nalix.Framework/Frames/PacketRegistry.cs`
+- `src/Nalix.Framework/DataFrames/PacketRegistryFactory.cs`
+- `src/Nalix.Framework/DataFrames/PacketRegistry.cs`
 
 ## Main types
 
@@ -63,6 +63,7 @@ bool registered = registry.IsRegistered<Handshake>();
 
 ## Related APIs
 
+- [Frame Model](./frame-model.md)
 - [Built-in Frames](./built-in-frames.md)
 - [Packet Contracts](../common/packet-contracts.md)
 - [SDK Overview](../sdk/overview.md)

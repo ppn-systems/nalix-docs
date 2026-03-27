@@ -1,11 +1,11 @@
 # Hashing and MAC
 
-This page covers the hashing and message-authentication primitives exposed by `Nalix.Shared.Security`.
+This page covers the hashing and message-authentication primitives exposed by `Nalix.Framework.Security`.
 
 ## Source mapping
 
-- `src/Nalix.Shared/Security/Hashing/Keccak256.cs`
-- `src/Nalix.Shared/Security/Hashing/Poly1305.cs`
+- `src/Nalix.Framework/Security/Hashing/Keccak256.cs`
+- `src/Nalix.Framework/Security/Hashing/Poly1305.cs`
 
 ## Main types
 

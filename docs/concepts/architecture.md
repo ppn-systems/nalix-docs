@@ -108,7 +108,7 @@ The exact middleware stack depends on your configuration and metadata. Packet at
 
 - `Nalix.Common` provides contracts and packet attributes.
 - `Nalix.Framework` provides `ConfigurationManager`, `InstanceManager`, `TaskManager`, `Snowflake`, and timing helpers.
-- `Nalix.Shared` provides built-in packet types and packet registry support.
+- `Nalix.Framework` provides built-in packet types, packet registry support, and shared runtime helpers.
 - `Nalix.SDK` is the client-side counterpart.
 
 ## Recommended next pages

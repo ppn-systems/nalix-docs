@@ -4,12 +4,12 @@ This page covers the built-in packet types that Nalix ships out of the box.
 
 ## Source mapping
 
-- `src/Nalix.Framework/Frames/Controls/Control.cs`
-- `src/Nalix.Framework/Frames/Controls/Directive.cs`
-- `src/Nalix.Framework/Frames/Controls/Handshake.cs`
-- `src/Nalix.Framework/Frames/Text/Text256.cs`
-- `src/Nalix.Framework/Frames/Text/Text512.cs`
-- `src/Nalix.Framework/Frames/Text/Text1024.cs`
+- `src/Nalix.Framework/DataFrames/SignalFrames/Control.cs`
+- `src/Nalix.Framework/DataFrames/SignalFrames/Directive.cs`
+- `src/Nalix.Framework/DataFrames/SignalFrames/Handshake.cs`
+- `src/Nalix.Framework/DataFrames/TextFrames/Text256.cs`
+- `src/Nalix.Framework/DataFrames/TextFrames/Text512.cs`
+- `src/Nalix.Framework/DataFrames/TextFrames/Text1024.cs`
 
 ## Main types
 
@@ -82,6 +82,7 @@ Important public members:
 
 ## Related APIs
 
+- [Frame Model](./frame-model.md)
 - [Packet Registry](./packet-registry.md)
 - [SDK Extensions](../sdk/tcp-session-extensions.md)
 - [Handler Return Types](../routing/handler-results.md)

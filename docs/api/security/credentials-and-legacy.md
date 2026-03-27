@@ -4,9 +4,9 @@ This page covers credential hashing helpers plus the legacy signing surface stil
 
 ## Source mapping
 
-- `src/Nalix.Shared/Security/Credentials/PBKDF2.cs`
-- `src/Nalix.Shared/Security/Credentials/PBKDF2_I.cs`
-- `src/Nalix.Shared/Security/Asymmetric/Ed25519.cs`
+- `src/Nalix.Framework/Security/Credentials/PBKDF2.cs`
+- `src/Nalix.Framework/Security/Credentials/PBKDF2_I.cs`
+- `src/Nalix.Framework/Security/Asymmetric/Ed25519.cs`
 
 ## Pbkdf2
 

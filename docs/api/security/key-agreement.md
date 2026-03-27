@@ -1,11 +1,11 @@
 # Key Agreement
 
-This page covers the asymmetric key-agreement surface in `Nalix.Shared.Security`.
+This page covers the asymmetric key-agreement surface in `Nalix.Framework.Security`.
 
 ## Source mapping
 
-- `src/Nalix.Shared/Security/Asymmetric/X25519.cs`
-- `src/Nalix.Shared/Security/Asymmetric/X25519.FieldElement.cs`
+- `src/Nalix.Framework/Security/Asymmetric/X25519.cs`
+- `src/Nalix.Framework/Security/Asymmetric/X25519.FieldElement.cs`
 
 ## Main type
 

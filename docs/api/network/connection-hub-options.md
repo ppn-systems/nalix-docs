@@ -11,11 +11,8 @@
 | Property | Meaning | Default |
 |---|---|---:|
 | `InitialConnectionCapacity` | Initial sizing hint for connection storage. | `1024` |
-| `InitialUsernameCapacity` | Initial sizing hint for username maps. | `1024` |
 | `MaxConnections` | Max live connections. `-1` means unlimited. | `-1` |
 | `DropPolicy` | Action when max connections is reached. | `DROP_NEWEST` |
-| `MaxUsernameLength` | Username length cap after trimming. | `64` |
-| `TrimUsernames` | Trims leading and trailing whitespace. | `true` |
 | `ParallelDisconnectDegree` | Max parallelism for bulk disconnect. | `-1` |
 | `BroadcastBatchSize` | Batch size for broadcast fan-out. | `0` |
 | `ShardCount` | Number of internal connection shards. | `CPU count` |

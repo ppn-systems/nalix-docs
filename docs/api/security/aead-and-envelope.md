@@ -4,13 +4,13 @@ This page covers the encryption primitives that matter most to transport and pac
 
 ## Source mapping
 
-- `src/Nalix.Shared/Security/Aead/ChaCha20Poly1305.cs`
-- `src/Nalix.Shared/Security/Aead/Salsa20Poly1305.cs`
-- `src/Nalix.Shared/Security/Engine/AeadEngine.cs`
-- `src/Nalix.Shared/Security/Engine/SymmetricEngine.cs`
-- `src/Nalix.Shared/Security/Symmetric/ChaCha20.cs`
-- `src/Nalix.Shared/Security/Symmetric/Salsa20.cs`
-- `src/Nalix.Shared/Security/EnvelopeCipher.cs`
+- `src/Nalix.Framework/Security/Aead/ChaCha20Poly1305.cs`
+- `src/Nalix.Framework/Security/Aead/Salsa20Poly1305.cs`
+- `src/Nalix.Framework/Security/Engine/AeadEngine.cs`
+- `src/Nalix.Framework/Security/Engine/SymmetricEngine.cs`
+- `src/Nalix.Framework/Security/Symmetric/ChaCha20.cs`
+- `src/Nalix.Framework/Security/Symmetric/Salsa20.cs`
+- `src/Nalix.Framework/Security/EnvelopeCipher.cs`
 
 ## Main types
 

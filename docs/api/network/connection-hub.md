@@ -1,9 +1,9 @@
 # Connection Hub
 
-`ConnectionHub` is the central in-memory registry for live `IConnection` instances in Nalix.Network. It shards connections across multiple dictionaries, keeps username mappings, supports broadcast and forced disconnect flows, and exposes runtime diagnostics.
+`ConnectionHub` is the central in-memory registry for live `IConnection` instances in Nalix.Network. It shards connections across multiple dictionaries, supports broadcast and forced disconnect flows, and exposes runtime diagnostics.
 
 !!! tip "Use the hub as the session registry"
-    If your server needs lookups, broadcasts, username association, or force-close behavior, keep that logic centered on `ConnectionHub` instead of scattering separate connection maps across the app.
+    If your server needs lookups, broadcasts, or force-close behavior, keep that logic centered on `ConnectionHub` instead of scattering separate connection maps across the app.
 
 ## Hub model
 
@@ -11,7 +11,6 @@
 flowchart LR
     A["RegisterConnection"] --> B["Shard by connection ID"]
     B --> C["Active connection maps"]
-    C --> D["Username maps"]
     C --> E["Broadcast / lookup / force close"]
     C --> F["GenerateReport"]
 ```
@@ -26,9 +25,6 @@ flowchart LR
 ## Core design
 
 - Connections are distributed across internal shards using the connection ID hash.
-- Usernames are tracked in two maps:
-  - `ID -> username`
-  - `username -> ID`
 - Anonymous connections are also queued in FIFO order so `DROP_OLDEST` can evict them efficiently.
 - `Statistics` returns a structured snapshot with connection count, drop policy, shard count, anonymous queue depth, evicted count, and rejected count.
 
@@ -37,9 +33,8 @@ flowchart LR
 | Method | Purpose |
 |---|---|
 | `RegisterConnection(connection)` | Adds a connection and subscribes the close event. |
-| `UnregisterConnection(connection)` | Removes the connection, username mapping, and event subscription. |
-| `AssociateUsername(connection, username)` | Applies trim/length/regex rules and stores the username mapping. |
-| `GetConnection(id)` / `GetConnection(username)` | Resolves an active connection. |
+| `UnregisterConnection(connection)` | Removes the connection and event subscription. |
+| `GetConnection(id)` | Resolves an active connection. |
 | `ListConnections()` | Returns a snapshot of active connections. |
 | `BroadcastAsync(...)` | Sends to all active connections. |
 | `BroadcastWhereAsync(...)` | Sends to matching connections only. |
@@ -62,36 +57,49 @@ In both cases the hub raises `CapacityLimitReached`.
 - Without batching, the hub partitions the connection list and processes partitions in parallel.
 - `ParallelDisconnectDegree` controls bulk disconnect parallelism.
 
-## Username rules
-
-`AssociateUsername(...)` currently:
-
-- ignores null/whitespace usernames
-- optionally trims according to `TrimUsernames`
-- truncates to `MaxUsernameLength`
-- only accepts `^[a-zA-Z0-9_]+$`
-
 ## Diagnostics
 
 `GenerateReport()` includes:
 
-- total, anonymous, and authenticated connection counts
+- total and anonymous connection counts
 - evicted and rejected counts
 - shard count and anonymous queue depth
 - configured max connection count and drop policy
 - bytes sent and uptime aggregates
 - per-status and per-algorithm summaries
-- the first 15 active connections with usernames
+- the first 15 active connections
 
 ## Basic usage
 
 ```csharp
 hub.RegisterConnection(connection);
-hub.AssociateUsername(connection, "sample_user");
-
 IConnection? sameConnection = hub.GetConnection(connection.ID);
 await hub.BroadcastAsync(new PingResponse(), ct);
 ```
+
+---
+
+## Associating username with a connection (new pattern)
+
+If you need to store the username for a connection, use the `Attributes` map on each `IConnection` instance:
+
+```csharp
+// Set username
+connection.Attributes["username"] = "sample_user";
+
+// Lookup username from connection
+var username = connection.Attributes.TryGetValue("username", out var u) ? u as string : null;
+```
+
+> There is no built-in reverse mapping from username to connection;
+> if you need to find a connection by username, perform a linear scan over the list of connections:
+>
+> ```csharp
+> var userConn = hub.ListConnections()
+>     .FirstOrDefault(c => c.Attributes.TryGetValue("username", out var u) && (u as string) == "my_user");
+> ```
+
+**Username can still be validated/truncated on assignment according to your business rules.**
 
 ## Related APIs
 

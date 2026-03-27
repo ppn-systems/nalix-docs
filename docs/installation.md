@@ -14,8 +14,8 @@ Use one of these starting points:
 
 | Scenario | Packages |
 |---|---|
-| Server only | `Nalix.Network`, `Nalix.Framework`, `Nalix.Logging`, `Nalix.Shared`, `Nalix.Common` |
-| Client only | `Nalix.SDK`, `Nalix.Shared`, `Nalix.Common` |
+| Server only | `Nalix.Network`, `Nalix.Framework`, `Nalix.Logging`, `Nalix.Common` |
+| Client only | `Nalix.SDK`, `Nalix.Framework`, `Nalix.Common` |
 | Full stack | server set + client set, with one shared packet model |
 
 ## Client packages
@@ -26,7 +26,7 @@ For a client application, start with:
 
 ```bash
 dotnet add package Nalix.SDK
-dotnet add package Nalix.Shared
+dotnet add package Nalix.Framework
 dotnet add package Nalix.Common
 ```
 
@@ -42,7 +42,7 @@ For a server application, the common baseline is:
 dotnet add package Nalix.Network
 dotnet add package Nalix.Framework
 dotnet add package Nalix.Logging
-dotnet add package Nalix.Shared
+dotnet add package Nalix.Framework
 dotnet add package Nalix.Common
 ```
 

@@ -111,10 +111,12 @@ flowchart LR
 
 ### Key components
 
+- `FrameBase` / `PacketBase<TSelf>` — base abstractions for headers, auto-magic, serialization, and pooling.
 - `PacketRegistryFactory` — scans packet types and binds deserialize function pointers.
 - `PacketRegistry` — frozen catalog of deserializers/transformers.
 - `Handshake` — control frame used to establish shared secret and protocol flags.
 - `Control` / `Directive` / `Text256/512/1024` — built-in frame types.
+- `FragmentHeader` / `FragmentAssembler` / `FragmentOptions` — chunk large payloads and reassemble them safely.
 - `LZ4Codec` — pooled block compression and decompression.
 
 ### Quick example
@@ -152,6 +154,8 @@ IPacketRegistry catalog = factory.CreateCatalog();
 - [Snowflake](../api/framework/snowflake.md)
 - [Packet Registry](../api/framework/packet-registry.md)
 - [Built-in Frames](../api/framework/built-in-frames.md)
+- [Frame Model](../api/framework/frame-model.md)
+- [Fragmentation](../api/framework/fragmentation.md)
 - [LZ4](../api/framework/lz4.md)
 - [Serialization](../api/framework/serialization.md)
 - [Buffer and Pooling](../api/framework/buffer-and-pooling.md)

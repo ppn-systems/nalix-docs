@@ -7,7 +7,7 @@ The docs are organized around the parts people actually use:
 - `Nalix.Network` for listeners, connections, dispatch, middleware, and server-side limits
 - `Nalix.SDK` for client TCP sessions, request helpers, handshakes, and directives
 - `Nalix.Framework` for configuration, service registration, and background workers
-- `Nalix.Common` and `Nalix.Shared` for contracts, packet attributes, and built-in frames
+- `Nalix.Common` and `Nalix.Framework` for contracts, packet attributes, built-in frames, and shared runtime helpers
 
 ## Start here
 

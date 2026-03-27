@@ -4,7 +4,7 @@ The easiest way to think about Nalix is:
 
 - `Nalix.Network` runs the server side
 - `Nalix.SDK` runs the client side
-- both sides share packet contracts and metadata through `Nalix.Common` and `Nalix.Shared`
+- both sides share packet contracts and metadata through `Nalix.Common` and `Nalix.Framework`
 
 ## What stays shared
 
