@@ -63,6 +63,22 @@ fileTarget.Dispose();
 - `Publish(LogEntry entry)`
 - `Dispose()`
 
+## FileError
+
+`FileError` is the context object used when file logging operations fail.
+
+## Source mapping
+
+- `src/Nalix.Logging/Exceptions/FileError.cs`
+
+It carries:
+
+- `Exception`
+- `OriginalFilePath`
+- `NewLogFileName`
+
+Use this type when you want to surface or recover from file-target problems with more context than a bare exception.
+
 ## Typical integration
 
 ```csharp

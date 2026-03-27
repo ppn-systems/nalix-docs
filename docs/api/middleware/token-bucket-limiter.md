@@ -35,6 +35,41 @@ The result tells you:
 - how much credit remains
 - whether the denial is soft throttle or hard lockout
 
+## RateLimitDecision and RateLimitReason
+
+`Check(endpoint)` returns a `RateLimitDecision`.
+
+Its main fields are:
+
+- `Allowed`
+- `RetryAfterMs`
+- `Credit`
+- `Reason`
+
+`Reason` is a `RateLimitReason` value:
+
+- `None` when the request is accepted
+- `SoftThrottle` when the endpoint should back off but is not hard-blocked yet
+- `HardLockout` when the endpoint is temporarily blocked due to repeated pressure or endpoint-limit enforcement
+
+## Example
+
+```csharp
+var decision = limiter.Check(endpoint);
+
+if (!decision.Allowed)
+{
+    if (decision.Reason == RateLimitReason.HardLockout)
+    {
+        // deny and surface stronger retry/backoff messaging
+    }
+
+    int retryAfterMs = decision.RetryAfterMs;
+}
+```
+
+`Credit` is especially useful for diagnostics and adaptive client behavior because it tells you how much whole-token budget remains after the check.
+
 ## When to use it
 
 Use this limiter when the key is the caller endpoint rather than the handler opcode.

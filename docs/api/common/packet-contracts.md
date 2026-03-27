@@ -63,5 +63,8 @@ if (registry.TryDeserialize(buffer, out IPacket? decoded))
 
 ## Related APIs
 
+- [Frame Model](../framework/packets/frame-model.md)
+- [Packet Registry](../framework/packets/packet-registry.md)
+- [Packet Sender](../routing/packet-sender.md)
 - [Packet Dispatch](../routing/packet-dispatch.md)
 - [Packet Metadata](../routing/packet-metadata.md)

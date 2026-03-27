@@ -48,6 +48,36 @@ The runtime flow is:
 4. `Build()` produces an immutable `PacketMetadata`
 5. the descriptor is attached to the compiled handler and later exposed through `PacketContext`
 
+## PacketHandler<TPacket>
+
+`PacketHandler<TPacket>` is the runtime descriptor that pairs handler metadata with the compiled invocation delegate.
+
+## Source mapping
+
+- `src/Nalix.Network/Routing/Metadata/PacketHandler.cs`
+
+It carries:
+
+- `OpCode`
+- `Metadata`
+- `Instance`
+- `MethodInfo`
+- `ReturnType`
+- `Invoker`
+
+This is the object the dispatch layer actually executes after metadata resolution is complete.
+
+## Execution model
+
+`PacketHandler<TPacket>` is designed so dispatch can avoid reflection in the hot path:
+
+- metadata is resolved once up front
+- the controller instance is cached
+- a compiled delegate is stored in `Invoker`
+- `ExecuteAsync(context)` runs through that delegate
+
+That makes `PacketHandler<TPacket>` the bridge between reflection-time discovery and runtime packet execution.
+
 ## PacketMetadataBuilder
 
 `PacketMetadataBuilder` is the mutable assembly step before the final descriptor is created.
@@ -105,3 +135,4 @@ You usually care about this page when you are:
 - [Packet Attributes](./packet-attributes.md)
 - [Packet Context](./packet-context.md)
 - [Packet Dispatch](./packet-dispatch.md)
+- [Dispatch Channel and Router](./dispatch-channel-and-router.md)

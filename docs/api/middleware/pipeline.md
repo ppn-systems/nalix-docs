@@ -96,5 +96,9 @@ options.PacketPipeline.Use(new SampleAuditMiddleware());
 ## Related APIs
 
 - [Network Buffer Pipeline](./network-buffer-pipeline.md)
+- [Connection Limiter](./connection-limiter.md)
+- [Concurrency Gate](./concurrency-gate.md)
+- [Policy Rate Limiter](./policy-rate-limiter.md)
+- [Token Bucket Limiter](./token-bucket-limiter.md)
 - [Packet Dispatch](../routing/packet-dispatch.md)
 - [Packet Metadata](../routing/packet-metadata.md)

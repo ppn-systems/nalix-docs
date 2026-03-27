@@ -111,6 +111,9 @@ session.Dispose();
 ## Related APIs
 
 - [SDK Overview](./overview.md)
+- [Frame Reader and Sender](./frame-reader-and-sender.md)
 - [TCP Session Extensions](./tcp-session-extensions.md)
+- [Session Diagnostics](./diagnostics.md)
+- [Thread Dispatching](./thread-dispatching.md)
 - [Subscriptions](./subscriptions.md)
 - [Transport Options](./options/transport-options.md)

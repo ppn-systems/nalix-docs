@@ -79,9 +79,34 @@ bool ok = await session.HandshakeAsync(
 - `SendWithThrottleAsync` waits for the active throttle window before sending a packet, keeping the client protocol-compliant.
 - `ClearThrottle` resets any stored throttle state for the client.
 
+### DirectiveCallbacks
+
+`DirectiveCallbacks` is the optional callback bundle passed into `TryHandleDirectiveAsync`.
+
+It lets you plug custom behavior for:
+
+- `OnNotice`
+- `OnNack`
+- `OnThrottle`
+- `OnRedirectAsync`
+
+Use it when you want the SDK helpers to keep directive parsing and throttle tracking, while your app decides how UI, logging, reconnect UX, or redirect policy should behave.
+
 ### Example
 
 ```csharp
+var callbacks = new DirectiveCallbacks
+{
+    OnNotice = directive => Console.WriteLine(directive.Reason),
+    OnNack = directive => Console.WriteLine(directive.Action),
+    OnThrottle = (directive, delay) => Console.WriteLine(delay),
+    OnRedirectAsync = async (directive, ct) =>
+    {
+        await Task.Yield();
+        return false; // let the default reconnect flow continue
+    }
+};
+
 bool handled = await session.TryHandleDirectiveAsync(
     directive,
     callbacks: callbacks,

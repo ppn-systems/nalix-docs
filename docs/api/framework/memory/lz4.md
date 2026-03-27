@@ -45,6 +45,28 @@ The header stores:
 
 `LZ4BlockHeader.Size` is currently `8` bytes.
 
+## LZ4CompressionConstants
+
+`LZ4CompressionConstants` exposes the implementation-level constants used by the encoder.
+
+## Source mapping
+
+- `src/Nalix.Framework/LZ4/Encoders/LZ4CompressionConstants.cs`
+
+Important values include:
+
+- `MinMatchLength`
+- `MaxOffset`
+- `MaxBlockSize`
+- `LastLiteralSize`
+- `TokenMatchMask`
+- `TokenLiteralMask`
+
+Two of these matter most when reasoning about behavior:
+
+- `MaxOffset` is the hard backward-reference limit defined by the LZ4 format
+- `MaxBlockSize` is the implementation cap chosen by Nalix for safety and practicality, not a protocol-wide LZ4 hard limit
+
 ## Encode overloads
 
 `LZ4Codec.Encode(...)` supports:

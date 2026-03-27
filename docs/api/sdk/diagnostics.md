@@ -39,3 +39,5 @@ Console.WriteLine(snapshot.SendBytesPerSecond);
 
 - [TCP Session](./tcp-session.md)
 - [Session Extensions](./tcp-session-extensions.md)
+- [Thread Dispatching](./thread-dispatching.md)
+- [Transport Options](./options/transport-options.md)

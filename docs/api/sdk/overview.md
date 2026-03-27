@@ -36,6 +36,7 @@ flowchart LR
 | `TransportOptions` | Client transport configuration loaded through `ConfigurationManager`. |
 | `RequestOptions` | Timeout, retry, and encryption controls for `RequestAsync`. |
 | `Transport.Extensions` | Control, directive, handshake, request, and subscription helpers. |
+| `ProtocolStringExtensions` | Friendly display text for `ProtocolAdvice` and `ProtocolReason`. |
 | `L10N` | Optional localization helpers such as `Localizer` and `MultiLocalizer`. |
 
 ## Quick start
@@ -72,15 +73,47 @@ Compared with older docs/examples, the current SDK shape is:
 - request-safe through `PACKET_AWAITER`-backed helpers
 - able to perform handshake and directive flows without hand-written boilerplate
 
+## ProtocolStringExtensions
+
+`ProtocolStringExtensions` converts low-level protocol enums into short user-facing strings.
+
+## Source mapping
+
+- `src/Nalix.SDK/Extensions/ProtocolStringExtensions.cs`
+
+It currently adds:
+
+- `ProtocolAdvice.ToString()`
+- `ProtocolReason.ToString()`
+
+This API is mainly useful for:
+
+- client UI messages
+- toast/error text
+- logs that should stay readable without raw enum names
+
+## Example
+
+```csharp
+string message = ProtocolReason.RATE_LIMITED.ToString();
+string action = ProtocolAdvice.BACKOFF_RETRY.ToString();
+```
+
 Use the detail pages next:
 
 - [TCP Session](./tcp-session.md)
+- [Frame Reader and Sender](./frame-reader-and-sender.md)
 - [TCP Session Extensions](./tcp-session-extensions.md)
+- [Session Diagnostics](./diagnostics.md)
+- [Thread Dispatching](./thread-dispatching.md)
 
 ## Related APIs
 
 - [TCP Session](./tcp-session.md)
+- [Frame Reader and Sender](./frame-reader-and-sender.md)
 - [TCP Session Extensions](./tcp-session-extensions.md)
+- [Session Diagnostics](./diagnostics.md)
+- [Thread Dispatching](./thread-dispatching.md)
 - [Subscriptions](./subscriptions.md)
 - [Transport Options](./options/transport-options.md)
 - [Request Options](./options/request-options.md)

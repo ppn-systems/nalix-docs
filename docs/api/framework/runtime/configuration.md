@@ -114,6 +114,7 @@ socket.Validate();
 
 - [Task Manager](./task-manager.md)
 - [Snowflake](./snowflake.md)
+- [SingletonBase](./singleton-base.md)
 - [Directories](../../common/directories.md)
 - [Network Options](../../network/options/options.md)
 - [Server Blueprint](../../../guides/server-blueprint.md)

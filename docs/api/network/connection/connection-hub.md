@@ -69,12 +69,38 @@ In both cases the hub raises `CapacityLimitReached`.
 - per-status and per-algorithm summaries
 - the first 15 active connections
 
+## ConnectionHubStatistics
+
+`ConnectionHubStatistics` is the structured snapshot returned by the hub for quick diagnostics and monitoring.
+
+## Source mapping
+
+- `src/Nalix.Network/Connections/Connection.Hub.Statistics.cs`
+
+It exposes:
+
+- `ConnectionCount`
+- `MaxConnections`
+- `DropPolicy`
+- `ShardCount`
+- `AnonymousQueueDepth`
+- `EvictedConnections`
+- `RejectedConnections`
+
+Use this type when you need machine-readable hub state instead of the formatted `GenerateReport()` output.
+
 ## Basic usage
 
 ```csharp
 hub.RegisterConnection(connection);
 IConnection? sameConnection = hub.GetConnection(connection.ID);
 await hub.BroadcastAsync(new PingResponse(), ct);
+```
+
+```csharp
+ConnectionHubStatistics stats = hub.Statistics;
+int liveConnections = stats.ConnectionCount;
+int rejectedConnections = stats.RejectedConnections;
 ```
 
 ---

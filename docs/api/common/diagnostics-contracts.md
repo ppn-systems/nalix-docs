@@ -62,3 +62,5 @@ logger.Error(ex, "dispatch failed for {ConnectionId}", connectionId);
 
 - [Logging](../logging/index.md)
 - [Logging Options](../logging/options.md)
+- [Logging Extensions](../logging/extensions.md)
+- [Logging Targets](../logging/targets.md)

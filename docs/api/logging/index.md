@@ -14,6 +14,8 @@
 - `NLogix`
 - `NLogix.Host`
 - `NLogixOptions`
+- `NLogixEngine`
+- `NLogixConstants`
 - `ILoggerTarget`
 
 ## What it does
@@ -52,6 +54,39 @@ InstanceManager.Instance.Register<ILogger>(NLogix.Host.Instance);
 
 This is the usual pattern for server startup so listeners, dispatch, and framework services use the same logger instance.
 
+## NLogixEngine
+
+`NLogixEngine` is the abstract high-performance base used by the concrete logging runtime.
+
+## Source mapping
+
+- `src/Nalix.Logging/Engine/NLogixEngine.cs`
+
+It is responsible for:
+
+- caching and applying `NLogixOptions`
+- checking minimum log level before formatting
+- publishing `LogEntry` objects into `NLogixDistributor`
+- owning common formatting helpers and disposal behavior
+
+This is the type that turns a logging call into a published entry while keeping the hot path fast.
+
+## NLogixConstants
+
+`NLogixConstants` contains the small formatting constants shared by the logging implementation.
+
+## Source mapping
+
+- `src/Nalix.Logging/Engine/NLogixConstants.cs`
+
+Current constants include:
+
+- `LogBracketOpen`
+- `LogBracketClose`
+- `LogSpaceSeparator`
+- `LogDashSeparator`
+- `DefaultLogBufferSize`
+
 ## Notes
 
 - keep one shared logger for the process when possible
@@ -60,5 +95,8 @@ This is the usual pattern for server startup so listeners, dispatch, and framewo
 
 ## Related APIs
 
+- [Diagnostics Contracts](../common/diagnostics-contracts.md)
 - [Configuration and DI](../framework/runtime/configuration.md)
+- [Logging Extensions](./extensions.md)
+- [Logging Targets](./targets.md)
 - [Nalix.Logging](../../packages/nalix-logging.md)
