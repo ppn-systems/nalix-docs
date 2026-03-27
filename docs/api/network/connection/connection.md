@@ -92,9 +92,10 @@ These are bridged from `SocketConnection.SetCallback(...)`:
 Current behavior:
 
 - rents a pooled `Directive`
-- serializes using either a small path or a rented `BufferLease`
+- serializes into a rented `BufferLease`
 - sends through `connection.TCP.SendAsync(...)`
-- logs failures and returns the directive to the pool
+- lets transport exceptions surface if the send cannot complete
+- always returns the directive to the pool in a `finally` block
 
 Use this helper for throttle, fail, timeout, or other control replies.
 

@@ -19,7 +19,7 @@
 
 | Class | Responsibility |
 |-------|----------------|
-| `TcpSessionBase` | Shared plumbing: options (`TransportOptions`, `IPacketRegistry`), framing helpers, `SendAsync` overloads (packet, bytes, encrypt/compress), lifecycle state, and events (`OnConnected`, `OnDisconnected`, `OnError`, `OnBytesSent`, `OnBytesReceived`, `OnMessageReceived`, `OnReconnected`). |
+| `TcpSessionBase` | Shared plumbing: options (`TransportOptions`, `IPacketRegistry`), framing helpers, `SendAsync` overloads (packet, bytes, encrypt/compress), lifecycle state, and events (`OnConnected`, `OnDisconnected`, `OnError`, `OnBytesSent`, `OnBytesReceived`, `OnMessageReceived`, `OnReconnected`). Send methods now complete by throwing on failure rather than returning `bool`. |
 | `TcpSession` | Production-ready reliable client with TaskManager receive worker, `SessionMonitor` (heartbeat + rate sampler), exponential reconnect loop, and detailed bandwidth counters. |
 | `IoTTcpSession` | Lightweight IoT client: serializes connect calls with `_connectLock`, runs receive loop via `Task.Run`, shares the same framing code but keeps the session simple for constrained runtime environments. |
 
@@ -37,6 +37,7 @@
 - **Automatic reconnect:** exponential backoff + jitter, cancellable in-flight attempts, configurable via `TransportOptions.Reconnect*`.
 - **Heartbeat + monitoring (`TcpSession` only):** `SessionMonitor` manages keep-alive PING/PONG (via `Control` frames), rate sampling (Bps), and optional time sync hooks.
 - **Advanced send paths:** pooling via `BufferLease`, compression & encryption toggles, and a helper that bundles serialization → optional compress/encrypt → framed send, keeping the hot path GC-free.
+- **Failure model:** send helpers are exception-based; callers should wrap `await session.SendAsync(...)` in `try/catch` when they need to handle transport faults locally.
 - **Thread-safe events:** `OnMessageReceived`/`OnMessageReceivedAsync` dispatch helpers own message buffers and avoid leaking leases; asynchronous handlers run through `InlineDispatcher` / `TaskManager` as configured.
 - **State + diagnostics:** `TcpSessionState` exposes `Connecting`, `Connected`, `Reconnecting`, `Disconnected`, `Disposed`; `BytesSent/BytesReceived`, plus `SendBytesPerSecond/ReceiveBytesPerSecond` counters (updated by the monitor sampler).
 - **Graceful teardown:** `DisconnectAsync`, `Dispose`, `DisposeAsync`, and `TearDownConnection` ensure sender/receiver cleanup, socket shutdown, and monitor disposal.

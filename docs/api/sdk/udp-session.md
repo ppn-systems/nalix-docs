@@ -68,6 +68,7 @@ This matches what `UdpListenerBase` validates on the server side.
 - optionally compress when `EnableCompression` and `MinSizeToCompress` allow it
 - optionally encrypt with `FrameTransformer` and `Options.Secret`
 - emit the final payload as one UDP datagram
+- throw on invalid input, partial send, or transport errors instead of returning `false`
 
 If `UseAuthenticationMetadata` is active and the session has enough state, `BuildDatagram(...)` appends the UDP trailer before the socket send.
 

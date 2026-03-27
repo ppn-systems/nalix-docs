@@ -37,6 +37,8 @@ There are two public paths:
 - `SendAsync(packet, ct)` uses `context.Attributes.Encryption?.IsEncrypted`
 - `SendAsync(packet, forceEncrypt, ct)` overrides that decision
 
+Both paths now use exception-based failure reporting from the transport layer.
+
 ## Runtime cases
 
 The sender splits into four main branches:
@@ -54,6 +56,8 @@ Encryption uses the connection's current:
 
 - `Secret`
 - `Algorithm`
+
+If compression or encryption cannot complete, the sender now throws instead of returning a failure flag.
 
 ## Basic usage
 

@@ -3,10 +3,10 @@
 Use these packages together or separately depending on whether you are building the server, the client, or shared contracts.
 
 !!! info "Version note"
-    Latest verified public package version on 2026-03-24:
+    Latest verified public package version on 2026-03-27:
 
-    - `Nalix.Network`: `11.8.0`
-    - `Nalix.SDK`: `11.8.0`
+    - `Nalix.Network`: `12.0.0`
+    - `Nalix.SDK`: `12.0.0`
 
 !!! tip "Safe default package choice"
     If you are building a server, start with `Nalix.Network`, `Nalix.Common`, and `Nalix.Framework`.

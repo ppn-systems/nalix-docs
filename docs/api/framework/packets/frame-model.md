@@ -105,8 +105,8 @@ bool encrypted = FrameTransformer.Encrypt(sourceLease, destLease, key, CipherSui
 - header bytes are copied through unchanged
 - encryption uses `EnvelopeCipher`
 - compression uses pooled `LZ4Codec`
-- `Try*` overloads catch failures and return `false`
-- non-`Try*` overloads surface validation errors such as empty keys or malformed envelopes
+- `Try*` overloads still catch failures and return `false`
+- non-`Try*` overloads now raise exceptions for invalid input, malformed envelopes, or transform failures
 
 ## When to use which layer
 

@@ -56,6 +56,7 @@ It supports:
 ```csharp
 IConnection connection = hub.GetConnection(connectionId);
 await connection.TCP.SendAsync(packet, ct);
+// Transport failures now surface as exceptions.
 
 IProtocol protocol = new SampleProtocol();
 await protocol.OnAccept(connection, ct);

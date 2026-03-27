@@ -91,6 +91,8 @@ When the payload starts with a valid `FragmentHeader`:
 - `Send(ReadOnlySpan<byte>)`
 - `SendAsync(ReadOnlyMemory<byte>, CancellationToken)`
 
+Both methods now return `void` and signal failures by throwing exceptions.
+
 ### Normal framed send
 
 For regular packets it:
@@ -99,6 +101,7 @@ For regular packets it:
 - uses stackalloc for small packets
 - uses pooled heap buffers for larger packets
 - invokes the post-process callback after a successful send
+- throws when the socket is disposed, the payload is empty, or a partial send occurs
 
 ### Fragmented send
 
