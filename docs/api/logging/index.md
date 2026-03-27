@@ -60,5 +60,5 @@ This is the usual pattern for server startup so listeners, dispatch, and framewo
 
 ## Related APIs
 
-- [Configuration and DI](../framework/configuration.md)
+- [Configuration and DI](../framework/runtime/configuration.md)
 - [Nalix.Logging](../../packages/nalix-logging.md)

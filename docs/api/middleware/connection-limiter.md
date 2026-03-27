@@ -50,5 +50,5 @@ If you skip this, active connection counts can stay artificially high for an end
 
 ## Related APIs
 
-- [TCP Listener](../network/tcp-listener.md)
-- [Connection Hub](../network/connection-hub.md)
+- [TCP Listener](../network/runtime/tcp-listener.md)
+- [Connection Hub](../network/connection/connection-hub.md)

@@ -113,4 +113,4 @@ session.Dispose();
 - [SDK Overview](./overview.md)
 - [TCP Session Extensions](./tcp-session-extensions.md)
 - [Subscriptions](./subscriptions.md)
-- [Transport Options](./transport-options.md)
+- [Transport Options](./options/transport-options.md)

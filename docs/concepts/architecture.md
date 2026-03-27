@@ -116,5 +116,5 @@ The exact middleware stack depends on your configuration and metadata. Packet at
 - [Real-time Engine](./real-time.md)
 - [Middleware](./middleware.md)
 - [Packet Dispatch](../api/routing/packet-dispatch.md)
-- [Connection Hub](../api/network/connection-hub.md)
+- [Connection Hub](../api/network/connection/connection-hub.md)
 - [Server Blueprint](../guides/server-blueprint.md)

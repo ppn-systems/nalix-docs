@@ -129,6 +129,6 @@ For a simple deployment:
 
 ## Related pages
 
-- [UDP Listener](../api/network/udp-listener.md)
-- [Connection Hub](../api/network/connection-hub.md)
-- [Network Options](../api/network/options.md)
+- [UDP Listener](../api/network/runtime/udp-listener.md)
+- [Connection Hub](../api/network/connection/connection-hub.md)
+- [Network Options](../api/network/options/options.md)

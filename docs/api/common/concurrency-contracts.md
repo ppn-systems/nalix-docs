@@ -84,6 +84,6 @@ You typically read:
 
 ## Related APIs
 
-- [Task Manager](../framework/task-manager.md)
-- [Worker Options](../framework/worker-options.md)
-- [Recurring Options](../framework/recurring-options.md)
+- [Task Manager](../framework/runtime/task-manager.md)
+- [Worker Options](../framework/options/worker-options.md)
+- [Recurring Options](../framework/options/recurring-options.md)

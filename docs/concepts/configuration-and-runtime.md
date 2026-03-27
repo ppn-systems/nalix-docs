@@ -127,5 +127,5 @@ That keeps startup deterministic and easier to debug.
 
 - [Server Blueprint](../guides/server-blueprint.md)
 - [Production Checklist](../guides/production-checklist.md)
-- [Configuration & DI](../api/framework/configuration.md)
-- [Network Options](../api/network/options.md)
+- [Configuration & DI](../api/framework/runtime/configuration.md)
+- [Network Options](../api/network/options/options.md)

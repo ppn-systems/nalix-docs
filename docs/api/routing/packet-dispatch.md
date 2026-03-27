@@ -72,4 +72,4 @@ Console.WriteLine(report);
 - [Packet Metadata](./packet-metadata.md)
 - [Handler Results](./handler-results.md)
 - [Middleware Pipeline](../middleware/pipeline.md)
-- [Protocol](../network/protocol.md)
+- [Protocol](../network/runtime/protocol.md)

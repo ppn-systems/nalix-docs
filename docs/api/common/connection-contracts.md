@@ -63,6 +63,6 @@ await protocol.OnAccept(connection, ct);
 
 ## Related APIs
 
-- [Connection](../network/connection.md)
-- [Connection Hub](../network/connection-hub.md)
-- [Protocol](../network/protocol.md)
+- [Connection](../network/connection/connection.md)
+- [Connection Hub](../network/connection/connection-hub.md)
+- [Protocol](../network/runtime/protocol.md)

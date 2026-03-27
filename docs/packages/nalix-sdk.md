@@ -96,5 +96,5 @@ These are useful when the client package is reused in desktop or device apps tha
 - [SDK Overview](../api/sdk/overview.md)
 - [TCP Session](../api/sdk/tcp-session.md)
 - [Session Extensions](../api/sdk/tcp-session-extensions.md)
-- [Request Options](../api/sdk/request-options.md)
+- [Request Options](../api/sdk/options/request-options.md)
 - [Session Diagnostics](../api/sdk/diagnostics.md)

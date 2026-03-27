@@ -82,5 +82,5 @@ Use the detail pages next:
 - [TCP Session](./tcp-session.md)
 - [TCP Session Extensions](./tcp-session-extensions.md)
 - [Subscriptions](./subscriptions.md)
-- [Transport Options](./transport-options.md)
-- [Request Options](./request-options.md)
+- [Transport Options](./options/transport-options.md)
+- [Request Options](./options/request-options.md)

@@ -136,5 +136,5 @@ services:
 
 ## Related APIs
 
-- [Configuration and DI](../framework/configuration.md)
+- [Configuration and DI](../framework/runtime/configuration.md)
 - [Installation](../../installation.md)

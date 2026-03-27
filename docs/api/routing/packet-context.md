@@ -48,4 +48,4 @@ Returning a packet uses the normal return-type pipeline. Sending through `contex
 - [Packet Attributes](./packet-attributes.md)
 - [Packet Metadata](./packet-metadata.md)
 - [Handler Results](./handler-results.md)
-- [Connection](../network/connection.md)
+- [Connection](../network/connection/connection.md)

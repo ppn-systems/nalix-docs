@@ -169,6 +169,6 @@ PingResponse reply = await session.RequestAsync<PingRequest, PingResponse>(
 
 - [TCP Session](./tcp-session.md)
 - [Subscriptions](./subscriptions.md)
-- [Request Options](./request-options.md)
+- [Request Options](./options/request-options.md)
 - [Cryptography](../security/cryptography.md)
-- [Built-in Frames](../framework/built-in-frames.md)
+- [Built-in Frames](../framework/packets/built-in-frames.md)

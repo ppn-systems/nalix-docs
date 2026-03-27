@@ -89,13 +89,13 @@ Core option types:
 
 If you are new to the package, read in this order:
 
-1. [TCP Listener](../api/network/tcp-listener.md)
-2. [Protocol](../api/network/protocol.md)
+1. [TCP Listener](../api/network/runtime/tcp-listener.md)
+2. [Protocol](../api/network/runtime/protocol.md)
 3. [Packet Dispatch](../api/routing/packet-dispatch.md)
 4. [Packet Context](../api/routing/packet-context.md)
-5. [Connection](../api/network/connection.md)
-6. [Connection Hub](../api/network/connection-hub.md)
-7. [Network Options](../api/network/options.md)
+5. [Connection](../api/network/connection/connection.md)
+6. [Connection Hub](../api/network/connection/connection-hub.md)
+7. [Network Options](../api/network/options/options.md)
 
 Then continue with the guides:
 
@@ -159,8 +159,8 @@ It drives:
 
 ## Key API pages
 
-- [TCP Listener](../api/network/tcp-listener.md)
-- [Protocol](../api/network/protocol.md)
+- [TCP Listener](../api/network/runtime/tcp-listener.md)
+- [Protocol](../api/network/runtime/protocol.md)
 - [Packet Dispatch](../api/routing/packet-dispatch.md)
-- [Connection Hub](../api/network/connection-hub.md)
-- [Network Options](../api/network/options.md)
+- [Connection Hub](../api/network/connection/connection-hub.md)
+- [Network Options](../api/network/options/options.md)
