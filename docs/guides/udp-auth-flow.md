@@ -10,6 +10,7 @@ When `UdpListenerBase` receives a datagram, it expects the payload to end with a
 
 - connection/session identifier
 - timestamp
+- nonce
 - authentication tag
 
 In source, the listener validates:
@@ -23,7 +24,7 @@ In source, the listener validates:
 
 ```mermaid
 flowchart LR
-    A["UDP datagram received"] --> B["Extract session id + timestamp + auth tag"]
+    A["UDP datagram received"] --> B["Extract session id + timestamp + nonce + auth tag"]
     B --> C["Find connection in ConnectionHub"]
     C --> D["Validate replay window"]
     D --> E["Validate Poly1305 tag"]
@@ -67,7 +68,7 @@ That means a common pattern is:
 The listener currently validates these parts:
 
 ```text
-[payload][session-id][timestamp][poly1305-tag]
+[payload][session-id][timestamp][nonce][poly1305-tag]
 ```
 
 The authentication tag is computed from:
@@ -75,6 +76,7 @@ The authentication tag is computed from:
 - payload
 - session ID bytes
 - timestamp bytes
+- nonce bytes
 - encoded remote endpoint
 - the connection secret
 
@@ -84,15 +86,17 @@ The authentication tag is computed from:
 byte[] payload = BuildGamePayload();
 byte[] sessionId = connectionId.ToBytes();
 long timestamp = CurrentUnixMilliseconds();
+ulong nonce = NextNonce();
 
 byte[] tag = ComputePoly1305(
     secret: sessionSecret,
     payload: payload,
     sessionId: sessionId,
     timestamp: timestamp,
+    nonce: nonce,
     remoteEndPoint: serverEndPoint);
 
-byte[] datagram = Concat(payload, sessionId, BitConverter.GetBytes(timestamp), tag);
+byte[] datagram = Concat(payload, sessionId, BitConverter.GetBytes(timestamp), BitConverter.GetBytes(nonce), tag);
 await udp.SendAsync(datagram, serverEndPoint);
 ```
 
@@ -104,6 +108,7 @@ Today the code uses a window of about 30 seconds, so clients should:
 
 - keep clocks reasonably aligned
 - generate timestamps at send time
+- generate a fresh nonce per datagram
 - avoid replaying stale datagrams
 
 ## What happens on failure
@@ -130,5 +135,6 @@ For a simple deployment:
 ## Related pages
 
 - [UDP Listener](../api/network/runtime/udp-listener.md)
+- [UDP Session](../api/sdk/udp-session.md)
 - [Connection Hub](../api/network/connection/connection-hub.md)
 - [Network Options](../api/network/options/options.md)

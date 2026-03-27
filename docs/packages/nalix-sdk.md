@@ -1,6 +1,6 @@
 # Nalix.SDK
 
-`Nalix.SDK` is the client-side transport package for connecting .NET applications to a Nalix server over TCP.
+`Nalix.SDK` is the client-side transport package for connecting .NET applications to a Nalix server over TCP and UDP.
 
 !!! tip "Keep the client simple first"
     Get one working `TcpSession` request flow online before adding handshake policy, directives, localization, or custom request orchestration.
@@ -9,16 +9,17 @@
 
 ```mermaid
 flowchart LR
-    A["TransportOptions"] --> B["TcpSession"]
+    A["TransportOptions"] --> B["TcpSession / UdpSession"]
     B --> C["ConnectAsync"]
-    C --> D["Request / directive helpers"]
-    D --> E["Response matching / subscriptions"]
+    C --> D["Request helpers or UDP datagrams"]
+    D --> E["Response matching / subscriptions / auth trailer"]
 ```
 
 ## Core pieces
 
 - `TcpSession`
 - `IoTTcpSession`
+- `UdpSession`
 - `TransportOptions`
 - `RequestOptions`
 - transport extensions such as `ControlExtensions`, `HandshakeExtensions`, `DirectiveClientExtensions`, and `RequestExtensions`
@@ -33,6 +34,8 @@ Use `TcpSession` for the normal client runtime. It includes:
 - TaskManager-backed receive and monitor loops
 
 Use `IoTTcpSession` when you want a simpler client shape with a serialized connect path and a lighter receive model.
+
+Use `UdpSession` when you already have a trusted session context and want low-latency datagrams authenticated with the server-side `UdpListenerBase` trailer format.
 
 ### Quick example
 
@@ -95,6 +98,7 @@ These are useful when the client package is reused in desktop or device apps tha
 
 - [SDK Overview](../api/sdk/overview.md)
 - [TCP Session](../api/sdk/tcp-session.md)
+- [UDP Session](../api/sdk/udp-session.md)
 - [Session Extensions](../api/sdk/tcp-session-extensions.md)
 - [Request Options](../api/sdk/options/request-options.md)
 - [Session Diagnostics](../api/sdk/diagnostics.md)

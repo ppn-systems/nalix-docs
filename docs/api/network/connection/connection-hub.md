@@ -9,7 +9,7 @@
 
 ```mermaid
 flowchart LR
-    A["RegisterConnection"] --> B["Shard by connection ID"]
+    A["RegisterConnection"] --> B["Convert connection ID to UInt56 key"]
     B --> C["Active connection maps"]
     C --> E["Broadcast / lookup / force close"]
     C --> F["GenerateReport"]
@@ -24,9 +24,19 @@ flowchart LR
 
 ## Core design
 
-- Connections are distributed across internal shards using the connection ID hash.
+- Connections are distributed across internal shards using a compact `UInt56` key derived from `connection.ID`.
 - Anonymous connections are also queued in FIFO order so `DROP_OLDEST` can evict them efficiently.
 - `Statistics` returns a structured snapshot with connection count, drop policy, shard count, anonymous queue depth, evicted count, and rejected count.
+
+## Keying model
+
+The current hub stores each connection under `connection.ID.ToUInt56()`.
+
+That means:
+
+- shard selection is based on the serialized snowflake key, not the reference identity of the `ISnowflake` object
+- `GetConnection(ISnowflake id)` and `GetConnection(ReadOnlySpan<byte> id)` resolve through the same `UInt56` lookup path
+- UDP listener code can resolve a connection directly from the session ID bytes appended to the datagram
 
 ## Main operations
 
@@ -132,4 +142,5 @@ var username = connection.Attributes.TryGetValue("username", out var u) ? u as s
 - [Connection](./connection.md)
 - [Connection Events](./connection-events.md)
 - [Connection Hub Options](./connection-hub-options.md)
+- [UDP Listener](../runtime/udp-listener.md)
 - [Network Options](../options/options.md)

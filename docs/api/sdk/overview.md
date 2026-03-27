@@ -1,6 +1,6 @@
 # Nalix.SDK API Overview
 
-`Nalix.SDK` is the client transport layer for Nalix-based TCP applications. The current source tree centers on reliable TCP sessions plus helper extensions for control packets, requests, directives, and handshakes.
+`Nalix.SDK` is the client transport layer for Nalix-based applications. The current source tree includes reliable TCP sessions, a UDP client session, and helper extensions for control packets, requests, directives, and handshakes.
 
 !!! tip "Start with TcpSession unless you have a reason not to"
     `TcpSession` is the best default for most clients because it already carries reconnect, monitoring, and helper flow that teams usually need.
@@ -9,10 +9,10 @@
 
 ```mermaid
 flowchart LR
-    A["TransportOptions"] --> B["TcpSession / IoTTcpSession"]
+    A["TransportOptions"] --> B["TcpSession / IoTTcpSession / UdpSession"]
     B --> C["Connect / reconnect logic"]
-    C --> D["Extensions"]
-    D --> E["Request matching / subscriptions"]
+    C --> D["Extensions or datagram send path"]
+    D --> E["Request matching / subscriptions / UDP auth trailer"]
 ```
 
 ## Source mapping
@@ -20,6 +20,7 @@ flowchart LR
 - `src/Nalix.SDK/Transport/TcpSessionBase.cs`
 - `src/Nalix.SDK/Transport/TcpSession.cs`
 - `src/Nalix.SDK/Transport/IoTTcpSession.cs`
+- `src/Nalix.SDK/Transport/UdpSession.cs`
 - `src/Nalix.SDK/Configuration/TransportOptions.cs`
 - `src/Nalix.SDK/Configuration/RequestOptions.cs`
 - `src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs`
@@ -33,6 +34,7 @@ flowchart LR
 | Component | Description |
 | --- | --- |
 | `TcpSessionBase`, `TcpSession`, `IoTTcpSession` | Shared TCP transport base plus two client implementations. |
+| `UdpSession` | UDP client transport with optional authenticated datagram trailer support. |
 | `TransportOptions` | Client transport configuration loaded through `ConfigurationManager`. |
 | `RequestOptions` | Timeout, retry, and encryption controls for `RequestAsync`. |
 | `Transport.Extensions` | Control, directive, handshake, request, and subscription helpers. |
@@ -45,7 +47,7 @@ Checklist:
 
 - register an `IPacketRegistry`
 - load or construct `TransportOptions`
-- create `TcpSession` or `IoTTcpSession`
+- create `TcpSession`, `IoTTcpSession`, or `UdpSession`
 - hook events you need
 - connect, send, await responses, disconnect
 
@@ -68,10 +70,11 @@ client.Dispose();
 
 Compared with older docs/examples, the current SDK shape is:
 
-- TCP-focused in the public source tree
+- TCP-first, but no longer TCP-only
 - reconnect-aware through `TransportOptions`
 - request-safe through `PACKET_AWAITER`-backed helpers
 - able to perform handshake and directive flows without hand-written boilerplate
+- able to send authenticated UDP datagrams after session state is established
 
 ## ProtocolStringExtensions
 
@@ -102,6 +105,7 @@ string action = ProtocolAdvice.BACKOFF_RETRY.ToString();
 Use the detail pages next:
 
 - [TCP Session](./tcp-session.md)
+- [UDP Session](./udp-session.md)
 - [Frame Reader and Sender](./frame-reader-and-sender.md)
 - [TCP Session Extensions](./tcp-session-extensions.md)
 - [Session Diagnostics](./diagnostics.md)
@@ -110,6 +114,7 @@ Use the detail pages next:
 ## Related APIs
 
 - [TCP Session](./tcp-session.md)
+- [UDP Session](./udp-session.md)
 - [Frame Reader and Sender](./frame-reader-and-sender.md)
 - [TCP Session Extensions](./tcp-session-extensions.md)
 - [Session Diagnostics](./diagnostics.md)
