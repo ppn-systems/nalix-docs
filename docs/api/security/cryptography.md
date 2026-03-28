@@ -16,10 +16,8 @@ Nalix ships several cryptography primitives in `Nalix.Framework.Security`, but t
 
 | Topic | Main types | Read next |
 |---|---|---|
-| Key agreement | `X25519` | [Key Agreement](./key-agreement.md) |
 | Hashing and MAC | `Keccak256`, `Poly1305` | [Hashing and MAC](./hashing-and-mac.md) |
 | AEAD and envelope encryption | `ChaCha20Poly1305`, `Salsa20Poly1305`, `EnvelopeCipher` | [AEAD and Envelope](./aead-and-envelope.md) |
-| Credential hashing and legacy surface | `Pbkdf2`, `PBKDF2_I`, `Ed25519` | [Credentials and Legacy](./credentials-and-legacy.md) |
 
 ## Quick guidance
 
@@ -61,9 +59,7 @@ int shard = Csprng.GetInt32(0, 8);
 
 ## Related APIs
 
-- [Key Agreement](./key-agreement.md)
 - [Hashing and MAC](./hashing-and-mac.md)
 - [AEAD and Envelope](./aead-and-envelope.md)
-- [Credentials and Legacy](./credentials-and-legacy.md)
 - [SDK Extensions](../sdk/tcp-session-extensions.md)
 - [UDP Auth Flow](../../guides/udp-auth-flow.md)

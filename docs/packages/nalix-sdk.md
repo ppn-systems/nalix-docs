@@ -96,7 +96,7 @@ These are useful when the client package is reused in desktop or device apps tha
 
 ## Key API pages
 
-- [SDK Overview](../api/sdk/overview.md)
+- [SDK Overview](../api/sdk/index.md)
 - [TCP Session](../api/sdk/tcp-session.md)
 - [UDP Session](../api/sdk/udp-session.md)
 - [Session Extensions](../api/sdk/tcp-session-extensions.md)

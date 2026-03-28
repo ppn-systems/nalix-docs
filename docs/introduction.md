@@ -30,7 +30,7 @@ InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
 |---|---|
 | Build a TCP or UDP server | [Quick Start](./quickstart.md) |
 | Build a TCP client | [Nalix.SDK](./packages/nalix-sdk.md) |
-| Understand package layout | [Packages Overview](./packages/overview.md) |
+| Understand package layout | [Packages Overview](./packages/index.md) |
 | Understand packet metadata and dispatch | [Nalix.Network](./packages/nalix-network.md) |
 
 ## Server mental model

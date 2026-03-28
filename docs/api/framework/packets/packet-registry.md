@@ -66,5 +66,5 @@ bool registered = registry.IsRegistered<Handshake>();
 - [Frame Model](./frame-model.md)
 - [Built-in Frames](./built-in-frames.md)
 - [Packet Contracts](../../common/packet-contracts.md)
-- [SDK Overview](../../sdk/overview.md)
+- [SDK Overview](../../sdk/index.md)
 - [Packet Dispatch](../../routing/packet-dispatch.md)

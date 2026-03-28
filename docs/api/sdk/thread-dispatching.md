@@ -39,5 +39,5 @@ Use it when:
 
 ## Related APIs
 
-- [SDK Overview](./overview.md)
+- [SDK Overview](./index.md)
 - [TCP Session](./tcp-session.md)

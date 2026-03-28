@@ -16,7 +16,7 @@ If you are new to the project, read in this order:
 1. [Introduction](./introduction.md)
 2. [Installation](./installation.md)
 3. [Quick Start](./quickstart.md)
-4. [Packages Overview](./packages/overview.md)
+4. [Packages Overview](./packages/index.md)
 
 If you are building a server, continue with:
 
@@ -27,7 +27,7 @@ If you are building a server, continue with:
 If you are building a client, continue with:
 
 - [Nalix.SDK](./packages/nalix-sdk.md)
-- [SDK Overview](./api/sdk/overview.md)
+- [SDK Overview](./api/sdk/index.md)
 - [TCP Session](./api/sdk/tcp-session.md)
 
 ## Core runtime idea
