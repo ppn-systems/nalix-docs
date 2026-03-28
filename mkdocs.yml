@@ -102,9 +102,9 @@ extra_css:
 nav:
   - Overview: index.md
   - Start Here:
+      - Quick Start: quickstart.md
       - Introduction: introduction.md
       - Installation: installation.md
-      - Quick Start: quickstart.md
   - Concepts:
       - Choose the Right Building Block: concepts/choose-the-right-building-block.md
       - Architecture: concepts/architecture.md
@@ -131,7 +131,7 @@ nav:
         - Production Checklist: guides/production-checklist.md
         - Troubleshooting: guides/troubleshooting.md
   - Packages:
-      - Overview: packages/overview.md
+      - Overview: packages/index.md
       - Nalix.Common: packages/nalix-common.md
       - Nalix.Framework: packages/nalix-framework.md
       - Nalix.Logging: packages/nalix-logging.md
@@ -211,7 +211,7 @@ nav:
           - Compression Options: api/network/options/compression-options.md
           - Token Bucket Options: api/network/options/token-bucket-options.md
       - SDK:
-        - Overview: api/sdk/overview.md
+        - Overview: api/sdk/index.md
         - TCP Session: api/sdk/tcp-session.md
         - UDP Session: api/sdk/udp-session.md
         - Session Extensions: api/sdk/tcp-session-extensions.md
