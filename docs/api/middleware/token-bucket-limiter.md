@@ -12,6 +12,7 @@
 - refills credit over time
 - returns retry timing when traffic is denied
 - escalates repeated abuse into hard lockouts
+- supports configurable initial balance for new endpoints
 - bounds memory with tracked-endpoint limits and cleanup
 
 ## Basic usage
@@ -19,7 +20,7 @@
 ```csharp
 TokenBucketLimiter limiter = new(tokenBucketOptions);
 
-var decision = limiter.Check(endpoint);
+var decision = limiter.Evaluate(endpoint);
 if (!decision.Allowed)
 {
     return;
@@ -37,7 +38,7 @@ The result tells you:
 
 ## RateLimitDecision and RateLimitReason
 
-`Check(endpoint)` returns a `RateLimitDecision`.
+`Evaluate(endpoint)` returns a `RateLimitDecision`.
 
 Its main fields are:
 
@@ -55,7 +56,7 @@ Its main fields are:
 ## Example
 
 ```csharp
-var decision = limiter.Check(endpoint);
+var decision = limiter.Evaluate(endpoint);
 
 if (!decision.Allowed)
 {
@@ -69,6 +70,8 @@ if (!decision.Allowed)
 ```
 
 `Credit` is especially useful for diagnostics and adaptive client behavior because it tells you how much whole-token budget remains after the check.
+
+If `MaxTrackedEndpoints` is reached, new endpoint tracking attempts are denied with a hard-lockout-style decision until cleanup frees capacity.
 
 ## When to use it
 

@@ -37,13 +37,15 @@ using var lease = await gate.EnterAsync(
 - `queue: false` means fail fast
 - `queue: true` means wait for a slot
 - `queueMax` limits how much waiting work can accumulate
+- `TryEnter(...)` is the non-throwing fast path
+- `EnterAsync(...)` throws `ConcurrencyConflictException` for immediate or queue-limit rejections and `TimeoutException` when waiting exceeds the gate timeout
 
 ## Diagnostics
 
 `GenerateReport()` includes:
 
 - acquired, rejected, queued, and cleaned totals
-- breaker status
+- breaker status and trip count
 - tracked opcode count
 - per-opcode capacity and queue depth
 

@@ -12,6 +12,7 @@
 - enforces concurrent connection caps
 - enforces connection-attempt windows
 - applies temporary bans
+- throttles repeated reject and close logs per endpoint
 - schedules recurring cleanup
 
 ## Basic usage
@@ -22,7 +23,7 @@ options.Validate();
 
 ConnectionLimiter limiter = new(options);
 
-if (!limiter.IsConnectionAllowed(remoteEndPoint))
+if (!limiter.TryAccept(remoteEndPoint))
 {
     return;
 }
@@ -37,6 +38,8 @@ connection.OnCloseEvent += limiter.OnConnectionClosed;
 ```
 
 If you skip this, active connection counts can stay artificially high for an endpoint.
+
+`TryAccept(...)` returns `false` for over-limit, burst-window, or banned endpoints, and throws if the limiter has already been disposed.
 
 ## Diagnostics
 

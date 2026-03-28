@@ -63,19 +63,19 @@ header.WriteTo(buffer);
 - starts a stream only when chunk `0` arrives
 - evicts timed-out or inconsistent streams
 - returns a pooled `BufferLease` that the caller must dispose
+- throws for invalid headers, inconsistent chunk counts, and out-of-order delivery
 
 ## Basic usage
 
 ```csharp
 if (FragmentAssembler.IsFragmentedFrame(payload, out FragmentHeader header))
 {
-    bool complete = assembler.TryAdd(
+    BufferLease? assembled = assembler.Add(
         header,
         payload[FragmentHeader.WireSize..],
-        out BufferLease? assembled,
         out bool evicted);
 
-    if (complete && assembled is not null)
+    if (assembled is not null)
     {
         using (assembled)
         {
@@ -87,7 +87,9 @@ if (FragmentAssembler.IsFragmentedFrame(payload, out FragmentHeader header))
 
 ### Operational notes
 
-- `TryAdd(...)` returns `false` both for "still waiting" and for invalid/evicted streams, so check `streamEvicted` when you need to distinguish those cases.
+- `Add(...)` returns `null` while the assembler is still waiting for more chunks.
+- `Add(...)` also returns `null` for normal timeout or size-based eviction paths and reports that through `streamEvicted`.
+- `Add(...)` throws `InvalidDataException` when the fragment header is invalid, `TotalChunks` changes mid-stream, or a chunk arrives out of order.
 - `EvictExpired()` is meant to be called periodically by the receive loop.
 - `Clear()` and `Dispose()` release every in-flight stream buffer.
 

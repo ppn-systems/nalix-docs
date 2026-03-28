@@ -42,8 +42,8 @@ That means:
 
 | Method | Purpose |
 |---|---|
-| `RegisterConnection(connection)` | Adds a connection and subscribes the close event. |
-| `UnregisterConnection(connection)` | Removes the connection and event subscription. |
+| `RegisterConnection(connection)` | Adds a connection and subscribes the close event; throws if the hub is disposed, full, or the connection is already registered. |
+| `UnregisterConnection(connection)` | Removes the connection and event subscription; throws if the hub is disposed or the connection is not registered. |
 | `GetConnection(id)` | Resolves an active connection. |
 | `ListConnections()` | Returns a snapshot of active connections. |
 | `BroadcastAsync(...)` | Sends to all active connections. |
@@ -60,6 +60,8 @@ When `MaxConnections` is reached:
 - `DROP_OLDEST` searches the anonymous FIFO for an evictable connection and disconnects it.
 
 In both cases the hub raises `CapacityLimitReached`.
+
+`RegisterConnection(...)` no longer returns a boolean status. Admission failures now surface as `InvalidOperationException`, which keeps duplicate registrations and over-capacity cases explicit for callers.
 
 ## Broadcast behavior
 

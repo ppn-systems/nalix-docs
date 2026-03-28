@@ -79,10 +79,11 @@ The receive flow is:
 
 When the payload starts with a valid `FragmentHeader`:
 
-- `FragmentAssembler.TryAdd(...)` collects chunk bodies
+- `FragmentAssembler.Add(...)` collects chunk bodies
 - completed streams become a reassembled `BufferLease`
 - `MaxPerConnectionOpenFragmentStreams` limits concurrent fragment streams per connection
 - stale streams are evicted every `EvictInterval`
+- invalid or out-of-order fragment sequences now throw instead of being folded into a boolean result
 
 ## Send path
 

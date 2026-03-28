@@ -17,6 +17,7 @@
 - shard count
 - soft-violation escalation behavior
 - maximum tracked endpoints
+- initial token balance for newly seen endpoints
 
 ## Basic usage
 
@@ -28,6 +29,12 @@ options.Validate();
 ## Important note
 
 `ShardCount` must be a power of two in the current implementation.
+
+`InitialTokens` controls how new endpoints start:
+
+- `-1` starts with a full bucket
+- `0` starts empty for cold-start behavior
+- positive values start with that many tokens, clamped to capacity
 
 ## Related APIs
 

@@ -72,7 +72,7 @@ Two of these matter most when reasoning about behavior:
 `LZ4Codec.Encode(...)` supports:
 
 - `Encode(ReadOnlySpan<byte> input, Span<byte> output)`
-- `Encode(ReadOnlySpan<byte> input, out BufferLease? lease, out int bytesWritten)`
+- `Encode(ReadOnlySpan<byte> input, out BufferLease lease, out int bytesWritten)`
 
 Use the span overload when you already own the destination buffer.
 
@@ -83,7 +83,7 @@ Use the `BufferLease` overload when you want a pooled, zero-copy-friendly path.
 `LZ4Codec.Decode(...)` supports:
 
 - `Decode(ReadOnlySpan<byte> input, Span<byte> output)`
-- `Decode(ReadOnlySpan<byte> input, out byte[]? output, out int bytesWritten)`
+- `Decode(ReadOnlySpan<byte> input, out byte[] output, out int bytesWritten)`
 - `Decode(ReadOnlySpan<byte> input, out BufferLease? lease, out int bytesWritten)`
 
 Use the `byte[]` overload when convenience matters more than allocation pressure.
@@ -95,17 +95,13 @@ Use the `BufferLease` overload on hot paths where you want pooled output.
 ```csharp
 ReadOnlySpan<byte> input = payload;
 
-if (LZ4Codec.Encode(input, out BufferLease? compressed, out int written))
+LZ4Codec.Encode(input, out BufferLease compressed, out int written);
+using (compressed)
 {
-    using (compressed)
+    LZ4Codec.Decode(compressed.Span, out BufferLease? restored, out int restoredBytes);
+    using (restored)
     {
-        if (LZ4Codec.Decode(compressed.Span, out BufferLease? restored, out int restoredBytes))
-        {
-            using (restored)
-            {
-                Console.WriteLine(restoredBytes);
-            }
-        }
+        Console.WriteLine(restoredBytes);
     }
 }
 ```
@@ -115,8 +111,8 @@ if (LZ4Codec.Encode(input, out BufferLease? compressed, out int written))
 !!! tip "Prefer pooled paths on hot routes"
     The `BufferLease` overloads are the best default when compression is part of a high-throughput network path.
 
-!!! note "The span encode path expects enough space"
-    `Encode(input, output)` returns `-1` if the destination is too small or cannot fit the header and compressed block.
+!!! note "Failures now throw"
+    The public LZ4 APIs no longer use boolean success/failure flow. Invalid buffers, malformed payloads, and unexpected codec failures surface as exceptions, while pooled leases are disposed on failing paths.
 
 ## Related APIs
 

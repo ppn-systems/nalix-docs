@@ -29,6 +29,8 @@ Tune these together:
 
 If the numbers are too aggressive, real users behind NAT can get punished. If they are too loose, connection floods stay expensive longer.
 
+`DDoSLogSuppressWindow` now also matters operationally because the limiter coalesces repeated reject and ban logs per endpoint instead of emitting one line per failure.
+
 ## Example
 
 ```csharp
