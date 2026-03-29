@@ -85,9 +85,9 @@ Core option types:
 - `PoolingOptions`
 - `NetworkCallbackOptions`
 
-## Suggested reading order for clients
+## Suggested reading order
 
-If you are new to the package, read in this order:
+If you are new to the server runtime, read in this order:
 
 1. [TCP Listener](../api/network/runtime/tcp-listener.md)
 2. [Protocol](../api/network/runtime/protocol.md)
@@ -120,8 +120,8 @@ PacketDispatchChannel dispatch = new(options =>
 public sealed class SamplePingHandlers
 {
     [PacketOpcode(0x1001)]
-    public ValueTask<PingResponse> Handle(PingRequest request, IConnection connection)
-        => ValueTask.FromResult(new PingResponse { Message = $"pong:{request.Message}" });
+    public ValueTask<Control> Handle(Control request, IConnection connection)
+        => ValueTask.FromResult(new Control { Type = ControlType.PONG });
 }
 
 public sealed class SampleProtocol : Protocol

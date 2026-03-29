@@ -1,12 +1,11 @@
 # Nalix.SDK.Transport.Extensions — TcpSession Helpers for Control, Directive, and Request Flows
 
-The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`TcpSession` with helpers for protocol control packets, directives, secure handshakes, request/response coordination, throttling safety, and subscription management. The helpers keep receive loops resilient by owning leases and catching handler faults.
+The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`TcpSession` with helpers for protocol control packets, directives, request/response coordination, throttling safety, and subscription management. The helpers keep receive loops resilient by owning leases and catching handler faults.
 
 ## Source mapping
 
 - `src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/DirectiveClientExtensions.cs`
-- `src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/TcpSessionSubscriptions.cs`
 
@@ -15,14 +14,12 @@ The `Nalix.SDK.Transport.Extensions` namespace enriches `IClientConnection`/`Tcp
 ## Key capabilities
 
 - Checklist:
-  - Control helpers: `NewControl`, `PingAsync`, `AwaitControlAsync`.
-  - Handshake: `HandshakeAsync` (X25519 + Keccak256) updates `TransportOptions.Secret`.
+  - Control helpers: `NewControl`, `PingAsync`, `AwaitControlAsync`, `SendControlAsync`.
   - Directives: `TryHandleDirectiveAsync`, throttle/redirect/NACK/NOTICE handling.
   - Requests: `RequestAsync` with `RequestOptions` (timeout, retry, encrypt).
   - Subscriptions: `On`, `OnOnce`, `SubscribeTemp`, `CompositeSubscription`.
 
 - Fluent `Control` builders, PING/PONG helpers, and awaiters that use `PacketAwaiter` to avoid race conditions.
-- Secure X25519 handshake + `Keccak256` key derivation that installs the shared secret on `TransportOptions.Secret`.
 - Directive processing (`THROTTLE`, `REDIRECT`, `NACK`, `NOTICE`) with optional callbacks and default auto-redirect nursing.
 - Request/response helpers (`RequestAsync`, `RequestOptions`) that send, await, optionally encrypt, and retry safely.
 - Subscription helpers (`On<T>`, `OnOnce<T>`, `SubscribeTemp`, `Subscribe`) that automatically dispose leases and log handler errors.
@@ -45,26 +42,7 @@ Control pong = await session.AwaitControlAsync(
     timeoutMs: 3000,
     ct);
 
-var (rttMs, _) = await session.PingAsync(timeoutMs: 3000, ct: ct);
-```
-
----
-
-## Handshake (HandshakeExtensions)
-
-- `HandshakeAsync` performs a full X25519 Diffie-Hellman exchange using a helper `Handshake` packet (op code default 1).
-- The server response is validated via an optional `validateServerPublicKey` callback; if accepted, the derived secret is hashed with SHA3 (`Keccak256`) and stored in `TransportOptions.Secret`.
-- Sensitive material (private key + shared secret) is zeroed when the handshake completes or fails.
-- A temporary subscription (`SubscribeTemp`) ensures the handshake response is captured without leaking listeners or leases.
-
-### Example
-
-```csharp
-bool ok = await session.HandshakeAsync(
-    opCode: 1,
-    timeoutMs: 5000,
-    validateServerPublicKey: key => key.SequenceEqual(expectedKey),
-    ct: ct);
+var (rttMs, _) = await session.PingAsync(opCode: 0, timeoutMs: 3000, ct: ct);
 ```
 
 ---
@@ -132,10 +110,11 @@ if (session.IsThrottled(out TimeSpan remaining))
 ### Example
 
 ```csharp
-LoginResponse reply = await session.RequestAsync<LoginRequest, LoginResponse>(
+Control request = session.NewControl(opCode: 1, type: ControlType.NOTICE).Build();
+Control reply = await session.RequestAsync<Control>(
     request,
-    r => r.CorrelationId == request.CorrelationId,
-    timeoutMs: 5000,
+    RequestOptions.Default.WithTimeout(5_000),
+    r => r.Type == ControlType.PONG,
     ct: ct);
 ```
 
@@ -152,7 +131,7 @@ LoginResponse reply = await session.RequestAsync<LoginRequest, LoginResponse>(
 ### Example
 
 ```csharp
-using var sub = session.On<PingResponse>(packet =>
+using var sub = session.On<Control>(packet =>
 {
     Console.WriteLine(packet.ToString());
 });
@@ -171,22 +150,20 @@ Flow: connect session → perform handshake → optionally handle directives/thr
 
 - Always dispose the `IDisposable` returned by subscription helpers (use `using var`), especially before issuing `RequestAsync` calls.
 - When sending throttled traffic, wrap `SendWithThrottleAsync` around your packets so you never violate server directives.
-- Pin server public keys via `HandshakeAsync(... validateServerPublicKey: ...)` to harden clients against MITM.
 - Use `RequestOptions.WithEncrypt()` only on `TcpSession`/`IoTTcpSession` instances; the base class exposes `SendAsync(packet, encrypt: true)` for encryption-aware transports.
 
 ## Example
 
 ```csharp
-await session.HandshakeAsync(validateServerPublicKey: key => key.SequenceEqual(expectedKey), ct);
-
-using var sub = session.On<PingResponse>((packet, lease) =>
+using var sub = session.On<Control>(packet =>
 {
     Console.WriteLine("pong received");
 });
 
-PingResponse reply = await session.RequestAsync<PingRequest, PingResponse>(
-    new PingRequest(),
+Control reply = await session.RequestAsync<Control>(
+    new Control { Type = ControlType.PING },
     RequestOptions.Default.WithTimeout(TimeSpan.FromSeconds(3)),
+    r => r.Type == ControlType.PONG,
     ct);
 ```
 

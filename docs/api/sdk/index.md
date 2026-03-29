@@ -24,7 +24,6 @@ flowchart LR
 - `src/Nalix.SDK/Configuration/TransportOptions.cs`
 - `src/Nalix.SDK/Configuration/RequestOptions.cs`
 - `src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs`
-- `src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/DirectiveClientExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/TcpSessionSubscriptions.cs`
@@ -34,12 +33,11 @@ flowchart LR
 | Component | Description |
 | --- | --- |
 | `TcpSessionBase`, `TcpSession`, `IoTTcpSession` | Shared TCP transport base plus two client implementations. |
-| `UdpSession` | UDP client transport with optional authenticated datagram trailer support. |
+| `UdpSession` | UDP client transport type that is currently marked obsolete/unsupported in source. |
 | `TransportOptions` | Client transport configuration loaded through `ConfigurationManager`. |
 | `RequestOptions` | Timeout, retry, and encryption controls for `RequestAsync`. |
-| `Transport.Extensions` | Control, directive, handshake, request, and subscription helpers. |
+| `Transport.Extensions` | Control, directive, request, and subscription helpers. |
 | `ProtocolStringExtensions` | Friendly display text for `ProtocolAdvice` and `ProtocolReason`. |
-| `L10N` | Optional localization helpers such as `Localizer` and `MultiLocalizer`. |
 
 ## Quick start
 
@@ -73,8 +71,8 @@ Compared with older docs/examples, the current SDK shape is:
 - TCP-first, but no longer TCP-only
 - reconnect-aware through `TransportOptions`
 - request-safe through `PACKET_AWAITER`-backed helpers
-- able to perform handshake and directive flows without hand-written boilerplate
-- able to send authenticated UDP datagrams after session state is established
+- able to handle control, directive, and request flows without hand-written boilerplate
+- exposes an experimental UDP session type for datagram transport, while TCP remains the primary supported path
 
 ## ProtocolStringExtensions
 

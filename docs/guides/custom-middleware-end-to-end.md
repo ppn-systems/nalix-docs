@@ -83,8 +83,11 @@ public sealed class SampleChatHandlers
 {
     [PacketOpcode(0x1001)]
     [PacketPermission(PermissionLevel.USER)]
-    public ValueTask<string> Send(ChatMessage packet, IConnection connection)
-        => ValueTask.FromResult("ok");
+    public ValueTask<Control> Send(Control packet, IConnection connection)
+    {
+        packet.Type = ControlType.PONG;
+        return ValueTask.FromResult(packet);
+    }
 }
 ```
 

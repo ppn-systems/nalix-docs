@@ -63,13 +63,13 @@ The current implementation:
 
 ```csharp
 [PacketOpcode(0x1201)]
-public static PingResponse HandlePing(PingRequest packet, IConnection connection)
+public static Control HandlePing(Control packet, IConnection connection)
 {
-    return new PingResponse();
+    return packet;
 }
 
 [PacketOpcode(0x1202)]
-public static async Task<string> HandleTextAsync(PingRequest packet, IConnection connection)
+public static async Task<string> HandleTextAsync(Control packet, IConnection connection)
 {
     await Task.Delay(10);
     return "pong";

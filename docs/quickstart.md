@@ -270,14 +270,18 @@ sequenceDiagram
     participant L as TcpListener
     participant P as Protocol
     participant D as Dispatch
+    participant Q as Queue
+    participant W as Worker
     participant H as PingHandlers
 
     C->>L: PingRequest
     L->>P: ProcessMessage()
     P->>D: HandlePacket(...)
-    D->>H: Handle(...)
-    H-->>D: PingResponse
-    D-->>C: PingResponse
+    D->>Q: enqueue lease
+    W->>Q: pull lease
+    W->>H: Handle(...)
+    H-->>W: PingResponse
+    W-->>C: PingResponse
 ```
 
 ## Quick Notes

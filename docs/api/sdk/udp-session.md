@@ -1,9 +1,9 @@
 # UdpSession
 
-`UdpSession` is the UDP client transport in `Nalix.SDK`. It sends and receives raw datagrams, can reuse the same packet serialization and transform rules as TCP sessions, and can append the authenticated UDP trailer expected by `UdpListenerBase`.
+`UdpSession` is the UDP client transport in `Nalix.SDK`. The type exists in source, but it is currently marked `Obsolete` and unsupported, so treat this page as reference material rather than a recommendation for new projects.
 
-!!! tip "Bind UDP to an existing trusted session"
-    The common flow is: authenticate and handshake on TCP first, then call `BindFrom(...)` so `UdpSession` inherits the session ID and secret needed for authenticated UDP datagrams.
+!!! tip "Treat as experimental"
+    If you need to read or maintain existing UDP code, start by understanding how `BindFrom(...)` and `UseAuthenticationMetadata` work. For new work, prefer `TcpSession` unless you intentionally need to inspect this experimental path.
 
 ## Runtime shape
 
@@ -113,9 +113,9 @@ await udp.SendAsync(myPacket);
 
 Reach for `UdpSession` when:
 
-- TCP already establishes trust or handshake state
-- you want low-latency datagrams after session setup
-- you still want Nalix packet transforms and diagnostics on the client side
+- you are maintaining existing UDP code that already depends on this type
+- you need to understand the authenticated datagram shape expected by `UdpListenerBase`
+- you want Nalix packet transforms and diagnostics on the client side
 
 Stay on `TcpSession` when:
 

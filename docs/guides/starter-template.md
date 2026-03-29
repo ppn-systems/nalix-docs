@@ -213,14 +213,10 @@ public sealed class SamplePingHandlers
 {
     [PacketOpcode(0x1001)]
     [PacketTenant("core")]
-    public ValueTask<PingResponse> Handle(PingRequest request, IConnection connection)
+    public ValueTask<Control> Handle(Control request, IConnection connection)
     {
-        PingResponse response = new()
-        {
-            Message = $"pong:{request.Message}"
-        };
-
-        return ValueTask.FromResult(response);
+        request.Type = ControlType.PONG;
+        return ValueTask.FromResult(request);
     }
 }
 ```
@@ -260,7 +256,7 @@ When copying this template into a real project, replace:
 
 - `BuildLogger()`
 - `BuildPacketRegistry()`
-- `PingRequest` / `PingResponse`
+- `Control`
 - `PacketTenantAttribute`
 - the sample middleware logic
 

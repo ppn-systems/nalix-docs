@@ -9,12 +9,14 @@ Use it when you want one clear mental model for how transport, dispatch, metadat
 ```mermaid
 flowchart LR
     A["Socket frame / datagram"] --> B["Buffer middleware"]
-    B --> C["Packet registry deserialize"]
-    C --> D["Resolve handler + metadata"]
-    D --> E["Packet middleware"]
-    E --> F["Handler"]
-    F --> G["Return handler"]
-    G --> H["Reply / side effect"]
+    B --> C["Dispatch queue"]
+    C --> D["Worker loop"]
+    D --> E["Packet registry deserialize"]
+    E --> F["Resolve handler + metadata"]
+    F --> G["Packet middleware"]
+    G --> H["Handler"]
+    H --> I["Return handler"]
+    I --> J["Reply / side effect"]
 ```
 
 ## Step 1. Traffic enters through a listener
@@ -53,7 +55,7 @@ If a frame should not continue, this is the cheapest place to stop it.
 
 ## Step 4. Dispatch deserializes the packet
 
-Once the frame is ready, `PacketDispatchChannel` uses the packet registry to deserialize it into an `IPacket`.
+Once the frame is ready, `PacketDispatchChannel` first queues the work, then its worker loop uses the packet registry to deserialize it into an `IPacket`.
 
 This is the transition from transport-level work to application-level work.
 
@@ -124,7 +126,7 @@ This is why the handler does not need to manually build every reply path.
 The request path is easiest to reason about in three phases:
 
 1. transport phase: listener, protocol, raw frame handling
-2. dispatch phase: deserialization, metadata, middleware
+2. dispatch phase: queueing, worker loop, deserialization, metadata, middleware
 3. application phase: handler, return handling, reply
 
 If you know which phase your problem belongs to, you usually know which Nalix component to customize.

@@ -6,9 +6,9 @@
 
 - `src/Nalix.Network/Routing/PacketDispatchChannel.cs`
 - `src/Nalix.Network/Routing/PacketDispatcherBase.cs`
-- `src/Nalix.Network/Routing/Options/PacketDispatchOptions.cs`
-- `src/Nalix.Network/Routing/Options/PacketDispatchOptions.Execution.cs`
-- `src/Nalix.Network/Routing/Options/PacketDispatchOptions.PublicMethods.cs`
+- `src/Nalix.Network/Routing/PacketDispatchOptions.cs`
+- `src/Nalix.Network/Routing/PacketDispatchOptions.Execution.cs`
+- `src/Nalix.Network/Routing/PacketDispatchOptions.PublicMethods.cs`
 
 ## Runtime model
 
@@ -27,7 +27,8 @@
 
 `HandlePacket(IPacket, IConnection)`:
 
-- bypasses the queue and directly executes the compiled handler pipeline
+- is a typed fast-path for internal callers and directly executes the compiled handler pipeline
+- should be treated as an exception to the queue-based runtime flow, not the primary ingress path
 
 ## Worker loop
 
@@ -60,7 +61,7 @@ If middleware returns `null`, the packet is dropped before deserialization. If d
 ```csharp
 dispatch.Activate(ct);
 
-await dispatch.HandlePacket(lease, connection);
+dispatch.HandlePacket(lease, connection);
 
 string report = dispatch.GenerateReport();
 Console.WriteLine(report);

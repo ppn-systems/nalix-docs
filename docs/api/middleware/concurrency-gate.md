@@ -20,7 +20,7 @@ Most commonly it is driven by metadata:
 
 ```csharp
 [PacketConcurrencyLimit(4, queue: true, queueMax: 32)]
-public async Task HandleUpload(MyPacket packet, IConnection connection) { }
+public async Task HandleUpload(Handshake packet, IConnection connection) { }
 ```
 
 Imperative usage is also possible:

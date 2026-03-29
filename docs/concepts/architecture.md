@@ -18,8 +18,10 @@ At a high level, a Nalix server is built from:
 flowchart LR
     Client["Client"] --> Listener["TcpListenerBase / UdpListenerBase"]
     Listener --> Protocol["Protocol"]
-    Protocol --> Dispatch["PacketDispatchChannel"]
-    Dispatch --> Middleware["Packet middleware"]
+    Protocol --> Dispatch["PacketDispatchChannel queue + worker loop"]
+    Dispatch --> Deserialize["Packet registry deserialize"]
+    Deserialize --> Metadata["Resolve handler + metadata"]
+    Metadata --> Middleware["Packet middleware"]
     Middleware --> Handler["Handler controller / method"]
     Handler --> Connection["Connection / ConnectionHub"]
 ```
@@ -31,8 +33,8 @@ The common TCP path looks like this:
 1. `TcpListenerBase` accepts a socket.
 2. `ConnectionLimiter` may reject or ban the endpoint before full admission.
 3. The listener creates a `Connection` and passes it to `Protocol.OnAccept(...)`.
-4. The protocol receives framed data and forwards packets into `PacketDispatchChannel`.
-5. Dispatch deserializes the packet, resolves metadata, runs middleware, invokes the handler, and optionally sends a result back through the connection.
+4. The protocol receives framed data and forwards work into `PacketDispatchChannel`.
+5. Dispatch queues the work, the worker loop deserializes the packet, resolves metadata, runs middleware, invokes the handler, and optionally sends a result back through the connection.
 
 The UDP path follows the same broad model, but datagrams are authenticated and mapped to session state differently inside `UdpListenerBase`.
 
@@ -52,6 +54,7 @@ The UDP path follows the same broad model, but datagrams are authenticated and m
 `PacketDispatchChannel` is the application entry point for packets. It is responsible for:
 
 - queueing inbound work
+- running the worker loop
 - deserializing packets with the packet registry
 - resolving handler descriptors and metadata
 - running middleware
@@ -89,17 +92,21 @@ sequenceDiagram
     participant L as Listener
     participant P as Protocol
     participant D as PacketDispatchChannel
+    participant Q as DispatchQueue
+    participant W as WorkerLoop
     participant M as Middleware
     participant H as Handler
     participant C as Connection
 
     L->>P: accepted data / datagram
     P->>D: handle packet
-    D->>D: deserialize + resolve metadata
-    D->>M: run inbound middleware
+    D->>Q: enqueue lease
+    W->>Q: pull lease
+    W->>W: deserialize + resolve metadata
+    W->>M: run inbound middleware
     M->>H: invoke handler
-    H-->>D: return result or complete
-    D-->>C: send response if applicable
+    H-->>W: return result or complete
+    W-->>C: send response if applicable
 ```
 
 The exact middleware stack depends on your configuration and metadata. Packet attributes such as permission, timeout, concurrency, and rate limits become runtime behavior through the metadata pipeline.

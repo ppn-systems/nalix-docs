@@ -28,14 +28,10 @@ InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
 public sealed class SamplePingHandlers
 {
     [PacketOpcode(0x1001)]
-    public ValueTask<PingResponse> Ping(PingRequest request, IConnection connection)
+    public ValueTask<Control> Ping(Control request, IConnection connection)
     {
-        PingResponse response = new()
-        {
-            Message = $"pong:{request.Message}"
-        };
-
-        return ValueTask.FromResult(response);
+        request.Type = ControlType.PONG;
+        return ValueTask.FromResult(request);
     }
 }
 ```
@@ -83,15 +79,12 @@ listener.Activate();
 The transport/session abstraction can vary on your side, but the request/response pattern is:
 
 ```csharp
-PingRequest request = new()
-{
-    Message = "hello"
-};
+Control request = new() { Type = ControlType.PING };
 
 await client.SendAsync(request.Serialize());
-PingResponse response = await WaitForPingResponseAsync();
+Control response = await WaitForControlAsync();
 
-Console.WriteLine(response.Message); // pong:hello
+Console.WriteLine(response.Type); // PONG
 ```
 
 ## Full flow
@@ -108,7 +101,7 @@ sequenceDiagram
     Listener->>Protocol: connection message event
     Protocol->>Dispatch: HandlePacket(lease, connection)
     Dispatch->>Handler: Ping(request, connection)
-    Handler-->>Dispatch: PingResponse
+    Handler-->>Dispatch: Control
     Dispatch-->>Client: serialized response
 ```
 

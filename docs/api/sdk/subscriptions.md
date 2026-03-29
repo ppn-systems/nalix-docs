@@ -23,7 +23,7 @@ These helpers reduce message-subscription boilerplate and centralize lease owner
 ```csharp
 using var sub = client.On<Handshake>(packet =>
 {
-    Console.WriteLine(packet.PublicKey.Length);
+    Console.WriteLine(packet.Auth.PublicKey.Length);
 });
 ```
 
@@ -38,8 +38,8 @@ using var sub = client.OnOnce<Control>(
 Temporary scoped subscription:
 
 ```csharp
-using var sub = client.SubscribeTemp<LoginResponse>(
-    onMessage: response => Console.WriteLine(response.Status),
+using var sub = client.SubscribeTemp<Control>(
+    onMessage: response => Console.WriteLine(response.Type),
     onDisconnected: ex => Console.WriteLine(ex.Message));
 ```
 

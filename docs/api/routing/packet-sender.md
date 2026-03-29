@@ -62,9 +62,9 @@ If compression or encryption cannot complete, the sender now throws instead of r
 ## Basic usage
 
 ```csharp
-public async ValueTask Handle(PacketContext<MyPacket> context, CancellationToken ct)
+public async ValueTask Handle(PacketContext<Handshake> context, CancellationToken ct)
 {
-    MyReply reply = BuildReply(context.Packet);
+    Handshake reply = new();
     await context.Sender.SendAsync(reply, ct);
 }
 ```
@@ -72,7 +72,7 @@ public async ValueTask Handle(PacketContext<MyPacket> context, CancellationToken
 Forced encryption:
 
 ```csharp
-await context.Sender.SendAsync(reply, forceEncrypt: true, ct);
+await context.Sender.SendAsync(new Handshake(), forceEncrypt: true, ct);
 ```
 
 ## Ownership and pooling

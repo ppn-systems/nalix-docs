@@ -52,8 +52,9 @@ It supports:
 ## Example
 
 ```csharp
-IPacket packet = new PingRequest();
-await sender.SendAsync((PingRequest)packet, ct);
+IPacket packet = new Handshake();
+IPacketSender<Handshake> sender = /* resolved sender */;
+await sender.SendAsync((Handshake)packet, ct);
 
 if (registry.TryDeserialize(buffer, out IPacket? decoded))
 {

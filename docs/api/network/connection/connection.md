@@ -115,7 +115,7 @@ If you want the lower-level TCP framing, receive loop, callback wiring, fragment
 connection.OnProcessEvent += protocol.ProcessMessage;
 connection.OnPostProcessEvent += protocol.PostProcessMessage;
 
-await connection.TCP.SendAsync(new PingResponse(), ct);
+await connection.TCP.SendAsync(new Control(), ct);
 connection.Close();
 ```
 

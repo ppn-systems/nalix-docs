@@ -14,12 +14,11 @@ Use these packages together or separately depending on whether you are building 
 
 | Package | Use it for | Key types |
 | --- | --- | --- |
-| Nalix.SDK | Client TCP sessions, request helpers, handshakes, directives | `TcpSession`, `IoTTcpSession`, `TransportOptions`, `RequestOptions` |
+| Nalix.SDK | Client TCP sessions, request helpers, and control/directive flows; `UdpSession` exists but is currently unsupported | `TcpSession`, `IoTTcpSession`, `UdpSession`, `TransportOptions`, `RequestOptions` |
 | Nalix.Network | Listeners, connections, dispatch pipeline, server-side throttling | `TcpListenerBase`, `UdpListenerBase`, `ConnectionHub`, `PacketDispatchChannel` |
 | Nalix.Common | Shared contracts, packet attributes, middleware contracts | `IPacket`, `IConnection`, `PacketControllerAttribute`, `PacketOpcodeAttribute` |
 | Nalix.Logging | Structured logging and targets | `NLogix`, `NLogixOptions`, `ILoggerTarget` |
-| Nalix.Framework | Configuration, service registry, scheduling, IDs, timing helpers | `ConfigurationManager`, `InstanceManager`, `TaskManager`, `Snowflake`, `Clock` |
-| Nalix.Framework | Built-in frames, packet registry, serializer-adjacent transport types | `PacketRegistryFactory`, `PacketRegistry`, `Handshake`, `Control`, `Text256/512/1024` |
+| Nalix.Framework | Configuration, service registry, scheduling, IDs, timing helpers, built-in frames, registry, serializer helpers | `ConfigurationManager`, `InstanceManager`, `TaskManager`, `Snowflake`, `Clock`, `PacketRegistryFactory`, `PacketRegistry`, `Handshake`, `Control`, `Text256/512/1024` |
 
 ## Minimal wiring map
 

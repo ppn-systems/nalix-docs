@@ -12,7 +12,6 @@ This page summarizes the main `Nalix.Network.Configurations` types that shape li
 - `src/Nalix.Network/Configurations/TimingWheelOptions.cs`
 - `src/Nalix.Network/Configurations/NetworkCallbackOptions.cs`
 - `src/Nalix.Network/Configurations/CompressionOptions.cs`
-- `src/Nalix.Network/Configurations/CacheSizeOptions.cs`
 - `src/Nalix.Network/Configurations/TokenBucketOptions.cs`
 
 ## Core option types
@@ -27,7 +26,6 @@ This page summarizes the main `Nalix.Network.Configurations` types that shape li
 | `TimingWheelOptions` | Idle connection timeout wheel. | bucket count, tick duration, idle timeout |
 | `NetworkCallbackOptions` | Callback flood protection and pending callback caps. | per-connection and per-IP pending limits |
 | `CompressionOptions` | Frame compression trigger rules. | enable flag, minimum size |
-| `CacheSizeOptions` | Receive-side cache sizes. | incoming buffer depth |
 | `TokenBucketOptions` | Token bucket limiter behavior. | burst capacity, refill, cleanup, sharding |
 
 ## How they are used
@@ -59,7 +57,6 @@ limits.Validate();
 
 ## Related APIs
 
-- [Cache Size Options](./cache-size-options.md)
 - [Network Socket Options](./network-socket-options.md)
 - [Dispatch Options](./dispatch-options.md)
 - [Connection Limit Options](./connection-limit-options.md)

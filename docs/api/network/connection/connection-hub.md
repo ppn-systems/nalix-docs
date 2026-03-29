@@ -106,7 +106,7 @@ Use this type when you need machine-readable hub state instead of the formatted 
 ```csharp
 hub.RegisterConnection(connection);
 IConnection? sameConnection = hub.GetConnection(connection.ID);
-await hub.BroadcastAsync(new PingResponse(), ct);
+await hub.BroadcastAsync(new Control(), ct);
 ```
 
 ```csharp

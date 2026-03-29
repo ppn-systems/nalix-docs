@@ -22,7 +22,6 @@ This layer provides:
 - block compression into a pooled `BufferLease`
 - block decompression into a caller-supplied span
 - block decompression into a rented `BufferLease`
-- block decompression into a new `byte[]`
 
 ## Runtime shape
 
@@ -31,7 +30,6 @@ flowchart LR
     A["ReadOnlySpan<byte> input"] --> B["LZ4Codec"]
     B --> C["Span<byte> output"]
     B --> D["BufferLease output"]
-    B --> E["byte[] output"]
 ```
 
 ## Block format
@@ -83,10 +81,7 @@ Use the `BufferLease` overload when you want a pooled, zero-copy-friendly path.
 `LZ4Codec.Decode(...)` supports:
 
 - `Decode(ReadOnlySpan<byte> input, Span<byte> output)`
-- `Decode(ReadOnlySpan<byte> input, out byte[] output, out int bytesWritten)`
 - `Decode(ReadOnlySpan<byte> input, out BufferLease? lease, out int bytesWritten)`
-
-Use the `byte[]` overload when convenience matters more than allocation pressure.
 
 Use the `BufferLease` overload on hot paths where you want pooled output.
 

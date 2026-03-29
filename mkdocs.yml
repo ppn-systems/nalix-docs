@@ -198,7 +198,6 @@ nav:
         - Timing Wheel: api/network/runtime/timing-wheel.md
         - Options:
           - Overview: api/network/options/options.md
-          - Cache Size: api/network/options/cache-size-options.md
           - Network Socket: api/network/options/network-socket-options.md
           - Dispatch Options: api/network/options/dispatch-options.md
           - Connection Limit: api/network/options/connection-limit-options.md

@@ -14,9 +14,9 @@ Use it when you want one canonical TCP sample before adding middleware, metadata
 
 ## Scenario
 
-Client sends a `PingRequest`.
+Client sends a `Control` packet.
 
-Server replies with a `PingResponse`.
+Server replies with a `Control` packet.
 
 ## Server setup
 
@@ -34,14 +34,10 @@ InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
 public sealed class SamplePingHandlers
 {
     [PacketOpcode(0x1001)]
-    public ValueTask<PingResponse> Handle(PingRequest request, IConnection connection)
+    public ValueTask<Control> Handle(Control request, IConnection connection)
     {
-        PingResponse response = new()
-        {
-            Message = $"pong:{request.Message}"
-        };
-
-        return ValueTask.FromResult(response);
+        request.Type = ControlType.PONG;
+        return ValueTask.FromResult(request);
     }
 }
 ```
@@ -89,16 +85,13 @@ listener.Activate();
 The exact client implementation depends on your SDK/session abstraction, but the request/response shape is:
 
 ```csharp
-PingRequest request = new()
-{
-    Message = "hello"
-};
+Control request = new() { Type = ControlType.PING };
 
 await client.SendAsync(request.Serialize());
 
-// Your client-side read loop / awaiter resolves PingResponse here
-PingResponse response = await WaitForPingResponseAsync();
-Console.WriteLine(response.Message);
+// Your client-side read loop / awaiter resolves Control here
+Control response = await WaitForControlAsync();
+Console.WriteLine(response.Type);
 ```
 
 ## End-to-end flow
@@ -114,9 +107,9 @@ sequenceDiagram
     Client->>Listener: TCP frame
     Listener->>Protocol: ProcessMessage event
     Protocol->>Dispatch: HandlePacket(lease, connection)
-    Dispatch->>Dispatch: Deserialize PingRequest
+    Dispatch->>Dispatch: Deserialize Control
     Dispatch->>Handler: Handle(request, connection)
-    Handler-->>Dispatch: PingResponse
+    Handler-->>Dispatch: Control
     Dispatch-->>Client: serialized response
 ```
 
@@ -126,10 +119,9 @@ Instead of returning a response, you can send manually:
 
 ```csharp
 [PacketOpcode(0x1001)]
-public async ValueTask Handle(PacketContext<PingRequest> context, CancellationToken ct)
+public async ValueTask Handle(PacketContext<Control> context, CancellationToken ct)
 {
-    PingResponse response = new() { Message = "pong" };
-    await context.Sender.SendAsync(response, ct);
+    await context.Sender.SendAsync(new Control { Type = ControlType.PONG }, ct);
 }
 ```
 
@@ -141,7 +133,7 @@ Use this style when:
 
 ## What clients should remember
 
-- returning `PingResponse` is the simplest normal request/response model
+- returning `Control` is the simplest normal request/response model
 - `Protocol` just forwards frames into dispatch
 - `PacketDispatchChannel` owns middleware, deserialization, handler invocation, and result handling
 

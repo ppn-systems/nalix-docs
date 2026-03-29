@@ -1,9 +1,9 @@
 # Nalix.SDK
 
-`Nalix.SDK` is the client-side transport package for connecting .NET applications to a Nalix server over TCP and UDP.
+`Nalix.SDK` is the client-side transport package for connecting .NET applications to a Nalix server over TCP, with an additional UDP session type that is currently marked unsupported in source.
 
 !!! tip "Keep the client simple first"
-    Get one working `TcpSession` request flow online before adding handshake policy, directives, localization, or custom request orchestration.
+    Get one working `TcpSession` request flow online before adding directives or custom request orchestration.
 
 ## Client flow
 
@@ -22,7 +22,7 @@ flowchart LR
 - `UdpSession`
 - `TransportOptions`
 - `RequestOptions`
-- transport extensions such as `ControlExtensions`, `HandshakeExtensions`, `DirectiveClientExtensions`, and `RequestExtensions`
+- transport extensions such as `ControlExtensions`, `DirectiveClientExtensions`, `RequestExtensions`, and `TcpSessionSubscriptions`
 
 ## Sessions
 
@@ -35,7 +35,7 @@ Use `TcpSession` for the normal client runtime. It includes:
 
 Use `IoTTcpSession` when you want a simpler client shape with a serialized connect path and a lighter receive model.
 
-Use `UdpSession` when you already have a trusted session context and want low-latency datagrams authenticated with the server-side `UdpListenerBase` trailer format.
+`UdpSession` exists in the source tree, but it is currently marked `Obsolete` and unsupported. Treat it as experimental rather than a default choice.
 
 ### Quick example
 
@@ -54,18 +54,18 @@ The extension layer covers the common client flows:
 
 - `PingAsync`
 - `RequestAsync<TResponse>(...)`
-- handshake setup
 - directive handling such as throttle, redirect, and notice packets
 
 ### Quick example
 
 ```csharp
-var pong = await client.PingAsync();
+var pong = await client.PingAsync(opCode: 0, timeoutMs: 3000);
 
-LoginResponse reply = await client.RequestAsync<LoginResponse>(
+Control request = client.NewControl(opCode: 1, type: ControlType.NOTICE).Build();
+Control reply = await client.RequestAsync<Control>(
     request,
     RequestOptions.Default.WithTimeout(3_000),
-    r => r.CorrelationId == request.CorrelationId);
+    r => r.Type == ControlType.PONG);
 ```
 
 The request helpers subscribe before sending, so they avoid the usual response race.
@@ -83,16 +83,6 @@ It controls:
 - socket tuning
 - max packet size
 - compression and encryption settings
-
-## Localization
-
-The package also includes optional localization utilities such as:
-
-- `Localizer`
-- `MultiLocalizer`
-- `PoFile`
-
-These are useful when the client package is reused in desktop or device apps that need localized runtime messages.
 
 ## Key API pages
 

@@ -35,7 +35,7 @@ You use these attributes to declaratively control **dispatch, security, rate lim
 [PacketOpcode(0x1802)]
 [PacketPermission(PermissionLevel.USER)]
 [PacketRateLimit(8, burst: 1.5)]
-public static Task HandleAsync(PingRequest packet, IConnection connection)
+public static Task HandleAsync(Handshake packet, IConnection connection)
 {
     return Task.CompletedTask;
 }
@@ -92,7 +92,7 @@ Assigns a unique OpCode to a handler method.
 
 ```csharp
 [PacketOpcode(0x1802)]
-public Task HandleLogin(LoginPacket packet, IConnection conn) { ... }
+public Task HandleLogin(Control packet, IConnection conn) { ... }
 ```
 
 - **OpCode:** `ushort` value (matches wire/protocol commands)
@@ -105,7 +105,7 @@ Sets minimum permission required for handler.
 
 ```csharp
 [PacketPermission(PermissionLevel.ADMIN)]
-public Task HandleDelete(DeletePacket packet, IConnection conn) { ... }
+public Task HandleDelete(Directive packet, IConnection conn) { ... }
 ```
 
 - Enforces security policy: Only clients with level ≥ specified can invoke.
@@ -118,7 +118,7 @@ Limits concurrent execution per handler; supports queue if overflow.
 
 ```csharp
 [PacketConcurrencyLimit(4, queue: true, queueMax: 32)]
-public Task HandleExpensiveTask(ExpensivePacket p, IConnection c) { ... }
+public Task HandleExpensiveTask(Handshake p, IConnection c) { ... }
 ```
 
 - **Max:** maximum concurrent executions allowed
@@ -133,7 +133,7 @@ Limits how many requests per second can be processed (with burst support).
 
 ```csharp
 [PacketRateLimit(8, burst: 1.5)]
-public Task HandlePing(PingPacket p, IConnection c) { ... }
+public Task HandlePing(Control p, IConnection c) { ... }
 ```
 
 - **RequestsPerSecond:** max rate allowed
@@ -146,8 +146,8 @@ public Task HandlePing(PingPacket p, IConnection c) { ... }
 Requires packets to be encrypted when sent/received; allows algorithm selection.
 
 ```csharp
-[PacketEncryption(isEncrypted: true, algorithmType: CipherSuiteType.SALSA20_POLY1305)]
-public Task HandleSecret(SecretPacket p, IConnection c) { ... }
+[PacketEncryption(isEncrypted: true, algorithmType: CipherSuiteType.Salsa20Poly1305)]
+public Task HandleSecret(Handshake p, IConnection c) { ... }
 ```
 
 - **IsEncrypted:** if true, encryption must be applied
@@ -161,7 +161,7 @@ Sets per-handler max processing time (in milliseconds).
 
 ```csharp
 [PacketTimeout(2000)] // 2 seconds
-public Task HandleLongTask(LongPacket p, IConnection c) { ... }
+public Task HandleLongTask(Handshake p, IConnection c) { ... }
 ```
 
 - Throws timeout/fail response if exceeded
@@ -180,7 +180,7 @@ public class ExampleCtrl
     [PacketRateLimit(5, burst: 2)]
     [PacketEncryption(isEncrypted: true)]
     [PacketTimeout(8000)]
-    public async Task HandleChat(ChatPacket packet, IConnection conn, CancellationToken ct)
+    public async Task HandleChat(Directive packet, IConnection conn, CancellationToken ct)
     {
         // Handler implementation...
     }

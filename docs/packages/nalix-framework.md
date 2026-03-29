@@ -125,11 +125,11 @@ flowchart LR
 // Build and register the shared catalog
 PacketRegistryFactory factory = new();
 IPacketRegistry registry = factory.CreateCatalog();
-InstanceManager.Instance.Register(registry);
+InstanceManager.Instance.Register<IPacketRegistry>(registry);
 
 // Handshake frame
 Handshake hs = new(0, Csprng.GetBytes(32));
-await client.SendAsync(hs.Serialize());
+byte[] bytes = hs.Serialize();
 ```
 
 ### Registry build flow
