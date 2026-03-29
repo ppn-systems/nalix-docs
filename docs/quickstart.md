@@ -113,6 +113,7 @@ public sealed class PingResponse : PacketBase<PingResponse>
 ```csharp
 using Nalix.Common.Networking;
 using Nalix.Common.Networking.Packets;
+using Nalix.Network.Routing;
 using QuickStart.Contracts.Packets;
 
 namespace QuickStart.Server.Handlers;
@@ -121,8 +122,11 @@ namespace QuickStart.Server.Handlers;
 public sealed class PingHandlers
 {
     [PacketOpcode(PingRequest.OpCodeValue)]
-    public PingResponse Handle(PingRequest request, IConnection connection)
-        => new() { Message = $"pong: {request.Message}" };
+    public IPacket Handle(PacketContext<IPacket> request)
+    {
+        PingRequest packet = (PingRequest)request.Packet;
+        return new PingResponse { Message = $"pong: {packet.Message}" };
+    }
 }
 ```
 

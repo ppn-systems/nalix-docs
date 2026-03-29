@@ -28,10 +28,11 @@ InstanceManager.Instance.Register<IPacketRegistry>(packetRegistry);
 public sealed class SamplePingHandlers
 {
     [PacketOpcode(0x1001)]
-    public ValueTask<Control> Ping(Control request, IConnection connection)
+    public ValueTask<Control> Ping(PacketContext<IPacket> request)
     {
-        request.Type = ControlType.PONG;
-        return ValueTask.FromResult(request);
+        Control packet = (Control)request.Packet;
+        packet.Type = ControlType.PONG;
+        return ValueTask.FromResult(packet);
     }
 }
 ```
@@ -100,7 +101,7 @@ sequenceDiagram
     Client->>Listener: TCP frame
     Listener->>Protocol: connection message event
     Protocol->>Dispatch: HandlePacket(lease, connection)
-    Dispatch->>Handler: Ping(request, connection)
+    Dispatch->>Handler: Ping(request)
     Handler-->>Dispatch: Control
     Dispatch-->>Client: serialized response
 ```

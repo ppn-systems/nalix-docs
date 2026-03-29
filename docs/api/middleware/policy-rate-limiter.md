@@ -18,7 +18,7 @@
 
 ```csharp
 [PacketRateLimit(8, burst: 2.5)]
-public async Task HandleChat(Directive packet, IConnection connection) { }
+public async Task HandleChat(PacketContext<IPacket> request) { }
 ```
 
 At runtime:

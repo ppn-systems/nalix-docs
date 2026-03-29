@@ -29,10 +29,12 @@ These contracts keep SDK and server code aligned.
 public class SamplePingHandlers
 {
     [PacketOpcode(1)]
-    public ValueTask HandlePing(Handshake packet, IConnection connection)
-        => connection.SendAsync(packet);
+    public IPacket HandlePing(PacketContext<IPacket> request)
+        => request.Packet;
 }
 ```
+
+Legacy handlers that take `(TPacket, IConnection[, CancellationToken])` are still supported, but `PacketContext<TPacket>` is the preferred shape when you need context, sender, or metadata access.
 
 ### Metadata and attributes
 Metadata is built once during handler registration and later exposed through `PacketContext`.
