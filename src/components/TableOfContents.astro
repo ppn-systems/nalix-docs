@@ -1,0 +1,35 @@
+---
+import { useTranslations, type LocaleCode } from '../i18n';
+
+export interface MarkdownHeading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface Props {
+  headings: MarkdownHeading[];
+  locale: LocaleCode;
+}
+
+const { headings, locale } = Astro.props;
+const t = useTranslations(locale);
+const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+<aside class="nlx-toc" aria-label={t('doc.onThisPage')}>
+  {tocHeadings.length > 0 && (
+    <>
+      <h2 class="nlx-toc__title">{t('doc.onThisPage')}</h2>
+      <ul class="nlx-toc__list" id="nlx-toc-list">
+        {tocHeadings.map((h) => (
+          <li class={`nlx-toc__item nlx-toc__item--depth-${h.depth}`}>
+            <a href={`#${h.slug}`} data-toc-link={h.slug}>
+              {h.text.replace(/#$/, '').trim()}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </>
+  )}
+</aside>
