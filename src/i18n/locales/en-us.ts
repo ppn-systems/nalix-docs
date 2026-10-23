@@ -24,8 +24,7 @@ export const enUs = {
 
   // Home Portal (Unity Docs Style)
   'hero.title': 'Nalix Documentation',
-  'hero.subtitle':
-    'Explore manuals, API references, and architectural guides for the Nalix .NET 10 real-time networking ecosystem.',
+  'hero.subtitle': 'Low-latency binary real-time networking for .NET 10.',
   'home.exploreTopics': 'Explore topics',
 
   // Reader Layout & TOC

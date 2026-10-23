@@ -26,8 +26,7 @@ export const viVn: TranslationDictionary = {
 
   // Home Portal (Unity Docs Style)
   'hero.title': 'Tài liệu Nalix',
-  'hero.subtitle':
-    'Khám phá tài liệu hướng dẫn, tham chiếu API và kiến trúc kỹ thuật của hệ sinh thái mạng thời gian thực Nalix trên .NET 10.',
+  'hero.subtitle': 'Framework mạng thời gian thực nhị phân độ trễ thấp cho .NET 10.',
   'home.exploreTopics': 'Khám phá chủ đề',
 
   // Reader Layout & TOC

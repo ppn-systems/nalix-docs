@@ -100,28 +100,117 @@ const productCards: ProductCardItem[] = [
 
 <div class="nlx-home-wrapper">
   <div class="nlx-home-container">
-    <!-- Top Hero Card (docs.unity.com StyledHeaderCard) -->
+    <!-- Top Hero Card (docs.unity.com StyledHeaderCard with custom SVG background) -->
     <div class="nlx-home-hero-card">
-      <h1 class="nlx-home-hero__title">{t('hero.title')}</h1>
-      <p class="nlx-home-hero__subtitle">{t('hero.subtitle')}</p>
+      <svg
+        class="nlx-home-hero__bg-svg"
+        viewBox="0 0 1200 320"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="xMidYMid slice"
+        aria-hidden="true"
+      >
+        <defs>
+          <radialGradient id="nlxHeroSpotCenter" cx="50%" cy="0%" r="70%">
+            <stop offset="0%" stop-color="#2584f4" stop-opacity="0.22" />
+            <stop offset="55%" stop-color="#0a6ec8" stop-opacity="0.06" />
+            <stop offset="100%" stop-color="#0a6ec8" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="nlxHeroSpotLeft" cx="12%" cy="80%" r="45%">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.14" />
+            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="nlxHeroSpotRight" cx="88%" cy="20%" r="45%">
+            <stop offset="0%" stop-color="#6366f1" stop-opacity="0.16" />
+            <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
+          </radialGradient>
+          <linearGradient id="nlxHeroBeam" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="currentColor" stop-opacity="0" />
+            <stop offset="50%" stop-color="#68b0ff" stop-opacity="0.55" />
+            <stop offset="100%" stop-color="currentColor" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="nlxTraceLeft" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#68b0ff" stop-opacity="0.45" />
+            <stop offset="100%" stop-color="#68b0ff" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="nlxTraceRight" x1="1" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#818cf8" stop-opacity="0.45" />
+            <stop offset="100%" stop-color="#818cf8" stop-opacity="0" />
+          </linearGradient>
+          <pattern id="nlxHeroGrid" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path d="M 48 0 L 0 0 0 48" fill="none" stroke="currentColor" stroke-opacity="0.055" stroke-width="1" />
+          </pattern>
+          <radialGradient id="nlxGridMaskGrad" cx="50%" cy="45%" r="58%">
+            <stop offset="0%" stop-color="white" stop-opacity="1" />
+            <stop offset="75%" stop-color="white" stop-opacity="0.45" />
+            <stop offset="100%" stop-color="white" stop-opacity="0" />
+          </radialGradient>
+          <mask id="nlxGridMask">
+            <rect width="1200" height="320" fill="url(#nlxGridMaskGrad)" />
+          </mask>
+        </defs>
 
-      <div class="nlx-home-search-bar">
-        <div class="nlx-home-search-input-wrap">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary); flex-shrink: 0;">
-            <circle cx="11" cy="11" r="7"/>
-            <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
-          </svg>
-          <input
-            type="text"
-            id="nlx-hero-search-input"
-            class="nlx-home-search-input"
-            placeholder={t('nav.searchPlaceholder')}
-            autocomplete="off"
-          />
+        <!-- Ambient glows -->
+        <rect width="1200" height="320" fill="url(#nlxHeroSpotCenter)" />
+        <rect width="1200" height="320" fill="url(#nlxHeroSpotLeft)" />
+        <rect width="1200" height="320" fill="url(#nlxHeroSpotRight)" />
+
+        <!-- Subtle architectural grid with radial fade mask -->
+        <rect width="1200" height="320" fill="url(#nlxHeroGrid)" mask="url(#nlxGridMask)" />
+
+        <!-- Left wing network packet circuit traces -->
+        <g stroke="url(#nlxTraceLeft)" stroke-width="1.5" stroke-linecap="round">
+          <path d="M-20 72 H110 L152 114 H250" />
+          <path d="M-20 168 H84 L120 204 H210" />
+          <path d="M40 280 H144 L184 240 H280" />
+        </g>
+        <g fill="#68b0ff" fill-opacity="0.65">
+          <circle cx="110" cy="72" r="3" />
+          <circle cx="250" cy="114" r="3.5" />
+          <circle cx="120" cy="204" r="2.5" />
+          <circle cx="184" cy="240" r="3" />
+        </g>
+
+        <!-- Right wing network packet circuit traces -->
+        <g stroke="url(#nlxTraceRight)" stroke-width="1.5" stroke-linecap="round">
+          <path d="M1220 64 H1080 L1038 106 H940" />
+          <path d="M1220 176 H1110 L1072 214 H980" />
+          <path d="M1150 276 H1048 L1008 236 H915" />
+        </g>
+        <g fill="#818cf8" fill-opacity="0.65">
+          <circle cx="1080" cy="64" r="3" />
+          <circle cx="940" cy="106" r="3.5" />
+          <circle cx="1072" cy="214" r="2.5" />
+          <circle cx="1008" cy="236" r="3" />
+        </g>
+
+        <!-- Top & bottom precision hairline beams -->
+        <rect x="120" y="0.5" width="960" height="1" fill="url(#nlxHeroBeam)" />
+        <rect x="240" y="318.5" width="720" height="1" fill="url(#nlxHeroBeam)" opacity="0.5" />
+      </svg>
+
+      <div class="nlx-home-hero__content">
+        <h1 class="nlx-home-hero__title">{t('hero.title')}</h1>
+        <p class="nlx-home-hero__subtitle">{t('hero.subtitle')}</p>
+
+        <div class="nlx-home-search-bar">
+          <div class="nlx-home-search-input-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary); flex-shrink: 0;">
+              <circle cx="11" cy="11" r="7"/>
+              <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
+            </svg>
+            <input
+              type="text"
+              id="nlx-hero-search-input"
+              class="nlx-home-search-input"
+              placeholder={t('nav.searchPlaceholder')}
+              autocomplete="off"
+            />
+          </div>
+          <button type="button" id="nlx-hero-search-btn" class="nlx-btn-primary nlx-home-search-btn">
+            {t('nav.searchButton')}
+          </button>
         </div>
-        <button type="button" id="nlx-hero-search-btn" class="nlx-btn-primary nlx-home-search-btn">
-          {t('nav.searchButton')}
-        </button>
       </div>
     </div>
 

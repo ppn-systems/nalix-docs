@@ -531,35 +531,53 @@ a:hover {
 
 /* Hero Banner Card (StyledHeaderCard) */
 .nlx-home-hero-card {
-  border-radius: 20px;
+  position: relative;
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(140, 150, 170, 0.28);
-  background:
-    radial-gradient(circle at 85% 20%, rgba(10, 110, 200, 0.22), transparent 50%),
-    radial-gradient(circle at 15% 80%, rgba(62, 99, 221, 0.16), transparent 50%),
-    linear-gradient(180deg, var(--bg-paper) 0%, var(--bg-elevated) 100%);
-  padding: 40px 24px;
+  border: 1px solid rgba(140, 155, 180, 0.22);
+  background: linear-gradient(180deg, var(--bg-paper) 0%, var(--bg-default) 100%);
+  padding: 44px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 12px;
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.35);
+}
+
+.nlx-home-hero__bg-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  color: var(--text-primary);
+  z-index: 0;
+}
+
+.nlx-home-hero__content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .nlx-home-hero__title {
   margin: 0;
-  font-size: clamp(1.75rem, 3vw, 2.5rem);
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: -0.02rem;
+  font-size: clamp(1.75rem, 3vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.025rem;
   color: var(--text-primary);
 }
 
 .nlx-home-hero__subtitle {
   margin: 0;
-  max-width: 680px;
-  font-size: 1.125rem;
-  line-height: 1.6;
+  max-width: 600px;
+  font-size: 1.02rem;
+  line-height: 1.55;
   color: var(--text-secondary);
 }
 
