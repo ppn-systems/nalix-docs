@@ -638,13 +638,25 @@ a:hover {
 .nlx-product-card__title-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: var(--text-primary);
   text-decoration: none;
   padding: 4px 8px;
   margin-left: -8px;
   border-radius: 6px;
   transition: background-color 0.15s ease;
+}
+
+.nlx-product-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-color: var(--primary-selected-bg);
+  color: var(--primary-lighter);
+  flex-shrink: 0;
 }
 
 .nlx-product-card__title-link:hover {
