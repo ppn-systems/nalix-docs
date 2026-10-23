@@ -1,208 +1,100 @@
 ---
 title: Buffer Management
-description: Nalix.Environment.Memory and Nalix.Framework.Memory provide a high-performance byte buffer management system designed to minimize GC pressure and maximize throughput in networki...
+description: Zero-allocation byte buffer pooling and leak-detection diagnostics across Nalix.Environment.Memory.BufferLease and Nalix.Framework.Memory.Buffers.BufferPoolManager.
 section: API Reference
 package: Nalix.Environment
 ---
 
-`Nalix.Environment.Memory` and `Nalix.Framework.Memory` provide a high-performance byte buffer management system designed to minimize GC pressure and maximize throughput in networking hot paths.
-
-## Buffer Rental & Disposal Lifecycle
-
-The following diagram illustrates how raw byte arrays are managed through the `BufferLease` and `BufferPoolManager` abstraction.
-
-```mermaid
-sequenceDiagram
-    participant App as Application Code
-    participant Lease as BufferLease
-    participant Manager as BufferPoolManager
-    participant SlabPool as SlabPoolManager
-    participant OS as Pinned Object Heap (POH)
-
-    App->>Lease: Rent(capacity)
-    Lease->>Manager: Rent(capacity)
-    Manager->>SlabPool: TryRentArray(size)
-    Note over SlabPool: O(1) Fast Map Lookup (0-4KB)
-    SlabPool->>SlabPool: Best-fit lookup in SlabBucket
-    
-    alt Bucket has free slabs
-        SlabPool-->>Manager: Return byte[] (pinned slab)
-    else Bucket empty
-        SlabPool->>OS: Allocate new pinned byte[] (slab)
-        OS-->>SlabPool: Array allocated
-        SlabPool-->>Manager: Return byte[]
-    end
-
-    Manager-->>Lease: Return byte[]
-    Lease-->>App: Return IBufferLease (Shell)
-    
-    Note over App, Lease: Business Logic (Span/Memory)
-
-    App->>Lease: Dispose()
-    Lease->>Manager: Return(byte[])
-    Manager->>SlabPool: TryReturn(byte[])
-    SlabPool->>SlabPool: Return to thread-local cache / bucket
-```
+`Nalix.Environment.Memory.BufferLease` and `Nalix.Framework.Memory.Buffers.BufferPoolManager` provide Nalix's zero-allocation byte buffer lifecycle, backed by `ArrayPool<byte>.Shared` with thread-local shell caching and optional GC sentinel leak detection.
 
 ## Source Mapping
 
 - `src/Nalix.Abstractions/IBufferLease.cs`
 - `src/Nalix.Environment/Memory/BufferLease.cs`
+- `src/Nalix.Environment/Options/MemoryOptions.cs`
 - `src/Nalix.Framework/Memory/Buffers/BufferPoolManager.cs`
 - `src/Nalix.Framework/Options/BufferOptions.cs`
-- `src/Nalix.Framework/Memory/Internal/Buffers/SlabBucket.cs`
-- `src/Nalix.Framework/Memory/Internal/Buffers/SlabPoolManager.cs`
 
-## IBufferLease and BufferLease
+## Architecture Overview
 
-`IBufferLease` is the primary interface for managing temporary byte storage. It encapsulates the ownership and lifetime of a pooled byte array.
+```mermaid
+sequenceDiagram
+    participant App as Application / Transport
+    participant Lease as BufferLease
+    participant ShellCache as ThreadLocalLeaseCache (4-slot L1 + Striped L2)
+    participant Pool as ArrayPool<byte>.Shared
 
-### Core Features
-
-- **Ownership Tracking**: Ensures buffers are returned to the correct pool upon disposal.
-- **Span/Memory Integration**: High-performance access to the underlying byte array via `Span<byte>` or `Memory<byte>`.
-- **Commit Pattern**: Allows marking only a portion of the rented buffer as "active data".
-- **Shell Pooling**: `BufferLease` instances themselves are pooled using a lock-free free-list with an **O(1) atomic counter** to eliminate Gen 0 churn.
-- **Zero-Allocation**: Designed to be used on the stack (as a `using` variable) to avoid any heap allocation during messaging.
-
-### Key Members
-
-| Member | Description |
-| :--- | :--- |
-| `Span` / `Memory` | Provides access to the *committed* portion of the buffer. |
-| `SpanFull` | Provides access to the *entire* rented capacity. |
-| `CommitLength(int)` | Sets the length of data actually written to the buffer. |
-| `Retain()` | Increments the internal reference count (advanced use). |
-| `ReleaseOwnership()` | Detaches the underlying array from the lease (transferring ownership). |
-
-## BufferPoolManager
-
-`BufferPoolManager` is the high-level orchestrator that manages the **Standalone Slab Pool**. It is designed for high-frequency rental of byte arrays with zero-offset access, leveraging the Pinned Object Heap (POH) to eliminate GC movement.
-
-The manager provides a unified API for renting both raw `byte[]` arrays and `IBufferLease` wrappers.
-
-### Standalone Slab Architecture
-
-To achieve maximum performance and eliminate slicing overhead, Nalix uses a **Standalone Slab** strategy. Instead of carving segments from a shared large array, each bucket manages a collection of independent pinned `byte[]` arrays of exactly the bucket's size.
-
-- **Zero-Offset Access**: All rented buffers are independent pinned arrays. This ensures `Offset = 0` and `index 0` compatibility with legacy APIs and high-performance memory operations.
-- **POH Placement**: Buffers are allocated on the **Pinned Object Heap (POH)** using `GC.AllocateArray(pinned: true)`. They remain pinned for their entire lifetime, eliminating GC movement and fragmentation.
-- **O(1) Fast Size Lookup**: For common sizes up to **4096 bytes**, the manager uses a direct-mapping array to resolve the correct bucket in constant time.
-- **SlabBucket**: Implements a two-level cache (L1: Thread-Local, L2: Shared Ring) for ultra-low contention.
-
-### Adaptive Trimming & Shrink Safety
-
-The manager includes a background job that monitors pool utilization. It uses a **Shrink Safety Policy** to balance memory footprint and performance.
-
-- **Safety Floor**: Buckets are strictly prevented from shrinking below their **InitialCapacity**. This ensures that the system always has a "warm" baseline of buffers available for sudden traffic bursts.
-- **Step-Limit**: Shrinking happens in controlled steps to avoid massive deallocations in a single cycle.
-- **Deep Trim**: An optional aggressive cleanup cycle for long-term idle pools (while still respecting the safety floor).
-
-### Dual-API Support
-
-`BufferPoolManager` provides an optimized path for renting memory:
-
-- **`Rent(size)`**: The primary API, returning a standalone `byte[]`. Optimized for maximum speed and simplicity. All buffers have a zero offset.
-
-The API is backed by the high-performance **SlabBucket** infrastructure and benefits from the same O(1) optimizations.
-
-### Key Properties
-
-| Property | Type | Description |
-| :--- | :--- | :--- |
-| `MaxBufferSize` | `int` | The largest buffer size from the buffer allocations list. |
-| `MinBufferSize` | `int` | The smallest buffer size from the buffer allocations list. |
-| `RecurringName` | `static string` | The recurring name used for buffer trimming operations. |
-
-### Key Methods
-
-| Method | Signature | Description |
-| :--- | :--- | :--- |
-| `Rent` | `byte[] Rent(int minimumLength = 256)` | Rents a buffer of at least the requested size. |
-| `Return` | `void Return(byte[]? array, bool arrayClear = false)` | Returns a buffer to the appropriate pool. |
-| `GetAllocationForSize` | `double GetAllocationForSize(int size)` | Gets the allocation ratio for a given buffer size. |
-| `GenerateReport` | `string GenerateReport()` | Generates a human-readable text report. |
-| `WriteReportData` | `void WriteReportData(Utf8JsonWriter writer)` | Writes structured JSON diagnostic data for reporting. |
-| `Dispose` | `void Dispose()` | Releases all resources of the buffer pools. |
-
-## Constructing Outgoing Packets with BufferLease
-
-To construct an outgoing packet with zero allocations, use the `BufferLease.Rent` pattern. This ensures that the underlying memory is rented from the pinned slab pool and returned efficiently.
-
-```csharp
-// 1. Rent a pooled buffer lease of the required size
-using var lease = BufferLease.Rent(packet.Length);
-
-// 2. Write data directly into the SpanFull (the entire rented capacity)
-int written = packet.Serialize(lease.SpanFull);
-
-// 3. Commit the actual written length to the lease
-lease.CommitLength(written);
-
-// 4. Dispatch the lease memory
-// The framework takes ownership of the data until it is written to the socket.
-await session.SendAsync(lease.Memory);
-
-// The 'using' block ensures 'lease' is returned to the pool even if an error occurs.
+    App->>Lease: BufferLease.Rent(capacity, zeroOnDispose, headroom)
+    Lease->>ShellCache: Rent BufferLease shell
+    Lease->>Pool: Rent byte[capacity + headroom]
+    Lease-->>App: Return BufferLease (IBufferLease)
+    Note over App,Lease: Write to SpanFull -> CommitLength(written)
+    App->>Lease: Dispose()
+    alt refCount reaches 0
+        opt ZeroOnDispose == true
+            Lease->>Lease: MemorySecurity.ZeroMemory(...)
+        end
+        Lease->>Pool: Return byte[]
+        Lease->>ShellCache: Recycle BufferLease shell
+    end
 ```
 
-### Allocation Efficiency
+## `BufferPoolManager` (`Nalix.Framework.Memory.Buffers`)
 
-- **Buffer Pool**: The byte array comes from the `BufferPoolManager` (pinned memory).
-- **Shell Pool**: The `BufferLease` object itself is rented from a thread-local free-list.
-- **Value Types**: `lease.Memory` is a `ReadOnlyMemory<byte>` (value type), avoiding boxing.
+`BufferPoolManager` (`[Injectable(typeof(IBufferPoolManager))]`) implements `IBufferPoolManager` and `IDisposable`. It wraps `ArrayPool<byte>.Shared`, tracks atomic rent/return telemetry (`_rentCount`, `_returnCount`, `_totalBytesRented`), and attaches `BufferSentinel` finalizer trackers when `BufferOptions.EnableBufferLeakDetection` is enabled.
 
-## Configuring for Server
+### Constructors, Properties & Methods
 
-To enable the zero-allocation path in a Nalix server, you must register the `BufferPoolManager` during the application setup. If omitted, the framework may fall back to standard allocations.
+| Member | Signature | Description |
+| --- | --- | --- |
+| `BufferPoolManager` | `public BufferPoolManager(BufferOptions? bufferConfig = null)` | Loads `BufferOptions` (from `ConfigurationManager` when `null`) and validates it. |
+| `MaxBufferSize` | `public int MaxBufferSize => 0;` | Returns `0` (sizing is dynamically managed by `ArrayPool<byte>.Shared`). |
+| `MinBufferSize` | `public int MinBufferSize => 0;` | Returns `0` (sizing is dynamically managed by `ArrayPool<byte>.Shared`). |
+| `Rent` | `public byte[] Rent(int minimumLength = 256)` | Rents a `byte[]` of at least `minimumLength` bytes and records telemetry/leak sentinels. |
+| `Return` | `public void Return(byte[]? array, bool arrayClear = false)` | Optionally clears `array` and returns it to `ArrayPool<byte>.Shared`, marking any active leak sentinel as returned. |
+| `GenerateReport` | `public string GenerateReport()` | Returns a formatted diagnostic summary of rent/return counts,outstanding buffers, and detected leaks. |
+| `WriteReportData` | `public void WriteReportData(Utf8JsonWriter writer)` | Writes structured JSON metrics for observability endpoints. |
 
-### Using the Hosting Builder
+## `MemoryOptions` (`Nalix.Environment.Options`)
+
+Configured via `[Memory]` in `default.ini` or `builder.Configure<MemoryOptions>(...)` (`src/Nalix.Environment/Options/MemoryOptions.cs`):
+
+| Property | Type | Default | Validation | Description |
+| --- | --- | :---: | --- | --- |
+| `MaxWriterCapacity` | `int` | `134_217_728` (`128 MiB`) | `[ValueRange(1024, 1073741824)]` | Maximum growable capacity for `DataWriter` in rented mode. |
+| `BufferLeaseThreadLocalCacheMaxSlots` | `int` | `8` | `[ValueRange(1, 1024)]` | Number of L1 `[ThreadStatic]` cache slots per thread for `BufferLease` shells. |
+| `BufferLeaseSharedPoolSize` | `int` | `64` | `[ValueRange(16, 65536)]` | Number of L2 striped shared pool slots for `BufferLease` shells. |
+| `DataWriterStackAllocThreshold` | `int` | `512` | `[ValueRange(64, 8192)]` | Cutoff in bytes between stack allocation and `BufferLease` renting (`BufferLease.StackAllocThreshold`). |
+
+## `BufferOptions` (`Nalix.Framework.Options`)
+
+Configured via `[Buffer]` in `default.ini` or `builder.Configure<BufferOptions>(...)`:
+
+| Property | Type | Default | Validation | Description |
+| --- | --- | :---: | --- | --- |
+| `EnableBufferLeakDetection` | `bool` | `false` | — | Attaches a GC finalizer sentinel (`BufferSentinel`) to every rented `byte[]` to detect unreturned buffers. |
+| `EnableBufferLeakStackTrace` | `bool` | `false` | — | Captures allocation stack traces when `EnableBufferLeakDetection` is enabled (disable in production benchmarks). |
+| `SuspiciousThresholdSeconds` | `int` | `30` | `[ValueRange(0, 3600)]` | Threshold in seconds after which an unreturned buffer is flagged as suspicious in diagnostic reports. |
+
+## Registering `BufferPoolManager` in `Nalix.Hosting`
 
 ```csharp
-using Nalix.Hosting;
 using Nalix.Framework.Memory.Buffers;
+using Nalix.Framework.Options;
+using Nalix.Hosting;
 
-var app = NetworkApplication.CreateBuilder()
-    // 1. Explicitly enable and configure the buffer pool
-    .UseBufferPoolManager(new BufferPoolManager(logger) 
+NetworkApplication app = NetworkApplication.CreateBuilder()
+    .Configure<BufferOptions>(opts =>
     {
-        TotalBuffers = 50000,
-        InitialCapacity = 1024,
-        BufferAllocations = "512,0.2; 1024,0.3; 4096,0.5" // size,ratio; ...
+        opts.EnableBufferLeakDetection = false;
+        opts.SuspiciousThresholdSeconds = 30;
     })
+    .UseBufferPoolManager(new BufferPoolManager())
     .Build();
 ```
 
-## BufferOptions
-
-Global tuning for the buffer system is managed via `BufferOptions`.
-
-### Allocation Profiles
-
-You can define the pool structure using the `BufferAllocations` string format: `size,ratio; size,ratio`.
-
-```ini
-BufferAllocations = 256,0.15; 1024,0.15; 4096,0.30; 16384,0.30; 32768,0.10
-```
-
-- **Size**: The maximum bytes this bucket can hold.
-- **Ratio**: The percentage of `TotalBuffers` allocated to this bucket.
-
-## Monitoring & Metrics
-
-The `BufferPoolManager` provides deep insights into memory health via the `GenerateReport()` or `WriteReportData(Utf8JsonWriter)` APIs:
-
-- **Expands / Shrinks**: Tracks the actual growth and contraction events of each bucket.
-- **Initial Capacity**: Shows the configured "floor" that the pool will never shrink below.
-- **HitRate / MissRate**: Measures the efficiency of the cache layers (L1/L2) vs. new allocations.
-- **Overall Hit Rate**: A high-level summary of how many rent requests were satisfied by pooled buffers.
-
-:::tip[Enterprise Reporting]
-Call `manager.GenerateReport()` for a human-readable text summary, or `manager.WriteReportData(writer)` to get structured JSON for monitoring dashboards (e.g., Prometheus/Grafana).
-:::
-
 ## Related APIs
 
-- [Object Pooling](../../framework/memory/object-pooling.md)
-- [Network Options](../../options/network/options.md)
+- [BufferLease](./buffer-lease.md)
+- [Object Pooling (ObjectPoolManager)](../../framework/memory/object-pooling.md)
 - [Zero-Allocation Path](../../../concepts/internals/zero-allocation.md)

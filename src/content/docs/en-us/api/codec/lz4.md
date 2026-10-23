@@ -1,160 +1,99 @@
 ---
 title: LZ4
-description: This page covers the public compression surface in Nalix.Codec.LZ4.
+description: High-performance span and pooled BufferLease LZ4 block compression and decompression in Nalix.Codec.LZ4.
 section: API Reference
 package: Nalix.Codec
 ---
 
-This page covers the public compression surface in `Nalix.Codec.LZ4`.
+**Namespace:** `Nalix.Codec.LZ4` (`CompressionOptions` in `Nalix.Codec.Options`)  
+**Assembly:** `Nalix.Codec`
 
-## Source mapping
+This page covers the public LZ4 block compression surface in `Nalix.Codec.LZ4` and its runtime configuration in `CompressionOptions`.
+
+## Source Mapping
 
 - `src/Nalix.Codec/LZ4/LZ4Codec.cs`
 - `src/Nalix.Codec/LZ4/LZ4BlockHeader.cs`
-- `src/Nalix.Codec/LZ4`
-- `src/Nalix.Codec/LZ4/Engine`
+- `src/Nalix.Codec/LZ4/LZ4CompressionConstants.cs`
+- `src/Nalix.Codec/LZ4/LZ4BlockEncoder.cs`
+- `src/Nalix.Codec/Options/CompressionOptions.cs`
 
-## Main types
+## Public Types at a Glance
 
-- `LZ4Codec`
-- `LZ4BlockHeader`
-
-## What it does
-
-This layer provides:
-
-- block compression into a caller-supplied span
-- block compression into a pooled `BufferLease`
-- block decompression into a caller-supplied span
-- block decompression into a rented `BufferLease`
-
-## Public members at a glance
-
-| Type | Public members |
+| Type | Public Members |
 |---|---|
-| `LZ4Codec` | `Encode(...)`, `Decode(...)` — supports `ReadOnlySpan<byte>` input with both `Span<byte>` and `BufferLease` output overloads. |
-| `LZ4BlockHeader` | `OriginalLength`, `CompressedLength`, `Size` — handles the 8-byte LZ4 block header. |
-| `LZ4BlockEncoder` | `GetMaxLength(...)`, `GetMinOutputBufferSize(...)` — sizing helpers for encoder planning. |
+| `LZ4Codec` | `Encode(ReadOnlySpan<byte>, Span<byte>)`, `Encode(ReadOnlySpan<byte>, out BufferLease, out int)`, `Decode(ReadOnlySpan<byte>, Span<byte>)`, `Decode(ReadOnlySpan<byte>, out BufferLease?, out int)`, `TryDecode(ReadOnlySpan<byte>, Span<byte>, out int)`, `TryDecode(ReadOnlySpan<byte>, out BufferLease?, out int)` |
+| `LZ4BlockHeader` | `OriginalLength` (`int`), `CompressedLength` (`int`), `Size = 8` |
+| `LZ4BlockEncoder` | `GetMaxLength(int input)`, `GetMinOutputBufferSize(int inputLength)`, `EncodeBlock(ReadOnlySpan<byte> input, Span<byte> output, int* hashTable, int hashBits)` |
+| `LZ4CompressionConstants` | `MinMatchLength = 4`, `MaxOffset = 65535`, `MaxBlockSize = 0x40000` (`262_144` / 256 KB), `LastLiteralSize = 5`, `TokenMatchMask = 0x0F`, `TokenLiteralMask = 0x0F` |
+| `CompressionOptions` | `Enabled = true`, `MinSizeToCompress = 512`, `MaxDecompressedSize = 33_554_432` (32 MB), `Validate()` |
 
-## Runtime shape
+## Runtime Shape
 
 ```mermaid
 flowchart LR
     A["ReadOnlySpan<byte> input"] --> B["LZ4Codec"]
-    B --> C["Span<byte> output"]
-    B --> D["BufferLease output"]
+    B --> C["Span<byte> output (Encode / Decode / TryDecode)"]
+    B --> D["BufferLease output (Encode / Decode / TryDecode)"]
 ```
 
-## Block format
+## Block Format (`LZ4BlockHeader`)
 
-Compressed payloads include an `LZ4BlockHeader` before the body.
+Every compressed block begins with an 8-byte little-endian `LZ4BlockHeader` (`LZ4BlockHeader.Size = 8`):
 
-The header stores:
+- `OriginalLength` (`int`, offset 0): Uncompressed byte count of the payload.
+- `CompressedLength` (`int`, offset 4): Total encoded byte count (including the 8-byte header).
 
-- `OriginalLength`
-- `CompressedLength`
+## Encode Overloads
 
-`LZ4BlockHeader.Size` is currently `8` bytes.
+- `int Encode(ReadOnlySpan<byte> input, Span<byte> output)` — Compresses `input` into caller-owned `output` and returns the number of bytes written (including the 8-byte `LZ4BlockHeader`). Throws `ArgumentOutOfRangeException` or `LZ4Exception` if `output` is too small.
+- `void Encode(ReadOnlySpan<byte> input, out BufferLease lease, out int bytesWritten)` — Rents a `BufferLease` sized via `LZ4BlockEncoder.GetMaxLength(input.Length)`, encodes the block, commits `bytesWritten`, and returns ownership of `lease` to the caller.
 
-## LZ4CompressionConstants
+## Decode and TryDecode Overloads
 
-`LZ4CompressionConstants` exposes the implementation-level constants used by the encoder.
+- `int Decode(ReadOnlySpan<byte> input, Span<byte> output)` — Decompresses `input` into `output` and returns the number of decompressed bytes written. Throws `LZ4Exception` on malformed input or insufficient output space.
+- `bool TryDecode(ReadOnlySpan<byte> input, Span<byte> output, out int bytesWritten)` — Non-throwing span decompression used on untrusted network paths; returns `false` on malformed input or size mismatch.
+- `void Decode(ReadOnlySpan<byte> input, out BufferLease? lease, out int bytesWritten)` — Rents a `BufferLease` matching the validated `OriginalLength` and decompresses into it. Throws `LZ4Exception` on failure.
+- `bool TryDecode(ReadOnlySpan<byte> input, out BufferLease? lease, out int bytesWritten)` — Non-throwing pooled decompression; returns `false` and disposes any temporary buffer if decoding fails.
 
-## Source mapping
+## `CompressionOptions` (`Nalix.Codec.Options`)
 
-- `src/Nalix.Codec/LZ4/LZ4CompressionConstants.cs`
+Loaded from the `[Compression]` section of `server.ini` via `ConfigurationManager.Instance.Get<CompressionOptions>()`:
 
-Important values include:
+| Property | Type | Default | Validation | Description |
+| --- | --- | ---: | --- | --- |
+| `Enabled` | `bool` | `true` | — | Enables or disables LZ4 frame compression. |
+| `MinSizeToCompress` | `int` | `512` | `[ValueRange(1, int.MaxValue)]` | Minimum payload size in bytes before compression is attempted. |
+| `MaxDecompressedSize` | `int` | `33_554_432` (32 MB) | `[ValueRange(1024, 268_435_456)]` | Maximum allowed `OriginalLength` to prevent zip-bomb allocation attacks (`MinSizeToCompress <= MaxDecompressedSize`). |
 
-- `MinMatchLength`
-- `MaxOffset`
-- `MaxBlockSize`
-- `LastLiteralSize`
-- `TokenMatchMask`
-- `TokenLiteralMask`
-
-Two of these matter most when reasoning about behavior:
-
-- `MaxOffset` is the hard backward-reference limit defined by the LZ4 format
-- `MaxBlockSize` is the implementation cap chosen by Nalix for safety and practicality, not a protocol-wide LZ4 hard limit
-
-## Encode overloads
-
-`LZ4Codec.Encode(...)` supports:
-
-- `Encode(ReadOnlySpan<byte> input, Span<byte> output)`
-- `Encode(ReadOnlySpan<byte> input, out BufferLease lease, out int bytesWritten)`
-
-Use the span overload when you already own the destination buffer.
-
-Use the `BufferLease` overload when you want a pooled, zero-copy-friendly path.
-
-## When to use LZ4
-
-Use LZ4 when:
-
-- payloads are large enough that compression overhead can pay for itself
-- you are sending repetitive or highly structured packet bodies
-- you want to reduce network bandwidth or buffer pressure on the receive side
-
-Avoid LZ4 when:
-
-- payloads are tiny and already close to the minimum frame size
-- the data is random, encrypted, or already compressed
-- latency is more important than payload size
-
-## Decode overloads
-
-`LZ4Codec.Decode(...)` supports:
-
-- `Decode(ReadOnlySpan<byte> input, Span<byte> output)`
-- `Decode(ReadOnlySpan<byte> input, out BufferLease? lease, out int bytesWritten)`
-
-Use the `BufferLease` overload on hot paths where you want pooled output.
-
-## Performance guidance
-
-- benchmark your real payloads before turning compression on by default
-- prefer pooled overloads on live network paths
-- keep compression disabled for traffic that does not benefit from it
-- treat compression as a throughput tool, not a universal win
+:::tip[12.5% Minimum Compression Gain in `FramePipeline`]
+When `FramePipeline.ProcessOutbound` compresses a packet, it only transmits the compressed payload if it shrinks the payload by at least **12.5%** (`compressedLength <= originalLength - (originalLength >> 3)`). Incompressible payloads are automatically sent uncompressed without setting `PacketFlags.COMPRESSED`.
+:::
 
 ## Example
 
 ```csharp
+using System;
+using Nalix.Codec.LZ4;
+using Nalix.Environment.Memory;
+
 ReadOnlySpan<byte> input = payload;
 
 LZ4Codec.Encode(input, out BufferLease compressed, out int written);
 using (compressed)
 {
-    LZ4Codec.Decode(compressed.Span, out BufferLease? restored, out int restoredBytes);
-using (restored)
+    if (LZ4Codec.TryDecode(compressed.Span, out BufferLease? restored, out int restoredBytes) && restored is not null)
     {
-        Console.WriteLine(restoredBytes);
+        using (restored)
+        {
+            Console.WriteLine($"Compressed {input.Length}B -> {written}B, restored {restoredBytes}B");
+        }
     }
 }
 ```
 
-## Common pitfalls
-
-- compressing already-compressed or encrypted payloads
-- using compression for very small packets where header overhead dominates
-- forgetting that a pooled output lease must be disposed
-- assuming the same compression ratio across all payload types
-
-## Important notes
-
-:::tip[Prefer pooled paths on hot routes]
-The `BufferLease` overloads are the best default when compression is part of a high-throughput network path.
-:::
-
-:::note[Failures now throw]
-The public LZ4 APIs no longer use boolean success/failure flow. Invalid buffers, malformed payloads, and unexpected codec failures surface as exceptions, while pooled leases are disposed on failing paths.
-:::
-
 ## Related APIs
 
+- [Frame Pipeline](./frame-pipeline.md)
 - [Buffer Management](../environment/memory/buffer-management.md)
-- [Object Pooling](../framework/memory/object-pooling.md)
-- [Serialization](../../benchmarks/serialization.md)
 - [Compression Options](../options/network/compression-options.md)

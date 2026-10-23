@@ -1,69 +1,70 @@
 ---
 title: WebSocket Transport Options
-description: The WebSocketTransportOptions class configures the client-side WebSocket transport used by the WebSocketSession.
+description: Reference for Nalix.SDK.Options.WebSocketTransportOptions — endpoint path, subprotocol, TLS (wss://), and maximum message size for WebSocketSession.
 section: API Reference
-package: Nalix.Network / Nalix.Runtime
+package: Nalix.SDK
 ---
 
-The `WebSocketTransportOptions` class configures the client-side WebSocket transport used by the `WebSocketSession`.
+**Namespace:** `Nalix.SDK.Options`  
+**Assembly:** `Nalix.SDK`
+
+`WebSocketTransportOptions` (`public sealed partial class WebSocketTransportOptions : ConfigurationLoader, IValidatableConfiguration`) configures WebSocket-specific settings for [WebSocketSession](../../sdk/websocket-session.md) alongside [TransportOptions](./transport-options.md).
 
 ## Source Mapping
 
 - `src/Nalix.SDK/Options/WebSocketTransportOptions.cs`
+- `src/Nalix.SDK/Transport/WebSocketSession.cs`
+- `src/Nalix.SDK/Transport/Internal/Ws/WsFrameReader.cs`
 
-## Overview
+## Defaults and Validation
 
-These settings manage the endpoint path, subprotocol handshakes, TLS usage, and message size constraints on the client.
+Loaded from the `[WebSocketTransport]` section of `default.ini` or passed directly to `new WebSocketSession(transportOptions, webSocketOptions)`:
 
-## Configuration Table
+| Property | Type | Default | Validation | Runtime Effect |
+| :--- | :--- | ---: | :--- | :--- |
+| `Path` | `string` | `"/ws/"` | — | Relative HTTP Upgrade request path (normalized to start with `/`). |
+| `SubProtocol` | `string` | `"nalix.v1"` | — | WebSocket subprotocol added to `ClientWebSocket.Options.AddSubProtocol(...)` when non-whitespace. |
+| `UseTls` | `bool` | `false` | — | Selects `wss://{host}:{port}{path}` when `true`, or `ws://{host}:{port}{path}` when `false`. |
+| `MaxMessageSize` | `int` | `1_048_576` (`1 MB`) | `[ValueRange(1, int.MaxValue)]` | Maximum inbound WebSocket message size in bytes accepted by `WsFrameReader` before throwing `NetworkException`. |
 
-The options map to INI configuration sections under client properties:
-
-| Property | Type | Default Value | Description |
-|----------|------|---------------|-------------|
-| `Path` | `string` | `"/ws/"` | The HTTP path prefix used for the WebSocket connection endpoint. |
-| `SubProtocol` | `string` | `"nalix.v1"` | The WebSocket subprotocol header negotiated with the server. |
-| `UseTls` | `bool` | `false` | If set to `true`, the connection scheme is set to `wss://` (WebSocket over TLS); otherwise it is `ws://`. |
-| `MaxMessageSize` | `int` | `1,048_576` (1 MB) | The maximum allowed size (in bytes) of an incoming WebSocket message payload before triggering a size violation. |
+`Validate()` executes `this.ValidateDataAnnotations()` and throws `ValidationException` if `MaxMessageSize < 1`.
 
 ## Usage Example
-
-### Mutating Options Programmatically
 
 ```csharp
 using Nalix.SDK.Options;
 using Nalix.SDK.Transport;
 
-var transportOptions = new TransportOptions
+TransportOptions transportOptions = new()
 {
-    Address = "127.0.0.1",
-    Port = 8080
+    Address = "ws.example.com",
+    Port = 443,
+    ConnectTimeoutMillis = 10_000
 };
 
-var wsOptions = new WebSocketTransportOptions
+WebSocketTransportOptions wsOptions = new()
 {
-    Path = "/custom-ws",
-    SubProtocol = "myprotocol.v1",
+    Path = "/ws/",
+    SubProtocol = "nalix.v1",
     UseTls = true,
-    MaxMessageSize = 512_000 // 512 KB limit
+    MaxMessageSize = 1_048_576
 };
 
-wsOptions.Validate();
-
-using var session = new WebSocketSession(transportOptions, wsOptions);
+using WebSocketSession session = new(transportOptions, wsOptions);
 ```
 
-### INI Configuration Format
+### INI Configuration (`default.ini`)
 
 ```ini
 [WebSocketTransport]
-; Client WebSocket transport configuration
 Path = /ws/
 SubProtocol = nalix.v1
 UseTls = false
 MaxMessageSize = 1048576
 ```
 
-## See Also
+## Related APIs
 
-* [WebSocket Session (SDK)](../../sdk/websocket-session.md)
+- [WebSocket Session](../../sdk/websocket-session.md)
+- [Transport Options](./transport-options.md)
+- [WebSocket Hosting Binding (Server)](../../hosting/websocket-binding.md)

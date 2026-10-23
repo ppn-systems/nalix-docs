@@ -1,97 +1,89 @@
 ---
 title: Thread Dispatching
-description: Nalix.SDK uses a lightweight IThreadDispatcher interface to bridge the gap between high-performance background networking threads and single-threaded application contexts like U...
+description: Reference for IThreadDispatcher and InlineDispatcher in Nalix.SDK — UI and game-loop thread marshalling for packet subscriptions.
 section: API Reference
 package: Nalix.SDK
 ---
 
-`Nalix.SDK` uses a lightweight `IThreadDispatcher` interface to bridge the gap between high-performance background networking threads and single-threaded application contexts like UI frameworks or game engines.
+**Namespace:** `Nalix.SDK`  
+**Assembly:** `Nalix.SDK`
 
-## Dispatch Flow
+`IThreadDispatcher` abstracts how callbacks from background network receive threads are scheduled onto an application's target thread (such as the Unity main loop, Godot main thread, WPF/WinUI `Dispatcher`, or MAUI `MainThread`).
 
-```mermaid
-sequenceDiagram
-    participant N as Network Thread
-    participant D as IThreadDispatcher
-    participant M as Main/UI Thread
-    
-    Note over N: Packet Received
-    N->>D: Post(UpdateAction)
-    D->>M: BeginInvoke / Queue
-    Note over M: UpdateAction Executed
-    M->>M: Update UI / Scene
-```
-
-## Source mapping
+## Source Mapping
 
 - `src/Nalix.SDK/IThreadDispatcher.cs`
 - `src/Nalix.SDK/InlineDispatcher.cs`
 
-## Role and Design
-
-Networking in Nalix is naturally asynchronous and runs on dedicated background threads. However, most UI frameworks (WPF, MAUI, WinForms) and game engines (Unity, Godot) restrict state changes to a specific "Main Thread".
-
-`IThreadDispatcher` provides a clean abstraction to marshal these background callbacks back to the safe thread without coupling the core SDK to any specific platform.
-
-- **Minimal Surface**: Only one method (`Post`) to maintain maximum compatibility.
-- **Pluggable**: Easily swap between platform-specific dispatchers during application startup.
-- **Transparent**: The `InlineDispatcher` is provided for headless or console applications where thread marshalling is unnecessary.
-
-## Implementation Examples
-
-### Unity (Main Thread)
+## Public Contracts
 
 ```csharp
-public sealed class UnityDispatcher : IThreadDispatcher
+namespace Nalix.SDK;
+
+public interface IThreadDispatcher
 {
-    public void Post(Action action) => UnityMainThreadDispatcher.Enqueue(action);
+    void Post(Action action);
+}
+
+public sealed class InlineDispatcher : IThreadDispatcher
+{
+    [Pure]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public void Post(Action action) => action?.Invoke();
 }
 ```
 
-### .NET MAUI
+## How `IThreadDispatcher` Is Used
+
+- **`InlineDispatcher`**: Executes `action?.Invoke()` synchronously on the calling thread without context switching or queue allocation.
+- **Custom UI / Engine Dispatchers**: When handling packets via [TransportSessionSubscriptions.On&lt;TPacket&gt;](./subscriptions.md) (`disposeAfter: false` if passing a pooled packet across threads) or `OnMessageReceived` (calling `lease.Retain()` before posting and `lease.Dispose()` inside the posted action), invoke `dispatcher.Post(() => ...)` to marshal state mutations onto your engine's main thread.
+
+## Implementing `IThreadDispatcher` for Game & UI Engines
+
+### Unity (`SynchronizationContext` / Main Thread Queue)
 
 ```csharp
-public sealed class MauiDispatcher : IThreadDispatcher
+using System;
+using System.Collections.Concurrent;
+using Nalix.SDK;
+using UnityEngine;
+
+public sealed class UnityMainThreadDispatcher : MonoBehaviour, IThreadDispatcher
 {
-    public void Post(Action action) => MainThread.BeginInvokeOnMainThread(action);
-}
-```
+    private readonly ConcurrentQueue<Action> _queue = new();
 
-### WPF / WinForms (SynchronizationContext)
-
-```csharp
-public sealed class SynchronizationContextDispatcher : IThreadDispatcher
-{
-    private readonly SynchronizationContext _context = SynchronizationContext.Current;
-
-    public void Post(Action action) => _context.Post(_ => action(), null);
-}
-```
-
-## Basic usage
-
-```csharp
-IThreadDispatcher dispatcher = GetPlatformDispatcher();
-
-client.OnMessageReceived += (s, lease) => 
-{
-    // We are on a background thread here
-    dispatcher.Post(() => 
+    public void Post(Action action)
     {
-        // Now safely on the Main Thread
-        myLabel.Text = "Updated!";
-    });
-};
+        if (action is not null)
+        {
+            _queue.Enqueue(action);
+        }
+    }
+
+    private void Update()
+    {
+        while (_queue.TryDequeue(out Action? action))
+        {
+            action();
+        }
+    }
+}
 ```
 
-## Common pitfalls
+### .NET MAUI / WPF (`SynchronizationContext`)
 
-- **Direct UI Mutation**: Forgetting to use `Post` and touching UI components directly will typically cause a cross-thread exception or a silent crash.
-- **Deadlocks**: Avoid using `BlockingCollection` or synchronous waits inside the dispatched action.
-- **Capturing Scoped Data**: Be careful when capturing variables in the `Post` lambda; ensure they are still valid when the action eventually runs.
+```csharp
+using System;
+using System.Threading;
+using Nalix.SDK;
+
+public sealed class SyncContextDispatcher(SynchronizationContext context) : IThreadDispatcher
+{
+    public void Post(Action action) => context.Post(static state => ((Action)state!)(), action);
+}
+```
 
 ## Related APIs
 
-- [SDK Overview](./index.md)
-- [TCP Session](./tcp-session.md)
-- [Handshake Extensions](./handshake-extensions.md)
+- [Subscriptions (On&lt;TPacket&gt;, OnExact&lt;TPacket&gt;, Subscribe)](./subscriptions.md)
+- [Transport Session](./transport-session.md)

@@ -10,6 +10,7 @@ These guides walk through real, runnable samples — start with the one closest 
 
 - [Build a Chat Room](./build-a-chat-room.md) — broadcast messages to every connected client
 - [Securing Your Server](./securing-your-server.md) — enable encryption and run TCP, UDP, and WebSocket together
+- [Blazor WebAssembly (WASM) Guide](./blazor-wasm.md) — connect browser clients over WebSocket with `WebSocketSession`
 
 ## Application logic
 
@@ -38,4 +39,5 @@ These guides walk through real, runnable samples — start with the one closest 
 ## Deployment & operations
 
 - [Production Checklist](./deployment/production-checklist.md) — a release gate before you ship, with a worked example
+- [Reverse Proxy & TLS Termination](./deployment/reverse-proxy-tls.md) — HAProxy, Nginx, Cloudflare, and PROXY Protocol v2 configuration
 - [Troubleshooting Guide](./deployment/troubleshooting.md) — common issues and where to look first

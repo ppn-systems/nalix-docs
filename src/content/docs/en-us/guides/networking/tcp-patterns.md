@@ -58,7 +58,7 @@ InstanceManager.Instance.Register<ILogger>(logger);
 ### 2. Create handler
 
 ```csharp
-[PacketHandler("SamplePingHandlers")]
+[PacketController("SamplePingHandlers")]
 public sealed class SamplePingHandlers
 {
     [PacketOpcode(0x1001)]
@@ -83,7 +83,7 @@ dispatch.Activate();
 
 ### 4. Create protocol
 
-The `Protocol` class is the glue between the raw listener and your message dispatcher. You must implement `ProcessMessage` and can optionally override lifecycle hooks for custom error handling.
+The `Protocol` class is the glue between the raw listener and your message dispatcher. You must implement `FrameProcessor`, `OpCodeExtractor`, and `ProcessMessage`, and can optionally override lifecycle hooks for custom error handling.
 
 ```csharp
 public sealed class SampleProtocol : Protocol
@@ -97,12 +97,15 @@ public sealed class SampleProtocol : Protocol
         _logger = logger;
     }
 
+    public override IFrameProcessor FrameProcessor => DefaultFrameProcessor.Instance;
+    public override IOpCodeExtractor OpCodeExtractor => DefaultOpCodeExtractor.Instance;
+
     public override void ProcessMessage(object? sender, IConnectionEventArgs args)
         => _dispatch.HandlePacket(args.Lease, args.Connection);
 
     protected override void OnConnectionError(IConnection connection, Exception ex)
     {
-        _logger.LogError(ex, "Transport error on connection {ConnectionId}", connection.ID);
+        _logger.Error("Transport error on connection {0}", ex, connection.ConnectionId);
     }
 
     protected override bool ValidateConnection(IConnection connection)
@@ -123,6 +126,7 @@ When using the transport layer directly (outside of the Hosting builder), you mu
 | :--- | :--- | :--- |
 | `ILogger` | `ILogger` | Structured logging |
 | `IConnectionHub` | `IConnectionHub` | Connection tracking and batch operations |
+| `IConnectionGuard` | `IConnectionGuard` | Admission rate/quota guard |
 | `TaskManager` | `TaskManager` | Background worker management |
 | `TimingWheel` | `TimingWheel` | Lightweight timeout scheduling |
 | `ObjectPoolManager` | `ObjectPoolManager` | Recyclable buffer/context management |
@@ -131,11 +135,12 @@ When using the transport layer directly (outside of the Hosting builder), you mu
 // Setup dependencies
 InstanceManager.Instance.Register<ILogger>(logger);
 IConnectionHub hub = new ConnectionHub();
+IConnectionGuard guard = new ConnectionGuard();
 InstanceManager.Instance.Register<IConnectionHub>(hub);
-InstanceManager.Instance.Register<TaskManager>(new TaskManager());
+InstanceManager.Instance.Register<IConnectionGuard>(guard);
 
 // Initialize and Activate
-SampleTcpListener listener = new(57206, new SampleProtocol(dispatch, logger), hub);
+SampleTcpListener listener = new(57206, new SampleProtocol(dispatch, logger), hub, guard);
 listener.Activate();
 ```
 
@@ -158,20 +163,24 @@ Console.WriteLine(response.Type); // PONG
 
 ## End-to-end flow
 
+1. Client calls `session.RequestAsync<Control>(...)`, assigning a non-zero `SequenceId`.
+2. `TcpListenerBase` accepts the socket, frames the inbound payload, runs `FrameProcessor`, and calls `SampleProtocol.ProcessMessage(...)`.
+3. `PacketDispatchChannel` deserializes `Control`, invokes `SamplePingHandlers.HandleAsync`, and sends the returned `Control` (`PONG`) back over the connection.
+
 ## Variant: send manually from handler
 
 Instead of returning a response, you can send manually:
 
 ```csharp
 [PacketOpcode(0x1001)]
-public async ValueTask Handle(IPacketContext<Control> context, CancellationToken ct)
+public async ValueTask Handle(IPacketContext<Control> context)
 {
-    await context.Sender.SendAsync(new Control { Type = ControlType.PONG }, ct);
+    await context.Sender.SendAsync(new Control { Type = ControlType.PONG }, context.CancellationToken);
 }
 ```
 
 :::warning[Critical Best Practice]
-Always pass `context.CancellationToken` (or the injected `CancellationToken` as shown above) to any `await SendAsync()` or background I/O calls inside your handler. Failing to do so breaks the lifecycle synchronization between the Dispatcher and your background task, leading to orphaned tasks and severe memory-pooling race conditions under high load.
+Always pass `context.CancellationToken` to any `await SendAsync()` or background I/O calls inside your handler. Handler methods must take a single `IPacketContext<TPacket>` parameter (adding a second `CancellationToken` parameter triggers analyzer diagnostic `NAL013`).
 :::
 
 Use this style when:

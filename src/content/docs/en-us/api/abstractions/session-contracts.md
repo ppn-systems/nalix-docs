@@ -1,116 +1,67 @@
 ---
 title: Session Contracts
-description: Nalix.Abstractions.Networking.Sessions defines the contracts used to capture and persist resumable session state.
+description: Resumable session persistence contracts in Nalix.Abstractions.Networking.Sessions including ISessionService, ISessionStore, ISessionFactory, SessionEntry, SessionSnapshot, and SessionScope.
 section: API Reference
 package: Nalix.Abstractions
 ---
 
-`Nalix.Abstractions.Networking.Sessions` defines the contracts used to capture and persist resumable session state.
+**Namespace:** `Nalix.Abstractions.Networking.Sessions`  
+**Assembly:** `Nalix.Abstractions`
 
-## Source mapping
+`Nalix.Abstractions.Networking.Sessions` defines the contracts for capturing, storing, and atomically consuming session state to support zero-RTT session resumption (`SessionResume`).
+
+## Source Mapping
 
 - `src/Nalix.Abstractions/Networking/Sessions/ISessionService.cs`
 - `src/Nalix.Abstractions/Networking/Sessions/ISessionFactory.cs`
 - `src/Nalix.Abstractions/Networking/Sessions/ISessionStore.cs`
+- `src/Nalix.Abstractions/Networking/Sessions/ISessionPersistencePolicy.cs`
 - `src/Nalix.Abstractions/Networking/Sessions/SessionEntry.cs`
 - `src/Nalix.Abstractions/Networking/Sessions/SessionSnapshot.cs`
-- `src/Nalix.Abstractions/Networking/Sessions/ISessionPersistencePolicy.cs`
+- `src/Nalix.Abstractions/Networking/Sessions/SessionScope.cs`
 
-## Main types
+## Public Members at a Glance
 
-- `ISessionService`
-- `ISessionFactory`
-- `ISessionStore`
-- `ISessionPersistencePolicy`
-- `SessionEntry`
-- `SessionSnapshot`
+| Type | Kind | Public Members |
+| --- | --- | --- |
+| `ISessionService` | `interface : IDisposable` | `ValueTask SaveSessionAsync(IConnection, CancellationToken)`, `ValueTask<SessionScope> ConsumeAsync(ulong sessionToken, Func<SessionEntry, bool>? predicate = null, CancellationToken ct = default)` |
+| `ISessionStore` | `interface` | `ValueTask StoreAsync(SessionEntry, CancellationToken)`, `ValueTask<SessionScope> ConsumeAsync(ulong sessionToken, Func<SessionEntry, bool>? predicate = null, CancellationToken ct = default)` |
+| `ISessionFactory` | `interface` | `SessionEntry CreateSession(IConnection connection)` |
+| `ISessionPersistencePolicy` | `interface` | `bool ShouldPersist(IConnection connection)` |
+| `SessionScope` | `readonly struct : IDisposable` | `SessionEntry? Value { get; }`, `bool IsValid { get; }`, `void Dispose()`, `implicit operator SessionEntry?(SessionScope)` |
+| `SessionEntry` | `class` | `SessionSnapshot Snapshot`, `ulong ConnectionId`, `void Return()` |
+| `SessionSnapshot` | `class` | `ulong SessionToken`, `long CreatedAtUnixMilliseconds`, `long ExpiresAtUnixMilliseconds`, `Bytes32 Secret`, `CipherSuiteType Algorithm`, `PermissionLevel Level`, `IObjectMap<AttributeKey, object>? Attributes`, `void ClearSecret()`, `void Return()` |
 
-## Public members at a glance
+## `ISessionService` & `ISessionStore`
 
-| Type | Public members |
-|---|---|
-| `ISessionService` | `SaveSessionAsync(...)`, `ConsumeAsync(...)` |
-| `ISessionFactory` | `CreateSession(...)` |
-| `ISessionStore` | `StoreAsync(...)`, `ConsumeAsync(...)` |
-| `SessionEntry` | `Snapshot`, `ConnectionId`, `Return()` |
-| `ISessionPersistencePolicy` | `ShouldPersist(IConnection)` |
-| `SessionSnapshot` | `SessionToken`, `CreatedAtUnixMilliseconds`, `ExpiresAtUnixMilliseconds`, `Secret`, `Algorithm`, `Level`, `Attributes` |
+Both `ISessionService.ConsumeAsync` and `ISessionStore.ConsumeAsync` perform an **atomic retrieve-and-remove** operation and return a `SessionScope`:
 
-## ISessionService
+```csharp
+using SessionScope scope = await sessionService.ConsumeAsync(
+    sessionToken,
+    predicate: entry => entry.Snapshot.ExpiresAtUnixMilliseconds > nowMs,
+    cancellationToken: ct);
 
-`ISessionService` coordinates the lifecycle of session persistence. It is the primary high-level interface consumed by `ConnectionHub` and standard packet handlers to store and resume sessions.
+if (scope.IsValid)
+{
+    SessionEntry entry = scope.Value!;
+    // Restore Secret, Algorithm, Level, and sequence counters onto the new connection
+}
+```
 
-It is responsible for:
+:::important[Single-Use Atomic Consumption (`SessionScope`)]
+1. `ConsumeAsync` removes the session from the store immediately when matched so concurrent replay attempts with the same `sessionToken` cannot race (TOCTOU protection).
+2. Disposing the returned `SessionScope` (`using SessionScope scope = ...`) automatically calls `entry.Return()`, which calls `Snapshot.Return()` (`ClearSecret()` and `Attributes?.Return()`).
+:::
 
-- coordinating session saving by applying connection-level policies (e.g., checking if the handshake was established, checking attribute count thresholds)
-- calling `ISessionFactory` to construct a new `SessionEntry` snapshot from a live connection
-- storing the snapshot into the underlying storage engine (`ISessionStore`)
-- coordinating background workers (e.g., active scavengers) if the backing store requires scheduling
+## `ISessionFactory` & `ISessionPersistencePolicy`
 
-### Common pitfalls
-
-- calling `SaveSessionAsync` on unestablished or disposed connections
-- forgetting that `ConsumeAsync` is a one-shot operation that removes the session state from the store upon invocation
-
-## ISessionFactory
-
-`ISessionFactory` is responsible for capturing live connection state and packaging it into a serializable, pooled `SessionEntry`.
-
-It is responsible for:
-
-- allocating and initializing a `SessionEntry` from an active connection
-- copying security secrets, algorithms, authorization levels, and custom attributes into the entry's snapshot
-- capturing TCP and UDP sequence numbers to preserve framing boundaries upon reconnection
-
-## ISessionStore
-
-`ISessionStore` represents the low-level state persistence engine. It is focused strictly on CRUD/atomic operations, with all connection-level policy checks delegated upward to `ISessionService`.
-
-It is responsible for:
-
-- persisting the `SessionEntry` directly to the storage medium (database, in-memory, or distributed cluster like Redis)
-- atomically retrieving and removing the entry via `ConsumeAsync` to guarantee single-use session tokens
-
-### Common pitfalls
-
-- treating the store as a cache and forgetting that custom implementations (e.g., Redis) **must** implement `ConsumeAsync` atomically to prevent resumption replay exploits
-- forgetting to return the `SessionEntry` resources to the object pool (`entry.Return()`) if a store operation fails or a session expires
-
-## ISessionPersistencePolicy
-
-`ISessionPersistencePolicy` is an optional customization point that determines whether a connection's session should be persisted when the connection is unregistered. The default implementation (`DefaultSessionPersistencePolicy`) checks that the handshake was established and that the connection carries enough attributes to be worth resuming.
-
-Implement this interface to apply custom persistence logic (e.g., only persist sessions for premium users, or skip persistence for certain transport types).
-
-## SessionEntry
-
-`SessionEntry` wraps a reusable session snapshot together with runtime connection identity.
-
-Use it when you need to move session state between the live connection and the persistent store.
-
-### Common pitfalls
-
-- mutating the snapshot without returning the entry to the pool when the implementation expects reuse
-- assuming the `ConnectionId` stays valid after a reconnect or resume attempt
-
-## SessionSnapshot
-
-`SessionSnapshot` is the serializable session payload used by the store.
-
-It contains the state required to resume a connection, including:
-
-- session token
-- creation and expiration timestamps
-- secret and algorithm information
-- security level and attribute data
-
-### Common pitfalls
-
-- persisting more runtime state than the snapshot is meant to carry
-- rotating the token without updating the stored snapshot atomically
+- **`ISessionFactory.CreateSession(IConnection)`**: Creates a `SessionEntry` and populates its `SessionSnapshot` with the connection's `ConnectionId` (`SessionToken`), 32-byte `Secret` (`Bytes32`), `Algorithm`, `Level`, and `Attributes` (including TCP/UDP sequence numbers).
+- **`ISessionPersistencePolicy.ShouldPersist(IConnection)`**: Evaluates whether a connection's session should be saved (default `DefaultSessionPersistencePolicy` verifies that a cryptographic handshake was completed and `Secret` is non-zero).
 
 ## Related APIs
 
+- [Session Store & Service (InMemorySessionStore)](../network/session-store.md)
+- [Session Resumption Protocol](../security/session-resume.md)
+- [Client Resume Extensions (ConnectWithResumeAsync)](../sdk/resume-extensions.md)
 - [Connection Contracts](./connection-contracts.md)
-- [Session Resume](../security/session-resume.md)
-- [Handshake Protocol](../security/handshake.md)

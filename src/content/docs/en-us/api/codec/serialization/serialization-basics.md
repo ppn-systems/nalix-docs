@@ -1,59 +1,54 @@
 ---
 title: Serialization Basics
-description: Nalix.Codec.Serialization provides the serializer entry point and formatter resolution layer used by the framework and packet system.
+description: Zero-reflection binary serialization entry point (LiteSerializer), formatter registry (FormatterProvider), and SerializationOptions in Nalix.Codec.Serialization.
 section: API Reference
 package: Nalix.Codec
 ---
 
-`Nalix.Codec.Serialization` provides the serializer entry point and formatter resolution layer used by the framework and packet system.
+**Namespaces:** `Nalix.Codec.Serialization`, `Nalix.Codec.Options`  
+**Assembly:** `Nalix.Codec`
 
-Use this page when you want the lower-level model behind `LiteSerializer` and `FormatterProvider`.
+`Nalix.Codec.Serialization` provides the zero-reflection binary serializer (`LiteSerializer`), the AOT-safe formatter registry (`FormatterProvider`), and the `IFormatter<T>` / `IFillableFormatter<T>` contracts used across all Nalix packets and models.
 
-## Source mapping
+## Source Mapping
 
 - `src/Nalix.Codec/Serialization/IFormatter.cs`
+- `src/Nalix.Codec/Serialization/IFillableFormatter.cs`
 - `src/Nalix.Codec/Serialization/FormatterProvider.cs`
 - `src/Nalix.Codec/Serialization/LiteSerializer.cs`
-- `src/Nalix.Abstractions/Primitives`
-- `src/Nalix.Codec/Serialization/Formatters/Collections`
+- `src/Nalix.Codec/Options/SerializationOptions.cs`
+- `src/Nalix.Codec/Serialization/Formatters/Collections/*.cs`
+- `src/Nalix.Codec/Serialization/Formatters/Primitives/*.cs`
 - `analyzers/Nalix.Analyzers.Generators/SerializeFormatterGenerator.cs`
 
-## Main types
+## Main Types
 
-- `IFormatter<T>`
-- `IFillableFormatter<T>`
-- `FormatterProvider`
 - `LiteSerializer`
-- built-in primitive, enum, collection, memory, tuple, object, and struct formatters
-
-## What this layer does
-
-The framework serialization layer is responsible for:
-
-- resolving the right formatter for a type
-- serializing and deserializing values to `byte[]`, `Span<byte>`, `ReadOnlySpan<byte>`, and `ReadOnlyMemory<byte>` surfaces
-- supporting built-in primitive and collection shapes
-- generating formatters for supported object and struct types
-- rehydrating existing instances when a formatter implements `IFillableFormatter<T>`
+- `FormatterProvider`
+- `IFormatter<T>` & `IFillableFormatter<T>`
+- `SerializationOptions`
 
 ## `LiteSerializer`
 
-`LiteSerializer` is the main convenience API. Use it when you want to serialize or deserialize a supported model without working directly with formatter instances.
+`LiteSerializer` is the primary static serialization entry point. Unmanaged types (`int`, `float`, `PacketHeader`, `Bytes32`, etc.) take a fast unaligned memory path (`Unsafe.WriteUnaligned` / `Unsafe.ReadUnaligned`), while complex types and collections dispatch through `FormatterProvider` via a static generic cache (`RootFormatterCache<T>`).
 
-### Public overload groups
+### Public Overloads
 
-| Operation | Overload shape | Notes |
+| Operation | Signatures | Notes |
 |---|---|---|
-| Serialize to owned array | `Serialize<T>(in T value)` | Allocates a right-sized `byte[]`; unmanaged values use direct unaligned writes. |
-| Serialize to caller array | `Serialize<T>(in T value, byte[] buffer)` | Writes into the provided array and returns bytes written. |
-| Serialize to caller span | `Serialize<T>(in T value, Span<byte> buffer)` | Zero-copy caller-owned path. Span-backed writers cannot grow. |
-| Deserialize into existing value | `Deserialize<T>(byte[]/ReadOnlyMemory<byte>/ReadOnlySpan<byte>, ref T value)` | Uses `IFillableFormatter<T>.Fill` when available and `value` is non-null. |
-| Deserialize new value | `Deserialize<T>(byte[]/ReadOnlyMemory<byte>, out int bytesRead)` | Creates or returns a value and reports consumed bytes. |
-| Register custom formatter | `Register<T>(IFormatter<T> formatter)` | Delegates to `FormatterProvider.Register`. |
+| **Serialize to `byte[]`** | `byte[] Serialize<T>(in T value)` | Allocates an exact-sized `byte[]` for unmanaged and `IFixedSizeSerializable` types, or uses a pooled `DataWriter(2048)` for variable-length types. |
+| **Serialize into caller buffer** | `int Serialize<T>(in T value, byte[] buffer)`<br/>`int Serialize<T>(in T value, Span<byte> buffer)` | Writes directly into `buffer` and returns bytes written. Span-backed `DataWriter` never allocates; throws if `buffer` is too small. |
+| **Deserialize into `ref T`** | `int Deserialize<T>(byte[] buffer, ref T value)`<br/>`int Deserialize<T>(ReadOnlyMemory<byte> buffer, ref T value)`<br/>`int Deserialize<T>(ReadOnlySpan<byte> buffer, ref T value)` | Returns bytes read. When `value` is non-null and the formatter implements `IFillableFormatter<T>`, populates `value` in place via `Fill`. |
+| **Deserialize new instance** | `T Deserialize<T>(byte[] buffer, out int bytesRead)`<br/>`T Deserialize<T>(ReadOnlyMemory<byte> buffer, out int bytesRead)`<br/>`T Deserialize<T>(ReadOnlySpan<byte> buffer, out int bytesRead)` | Deserializes and returns `T` (for `PacketBase<TSelf>`, rents an instance from the object pool via `Create()`) and outputs `bytesRead`. |
+| **In-place `Fill`** | `int Fill<T>(byte[] buffer, ref T value)`<br/>`int Fill<T>(ReadOnlyMemory<byte> buffer, ref T value)`<br/>`int Fill<T>(ReadOnlySpan<byte> buffer, ref T value)` | Explicitly requires an `IFillableFormatter<T>` and a non-null `value`, rehydrating `value` in place without allocating. |
+| **Register custom formatter** | `void Register<T>(IFormatter<T> formatter)` | Delegates to `FormatterProvider.Register<T>(formatter)`. |
 
 ### Example
 
 ```csharp
+using System;
+using Nalix.Codec.Serialization;
+
 byte[] bytes = LiteSerializer.Serialize(model);
 MyModel clone = LiteSerializer.Deserialize<MyModel>(bytes, out int bytesRead);
 
@@ -63,122 +58,64 @@ int written = LiteSerializer.Serialize(model, scratch);
 
 ## `FormatterProvider`
 
-`FormatterProvider` resolves a formatter for a specific type.
+`FormatterProvider` is the AOT-safe global formatter registry. Its static constructor pre-registers formatters for all built-in unmanaged types (`char`, `byte`, `sbyte`, `short`, `int`, `long`, `ushort`, `uint`, `ulong`, `float`, `double`, `bool`, `decimal`, `Guid`, `DateOnly`, `DateTime`, `TimeSpan`, `TimeOnly`, `DateTimeOffset`), strings, nullable values, arrays, lists, queues, stacks, hash sets, `Memory<T>`, `ReadOnlyMemory<T>`, and common `Dictionary<K, V>` and `ValueTuple` combinations.
 
-Use it when you want lower-level control than `LiteSerializer` gives you.
+### Public Methods on `FormatterProvider`
 
-```csharp
-IFormatter<MyModel> formatter = FormatterProvider.Get<MyModel>();
-```
+| Method | Signature | Purpose |
+| --- | --- | --- |
+| `Get<T>` | `public static IFormatter<T> Get<T>()` | Resolves the cached, source-generated, enum, or complex formatter for `T` (throws `SerializationFailureException` if unregistered). |
+| `GetComplex<T>` | `public static IFormatter<T> GetComplex<T>()` | Resolves the registered complex struct or class formatter from `ComplexTypeCache<T>`. |
+| `Register<T>` | `public static void Register<T>(IFormatter<T> formatter)` | Registers a custom `IFormatter<T>` in `FormatterCache<T>.Instance`. |
+| `RegisterComplex<T>` | `public static void RegisterComplex<T>(IFormatter<T> formatter)` | Registers a complex struct or class formatter via `Interlocked.CompareExchange` (first writer wins). |
+| `RegisterGenerated<T>` | `public static void RegisterGenerated<T>(IFormatter<T> formatter)` | Called by `[ModuleInitializer]` code emitted by `SerializeFormatterGenerator`. |
+| `RegisterAllFormatters<T>` | `public static void RegisterAllFormatters<T>() where T : unmanaged` | Pre-registers `UnmanagedFormatter<T>`, `ArrayFormatter<T>`, `NullableFormatter<T>`, `NullableArrayFormatter<T>`, `ListFormatter<T>`, `QueueFormatter<T>`, `StackFormatter<T>`, `HashSetFormatter<T>`, `MemoryFormatter<T>`, `ReadOnlyMemoryFormatter<T>`, and `DictionaryFormatter<string/int/long, T>()` for a custom unmanaged struct or enum. |
+| `RegisterCollectionFormatters<T>` | `public static void RegisterCollectionFormatters<T>() where T : class` | Pre-registers `ReferenceListFormatter<T>` (`List<T>`) and `ReferenceArrayFormatter<T>` (`T[]`) for a reference type. |
+| `RegisterDictionary<TKey, TValue>` | `public static void RegisterDictionary<TKey, TValue>() where TKey : notnull` | Pre-registers `DictionaryFormatter<TKey, TValue>()`. |
+| `RegisterTuple<...>` | `public static void RegisterTuple<T1, T2>()` (arities 2..5) | Pre-registers `ValueTupleFormatter<...>` for arities 2 through 5. |
 
-Register custom formatters before relying on the automatic fallback path:
-
-```csharp
-LiteSerializer.Register(new MyCustomFormatter());
-```
-
-That lets the serializer pick your formatter before falling back to the built-in resolution path.
-
-## Formatter contracts
-
-`IFormatter<T>` is the formatter contract behind the serializer system. It defines the serialize and deserialize behavior for a specific type.
+## Formatter Contracts (`IFormatter<T>` & `IFillableFormatter<T>`)
 
 ```csharp
+using Nalix.Environment.Memory;
+
+namespace Nalix.Codec.Serialization;
+
 public interface IFormatter<T>
 {
     void Serialize(ref DataWriter writer, in T value);
     T Deserialize(ref DataReader reader);
 }
-```
 
-`IFillableFormatter<T>` extends the contract with in-place rehydration:
-
-```csharp
 public interface IFillableFormatter<T> : IFormatter<T>
 {
     void Fill(ref DataReader reader, T value);
 }
 ```
 
-When `LiteSerializer.Deserialize(..., ref value)` receives a non-null value and the root formatter is fillable, the serializer calls `Fill` instead of replacing the instance. This is important for pooled packet objects and other long-lived containers.
+## `SerializationOptions` (`Nalix.Codec.Options`)
 
-## Supported shapes
+Loaded from the `[Serialization]` section of `server.ini` via `ConfigurationManager.Instance.Get<SerializationOptions>()`:
 
-The current source supports these groups directly:
+| Property | Type | Default | Validation | Description |
+| --- | --- | ---: | --- | --- |
+| `MaxArrayLength` | `int` | `1_048_576` (1M) | `[ValueRange(1, int.MaxValue)]` | Maximum allowed element count for arrays and collections during deserialization. |
+| `MaxStringLength` | `int` | `1_048_576` (1M) | `[ValueRange(1, int.MaxValue)]` | Maximum allowed UTF-8 byte length for strings during deserialization. |
+| `MaxDeserializationDepth` | `int` | `256` | `[ValueRange(1, int.MaxValue)]` | Maximum nested object/collection depth during deserialization. |
 
-- unmanaged primitives and value types
-- `string` and `string[]`
-- nullable value types such as `int?`, `Guid?`, `DateTime?`
-- unmanaged arrays such as `int[]`, `Guid[]`, `DateTime[]`
-- nullable arrays such as `int?[]`, `Guid?[]`
-- enum values, enum arrays, and enum lists
-- `List<T>`
-- `Dictionary<TKey, TValue>`
-- `Queue<T>`
-- `Stack<T>`
-- `HashSet<T>`
-- `Memory<T>` and `ReadOnlyMemory<T>` for unmanaged element types
-- `ValueTuple` arity 2 through 5
-- [automatic class and struct serialization through generated formatters](./packet-serialization.md#automatic-member-model)
+## Encoding Rules & Guardrails
 
-## Encoding and bounds rules
-
-| Shape | Encoding behavior | Guardrail |
+| Shape | Wire Encoding | Guardrail |
 |---|---|---|
-| Unmanaged value | Raw unaligned bytes. | Reader requires at least `sizeof(T)` bytes. |
-| Unmanaged array | 4-byte length prefix followed by raw element bytes. | Length must be within `SerializerBounds.MaxArray`; total byte size must not overflow. |
-| Null unmanaged array | 4-byte null marker. | Marker is read before element allocation. |
-| Empty unmanaged array | 4-byte zero marker. | Round-trips as an empty array. |
-| `string` | 4-byte UTF-8 byte-count prefix followed by UTF-8 payload. | Byte count must not exceed `SerializerBounds.MaxString`. |
-| Null `string` | Dedicated null sentinel. | Null and empty strings remain distinct. |
-| Enum | Backing integral type. | Supported backing types are byte, sbyte, short, ushort, int, uint, long, and ulong. |
-
-Span-backed serialization wraps the caller buffer directly. If the formatter writes past the span capacity, the writer cannot expand and the operation fails instead of allocating a replacement buffer.
-
-:::note[Configuring bounds]
-`SerializationOptions` (loaded via `ConfigurationManager`) controls the runtime limits for deserialization.
-
-- `MaxArrayLength` (default 1M) caps element counts in arrays and collections.
-- `MaxStringLength` (default 1M) caps UTF-8 string byte counts.
-- `MemoryOptions.MaxWriterCapacity` (default 128 MB) caps `DataWriter` expansion.
-
-`SerializerBounds` in `Nalix.Abstractions` provides matching `const` values for low-level or compile-time checks, but the `SerializationOptions` values are what enforce limits during active formatted serialization.
-:::
-
-## Built-in formatter details
-
-### `StringFormatter`
-
-`StringFormatter` writes a 32-bit UTF-8 byte length, then encodes directly into the writer's free buffer. It handles three distinct cases:
-
-- `null` writes the serializer null sentinel
-- `string.Empty` writes length `0` with no payload
-- non-empty strings write a positive byte count plus UTF-8 bytes
-
-During reads, negative values other than the null sentinel and lengths greater than `SerializerBounds.MaxString` are rejected.
-
-### `EnumFormatter<T>`
-
-`EnumFormatter<T>` resolves the enum backing type once in its static constructor and caches specialized serialize/deserialize delegates. The hot path reinterprets enum bits with `Unsafe.As` and then delegates to the matching primitive formatter, avoiding boxing.
-
-Supported backing types are:
-
-- `byte` / `sbyte`
-- `short` / `ushort`
-- `int` / `uint`
-- `long` / `ulong`
-
-## Automatic member model
-
-For details on how the automatic member discovery works for objects and structs, including field-based rules and attribute usage, see [Packet Serialization](./packet-serialization.md#automatic-member-model).
-
-## Relationship to packet serialization
-
-This layer sits underneath packet model serialization and frame handling.
-
-It is the machinery that `PacketBase<TSelf>` and related frame helpers build on.
+| **Unmanaged value** | Raw little-endian / unaligned bytes (`sizeof(T)`). | Reader requires at least `sizeof(T)` remaining bytes. |
+| **Array / Collection** | 4-byte `int` element count (`SerializerBounds.Null = -1` for `null`, `0` for empty) followed by elements. | Count must not exceed `SerializationOptions.MaxArrayLength`. |
+| **`string`** | 4-byte `int` UTF-8 byte length (`SerializerBounds.Null = -1` for `null`, `0` for `""`) followed by UTF-8 bytes. | Byte length must not exceed `SerializationOptions.MaxStringLength`. |
+| **`enum`** | Encoded as its underlying integral type (`byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`) via `EnumFormatter<T>`. | Zero boxing via `Unsafe.As`. |
 
 ## Related APIs
 
-- [Serialization Concept](../../../concepts/how-packets-work.md)
-- [Custom Serialization Provider Guide](../../../guides/extensibility/serialization-providers.md)
+- [Packet Serialization](./packet-serialization.md)
+- [Serialization Generator](../../analyzers/autogen/serialization-generator.md)
+- [Serialization Attributes](../../abstractions/serialization-attributes.md)
+- [How Packets Work](../../../concepts/how-packets-work.md)
+- [Custom Serialization Providers Guide](../../../guides/extensibility/serialization-providers.md)

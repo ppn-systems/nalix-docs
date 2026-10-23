@@ -22,12 +22,11 @@ sequenceDiagram
     participant S as Server (Runtime)
 
     C->>C: Derive new key: newKey = HandshakeX25519.DeriveRekeySecret(currentSecret)
-    C->>S: Control (Type = SESSION_REKEY, SequenceId = seq)
-    S->>S: Validate handshake, connection.Secret = HandshakeX25519.DeriveRekeySecret(connection.Secret)
+    C->>S: Control (Type = SESSION_REKEY, SequenceId = seq, encrypted under K_n)
+    C->>C: Switch session.State.Secret = newKey (K_{n+1}) and reset sequence counters
+    S->>S: Validate handshake, connection.Secret = HandshakeX25519.DeriveRekeySecret(connection.Secret) (K_{n+1})
     S->>S: Reset TCP/UDP send+receive sequence counters
-    S->>C: Control (Type = SESSION_REKEY_ACK, SequenceId = seq)
-    C->>C: session.State.Secret = newKey
-    C->>C: Reset local sequence counters
+    S->>C: Control (Type = SESSION_REKEY_ACK, SequenceId = seq, encrypted under K_{n+1})
 ```
 
 ### When to Rekey
@@ -49,16 +48,16 @@ await session.RekeyAsync();
 
 The extension method:
 
-1. Derives the new session key from the current secret using HKDF.
-2. Sends a `Control` packet with `Type = SESSION_REKEY`.
-3. Awaits the `SESSION_REKEY_ACK` from the server (correlated by `SequenceId`).
-4. Switches the local session secret and resets sequence counters.
+1. Derives the new session key (`K_{n+1}`) from the current secret (`K_n`) using HKDF.
+2. Sends a `Control` packet with `Type = SESSION_REKEY` encrypted under `K_n`.
+3. Immediately switches `session.State.Secret` to `K_{n+1}` and resets local sequence counters so it can decrypt the server's `SESSION_REKEY_ACK` (which is encrypted under `K_{n+1}`).
+4. Awaits `SESSION_REKEY_ACK` from the server (correlated by `SequenceId`).
 
 ### Server-Side Behavior
 
 The `SystemControlHandlers.HandleSessionRekey` handler:
 
-1. Confirms the handshake has been established (`ConnectionAttributes.HandshakeEstablished`).
+1. Confirms the handshake has been established (`connection.GetRuntimeState().HandshakeEstablished`) and the control packet arrived encrypted (`context.EncryptedOnWire`).
 2. Computes the next key generation: `connection.Secret = HandshakeX25519.DeriveRekeySecret(connection.Secret)`.
 3. Resets TCP and (if applicable) UDP send/receive sequence counters.
 4. Responds with `Control(SESSION_REKEY_ACK)` using the same `SequenceId` for correlation.

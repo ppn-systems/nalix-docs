@@ -1,224 +1,146 @@
 ---
 title: Nalix.Runtime
-description: Nalix.Runtime is the high-performance orchestration layer of the Nalix framework, specifically designed to power Server-Side packet processing. It provides the multi-threaded di...
+description: Level 3 server-side orchestration layer providing sharded packet dispatch, middleware pipelines, rate limiting, built-in system/handshake handlers, and session state persistence.
 section: Packages
 package: Nalix.Runtime
 ---
 
-`Nalix.Runtime` is the high-performance orchestration layer of the Nalix framework, specifically designed to power **Server-Side** packet processing. It provides the multi-threaded dispatch pipeline, middleware execution engine, handler compilation, and session state infrastructure.
+`Nalix.Runtime` is the **Level 3** server-side packet orchestration engine. It powers multi-threaded sharded packet dispatch (`PacketDispatchChannel`), inbound/outbound middleware execution (`MiddlewarePipeline<TPacket>`), zero-reflection handler invocation, rate-limiting primitives, and session resumption (`SessionService`).
 
 ## Source Mapping
 
 - `src/Nalix.Runtime/Dispatching/PacketDispatchChannel.cs`
-- `src/Nalix.Runtime/Internal/Routing/DispatchChannel.cs`
 - `src/Nalix.Runtime/Dispatching/PacketDispatcherBase.cs`
-- `src/Nalix.Runtime/Handlers/SessionHandlers.cs`
+- `src/Nalix.Runtime/Dispatching/PacketContext.cs`
+- `src/Nalix.Runtime/Dispatching/PacketSender.cs`
+- `src/Nalix.Runtime/Middleware/MiddlewarePipeline.cs`
+- `src/Nalix.Runtime/Middleware/Standard/PermissionMiddleware.cs`
+- `src/Nalix.Runtime/Middleware/Standard/RateLimitMiddleware.cs`
+- `src/Nalix.Runtime/Middleware/Standard/TimeoutMiddleware.cs`
 - `src/Nalix.Runtime/Handlers/HandshakeHandlers.cs`
+- `src/Nalix.Runtime/Handlers/ProofOfWorkHandlers.cs`
+- `src/Nalix.Runtime/Handlers/SessionHandlers.cs`
+- `src/Nalix.Runtime/Handlers/SystemControlHandlers.cs`
+- `src/Nalix.Runtime/Handlers/SystemTimeSyncHandlers.cs`
 - `src/Nalix.Runtime/Sessions/SessionService.cs`
-- `src/Nalix.Runtime/Sessions/SessionFactory.cs`
-- `src/Nalix.Runtime/Sessions/InMemorySessionStore.cs`
-- `src/Nalix.Runtime/Sessions/SessionPersistenceObserver.cs`
-- `src/Nalix.Runtime/Options/SessionStoreOptions.cs`
+- `src/Nalix.Runtime/Groups/InMemoryGroupStore.cs`
 
-:::note[The Engine of the Server]
-While `Nalix.SDK` is designed for client-side consumption, `Nalix.Runtime` is the engine that handles the heavy lifting on the server, managing dispatch workers, request routing, and session-resume infrastructure.
-:::
-
-:::note[Typically consumed via Nalix.Hosting]
-Most projects consume `Nalix.Runtime` indirectly through `Nalix.Hosting`, which wires up the dispatcher and middleware automatically. Use `Nalix.Runtime` directly only when you need full control over the dispatch pipeline.
+:::note[Typically consumed via `Nalix.Hosting`]
+Most server applications configure `Nalix.Runtime` through `NetworkApplication.CreateBuilder()` in `Nalix.Hosting` (using `MapHandlers`, `ConfigureDispatchOptions`, `UseSecureConnections`, `UseSessions`, and `UseGroups`). Construct `PacketDispatchChannel` directly only when building a custom host.
 :::
 
 ## Where It Fits
 
 ```mermaid
 flowchart TD
-    subgraph Svc ["Service Layer"]
-        Runtime["Nalix.Runtime (Dispatch)"]
-        Network["Nalix.Network (Transport)"]
+    subgraph L3 ["Level 3 — Service Layer"]
+        Runtime["Nalix.Runtime (Dispatch, Middleware & Sessions)"]
+        Network["Nalix.Network (Listeners & Connections)"]
     end
 
-    subgraph Core ["Core Layer"]
-        Codec["Nalix.Codec (Registry & Serialization)"]
-        Framework["Nalix.Framework (DI & Utils)"]
+    subgraph L2 ["Level 2 — Core Layer"]
+        Codec["Nalix.Codec (PacketRegistry & Serialization)"]
+        Framework["Nalix.Framework (InstanceManager & Pools)"]
     end
 
-    subgraph Base ["Base Layer"]
-        Env["Nalix.Environment (Memory & IO)"]
-        Abstractions["Nalix.Abstractions (Contracts)"]
+    subgraph L1_0 ["Levels 0 & 1 — Foundation"]
+        Env["Nalix.Environment (Memory & Configuration)"]
+        Abs["Nalix.Abstractions (Contracts & Attributes)"]
     end
 
     Runtime --> Codec
     Runtime --> Framework
     Network --> Framework
-    
     Codec --> Env
     Framework --> Env
-    Env --> Abstractions
+    Env --> Abs
 ```
-
 
 ## Core Components
 
-### Packet Dispatch
+### 1. Sharded Packet Dispatch (`PacketDispatchChannel`)
 
-`PacketDispatchChannel` is the engine that processes all incoming network traffic. It manages:
+`PacketDispatchChannel` is the high-throughput engine that processes incoming network frames:
 
-- **Shard-aware worker loops** — Multiple workers (scaled to CPU core count) pull from the dispatch queue in parallel, preventing head-of-line blocking.
-- **Priority queueing** — Packets are prioritized by `PacketPriority` (`URGENT`, `HIGH`, `MEDIUM`, `LOW`, `NONE`).
-- **Deserialization** — Uses the `PacketRegistry` to convert raw bytes into typed packet instances.
-- **Packet middleware execution** — Runs the configured middleware chain before handler invocation.
-- **Handler invocation** — Calls the matched handler method with the appropriate context.
-- **Return handling** — Translates handler return values into outbound network responses.
+- **Fair per-connection scheduling & sharded worker loops** — Worker loops scale to CPU core count (or `WithDispatchLoopCount(...)`) and pull from priority-aware queues without head-of-line blocking across connections.
+- **Priority queueing** — Frames are scheduled according to `PacketPriority` (`URGENT`, `HIGH`, `MEDIUM`, `LOW`, `NONE`) and `DispatchOptions` drop policies (`DropNewest`, `DropOldest`, `Block`, `Coalesce`).
+- **Pre-handler encryption enforcement** — Verifies `[PacketEncryption]` (`context.IsEncrypted`) in `PacketHandler<TPacket>.CanExecute` before invoking the handler.
+- **Zero-reflection handler invocation** — Resolves compiled handler delegates generated at build time by `PacketHandlerGenerator` (supporting `IPacketContext<TPacket>`, trailing `[FromScope]` reference-type parameters resolved from `context.Scope`, and `[Inject]` controller fields/properties).
 
 ```csharp
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Runtime.Dispatching;
+
 PacketDispatchChannel dispatch = new(options =>
 {
     options.WithErrorHandling((ex, opcode) =>
            {
-               // Custom error hook for handler exceptions
+               // Custom error hook for unhandled handler exceptions
            })
-           .WithMiddleware(new MyAuditMiddleware<IPacket>())
-           .WithHandler(() => new AccountHandlers())
-           .WithHandler(() => new MatchHandlers());
+           .WithMiddleware(new MyAuditMiddleware())
+           .WithHandler(() => new AccountHandlers());
 });
 
 dispatch.Activate();
 ```
 
-:::note[Diagnostics via DiagnosticListener]
-Runtime emits diagnostics through `Nalix.Runtime.DiagnosticsEvents.Source`
-(a `DiagnosticListener` named `"Runtime"`). Subscribe in your host to bridge
-events into `ILogger`, OpenTelemetry, or any other observability sink.
-Per-instance logger injection (`WithLogging`) has been removed.
-:::
+### 2. Built-in Inbound Middleware (`Nalix.Runtime.Middleware.Standard`)
 
-### Middleware Pipeline
-
-The runtime supports specialized middleware that executes before high-level handler invocation. `Nalix.Runtime` includes several built-in protection and utility middleware:
+`Nalix.Runtime` ships three attribute-driven inbound middleware components in `Nalix.Runtime.Middleware.Standard`:
 
 | Middleware | Order | Stage | Behavior |
-|---|---:|---|---|
-| `PermissionMiddleware` | `-50` | `Inbound` | Fail-closed: the packet proceeds only when `[PacketPermission]` exists and its required level is met. |
-| `RateLimitMiddleware` | `50` | `Inbound` | Enforces `[PacketRateLimit]` or falls back to global token-bucket throttling. |
-| `TimeoutMiddleware` | `75` | `Inbound` | Enforces `[PacketTimeout]` on handler execution. |
+| :--- | ---: | :--- | :--- |
+| `PermissionMiddleware` | `-50` | `Inbound` | Enforces `[PacketPermission]` (`PermissionEvaluation.MinimumLevel` or `PermissionEvaluation.StrictMatch`) against `context.Connection.Level`. |
+| `RateLimitMiddleware` | `50` | `Inbound` | Enforces per-opcode `[PacketRateLimit]` policies (`PolicyRateLimiter`) or falls back to global `TokenBucketLimiter`. |
+| `TimeoutMiddleware` | `75` | `Inbound` | Wraps handler execution in a linked `CancellationTokenSource` governed by `[PacketTimeout]`. |
 
-:::warning[Permission default is deny]
-`PermissionMiddleware` intentionally rejects handlers without permission metadata. Do not add it globally unless packet handlers are annotated with the required permission attributes.
+:::note[`[PacketPermission]` default-allow behavior]
+If a handler method does not declare `[PacketPermission]` (`context.Attributes.Permission is null`), `PermissionMiddleware` allows the packet to proceed to the next stage. Always decorate authenticated or privileged handlers with `[PacketPermission(PermissionLevel.USER)]` (or place `[PacketPermission]` on the controller class).
 :::
 
-### Protection Primitives
+### 3. Protection & Throttling Primitives
 
-The runtime includes advanced throttling and protection primitives used by the middleware:
+- **`TokenBucketLimiter`**: Per-endpoint token bucket traffic shaper (`TokenBucketOptions`).
+- **`PolicyRateLimiter`**: Enforces method-level `[PacketRateLimit]` quotas.
+- **`DirectiveGuard`**: Prevents outbound `Directive` amplification under flood conditions (`DirectiveGuardOptions`).
 
-- **TokenBucketLimiter**: Tracks per-endpoint token state for traffic shaping.
-- **PolicyRateLimiter**: Evaluates handler-specific policy from `[PacketRateLimit]` metadata.
-- **DirectiveGuard**: Protects against response directive spamming for failed requests.
+### 4. Built-in Protocol Handlers (`Nalix.Runtime.Handlers`)
 
-### Handler Registration
+- **`HandshakeHandlers` & `ProofOfWorkHandlers`**: Server-side X25519 key exchange, TOFU public key serving, certificate storage (`FileCertificateStore`), and Proof-of-Work verification (`AdaptiveProofOfWorkPolicy`).
+- **`SessionHandlers`**: Stateless session resumption (`SessionResume`) with `HmacKeccak256` proof-of-possession and atomic token rotation via `ISessionService`.
+- **`SystemControlHandlers` & `SystemTimeSyncHandlers`**: Handles `Control` (`PING`/`PONG`, `DISCONNECT`, `CIPHER_UPDATE`, `PUBLIC_KEY_REQUEST`) and `TimeSync` frames.
 
-Handler methods are registered during `Build()`:
+### 5. Session Store & Connection Groups
 
-- The `PacketHandlerGenerator` source generator scans `[PacketHandler]` classes at compile time and emits zero-allocation invoker delegates
-- Methods annotated with `[PacketOpcode]` are matched to packet types
-- Handler metadata (permissions, timeouts, rate limits) is resolved at compile time and stored in `PacketMetadata`
+- **`SessionService`, `SessionFactory`, `InMemorySessionStore`, `SessionPersistenceObserver`**: Captures `SessionSnapshot` state on disconnect and restores encryption keys, permission levels, and attributes on valid `SessionResume` requests.
+- **`InMemoryGroupStore` & `GroupMembershipObserver`**: Implements `IConnectionGroupRegistry` for room/channel broadcasting and automatically removes disconnected clients from all groups.
 
-### Session Resume
+## Supported Handler Return Shapes
 
-The built-in session resume flow is handled by `SessionHandlers` and backed by `ISessionService`. It uses the unified `SessionResume` packet with `SessionResumeStage` to manage request/response stages:
-
-1. Client sends a `SessionResume` with `Stage = REQUEST` and a session token
-2. Server validates the token against `ISessionService`
-3. Server restores connection state and sends `SessionResume` with `Stage = RESPONSE`
-
-In the current source, `src/Nalix.Runtime/Handlers/SessionHandlers.cs` validates proof-of-possession with `HmacKeccak256`, restores the snapshot onto the live connection, stores the connection back into the session service, and returns a fresh session token for the next reconnect.
-
-### Routing
-
-Attribute-based routing maps opcodes to handler methods:
-
-```csharp
-[PacketHandler("AccountHandlers")]
-public sealed class AccountHandlers
-{
-    [PacketOpcode(0x2001)]
-    [PacketPermission(PermissionLevel.USER)]
-    [PacketTimeout(5000)]
-    public async ValueTask<AccountResponse> Login(
-        IPacketContext<LoginRequest> context)
-    {
-        // Handler logic
-    }
-}
-```
-
-### Time Synchronization
-
-`TimeSynchronizer` is an optional service that emits `TimeSynchronized` events at a default period of 16 ms (~60 Hz), designed for clock synchronization and periodic tick consumers.
-
-### Session Store & Service
-
-`Nalix.Runtime` provides the session-store and session-service implementations. The `ISessionService`, `ISessionFactory`, and `ISessionStore` interfaces provide:
-
-- **Decoupled session persistence** via `SessionPersistenceObserver` subscribing to `IConnectionHub` events.
-- **High-performance connection state snapshots** and restoration.
-- **TTL-based session retention** with active scavenging via `IWorker` in `InMemorySessionStore`.
-- **Atomic consumption** (`ConsumeAsync`) to prevent resumption replay attacks.
-
-## Handler Return Types
-
-The dispatch pipeline supports multiple return shapes. The internal return handler converts each into the appropriate outbound behavior:
-
-| Return type | Behavior |
+| Return Type | Runtime Behavior |
 | :--- | :--- |
-| `TPacket` | Serializes and sends the packet to the caller |
-| `Task<TPacket>` / `ValueTask<TPacket>` | Awaits, then serializes and sends |
-| `byte[]` / `Memory<byte>` / `ReadOnlyMemory<byte>` | Sends as raw bytes |
-| `void` / `Task` / `ValueTask` | No response; side-effect only |
-
-## Diagnostics
-
-Runtime diagnostics are published through `Nalix.Runtime.DiagnosticsEvents.Source`
-(a `DiagnosticListener` named `"Runtime"`). The `Nalix.Hosting` `DiagnosticChannel`
-automatically bridges these events into `ILogger`.
-
-Subscribe to specific event levels:
-
-| Event | Level |
-|---|---|
-| `Internal.Trace` | Trace |
-| `Internal.Debug` | Debug |
-| `Internal.Information` | Information |
-| `Internal.Warning` | Warning |
-| `Internal.Error` | Error |
-| `Internal.Critical` | Critical |
-
-Call `dispatch.GenerateReport()` to inspect runtime state:
-
-- Number of active workers
-- Queue depth and ready-connection state
-- Wake-signal counters
-- Top pending connections and per-priority readiness
+| `void` / `Task` / `ValueTask` | Executes side-effects; sends no automatic reply. |
+| `TPacket` / `Task<TPacket>` / `ValueTask<TPacket>` | Serializes and sends the returned packet back on the caller's connection (`ReplyAsync` stamps the request's `SequenceId` when `response.Header.SequenceId == 0`). |
+| `IAsyncEnumerable<TPacket>` | Server-streams each yielded packet via `ReplyAsync` with 1-item look-ahead and marks `IPacketStreamable.IsEndOfStream = true` on the final packet. |
+| `byte[]` / `Memory<byte>` / `ReadOnlyMemory<byte>` | Sends the raw buffer directly to the caller's connection. |
+| `ReturnValidation` | Evaluates declarative validation result before continuing. |
 
 ## Related Packages
 
-- [Nalix.Network](./nalix-network.md) — Transport and listeners
-- [Nalix.Hosting](./nalix-hosting.md) — Fluent bootstrap
-- [Nalix.Codec](./nalix-codec.md) — Packet registry and serialization
-- [Nalix.Framework](./nalix-framework.md) — Shared services and utilities
-- [Nalix.Abstractions](./nalix-abstractions.md) — Shared contracts and primitives
+- [Nalix.Network](./nalix-network.md) — TCP, UDP, and WebSocket transport listeners
+- [Nalix.Hosting](./nalix-hosting.md) — Fluent server builder
+- [Nalix.Codec](./nalix-codec.md) — Packet registry, serialization, and frame transforms
+- [Nalix.Framework](./nalix-framework.md) — DI, workers, and object pools
 
 ## Key API Pages
 
 - [Packet Dispatch](../api/runtime/routing/packet-dispatch.md)
 - [Packet Dispatch Options](../api/options/runtime/packet-dispatch-options.md)
 - [Middleware Pipeline](../api/runtime/middleware/pipeline.md)
+- [Permission Middleware](../api/runtime/middleware/permission-middleware.md)
 - [Policy Rate Limiter](../api/runtime/middleware/policy-rate-limiter.md)
 - [Token Bucket Limiter](../api/runtime/middleware/token-bucket-limiter.md)
-- [Permission Middleware](../api/runtime/middleware/permission-middleware.md)
 - [Timeout Middleware](../api/runtime/middleware/timeout-middleware.md)
-- [Packet Attributes](../api/abstractions/packet-attributes.md)
 - [Handler Return Types](../api/runtime/routing/handler-results.md)
 - [Dispatch Options](../api/options/runtime/dispatch-options.md)
 - [Session Store & Service](../api/network/session-store.md)
-- [Session Store Options](../api/options/network/session-store-options.md)
-- [Session Resume](../api/security/session-resume.md)

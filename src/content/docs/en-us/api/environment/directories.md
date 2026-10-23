@@ -1,38 +1,14 @@
 ---
 title: Directories
-description: Directories is the shared path-resolution helper in Nalix.Environment. It provides a centralized, platform-aware mechanism for resolving and hardening essential application dire...
+description: Platform- and container-aware directory resolution and permission hardening via Nalix.Environment.IO.Directories.
 section: API Reference
 package: Nalix.Environment
 ---
 
-`Directories` is the shared path-resolution helper in `Nalix.Environment`. It provides a centralized, platform-aware mechanism for resolving and hardening essential application directories.
+**Namespace:** `Nalix.Environment.IO`  
+**Assembly:** `Nalix.Environment`
 
-## Path Resolution Logic
-
-The following diagram illustrates the priority-based resolution chain used by the `Directories` helper.
-
-```mermaid
-flowchart TD
-    Start([Request Directory Path]) --> Override{Internal Override?}
-    Override -- Yes --> Resolve[Return Specific Path]
-    Override -- No --> Env{Env Variable Set?}
-    
-    Env -- Yes --> Resolve
-    Env -- No --> Container{In Container?}
-    
-    Container -- Yes --> CDefault[Return /data, /config, etc.]
-    Container -- No --> OS{Operating System?}
-    
-    OS -- Windows --> WinFallback[Return %ProgramData%\Nalix]
-    OS -- Unix/macOS --> UnixFallback[Return $XDG_DATA_HOME or ~/.local/share/Nalix]
-    
-    Resolve --> Hardening[Ensure Created & Harden Permissions]
-    CDefault --> Hardening
-    WinFallback --> Hardening
-    UnixFallback --> Hardening
-    
-    Hardening --> End([Return Absolute Path])
-```
+`Directories` is a thread-safe static utility that resolves, creates, and hardens application directories across Windows, Linux, macOS, and container (Docker/Kubernetes) environments.
 
 ## Source Mapping
 
@@ -41,70 +17,63 @@ flowchart TD
 - `src/Nalix.Environment/IO/Directories.PublicMethods.cs`
 - `src/Nalix.Environment/IO/Directories.UnixDirPerms.cs`
 
-## Key Capabilities
+## Path Resolution Priority
 
-- **Lazy Creation**: Directories are created automatically upon the first property access.
-- **Environment Aware**: Automatically detects Docker/Kubernetes environments and adapts fallbacks.
-- **Security-First**: Applies restricted permissions (e.g., `0700` or `0750` on Unix) depending on the directory's purpose.
-- **Safety Guards**: Prevents path traversal via safe combination routines.
-- **Auto-Cleanup**: The `TemporaryDirectory` automatically removes files older than a retention period (default: 7 days).
+```mermaid
+flowchart TD
+    Start(["Access Directories.* Property"]) --> Override{"SetBasePathOverride Set?"}
+    Override -->|Yes| BaseOverride["Use Override Base Path"]
+    Override -->|No| EnvVar{"NALIX_*_PATH Env Var Set?"}
+    EnvVar -->|Yes| UseEnv["Use Environment Variable Path"]
+    EnvVar -->|No| Container{"IsRunningInContainer?"}
+    Container -->|Yes & Volume Mounted| UseContainer["Use /data, /logs, /config, /tmp, /storage, /db"]
+    Container -->|No| OSFallback["Resolve under BaseAssetsDirectory"]
+    BaseOverride --> Harden["Create Directory & Apply Unix Permissions"]
+    UseEnv --> Harden
+    UseContainer --> Harden
+    OSFallback --> Harden
+```
 
-## Main Properties
+## Public Properties
 
-| Property | Default Purpose | Default Subdirectory |
+| Property | Env Variable Override | Container Volume | Default Path (`BaseAssetsDirectory` Relative) | Unix Mode |
+| :--- | :--- | :--- | :--- | :---: |
+| `IsRunningInContainer` | `DOTNET_RUNNING_IN_CONTAINER` / `KUBERNETES_SERVICE_HOST` | — | Detects `/.dockerenv` and `/proc/1/cgroup` markers | — |
+| `BaseAssetsDirectory` | `NALIX_BASE_PATH` | `/data` | Windows: `%ProgramData%\Nalix`<br/>Unix: `$XDG_DATA_HOME/Nalix` or `~/.local/share/Nalix` | `0750` |
+| `LogsDirectory` | `NALIX_LOGS_PATH` | `/logs` | `<BaseAssetsDirectory>/logs` | `0755` |
+| `DataDirectory` | `NALIX_DATA_PATH` | `/data` | `<BaseAssetsDirectory>/data` | `0755` |
+| `ConfigurationDirectory` | `NALIX_CONFIG_PATH` | `/config` | `<BaseAssetsDirectory>/config` | `0700` |
+| `StorageDirectory` | `NALIX_STORAGE_PATH` | `/storage` | `<BaseAssetsDirectory>/storage` | `0750` |
+| `DatabaseDirectory` | `NALIX_DB_PATH` | `/db` | `<BaseAssetsDirectory>/db` | `0700` |
+| `TemporaryDirectory` | `NALIX_TEMP_PATH` | `/tmp` | `<BaseAssetsDirectory>/data/tmp` (auto-purges files older than `NALIX_TEMP_RETENTION_DAYS`, default `7` days) | `0700` |
+| `CacheDirectory` | — | — | `<DataDirectory>/caches` | `0755` |
+| `UploadsDirectory` | — | — | `<DataDirectory>/uploads` | `0750` |
+| `BackupsDirectory` | — | — | `<DataDirectory>/backups` | `0700` |
+
+## Public Methods
+
+| Method | Signature | Description |
 | :--- | :--- | :--- |
-| `BaseAssetsDirectory` | Application root for all assets | `Nalix/` |
-| `DataDirectory` | Core persistent application data | `data/` |
-| `LogsDirectory` | Application execution logs | `logs/` |
-| `ConfigurationDirectory` | INI and security configuration files | `config/` |
-| `TemporaryDirectory` | Transient files with auto-cleanup | `tmp/` |
-| `DatabaseDirectory` | Database and WAL files | `db/` |
-| `StorageDirectory` | Large file storage | `storage/` |
-| `CacheDirectory` | Non-critical cache files | `caches/` |
-| `UploadsDirectory` | Incoming user-uploaded files | `uploads/` |
-| `BackupsDirectory` | System and data backups | `backups/` |
+| `GetFilePath` | `public static string GetFilePath(string directoryPath, string fileName)` | Combines `directoryPath` and `fileName` while enforcing path-traversal guards (throws `UnauthorizedAccessException` if `fileName` escapes `directoryPath`). |
+| `TryWriteNewFile` | `public static bool TryWriteNewFile(string path, string content, bool isPrivate = true)` | Atomically creates and writes `content` to a new file (applying `0600` on Unix when `isPrivate = true`); returns `false` if the file already exists. |
+| `DeleteOldFiles` | `public static int DeleteOldFiles(string directoryPath, TimeSpan maxAge, string searchPattern = "*")` | Deletes files older than `maxAge` matching `searchPattern` and returns the number of deleted files. |
+| `CanAccessAllDirectories` | `public static bool CanAccessAllDirectories()` | Verifies write permissions across all managed directories using OS ACL inspection on Windows (`GetAccessRules`) and `access(path, W_OK)` on Unix without writing temporary files. |
+| `SetBasePathOverride` | `public static void SetBasePathOverride(string path)` | Overrides `BaseAssetsDirectory` for isolated unit/integration tests and resets all lazy directory caches. |
 
-## Resolution Behavior
-
-Paths are resolved using the following priority:
-
-1. **Internal Override**: Primarily used for unit testing.
-2. **Explicit Environment Variable**: Variables like `NALIX_BASE_PATH`, `NALIX_DATA_PATH`, `NALIX_LOGS_PATH`, etc.
-3. **Container Defaults**: Prefers mounted volumes like `/data`, `/logs`, `/config`.
-4. **OS Fallback**: Platform-specific user/system data directories.
-
-:::note[Container Detection]
-The helper detects containers via heuristics including `DOTNET_RUNNING_IN_CONTAINER`, `KUBERNETES_SERVICE_HOST`, presence of `/.dockerenv`, and `/proc/1/cgroup` markers.
-:::
-
-## Manual Path Resolution
-
-The helper provides several methods for building safe sub-paths:
-
-- `GetFilePath(string directoryPath, string fileName)`: Returns a full file path under a given directory, ensuring the directory exists.
-
-## Management Methods
-
-- `DeleteOldFiles(string directoryPath, TimeSpan maxAge, string searchPattern = "*")`: Removes files older than the specified duration. Returns the number of files deleted.
-- `CanAccessAllDirectories()`: Diagnostic check for read/write permissions across all managed paths.
-- `SetBasePathOverride(string path)`: Overrides the base path for testing. The override is not persisted across process restarts.
-
-## Additional Properties
-
-- `IsRunningInContainer`: Gets a value indicating whether the current process appears to be running inside a container.
-
-## Typical usage
+## Usage Example
 
 ```csharp
-// Override base path for testing
-Directories.SetBasePathOverride("/tmp/test-root");
+using System;
+using Nalix.Environment.IO;
 
-// Get a file path under a specific directory
-string dataFile = Directories.GetFilePath(Directories.DataDirectory, "app.dat");
+// Resolve a safe file path inside ConfigurationDirectory
+string configPath = Directories.GetFilePath(Directories.ConfigurationDirectory, "server.ini");
+
+// Clean up log files older than 30 days
+int removed = Directories.DeleteOldFiles(Directories.LogsDirectory, TimeSpan.FromDays(30), "*.log");
 ```
 
 ## Related APIs
 
-- [Configuration](./configuration.md)
-- [Instance Manager (DI)](../framework/instance-manager.md)
+- [Configuration (ConfigurationManager)](./configuration.md)
 - [Installation](../../installation.md)

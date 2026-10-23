@@ -1,91 +1,114 @@
 ---
 title: SDK Overview
-description: Nalix.SDK is the client transport package for Nalix. It provides session lifecycle APIs (TransportSession, TcpSession, UdpSession), request/response helpers, handshake and resum...
+description: Reference for Nalix.SDK — client-side transport sessions (TcpSession, UdpSession, WebSocketSession), X25519 handshakes, 0-RTT session resumption, RPC proxies, and async streaming.
 section: API Reference
 package: Nalix.SDK
 ---
 
-`Nalix.SDK` is the client transport package for Nalix. It provides session lifecycle APIs (`TransportSession`, `TcpSession`, `UdpSession`), request/response helpers, handshake and resume extensions, and subscription helpers.
+**Namespaces:** `Nalix.SDK`, `Nalix.SDK.Transport`, `Nalix.SDK.Transport.Extensions`, `Nalix.SDK.Extensions`, `Nalix.SDK.Options`  
+**Assembly:** `Nalix.SDK`
 
-:::important[Client-side package]
-`Nalix.SDK` is for client applications only. Server projects should not create `TcpSession`, `UdpSession`, or SDK extension helpers. Server-side code should use `Nalix.Network`, `Nalix.Hosting`, and `Nalix.Runtime` listener/runtime APIs instead.
+`Nalix.SDK` is the client-side transport and protocol package for Nalix. It provides concrete client sessions (`TcpSession`, `UdpSession`, `WebSocketSession`), an abstract/interface session contract (`TransportSession` / `ITransportSession`), X25519 handshakes with TOFU/pinning and Proof-of-Work solving, 0-RTT session resumption, HKDF key rotation (`RekeyAsync`), correlated request/response helpers (`RequestAsync` / `TryRequestAsync`), streaming (`StreamAsync` / `RequestWithStreamAsync`), and source-generated RPC client proxies (`CreateRpcClient<T>`).
+
+:::important[Client-Side Package Only]
+`Nalix.SDK` is designed exclusively for client applications (desktop, mobile, Unity, Godot, Blazor WASM, console clients). Server applications should use `Nalix.Hosting`, `Nalix.Runtime`, and `Nalix.Network`.
 :::
 
 ## Source Mapping
 
-- `src/Nalix.SDK/Transport`
-- `src/Nalix.SDK/Transport/Extensions`
-- `src/Nalix.SDK/Extensions`
-- `src/Nalix.SDK/Options`
-- `src/Nalix.SDK/InlineDispatcher.cs`
-- `src/Nalix.SDK/IThreadDispatcher.cs`
-- `src/Nalix.SDK/TimeSyncCalculator.cs`
+- `src/Nalix.SDK/Transport/` (`ITransportSession.cs`, `TransportSession.cs`, `SessionState.cs`, `TcpSession.cs`, `UdpSession.cs`, `WebSocketSession.cs`)
+- `src/Nalix.SDK/Transport/Extensions/` (`HandshakeExtensions.cs`, `ResumeExtensions.cs`, `CipherExtensions.cs`, `RekeyExtensions.cs`, `RequestExtensions.cs`, `StreamExtensions.cs`, `HeaderStreamExtensions.cs`, `ChannelExtensions.cs`, `ObservableExtensions.cs`, `RpcExtensions.cs`, `PingExtensions.cs`, `DisconnectExtensions.cs`, `TimeSyncExtensions.cs`, `ControlExtensions.cs`, `TransportSessionSubscriptions.cs`)
+- `src/Nalix.SDK/Extensions/` (`ProtocolStringExtensions.cs`, `SubscriptionExtensions.cs`)
+- `src/Nalix.SDK/Options/` (`TransportOptions.cs`, `WebSocketTransportOptions.cs`, `RequestOptions.cs`, `RequestOutcome.cs`)
+- `src/Nalix.SDK/IThreadDispatcher.cs`, `src/Nalix.SDK/InlineDispatcher.cs`, `src/Nalix.SDK/TimeSyncCalculator.cs`
 
-## Why This Package Exists
+## Client Architecture
 
-Client concerns differ from server runtime concerns. `Nalix.SDK` gives applications a stable client-facing API while keeping server execution details in `Nalix.Runtime` and `Nalix.Network`.
+```mermaid
+flowchart TD
+    subgraph App["Client Application"]
+        Req["RequestAsync / TryRequestAsync / CreateRpcClient<T>"]
+        Stream["StreamAsync / RequestWithStreamAsync / SubscribeChannel"]
+        Sub["On<TPacket> / AsObservable<TPacket>"]
+    end
 
-## Core API Areas
+    subgraph Session["ITransportSession / TransportSession"]
+        State["SessionState (Secret, SessionToken, EncryptionEnabled, LocalPort)"]
+        Sup["ReconnectSupervisor + KeepAlive Monitor"]
+        TCP["TcpSession"]
+        UDP["UdpSession"]
+        WS["WebSocketSession"]
+    end
 
-### High-level APIs
+    subgraph Framers["Internal Framers + FramePipeline"]
+        TF["TcpFrameSender / TcpFrameReader"]
+        UF["UdpFrameSender / UdpFrameReader"]
+        WF["WsFrameSender / WsFrameReader"]
+    end
 
-Use these pages when writing application/client code:
-
-- [TcpSession](./tcp-session.md): stream transport over TCP.
-- [UdpSession](./udp-session.md): datagram transport over UDP.
-- [Handshake Extensions](./handshake-extensions.md): `HandshakeAsync` for secure session setup.
-- [Resume Extensions](./resume-extensions.md): session resume flow.
-- [Session Extensions](./tcp-session-extensions.md): aggregate entry point for request, control, cipher, and subscription helpers.
-- [Cipher Extensions](./cipher-extensions.md): live cipher update helpers.
-- [Control Utilities](./control-utilities.md): `PingAsync`, `DisconnectGracefullyAsync`, and `SyncTimeAsync` convenience helpers.
-- [Session Diagnostics](./diagnostics.md): session diagnostics and observable runtime state.
-- [Subscriptions](./subscriptions.md): typed packet subscription APIs.
-
-### Low-level primitives
-
-Use these pages when working on SDK internals, custom transports, or protocol tooling:
-
-- [Thread Dispatching](./thread-dispatching.md): `IThreadDispatcher` and `InlineDispatcher`.
-- [Frame Reader and Sender](./frame-reader-and-sender.md): TCP frame parsing, send serialization, and fragmentation internals.
-- [TransportSession](./transport-session.md): abstract base contract behind concrete sessions.
-- [Protocol String Extensions](./protocol-string-extensions.md): protocol-to-string helpers from `src/Nalix.SDK/Extensions`.
-
-### Options
-
-- [TransportOptions](../options/sdk/transport-options.md)
-- [RequestOptions](../options/sdk/request-options.md)
-
-## Mental Model
-
-1. Configure transport with `TransportOptions` and packet registry.
-2. Connect with `TcpSession` or `UdpSession`.
-3. Optionally perform `HandshakeAsync` or use `ConnectWithResumeAsync` on `TcpSession`.
-4. Send packets directly or use `RequestAsync<TResponse>`.
-5. Receive via event/subscription APIs.
-
-## Practical Example (From Current API)
-
-```csharp
-TransportOptions options = new();
-
-using TcpSession session = new(options);
-await session.ConnectAsync();
-
-await session.HandshakeAsync();
-
-MyResponse response = await session.RequestAsync<MyResponse>(
-    new MyRequest(),
-    RequestOptions.Default.WithTimeout(3_000).WithRetry(1));
+    App --> Session
+    TCP --> TF
+    UDP --> UF
+    WS --> WF
 ```
 
-## Best Practices
+## API Reference Map
 
-- Prefer `RequestAsync<TResponse>` over manual subscribe/send/wait to avoid response race windows.
-- Handle `OnError` and `OnDisconnected` for production resilience.
-- Keep packet registry consistent between client and server packet contracts.
+### Transport Sessions
+- [Transport Session (ITransportSession & TransportSession)](./transport-session.md): Base contract, `SessionState`, `ReconnectSupervisor`, keepalive probing, and direct pending-request dispatch.
+- [TCP Session (TcpSession)](./tcp-session.md): Framed reliable stream client with `ConnectWithProxyAsync` and synchronous `Send`.
+- [UDP Session (UdpSession)](./udp-session.md): Authenticated datagram client (`[8B SessionToken][Payload][4B XxHash32 MAC]`) with companion TCP port pinning.
+- [WebSocket Session (WebSocketSession)](./websocket-session.md): `ws://` and `wss://` binary WebSocket client (compatible with desktop and Blazor WASM).
+- [Frame Reader and Sender](./frame-reader-and-sender.md): Internal TCP, UDP, and WebSocket framing, fragmentation, and sequence tracking.
+
+### Security, Control & Request Extensions
+- [Session Extensions Overview](./tcp-session-extensions.md): Complete guide to `RequestExtensions`, `StreamExtensions`, `HeaderStreamExtensions`, `ChannelExtensions`, `ObservableExtensions`, `RpcExtensions`, and `RekeyExtensions`.
+- [Handshake Extensions (HandshakeAsync)](./handshake-extensions.md): Authenticated X25519 ECDH handshake, TOFU key discovery, and automatic Proof-of-Work challenge solving.
+- [Resume Extensions (ResumeSessionAsync & ConnectWithResumeAsync)](./resume-extensions.md): 0-RTT session resumption with `HmacKeccak256` proof-of-possession and automatic handshake fallback.
+- [Cipher Extensions (UpdateCipherAsync & RekeyAsync)](./cipher-extensions.md): Live cipher-suite switching and mid-session HKDF key rotation.
+- [Control Utilities (PingAsync, DisconnectGracefullyAsync, SyncTimeAsync)](./control-utilities.md): RTT measurement, graceful disconnect signaling, and EMA clock synchronization.
+- [Subscriptions (On&lt;TPacket&gt;, CompositeSubscription)](./subscriptions.md): Strongly-typed packet subscriptions.
+
+### Utilities & Options
+- [Thread Dispatching (IThreadDispatcher, InlineDispatcher)](./thread-dispatching.md): UI/main-thread marshalling for Unity, MAUI, WPF, and Godot.
+- [Protocol String Extensions (ToDisplayString)](./protocol-string-extensions.md): Human-readable UI descriptions for `ProtocolReason` and `ProtocolAdvice`.
+- [Session Diagnostics](./diagnostics.md): Client lifecycle and error observability patterns.
+- [Transport Options](../options/sdk/transport-options.md)
+- [WebSocket Transport Options](../options/sdk/websocket-transport-options.md)
+- [Request Options & RequestOutcome&lt;T&gt;](../options/sdk/request-options.md)
+
+## Quick Start Example
+
+```csharp
+using Nalix.SDK.Options;
+using Nalix.SDK.Transport;
+using Nalix.SDK.Transport.Extensions;
+
+TransportOptions options = new()
+{
+    Address = "127.0.0.1",
+    Port = 57206,
+    AutoReconnectEnabled = true,
+    KeepAliveIntervalMillis = 15_000
+};
+
+using TcpSession client = new(options);
+
+// 1. Connect and perform authenticated X25519 handshake
+await client.ConnectAsync();
+await client.HandshakeAsync();
+
+// 2. Send a correlated request and await the response
+LoginResponse reply = await client.RequestAsync<LoginResponse>(
+    new LoginRequest { Username = "Alice" },
+    RequestOptions.Default.WithTimeout(3_000).WithEncrypt());
+
+// 3. Gracefully disconnect
+await client.DisconnectGracefullyAsync();
+```
 
 ## Related APIs
 
 - [Packet Contracts](../abstractions/packet-contracts.md)
-- [Runtime Routing](../runtime/routing/index.md)
-- [Network Protocol](../network/protocol.md)
+- [Network Application (Hosting)](../hosting/network-application.md)
+- [Handshake Protocol](../security/handshake.md)

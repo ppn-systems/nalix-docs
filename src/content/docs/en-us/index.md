@@ -16,8 +16,7 @@ section: Overview
 
 Nalix is a real-time TCP and UDP networking framework for .NET 10. You define packet types once, share them between your server and client, and Nalix handles the transport, routing, and security for you.
 
-[Get Started](./quickstart.md)
-[View Packages](./packages/index.md)
+[Get Started](./quickstart.md) · [View Packages](./packages/index.md)
 
 ## What you get
 
@@ -54,14 +53,14 @@ If you want to know how Nalix works internally — wire formats, sharding, memor
 
 | Package | Purpose |
 | :--- | :--- |
-| [**Nalix.Hosting**](./packages/nalix-hosting.md) | Fluent builder and application lifecycle for server bootstrap |
-| [**Nalix.Network**](./packages/nalix-network.md) | TCP/UDP listeners, connections, and transport infrastructure |
-| [**Nalix.Runtime**](./packages/nalix-runtime.md) | Packet dispatch, middleware execution, and handler orchestration |
-| [**Nalix.SDK**](./packages/nalix-sdk.md) | Client-side transport sessions and request/response helpers |
-| [**Nalix.Codec**](./packages/nalix-codec.md) | Serialization, buffer leasing, and compression |
-| [**Nalix.Environment**](./packages/nalix-environment.md) | Configuration, environment IO, and time |
-| [**Nalix.Framework**](./packages/nalix-framework.md) | Shared runtime services and identifiers |
-| [**Nalix.Abstractions**](./packages/nalix-abstractions.md) | Shared contracts, packet attributes, and connection abstractions |
+| [**Nalix.Hosting**](./packages/nalix-hosting.md) | Fluent builder (`NetworkApplication.CreateBuilder()`) and application lifecycle for server bootstrap |
+| [**Nalix.Network**](./packages/nalix-network.md) | TCP, UDP, and WebSocket listeners, connections, connection hub, and transport guard |
+| [**Nalix.Runtime**](./packages/nalix-runtime.md) | Multi-threaded packet dispatch (`PacketDispatchChannel`), middleware pipeline, and session service |
+| [**Nalix.SDK**](./packages/nalix-sdk.md) | Client-side transport sessions (`TcpSession`, `UdpSession`), handshakes, and request/response correlation |
+| [**Nalix.Codec**](./packages/nalix-codec.md) | Compile-time binary serialization (`LiteSerializer`), LZ4 compression, AEAD encryption, and `PacketRegistry` |
+| [**Nalix.Framework**](./packages/nalix-framework.md) | Dependency injection (`InstanceManager`), background workers (`TaskManager`), `Snowflake` IDs, and object/buffer pools |
+| [**Nalix.Environment**](./packages/nalix-environment.md) | Zero-allocation memory (`BufferLease`, `DataReader`, `DataWriter`), INI configuration, `Clock`, `TimingScope`, and `Csprng` |
+| [**Nalix.Abstractions**](./packages/nalix-abstractions.md) | Zero-dependency contracts (`IPacket`, `IConnection`, `IBufferLease`), packet attributes, and validation metadata |
 
 For the full package map, see [Packages Overview](./packages/index.md).
 

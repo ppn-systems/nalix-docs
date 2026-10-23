@@ -36,6 +36,8 @@ If you need full control over startup order without the hosting builder:
 dotnet add package Nalix.Network
 dotnet add package Nalix.Runtime
 dotnet add package Nalix.Framework
+dotnet add package Nalix.Codec
+dotnet add package Nalix.Environment
 dotnet add package Nalix.Abstractions
 ```
 
@@ -61,7 +63,7 @@ dotnet add package Nalix.Codec
 | Scenario | Packages |
 |---|---|
 | Hosted server | `Nalix.Hosting` |
-| Manual server | `Nalix.Network`, `Nalix.Runtime`, `Nalix.Framework`, `Nalix.Abstractions` |
+| Manual server | `Nalix.Network`, `Nalix.Runtime`, `Nalix.Framework`, `Nalix.Codec`, `Nalix.Environment`, `Nalix.Abstractions` |
 | Client | `Nalix.SDK` |
 | Shared contracts | `Nalix.Abstractions`, `Nalix.Codec` |
 | Full stack | Server set + Client set, sharing one contracts assembly |
@@ -85,50 +87,49 @@ When upgrading, bump `NalixVersion`, clear `obj`/`bin` if source-generated contr
 
 ## Configuration File
 
-Most server setups and many SDK examples load options from the `server.ini` file via `ConfigurationManager`. This file will be automatically generated in your project's output directory:
+When using `Nalix.Hosting`, `Bootstrap.Initialize()` sets `NALIX_BASE_PATH` to `AppContext.BaseDirectory` and automatically generates `data/config/server.ini` on first launch (standalone `ConfigurationManager.Instance` defaults to `default.ini` inside `Directories.ConfigurationDirectory`). Section headers automatically strip the `Options` suffix from `ConfigurationLoader` class names:
 
 ```ini
-[NetworkSocketOptions]
+[NetworkSocket]
 Port=57206
 Backlog=512
 
-[DispatchOptions]
+[Dispatch]
 MaxPerConnectionQueue=4096
 DropPolicy=DropNewest
 BlockTimeout=00:00:01
 
-[TransportOptions]
+[Transport]
 Address=127.0.0.1
 Port=57206
-ConnectTimeoutMillis=5000
+ConnectTimeoutMillis=30000
 BufferSize=65536
 ```
 
 :::note[Dispatch loop scaling]
-Worker-loop count is configured on `PacketDispatchOptions<TPacket>` in code via `WithDispatchLoopCount(...)`.
+Worker-loop count is configured on `PacketDispatchOptions<TPacket>` (`Nalix.Runtime.Routing`) in code via `WithDispatchLoopCount(...)`.
 Use `WithDispatchLoopCount(null)` to keep auto-scaling behavior.
 Note: `PacketDispatchOptions<TPacket>` (handler/middleware config) is a different type from `DispatchOptions` (queue bounds and drop policy).
 :::
 
 ## Validate Options at Startup
 
-Validate options before opening sockets or creating sessions. Invalid configuration is cheaper to catch during startup than during live traffic.
+When resolving an options class via `ConfigurationManager.Instance.Get<TOptions>()`, Nalix automatically invokes `Validate()` if `TOptions` implements `IValidatableConfiguration` (such as `NetworkSocketOptions`, `PoolingOptions`, `TokenBucketOptions`, and `HostingOptions`) and runs source-generated data-annotation checks (`[ValueRange]`, `[Length]`, `[Required]`):
 
 ```csharp
 using Nalix.SDK.Options;
 using Nalix.Network.Options;
 using Nalix.Environment.Configuration;
 
-// Server
+// Server: loads [NetworkSocket] and automatically validates IValidatableConfiguration
 NetworkSocketOptions socket = ConfigurationManager.Instance.Get<NetworkSocketOptions>();
-socket.Validate();
 
-// Client
+// Client: loads [Transport] and validates [ValueRange] / [Length] annotations
 TransportOptions transport = ConfigurationManager.Instance.Get<TransportOptions>();
 ```
 
 ## What to Read Next
 
 - [Quick Start](./quickstart.md) — build your first client/server pair
-- [Packages Overview](./packages/index.md) — what each package provides
-- [Package dependency levels](./packages/index.md) — how the packages layer on each other, if you want the details
+- [Packages Overview](./packages/index.md) — what each package provides and how the 5 dependency levels layer on each other
+- [Configuration Concept Guide](./concepts/configuration.md) — how `.ini` binding and hot-reload work

@@ -1,124 +1,101 @@
 ---
 title: Session Store Options
-description: SessionStoreOptions controls resumable-session retention and the persistence policy used when connections leave the registry.
+description: Configuration reference for SessionStoreOptions in Nalix.Runtime — disconnected session retention TTL and minimum attribute persistence policy.
 section: API Reference
-package: Nalix.Network / Nalix.Runtime
+package: Nalix.Runtime
 ---
 
-`SessionStoreOptions` controls resumable-session retention and the persistence policy used when connections leave the registry.
+**Namespace:** `Nalix.Runtime.Options`  
+**Assembly:** `Nalix.Runtime`
+
+`SessionStoreOptions` controls how long disconnected sessions are retained for resumption (`SessionTtl`) and the minimum attribute threshold (`MinAttributesForPersistence`) required by `DefaultSessionPersistencePolicy` before a closing connection's state is persisted.
 
 ## Source Mapping
 
 - `src/Nalix.Runtime/Options/SessionStoreOptions.cs`
 - `src/Nalix.Runtime/Sessions/SessionService.cs`
 - `src/Nalix.Runtime/Sessions/InMemorySessionStore.cs`
+- `src/Nalix.Runtime/Sessions/SessionFactory.cs`
+- `src/Nalix.Runtime/Sessions/DefaultSessionPersistencePolicy.cs`
 - `src/Nalix.Runtime/Sessions/SessionPersistenceObserver.cs`
-- `src/Nalix.Hosting/Bootstrap.cs`
 
 ## Defaults and Validation
 
-| Property | Default | Validation | Runtime consumer |
-| --- | ---: | --- | --- |
-| `SessionTtl` | `00:05:00` | Required and `> TimeSpan.Zero` | `ISessionFactory.CreateSession(...)` sets `ExpiresAtUnixMilliseconds`. |
-| `MinAttributesForPersistence` | `10` | `0..int.MaxValue` | `SessionService.SaveSessionAsync(IConnection)` skips low-value sessions. |
+| Property | Type | Default | Validation | Runtime Consumer |
+| :--- | :--- | ---: | :--- | :--- |
+| `SessionTtl` | `TimeSpan` | `00:05:00` (5 min) | `[Required]`, `> TimeSpan.Zero` | `SessionFactory.CreateSession(IConnection)` sets `ExpiresAtUnixMilliseconds`. |
+| `MinAttributesForPersistence` | `int` | `10` | `[ValueRange(0, int.MaxValue)]` | `DefaultSessionPersistencePolicy.ShouldPersist(IConnection)` fallback when `Secret.IsZero`. |
 
-`Validate()` runs DataAnnotation validation and performs additional manual checks. Throws `ValidationException` for annotation failures and `ArgumentOutOfRangeException` for non-positive `SessionTtl` or negative `MinAttributesForPersistence`.
+`Validate()` runs DataAnnotations validation (`ValidationException`) and verifies `SessionTtl > TimeSpan.Zero` (`ValidationException`).
 
-:::note[Session TTL versus idle timeout]
-`SessionTtl` retains disconnected session state for resume after the connection is gone. It does not keep live idle connections open; `TimingWheelOptions.IdleTimeoutMs` controls live idle reaping.
+:::note[Session TTL vs. Idle Timeout]
+`SessionTtl` retains disconnected session state in `ISessionStore` so a client can resume after reconnecting. It does not control live socket idle disconnects—use [TimingWheelOptions.IdleTimeoutMs](./timing-wheel-options.md) for live connection reaping.
 :::
 
-## Hosting Initialization
-
-`Bootstrap.Initialize()` materializes this option set during server startup:
-
-```csharp
-_ = ConfigurationManager.Instance.Get<Nalix.Runtime.Options.SessionStoreOptions>();
-```
-
-This ensures the active configuration file contains the resumable-session retention and persistence policy alongside the other network-level options.
-
-## Session Creation Flow
+## Session Persistence Flow
 
 ```mermaid
 flowchart TD
-    A["ConnectionRegistry raises ConnectionUnregistered"] --> B["SessionPersistenceObserver receives OnConnectionClosed"]
-    B --> C["Starts background SaveSessionAsync(connection)"]
-    C --> D{"HandshakeEstablished attribute == true?"}
-    D -->|No| Z["Skip session persistence"]
-    D -->|Yes| E{"Attributes.Count > MinAttributesForPersistence?"}
+    A["ConnectionHub raises ConnectionUnregistered"] --> B["SessionPersistenceObserver.OnConnectionClosed"]
+    B --> C["SessionService.SaveSessionAsync(snapshot)"]
+    C --> D{"connection.GetRuntimeState().HandshakeEstablished?"}
+    D -->|No| Z["Skip persistence"]
+    D -->|Yes| S{"!connection.Secret.IsZero?"}
+    S -->|Yes| F["SessionFactory.CreateSession(connection)"]
+    S -->|No| E{"connection.Attributes.Count > MinAttributesForPersistence?"}
     E -->|No| Z
-    E -->|Yes| F["ISessionFactory.CreateSession copies connection attributes"]
-    F --> G["ExpiresAt = now + SessionTtl"]
-    G --> H["ISessionStore.StoreAsync(session)"]
+    E -->|Yes| F
+    F --> G["ISessionStore.StoreAsync(session)"]
 ```
 
-`ISessionFactory.CreateSession(...)` snapshots the connection into a `SessionEntry`:
+When `SessionFactory.CreateSession(IConnection connection)` snapshots a closing connection into a pooled `SessionEntry`:
+- `SessionToken` is set to `connection.ConnectionId`.
+- `CreatedAtUnixMilliseconds` and `ExpiresAtUnixMilliseconds` (`now + (long)_options.SessionTtl.TotalMilliseconds`) are recorded using `Clock.UnixMillisecondsNow()`.
+- `Secret`, `Algorithm`, `Level`, and TCP/UDP sequence counters are copied from the connection.
+- `connection.Attributes` are copied into a pooled `ObjectMap<AttributeKey, object>`.
 
-- `SessionToken` is derived from `connection.ID.ToUInt64()`.
-- `CreatedAtUnixMilliseconds` uses `Clock.UnixMillisecondsNow()`.
-- `ExpiresAtUnixMilliseconds` is `now + SessionTtl.TotalMilliseconds`.
-- `Secret`, `Algorithm`, and `Level` are copied from the connection.
-- Connection attributes are copied into a rented `ObjectMap<string, object>`.
+## Automatic Persistence Policy (`DefaultSessionPersistencePolicy`)
 
-## Automatic Persistence Contract
+`SessionPersistenceObserver` subscribes to `IConnectionHub.ConnectionUnregistered` and invokes `SessionService.SaveSessionAsync(snapshot)` asynchronously. `DefaultSessionPersistencePolicy.ShouldPersist(IConnection)` evaluates three rules in order:
+1. **Policy 1 (Handshake Gate)**: If `!connection.GetRuntimeState().HandshakeEstablished`, returns `false`.
+2. **Policy 2 (Active Cryptographic Session)**: If `!connection.Secret.IsZero` (active 32-byte encryption key established), returns `true` immediately.
+3. **Policy 3 (Attribute Count Fallback)**: Otherwise returns `connection.Attributes.Count > _options.MinAttributesForPersistence` (default `10`).
 
-Automatic persistence is decoupled from the connection hub by `SessionPersistenceObserver`, which subscribes to the `ConnectionUnregistered` event on the `IConnectionHub` and triggers `SaveSessionAsync(...)` in a fire-and-forget background task. Persistence is guided by the following conditions:
+## `InMemorySessionStore` Mechanics
 
-1. The connection must not be disposed.
-2. `ConnectionAttributes.HandshakeEstablished` must exist and be `true`.
-3. `connection.Attributes.Count` must be greater than `MinAttributesForPersistence`.
+When no custom `ISessionStore` is injected into `SessionService`, it creates an `InMemorySessionStore` (default capacity `MaxSessions = 65_536`) and schedules it as an `IWorker` on `TaskManager`:
+- **Minute-Bucketed Expiration**: Sessions are indexed in a `ConcurrentDictionary<ulong, SessionEntry>` alongside 1-minute expiry buckets (`BucketSpanMilliseconds = 60_000`) so the background `IWorker` scavenger only inspects buckets whose timestamp has elapsed.
+- **One-Shot Atomic Consumption**: `ConsumeAsync(ulong sessionToken, Func<SessionEntry, bool>? predicate, CancellationToken)` checks expiration and the optional `predicate` before atomically removing the entry and returning a `ValueTask<SessionScope>` (`new SessionScope(null)` with `scope.IsValid == false` if not found, expired, or rejected by `predicate`). Disposing a valid `SessionScope` automatically returns the `SessionEntry` and its `ObjectMap<AttributeKey, object>` to the pool.
 
-The attribute threshold is an anti-abuse filter. It avoids retaining handshake-only or nearly empty sessions that could otherwise be created in bulk by short-lived connections.
+## Configuration Examples
 
-If `SaveSessionAsync(...)` completes synchronously and successfully, the session is owned by the store. If storing throws immediately, the newly created `SessionEntry` is returned. If storing completes asynchronously, the task is awaited without blocking unregistration.
+### Programmatic Configuration
 
-## In-Memory Store Behavior
+```csharp
+using System;
+using Nalix.Hosting;
+using Nalix.Runtime.Options;
 
-`InMemorySessionStore` is the default store used by `SessionService` when no custom `ISessionStore` is injected.
+INetworkApplicationBuilder builder = NetworkApplication.CreateBuilder();
 
-### Storage and Replacement
+builder.Configure<SessionStoreOptions>(options =>
+{
+    options.SessionTtl = TimeSpan.FromMinutes(10);
+    options.MinAttributesForPersistence = 3;
+});
+```
 
-`StoreAsync(...)` uses a `ConcurrentDictionary<ulong, SessionEntry>` keyed by the session token:
+### INI Configuration (`default.ini`)
 
-- First insert wins when the token is absent.
-- Storing the same `SessionEntry` reference again is a no-op.
-- Replacing an existing token uses `TryUpdate(...)` and returns the old entry.
-
-### Expiration
-
-Expiration is enforced in two places:
-
-- A background scavenger implemented via `IHostedWorker` runs every minute and removes expired entries.
-- `ConsumeAsync(...)` also performs lazy TTL checks.
-
-Expired entries are removed from the dictionary and returned to their backing pools through `SessionEntry.Return()`.
-
-### Consume Semantics
-
-`ConsumeAsync(...)` uses `ConcurrentDictionary.TryRemove(...)`, so a session token is atomic one-shot state: only one concurrent caller can successfully consume and resume it. Expired consumed entries are returned and reported as `null`.
-
-### Disposal
-
-`SessionService.Dispose()` disposes the scavenger worker handle (`IWorkerHandle`) scheduled on `TaskManager` if `InMemorySessionStore` was used as the backing store, cleanly canceling the background execution loop.
-
-## Memory Management Notes
-
-- Session snapshots own a rented `ObjectMap<string, object>` containing copied connection attributes.
-- Store implementations must return replaced, removed, expired, or failed-to-store `SessionEntry` instances.
-- The default in-memory store returns entries on replacement, removal, lazy expiration, consumption expiration, and background scavenging.
-- Automatic persistence avoids blocking connection unregistration on asynchronous stores.
-
-## Tuning Guidance
-
-- Keep `SessionTtl` aligned with authentication token lifetime and key rotation.
-- Lower `SessionTtl` to reduce retained state and replay-token lifetime.
-- Raise `MinAttributesForPersistence` when public endpoints see many handshake-only disconnects.
-- Lower `MinAttributesForPersistence` only if legitimate resumable sessions carry few attributes.
-- Use a distributed `ISessionStore` for multi-node deployments and preserve the same TTL and one-shot consume semantics.
+```ini
+[SessionStore]
+SessionTtl = 00:05:00
+MinAttributesForPersistence = 10
+```
 
 ## Related APIs
 
 - [Session Store](../../network/session-store.md)
 - [Session Resume](../../security/session-resume.md)
+- [Timing Wheel Options](./timing-wheel-options.md)
 - [Network Options](./options.md)

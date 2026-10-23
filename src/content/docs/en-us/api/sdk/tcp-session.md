@@ -1,114 +1,124 @@
 ---
 title: TCP Session
-description: TcpSession is the core TCP client transport in Nalix.SDK. It handles the full lifecycle of a client connection, including reconnection logic, packet serialization, framed transp...
+description: Reference for Nalix.SDK.Transport.TcpSession — client-side length-prefixed TCP session with coalesced connects, PROXY Protocol v2 testing support, and zero-allocation frame I/O.
 section: API Reference
 package: Nalix.SDK
 ---
 
-`TcpSession` is the core TCP client transport in `Nalix.SDK`. It handles the full lifecycle of a client connection, including reconnection logic, packet serialization, framed transport, and asynchronous message dispatching.
+**Namespace:** `Nalix.SDK.Transport`  
+**Assembly:** `Nalix.SDK`
 
-:::important[Client-side transport]
-`TcpSession` is a client-side transport. Do not use it in server listener code. Server TCP connections are owned by `Nalix.Network` listener/connection types and processed through `Nalix.Runtime`.
-:::
+`TcpSession` (`[UnsupportedOSPlatform("browser")] public class TcpSession : TransportSession`) is the reliable stream transport session in `Nalix.SDK`, built on `TcpFrameSender` and `TcpFrameReader`.
 
-## Lifecycle Flow
-
-```mermaid
-sequenceDiagram
-    participant A as Application
-    participant S as TcpSession
-    participant R as TcpFrameReader
-    participant W as TcpFrameSender
-    participant N as TCP Socket
- 
-    A->>S: ConnectAsync(host, port, ct)
-    S->>S: acquire connection lock
-    S->>N: Socket.ConnectAsync()
-    S-->>A: OnConnected
-    S->>R: start ReceiveLoopAsync on LongRunning task
-    A->>S: SendAsync(packet, encrypt, ct)
-    S->>S: mark packet RELIABLE + serialize to BufferLease
-    S->>W: TcpFrameSender.SendAsync(lease, encrypt, ct)
-    W->>N: transform, frame, lock, Socket.SendAsync
-    N-->>R: length-prefixed frame bytes
-    R->>R: validate length, reassemble, ProcessInbound
-    R->>S: HandleReceiveMessage(IBufferLease)
-    S-->>A: OnMessageReceived sync event
-    S-->>A: OnMessageAsync with retained lease
-```
-
-## Source mapping
+## Source Mapping
 
 - `src/Nalix.SDK/Transport/TcpSession.cs`
 - `src/Nalix.SDK/Transport/Internal/Tcp/TcpFrameReader.cs`
 - `src/Nalix.SDK/Transport/Internal/Tcp/TcpFrameSender.cs`
 - `src/Nalix.Codec/Transforms/FramePipeline.cs`
 
-## Role and Design
+## Connection & Frame Lifecycle
 
-`TcpSession` acts as a high-level wrapper around a raw socket, providing a packet-oriented interface. It uses pooled `BufferLease` memory and the shared frame helpers to minimize GC pressure for high-throughput clients.
+```mermaid
+sequenceDiagram
+    participant App as Client Application
+    participant S as TcpSession
+    participant R as TcpFrameReader
+    participant W as TcpFrameSender
+    participant Sock as TCP Socket
 
-- **Asynchronous Loop**: `ConnectAsync(...)` starts a long-running receive task through `TcpFrameReader.ReceiveLoopAsync(...)`.
-- **Unified Framing**: Outbound and inbound payloads go through `TcpFrameSender`, `TcpFrameReader`, and `FramePipeline`.
-- **Error Handling**: Centralized `OnError` and `OnDisconnected` events for resilient client behavior.
-- **Request Helpers**: `RequestAsync<TResponse>()` and the higher-level extension helpers handle subscribe-before-send request flows.
+    App->>S: ConnectAsync(host, port, ct)
+    S->>S: PacketRegistry.Build() (if not built)
+    S->>Sock: ConnectAsync + Record State.LocalPort
+    S-->>App: OnConnected
+    S->>R: Start ReceiveLoopAsync (LongRunning Task)
+    S->>S: StartKeepAliveIfEnabled()
+    App->>S: SendAsync(packet, encrypt, ct)
+    S->>S: StampSequenceIdIfUnset(packet) + Serialize
+    S->>W: SendAsync(lease, encrypt, ct)
+    W->>Sock: FramePipeline.ProcessOutbound + 2B Length Prefix (or FragmentStream)
+    Sock-->>R: Inbound Framed Bytes
+    R->>R: Reassemble + FramePipeline.ProcessInbound + Sequence Check
+    R->>S: HandleReceiveMessage(IBufferLease)
+    S-->>App: DispatchPendingMessage -> OnMessageReceived -> OnMessageAsync
+```
 
-## Public API
-
-### Events
-
-| Member | Description |
-| --- | --- |
-| `OnConnected` | Raised when the socket connection is successfully established. |
-| `OnDisconnected` | Raised when the connection is closed or lost. |
-| `OnMessageReceived` | Synchronous event providing an `IBufferLease` for each frame. |
-| `OnMessageAsync` | Async callback receiving `ReadOnlyMemory<byte>` after the transport retains the underlying lease. |
-| `OnError` | Reports general transport or protocol errors. |
-
-### Methods
-
-| Member | Description |
-| --- | --- |
-| `ConnectAsync(...)` | Establishes a connection to the primary or override destination. |
-| `DisconnectAsync()` | Gracefully shuts down the connection. |
-| `SendAsync(IPacket)` | Serializes and sends a packet with standard framing. |
-| `SendAsync(payload)` | Sends raw binary data with required framing. |
-| `RequestAsync<TResponse>(...)` | Sends a request and waits for a matching typed response. |
-| `Dispose()` | Full resource cleanup and socket closure. |
-
-## Basic usage
+## Public API Reference
 
 ```csharp
-var options = ConfigurationManager.Instance.Get<TransportOptions>();
-// 1. Build the packet registry (populated by Source Generators)
-PacketRegistry.Build();
+namespace Nalix.SDK.Transport;
 
-using var client = new TcpSession(options);
-
-client.OnConnected += (s, e) => Console.WriteLine("Connected!");
-client.OnMessageReceived += (s, lease) => 
+[UnsupportedOSPlatform("browser")]
+public class TcpSession : TransportSession
 {
-    Console.WriteLine($"Received {lease.Length} bytes");
-};
+    public const int HeaderSize = 2;
+
+    public TcpSession(TransportOptions options, SessionState? state = null);
+
+    public override TransportOptions Options { get; }
+    public override bool IsConnected { get; }
+
+    public override event EventHandler? OnConnected;
+    public override event EventHandler<Exception>? OnDisconnected;
+    public override event EventHandler<IBufferLease>? OnMessageReceived;
+    public override event EventHandler<Exception>? OnError;
+    public event Func<ReadOnlyMemory<byte>, Task>? OnMessageAsync;
+
+    public override Task ConnectAsync(string? host = null, ushort? port = null, CancellationToken ct = default);
+    public Task ConnectWithProxyAsync(byte[] proxyProtocolV2, string? host = null, ushort? port = null, CancellationToken ct = default);
+    public override Task DisconnectAsync();
+
+    public void Send(ReadOnlySpan<byte> data, bool encrypt = true);
+    public override Task SendAsync(IPacket packet, CancellationToken ct = default);
+    public override Task SendAsync(IPacket packet, bool? encrypt = null, CancellationToken ct = default);
+    public override Task SendAsync(ReadOnlyMemory<byte> payload, bool? encrypt = null, CancellationToken ct = default);
+    public override void ResetSequenceCounters();
+}
+```
+
+### Key Capabilities
+
+| Feature | Details |
+| :--- | :--- |
+| **Connect Coalescing** | Concurrent `ConnectAsync` calls targeting the same `host` and `port` share the in-flight connection task rather than opening duplicate sockets. |
+| **Local Port Capture (`State.LocalPort`)** | Upon connecting, `TcpSession` records `localEp.Port` into `this.State.LocalPort` so a companion `UdpSession` sharing `this.State` can bind to the exact same local port. |
+| **`ConnectWithProxyAsync`** | Connects and immediately transmits a raw PROXY Protocol v2 header (`byte[] proxyProtocolV2`) before firing `OnConnected` or starting the receive loop (used for testing reverse-proxy client IP extraction). |
+| **Synchronous `Send(ReadOnlySpan<byte>, bool)`** | Zero-allocation synchronous send helper for pre-serialized spans. |
+| **Direct Pending-Request Dispatch** | `HasDirectPendingDispatch = true` dispatches inbound frames to active `RequestAsync` / `PacketAwaiter` observers via a lock-protected slot table before invoking `OnMessageReceived`, avoiding per-request multicast delegate allocations. |
+| **`OnMessageAsync`** | When subscribed, `TcpSession` calls `lease.Retain()`, invokes `OnMessageAsync(lease.Memory)`, and automatically disposes the retained lease when the returned `Task` completes. |
+
+## Usage Example
+
+```csharp
+using System;
+using System.Threading.Tasks;
+using Nalix.Environment.Configuration;
+using Nalix.SDK.Options;
+using Nalix.SDK.Transport;
+using Nalix.SDK.Transport.Extensions;
+
+TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
+options.Address = "127.0.0.1";
+options.Port = 57206;
+
+using TcpSession client = new(options);
+
+client.OnConnected += (_, _) => Console.WriteLine("TCP connected.");
+client.OnReady += (_, _) => Console.WriteLine("Session secured and ready.");
+client.OnDisconnected += (_, ex) => Console.WriteLine($"Disconnected: {ex.Message}");
 
 await client.ConnectAsync();
 await client.HandshakeAsync();
-await client.SendAsync(new LoginPacket { Username = "Ghost" });
 
-var loginResponse = await client.RequestAsync<LoginResponse>(
+LoginResponse response = await client.RequestAsync<LoginResponse>(
     new LoginPacket { Username = "Ghost" },
-    RequestOptions.Default.WithTimeout(5_000));
+    RequestOptions.Default.WithTimeout(5_000).WithEncrypt());
 ```
-
-## Notes
-
-- `OnMessageReceived` provides raw `IBufferLease` access. Do not dispose the original lease inside the handler unless you first called `Retain()`; `src/Nalix.SDK/Transport/TcpSession.cs` keeps ownership of the original callback lifetime.
-- `RequestAsync<TResponse>()` subscribes before sending the packet, which avoids losing fast responses on low-latency servers.
-- `OnMessageAsync` is optional and receives `lease.Memory`, not a packet object. Use it for custom async processing on the receive flow.
 
 ## Related APIs
 
-- [SDK Overview](./index.md)
-- [UDP Session](./udp-session.md)
 - [Transport Session](./transport-session.md)
+- [UDP Session](./udp-session.md)
+- [WebSocket Session](./websocket-session.md)
+- [Session Extensions](./tcp-session-extensions.md)
 - [Transport Options](../options/sdk/transport-options.md)

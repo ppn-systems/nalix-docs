@@ -60,14 +60,14 @@ public override void ProcessMessage(object? sender, IConnectionEventArgs args)
 
 **Check first**
 
-- `NetworkSocketOptions.EnableTimeout`
 - `TimingWheelOptions.IdleTimeoutMs`
-- whether your app expects long quiet windows
+- `connection.ExcludeFromIdleTimeout`
+- whether your app expects long quiet windows without `TransportOptions.KeepAliveIntervalMillis`
 
 **Quick fix**
 
-- increase `IdleTimeoutMs`
-- or disable timeout enforcement during local development
+- increase `TimingWheelOptions.IdleTimeoutMs`
+- or set `connection.ExcludeFromIdleTimeout = true` for long-lived service connections
 
 ## 4. One noisy client slows everything down
 
@@ -100,7 +100,7 @@ public override void ProcessMessage(object? sender, IConnectionEventArgs args)
 **Check first**
 
 - the handler method is decorated with the custom attribute
-- the `[PacketHandler]` class containing the handler is registered with `MapHandlers<T>()`
+- the `[PacketController]` class containing the handler is registered with `MapHandlers<T>()`
 - the `PacketHandlerGenerator` source generator ran successfully at build time
 
 Custom attributes on handler methods are collected by the source generator at compile time and stored in `PacketMetadata.CustomAttributes`. If the generator did not process the controller, the attribute will not be available at runtime.

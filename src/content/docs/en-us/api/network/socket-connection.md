@@ -1,161 +1,90 @@
 ---
 title: Socket Connection
-description: SocketConnection is the high-performance, internal sealed framed TCP transport implementation that powers Connection.TCP. It is specifically optimized for zero-allocation hotspo...
+description: Reference for Nalix.Network.Internal.Transport.SocketConnection — internal SAEA framed TCP receive/send engine supporting UInt16 length-prefixed and VarInt framing, fragmentation, and Layer 1 throttling.
 section: API Reference
 package: Nalix.Network
 ---
 
-`SocketConnection` is the high-performance, **internal sealed** framed TCP transport implementation that powers `Connection.TCP`. It is specifically optimized for zero-allocation hotspots, capable of handling 10,000+ concurrent connections with minimal GC impact.
+**Namespace:** `Nalix.Network.Internal.Transport`  
+**Assembly:** `Nalix.Network`
 
-:::warning[Not Public API]
-`SocketConnection` is `internal sealed` and is not part of the public API surface. It is documented here for framework developers and contributors only. Application code should interact with connections through `IConnection` and `Connection`.
+`SocketConnection` (`internal sealed partial class SocketConnection : IDisposable, IPoolable`) is the internal framed TCP transport engine backing `Connection.TCP` (`SocketTcpTransport`). It uses pooled `PooledSocketReceiveContext` (`SocketAsyncEventArgs`) instances, `BufferLease` byte-array pools, and multi-mode framing to sustain 10,000+ concurrent connections with zero per-packet heap allocations.
+
+:::warning[Internal Implementation Type]
+`SocketConnection` is `internal sealed` and is not directly referenced by application code. Application code interacts with TCP sockets through `IConnection` and `connection.TCP` (`IConnection.ITransport`).
 :::
 
-## Zero-Allocation Data Path
+## Source Mapping
 
-To achieve maximum throughput, Nalix ensures that the data path from the native network buffer to your application handler involves **zero heap allocations**. The following diagram illustrates this lifecycle.
+- `src/Nalix.Network/Internal/Transport/SocketConnection.cs`
+- `src/Nalix.Network/Internal/Transport/SocketConnection.Framing.cs`
+- `src/Nalix.Network/Internal/Transport/SocketConnection.Receive.VarInt.cs`
+- `src/Nalix.Network/Internal/Transport/SocketConnection.Send.cs`
+- `src/Nalix.Network/Internal/Transport/SocketConnection.Send.VarInt.cs`
+- `src/Nalix.Network/Internal/Transport/SocketTcpTransport.cs`
+- `src/Nalix.Network/Options/NetworkCallbackOptions.cs`
+- `src/Nalix.Network/Options/VarIntFramingOptions.cs`
 
-```mermaid
-flowchart LR
-    subgraph Infrastructure[Pool System]
-        ArrayPool[ArrayPool - Byte Buffers]
-        SaeaPool[SocketAsyncEventArgs Pool]
-    end
-
-    subgraph Native[Native IO]
-        Socket[OS Socket]
-        SAEA[SAEA Instance]
-    end
-
-    subgraph Logic[Nalix Logic]
-        Lease[BufferLease]
-        Callback[OnProcess Event]
-    end
-
-    ArrayPool -->|1. Rent Buffer| SAEA
-    SaeaPool -->|2. Rent Context| SAEA
-    
-    Socket -->|3. Native Copy| SAEA
-    SAEA -->|4. Slice Memory| Lease
-    
-    Lease -->|5. Handshake/Decryption| Callback
-    
-    Callback -->|6. Release| Return[Resource Return]
-    Return -.->|Return| ArrayPool
-    Return -.->|Return| SaeaPool
-```
-
-## Architectural Pipeline (Source-Verified)
-
-The following diagram illustrates the exact internal state-machine and data flow within the `SocketConnection` runtime.
+## Architectural Receive & Send Pipeline
 
 ```mermaid
 flowchart TD
-    subgraph OS[Operating System - Overlapped I/O]
-        NativeSocket[TCP Stream Socket]
+    subgraph RxPipeline["Inbound Receive Loop (PooledSocketReceiveContext)"]
+        Sock["TCP Socket"] --> Framing{"TransportFraming Mode?"}
+        Framing -->|UInt16LengthPrefixed| Len16["Read 2-Byte LE Length Header"]
+        Framing -->|VarIntLengthPrefixed| VarInt["Read 1-to-5-Byte VarInt Length (MaxPayloadSize = 128 KB)"]
+        Framing -->|None| Raw["Deliver Raw Chunk"]
+        Len16 --> Frag
+        VarInt --> Frag
+        Raw --> Frag
+        Frag{"FragmentHeader Present?"}
+        Frag -->|Yes| Assem["FragmentAssembler (<= MaxPerConnectionOpenFragmentStreams)"]
+        Frag -->|No| Owner["Connection.OnFrameReceived(lease)"]
+        Assem -->|Reassembled| Owner
+        Owner --> Inline{"AsyncCallback.CanRunInline(MessageProcessing)?"}
+        Inline -->|Yes| RunInline["AsyncCallback.InvokeInline (Zero-Queue Fast Path)"]
+        Inline -->|No| Gate{"PendingProcessCallbacks <= MaxPerConnectionPendingPackets?"}
+        Gate -->|"No (Overflow)"| Overflow{"OverflowPolicy?"}
+        Overflow -->|DropPacket| Drop["IncrementPacketsDropped + Drop Frame"]
+        Overflow -->|Disconnect| Disc["Disconnect Connection"]
+        Gate -->|Yes| Dispatch["AsyncCallback.Invoke(CallbackLane.Process)"]
     end
-
-    subgraph MemoryPools[Zero-Allocation Infrastructure]
-        ContextPool[SAEA Pool - RecvContext]
-        BP[BufferPool - byte array]
-        ArgsPool[Args Pool - ConnectionEventArgs]
-    end
-
-    subgraph RxPipeline[Receive Pipeline - Loop]
-        RecvSync[SAEA Receive Async/Sync]
-        HeaderParse[Read ushort LE Header]
-        ValidateSize[Size Validator]
-        
-        subgraph DDoSGate[Layer 1 Security]
-            Throttle{Pending Slots < Max?}
-            Drop[Silent Discard & Rent Fresh]
-        end
-        
-        subgraph Processing[Pipeline Handoff]
-            FragCheck{Is Fragmented?}
-            Assembler[FragmentAssembler]
-            Callback[AsyncCallback.Invoke]
-        end
-    end
-
-    subgraph TxPipeline[Send Pipeline]
-        SendReq[Send / SendAsync Call]
-        Framer[Frame Injection + Framing]
-        Splitter{Size > MaxChunk?}
-        FragGen[Fragment Generator]
-        SaeaSend[Raw Socket Send Loop]
-    end
-
-    %% Receive Flow
-    NativeSocket -->|Async Signal| RecvSync
-    ContextPool -.->|Rent Context| RecvSync
-    BP -.->|Rent| RecvSync
-    RecvSync --> HeaderParse
-    HeaderParse --> ValidateSize
-    ValidateSize --> Throttle
-    
-    Throttle -->|Yes| FragCheck
-    Throttle -->|No - Flood| Drop
-    Drop -.->|Return| BP
-    
-    FragCheck -->|Yes| Assembler
-    FragCheck -->|No| Callback
-    Assembler -->|Complete| Callback
-    ArgsPool -.->|Initialize| Callback
-    
-    %% Send Flow
-    SendReq --> Splitter
-    Splitter -->|No| Framer
-    Splitter -->|Yes| FragGen
-    FragGen --> Framer
-    Framer --> SaeaSend
-    SaeaSend --> NativeSocket
-    
-    %% Cleanup
-    Callback --> Post[OnPacketProcessed]
-    Post -.->|Decrement Slots| Throttle
 ```
 
-## Internal Responsibilities (Technical Breakdown)
+## Key Technical Responsibilities
 
-### 1. Nalix Framing
+### 1. Multi-Mode Transport Framing (`TransportFraming`)
 
-TCP is a byte-stream protocol and does not guarantee frame boundaries. `SocketConnection` enforces framing by:
+Configured via `connection.TCP.UseFraming(this.Framing)` during `Protocol.OnAccept` (locked once `BeginReceive` starts):
 
-- Prepending a **2-byte little-endian `ushort`** representing the total length of the frame.
-- Performing **Exact Receives** (`SAEA_RECEIVE_EXACTLY_ASYNC`) to ensure partial TCP bundles don't corrupt the protocol state.
+| Mode | Wire Prefix | Max Frame Size | Source File |
+| :--- | :--- | :--- | :--- |
+| `TransportFraming.UInt16LengthPrefixed` (default) | 2-byte little-endian `ushort` total frame length | `65,535` bytes (larger payloads use `FragmentStream`) | `SocketConnection.Framing.cs` |
+| `TransportFraming.VarIntLengthPrefixed` | 1-to-5-byte LEB128 VarInt payload length | `VarIntFramingOptions.MaxPayloadSize` (`131,072` bytes / 128 KB) | `SocketConnection.Receive.VarInt.cs`, `SocketConnection.Send.VarInt.cs` |
+| `TransportFraming.None` | Unframed stream chunks | Bounded by receive buffer | `SocketConnection.cs` |
 
-### 2. Event Dispatching and Layer 1 Throttle
+### 2. Layer 1 Per-Connection Throttle & `OverflowPolicy` (`Connection.OnFrameReceived`)
 
-`SocketConnection` fires frame events that are dispatched by `Connection` through `AsyncCallback`. The connection tracks pending callbacks to enforce per-connection backpressure:
+When `SocketConnection.PROCESS_FRAME_FROM_BUFFER` completes a frame (or reassembles all chunks via `FragmentAssembler`), it calls `_connectionOwner?.OnFrameReceived(lease)` on the owning `Connection`:
 
-- **Layer 1 Throttle**: The connection tracks `_pendingProcessCallbacks`. If it exceeds `MaxPerConnectionPendingPackets` (configured in `NetworkCallbackOptions`), incoming packets are immediately discarded and the lease is returned to the pool without invoking the callback.
-- **High-Priority Close**: Connection closure is dispatched using `AsyncCallback.InvokeHighPriority` so teardown executes immediately, bypassing the normal callback queue.
+- **Inline Fast Path (`AsyncCallback.CanRunInline`)**: If `MessageProcessing` has a single subscriber bound to an `IFrameProcessor` with `SupportsInlineProcessing == true`, `Connection.OnFrameReceived` executes `AsyncCallback.InvokeInline(...)` synchronously on the receive completion thread without queuing.
+- **Per-Connection Throttle**: Otherwise, `Connection.OnFrameReceived` increments `backing.PendingProcessCallbacks` and checks `NetworkCallbackOptions.MaxPerConnectionPendingPackets` (default `16`):
+  - When `OverflowPolicy == NetworkOverflowPolicy.DropPacket` (default): increments `PacketsDropped`, rolls back `PendingProcessCallbacks`, disposes the lease, and discards the frame before it touches the `ThreadPool`.
+  - When `OverflowPolicy == NetworkOverflowPolicy.Disconnect`: rolls back the counter, disposes the lease, and immediately calls `Disconnect()` on the flooding peer.
+  - When within budget: acquires a pooled `ConnectionEventArgs` and dispatches via `AsyncCallback.Invoke(..., CallbackLane.Process, releasePendingPacketOnCompletion: true)`.
 
-### 3. Automatic Fragmentation
+### 3. Automatic Fragmentation & Reassembly (`FragmentAssembler`)
 
-For payloads exceeding `MaxChunkSize`:
+- **Outbound**: Payloads exceeding `FragmentOptions.MaxChunkSize` are split across multiple frames prefixed with a `FragmentHeader`.
+- **Inbound**: `SocketConnection` reassembles fragmented streams via `FragmentAssembler`, enforcing `NetworkCallbackOptions.MaxPerConnectionOpenFragmentStreams` (default `4`) and evicting expired partial streams on each receive cycle.
 
-- **Send**: Automatically splits the payload into a `FragmentStream`, injecting `FragmentHeaders` into individual frames.
-- **Receive**: The `FragmentAssembler` manages memory segments and reassembles them into a single `BufferLease` before the application handler ever sees it.
+### 4. Pre-Read Buffer Injection (`InjectPreReadBytes`)
 
-### 4. Memory Ownership and SAEA
+When `TcpListenerBase` or `WebSocketListenerBase` reads initial bytes during PROXY Protocol v1/v2 or HTTP Upgrade parsing, any trailing payload bytes already read from the socket are injected into `SocketConnection` via `InjectPreReadBytes(ReadOnlySpan<byte>)` so they are processed before the next OS socket read.
 
-- **Ownership Transfer**: Uses `Interlocked.Exchange` to hand over the rented buffer to the application layer, preventing double-returns or races during teardown.
-- **SAEA Lifecycle**: Pooled contexts are only returned to the `ObjectPoolManager` after the receive loop task has fully terminated and the socket is confirmed closed.
+## Related APIs
 
-## Operating Guidelines
-
-:::tip[Zero-Copy Principles]
-When implementing custom protocols or middleware, always favor `Span<byte>` or `ReadOnlySequence<byte>` to interact with the connection buffer. This maintains the zero-allocation data path established by `SocketConnection`.
-:::
-
-:::danger[Async Safety]
-`SocketConnection` ensures that even if you block an `OnMessage` handler, the Layer 1 Throttle will protect the server. However, to maintain high throughput, always ensure your processing is non-blocking.
-:::
-
-## Related Information Paths
-
-- [Connection Documentation](./connection/connection.md)
-- [Protocol Lifecycle](./protocol.md)
-- [TCP Listener Implementation](./tcp-listener.md)
+- [Connection](./connection/connection.md)
+- [Connection Events](./connection/connection-events.md)
+- [Protocol](./protocol.md)
+- [Network Callback Options](../options/network/network-callback-options.md)

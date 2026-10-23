@@ -1,6 +1,6 @@
 ---
 title: End-to-End Network Comparison
-description: This page reports real end-to-end, over-the-socket measurements of Nalix against other .NET realtime stacks, all run on the same machine with the same harness in one session. Un...
+description: End-to-end over-the-socket latency, throughput, CPU, and allocation benchmarks comparing Nalix TCP, WebSocket, and AEAD against SignalR, gRPC, and MagicOnion.
 section: Benchmarks
 ---
 
@@ -62,8 +62,8 @@ MessagePack protocol is built against v2. Both executables share the same harnes
 |:--|:--|
 | `raw-tcp` | Baseline: hand-written `Socket` echo with a 4-byte length prefix. No framework. |
 | `kestrel-ws` | Baseline: ASP.NET Core `UseWebSockets` binary echo, `ClientWebSocket` client. |
-| `nalix-tcp` | Nalix `ListenTcp<DefaultProtocol>` with a `[PacketHandler]` that echoes via a pooled response (`PacketFactory<T>.Acquire()` + `context.Sender.SendAsync`). The client uses `TcpSession.RequestAsync<T>`. **Default options**. |
-| `nalix-ws` | Same as above over `ListenWebSocket`, with a `WebSocketSession` client. |
+| `nalix-tcp` | Nalix `MapTcp<DefaultProtocol>` with a `[PacketController]` that echoes via a pooled response (`PacketFactory<T>.Acquire()` + `context.Sender.SendAsync`). The client uses `TcpSession.RequestAsync<T>`. **Default options**. |
+| `nalix-ws` | Same as above over `MapWebSocket`, with a `WebSocketSession` client. |
 | `nalix-tcp-aead` | `UseSecureConnections()` + `UseSystemControl()`. The client runs `HandshakeAsync()` (X25519), then requests go out with `WithEncrypt()` and the handler has `[PacketEncryption(true)]`, so both directions are ChaCha20-Poly1305. |
 | `signalr-ws-msgpack` | SignalR hub `byte[] Echo(byte[])`, WebSockets transport only, `SkipNegotiation`, MessagePack protocol, `InvokeAsync<byte[]>`. |
 | `grpc-unary` / `grpc-unary-tls` | Unary `rpc Unary(EchoMessage) returns (EchoMessage)` with a `bytes` field, over h2c or HTTP/2+TLS (self-signed ECDSA P-256). |

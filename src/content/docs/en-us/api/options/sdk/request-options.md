@@ -1,90 +1,114 @@
 ---
-title: Request Options
-description: RequestOptions is the fluent configuration record used by RequestAsync<TResponse>(). It controls per-attempt timeout, retry count, and whether the outbound request should be enc...
+title: Request Options & RequestOutcome
+description: Reference for RequestOptions, RequestOutcome<T>, and RequestOutcomeKind in Nalix.SDK.Options — per-request timeout, retry, encryption overrides, and non-throwing outcomes.
 section: API Reference
-package: Nalix.Network / Nalix.Runtime
+package: Nalix.SDK
 ---
 
-`RequestOptions` is the fluent configuration record used by `RequestAsync<TResponse>()`. It controls per-attempt timeout, retry count, and whether the outbound request should be encrypted.
+**Namespace:** `Nalix.SDK.Options`  
+**Assembly:** `Nalix.SDK`
 
-## Retry and Timeout Flow
+`RequestOptions` (`public sealed record RequestOptions`) configures per-call timeout, retry, and frame encryption behavior for `RequestAsync<TResponse>`, `TryRequestAsync<TResponse>`, `StreamAsync`, `RequestWithStreamAsync`, and `CreateRpcClient<T>`. `RequestOutcome<T>` (`public readonly struct RequestOutcome<T>`) and `RequestOutcomeKind` represent the non-throwing result returned by `TryRequestAsync<TResponse>`.
 
-```mermaid
-sequenceDiagram
-    participant A as Application
-    participant S as SDK Helper
-    participant N as Network
-    
-    A->>S: RequestAsync(packet, options)
-    S->>N: Attempt 1
-    N-->>S: Timeout
-    Note over S: RetryCount > 0
-    S->>N: Attempt 2
-    N-->>S: TResponse Received
-    S-->>A: TResponse
-```
-
-## Source mapping
+## Source Mapping
 
 - `src/Nalix.SDK/Options/RequestOptions.cs`
+- `src/Nalix.SDK/Options/RequestOutcome.cs`
+- `src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs`
 
-## Role and Design
-
-`RequestOptions` is designed as a C# `record` so you can clone and tweak options without mutating a shared instance. That makes it easy to build one-off request settings from `RequestOptions.Default`.
-
-- **Timeout per attempt**: `TimeoutMs` applies to each individual attempt, not the total request time.
-- **Selective retries**: retries are only triggered by `TimeoutException`. Fatal transport errors, send failures, and disconnects propagate immediately.
-- **Encryption opt-in**: `Encrypt` allows specific requests to be secured even if the base transport is not globally encrypting. The SDK only applies this to `TcpSession`.
-- **Input validation**: `TimeoutMs` must be non-negative, and `RetryCount` must be non-negative.
-
-## API Reference
-
-### Properties
-
-| Member | Default | Description |
-| --- | --- | --- |
-| `TimeoutMs` | `5000` | Milliseconds to wait for a response on each attempt. |
-| `RetryCount` | `0` | Additional attempts after the first timeout. |
-| `Encrypt` | `false` | Whether to apply AEAD encryption to the outbound frame. |
-
-### Fluent Helpers
-
-| Method | Description |
-| --- | --- |
-| `WithTimeout(ms)` | Returns a clone with the specified timeout. |
-| `WithRetry(count)` | Returns a clone with the specified retry count. |
-| `WithEncrypt(bool)` | Returns a clone with encryption toggled. |
-
-## Basic usage
+## 1. `RequestOptions` Reference
 
 ```csharp
-// Standard request
-var response = await client.RequestAsync<LoginResponse>(packet);
+namespace Nalix.SDK.Options;
 
-// High-reliability request
-var opts = RequestOptions.Default
-    .WithTimeout(3000)
+public sealed record RequestOptions
+{
+    public const int DefaultTimeoutMs = 5_000;
+    public static RequestOptions Default { get; } = new();
+
+    public int TimeoutMs { get; init; } = DefaultTimeoutMs;
+    public int RetryCount { get; init; }
+    public bool Encrypt { get; init; }
+
+    public void Validate();
+
+    public RequestOptions WithTimeout(int ms);
+    public RequestOptions WithRetry(int count);
+    public RequestOptions WithEncrypt(bool encrypt = true);
+}
+```
+
+### Properties & Defaults
+
+| Property | Type | Default | Validation | Runtime Effect |
+| :--- | :--- | ---: | :--- | :--- |
+| `TimeoutMs` | `int` | `5_000` (`5s`) | `>= 0` (`ArgumentOutOfRangeException`) | Milliseconds to wait for a response on each attempt (`0` waits indefinitely). |
+| `RetryCount` | `int` | `0` | `>= 0` (`ArgumentOutOfRangeException`) | Number of additional attempts immediately following a `TimeoutException` (`0` = single attempt; total budget is at most `TimeoutMs * (RetryCount + 1)`). |
+| `Encrypt` | `bool` | `false` | — | When `true`, forces outbound frame encryption (`client.SendAsync(request, encrypt: true, ct)`) across any `ITransportSession` (`TcpSession`, `UdpSession`, or `WebSocketSession`). |
+
+:::warning[Idempotency & Retries]
+Configuring `RetryCount > 0` is safe only for **idempotent** requests (annotated with `[PacketIdempotent]`). A client-side timeout does not prove the server did not receive or execute the previous attempt.
+:::
+
+## 2. `RequestOutcome<T>` & `RequestOutcomeKind` Reference
+
+```csharp
+namespace Nalix.SDK.Options;
+
+public enum RequestOutcomeKind
+{
+    Ok,
+    NotConnected,
+    TimedOut,
+    Failed
+}
+
+public readonly struct RequestOutcome<T>
+{
+    public RequestOutcomeKind Kind { get; }
+    public T? Value { get; }
+    public Exception? Error { get; }
+
+    public static RequestOutcome<T> Ok(T value);
+    public static RequestOutcome<T> Fail(RequestOutcomeKind kind, Exception error);
+}
+```
+
+| `RequestOutcomeKind` | `Value` | `Error` | Trigger Condition in `TryRequestAsync<T>` |
+| :--- | :--- | :--- | :--- |
+| `Ok` | Response instance `T` | `null` | Correlated `TResponse` packet arrived and passed optional `predicate`. |
+| `NotConnected` | `default` | `NetworkException` | Session was disconnected (`!client.IsConnected`) when the request failed. |
+| `TimedOut` | `default` | `TimeoutException` | All `RetryCount + 1` attempts timed out without a matching response. |
+| `Failed` | `default` | `NetworkException` | Frame transmission or protocol operation failed while connected. |
+
+## Usage Example
+
+```csharp
+using System;
+using Nalix.SDK.Options;
+using Nalix.SDK.Transport.Extensions;
+
+RequestOptions options = RequestOptions.Default
+    .WithTimeout(3_000)
     .WithRetry(2)
     .WithEncrypt();
 
-var secureResponse = await client.RequestAsync<SecretData>(sensitivePacket, opts);
+RequestOutcome<PingReplyPacket> result = await session.TryRequestAsync<PingReplyPacket>(
+    new PingRequestPacket(),
+    options);
 
-// Explicit predicate for correlated replies
-var matchingResponse = await client.RequestAsync<SecretData>(
-    sensitivePacket,
-    RequestOptions.Default.WithTimeout(2000),
-    predicate: response => response.RequestId == sensitivePacket.RequestId);
+if (result.Kind == RequestOutcomeKind.Ok)
+{
+    Console.WriteLine($"Reply received: {result.Value}");
+}
+else
+{
+    Console.WriteLine($"Failed ({result.Kind}): {result.Error?.Message}");
+}
 ```
-
-## Important notes
-
-- **Total wait time**: the maximum delay a caller might face is approximately `TimeoutMs * (RetryCount + 1)`.
-- **Encryption compatibility**: `Encrypt = true` is only supported when using `TcpSession`. The helper validates this before sending.
-- **Predicate quality**: when you provide a predicate, it should identify the correlated response, not just the packet type.
-- **Failure semantics**: transport disconnects surface as `NetworkException`; only `TimeoutException` is retryable.
 
 ## Related APIs
 
-- [TCP Session](../../sdk/tcp-session.md)
+- [Session Extensions (RequestAsync, TryRequestAsync)](../../sdk/tcp-session-extensions.md)
 - [Transport Options](./transport-options.md)
-- [Subscriptions](../../sdk/subscriptions.md)
+- [WebSocket Transport Options](./websocket-transport-options.md)

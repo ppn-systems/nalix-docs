@@ -40,7 +40,6 @@ Put packets in a plain class library that **both** the server and the WASM app r
 
 ```csharp
 // samples/BlazorWasm/BlazorWasm.Contracts/EchoRequestPacket.cs
-[Packet]
 [GenerateFormatter]
 [SerializePackable(SerializeLayout.Explicit)]
 public sealed partial class EchoRequestPacket : PacketBase<EchoRequestPacket>, IPacketStaticOpcode
@@ -199,8 +198,8 @@ public async Task EnsureConnectedAsync(CancellationToken ct = default)
 `EchoAsync` inside the service is a plain `RequestAsync`:
 
 ```csharp
-using EchoRequestPacket request = new() { Text = text };
-using EchoResponsePacket response = await _session.RequestAsync<EchoResponsePacket>(
+EchoRequestPacket request = new() { Text = text };
+EchoResponsePacket response = await _session.RequestAsync<EchoResponsePacket>(
     request, RequestOptions.Default.WithTimeout(5_000), ct: ct);
 ```
 
@@ -213,7 +212,7 @@ Push packets reach `session.On<T>()`. The service turns each packet into a plain
 
 ## 7. Reconnect
 
-`TransportOptions.AutoReconnectEnabled` is used by `TcpSession`/`UdpSession`. **`WebSocketSession` does not run a reconnect supervisor**, so the browser client runs its own loop:
+`WebSocketSession` inherits from `TransportSession`, which can run `ReconnectSupervisor` automatically when `TransportOptions.AutoReconnectEnabled = true`. Alternatively, if your Blazor UI wants direct control over UI status transitions (`ConnectionStatus.Reconnecting`), you can leave `AutoReconnectEnabled = false` and drive the reconnect loop in `NalixClient`:
 
 ```csharp
 private void OnSessionDisconnected(object? sender, Exception ex)
@@ -238,7 +237,7 @@ private async Task ReconnectLoopAsync()
 
 `ConnectWithResumeAsync` sends a resume request when the session holds a session token and secret. If the server still has that session, the handshake is skipped. If not, it falls back to `HandshakeAsync()`.
 
-By default the server persists a session only when it has at least `SessionStoreOptions.MinAttributesForPersistence` (10) attributes. A demo connection that stores nothing therefore reconnects with a fresh handshake, and the sample page shows this. Your own state lives on the server, so re-send any subscriptions or logins after a fresh handshake.
+By default, `DefaultSessionPersistencePolicy` persists a session either immediately after `HandshakeAsync()` populates `!connection.Secret.IsZero` (Policy 2) or on disconnect when `connection.Level >= PermissionLevel.USER` and the attribute count meets `SessionStoreOptions.MinAttributesForPersistence` (`10`, Policy 1). Your own application state lives on the server, so re-send any subscriptions or logins if `ConnectWithResumeAsync` returns `false` (fresh handshake).
 
 The **Simulate drop** button in the sample runs this path. You can also stop and restart the server.
 

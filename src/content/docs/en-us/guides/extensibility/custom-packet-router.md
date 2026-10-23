@@ -21,7 +21,10 @@ The dispatcher uses the **Reference Identity** of the `IConnection` object. You 
 :::
 
 ```csharp
+using System;
+using Nalix.Abstractions;
 using Nalix.Abstractions.Networking;
+using Nalix.Abstractions.Networking.Protocols;
 using Nalix.Abstractions.Primitives;
 using Nalix.Abstractions.Security;
 
@@ -37,41 +40,46 @@ public sealed class UserShardProxy : IConnection
     }
 
     // --- IDENTITY MEMBERS ---
-    // These are what the Dispatcher uses for sharding and identification.
-    public ulong ID => _physical.ID;
+    public ulong ConnectionId => _physical.ConnectionId;
+    public string? UserId { get => _physical.UserId; set => _physical.UserId = value; }
     public INetworkEndpoint NetworkEndpoint => _physical.NetworkEndpoint;
+    public bool IsDisposed => _physical.IsDisposed;
 
     // --- TRANSMISSION DELEGATION ---
-    // Ensure that handlers can still send data back to the physical connection.
     public IConnection.ITransport TCP => _physical.TCP;
-    public IConnection.ITransport UDP => _physical.UDP;
+    public IConnection.ITransport? UDP => _physical.UDP;
     public bool IsUdpCreated => _physical.IsUdpCreated;
+    public IOpCodeExtractor PacketClassifier => _physical.PacketClassifier;
 
     // --- STATE DELEGATION ---
-    public IObjectMap<string, object> Attributes => _physical.Attributes;
+    public IObjectMap<AttributeKey, object> Attributes => _physical.Attributes;
     public PermissionLevel Level { get => _physical.Level; set => _physical.Level = value; }
     public CipherSuiteType Algorithm { get => _physical.Algorithm; set => _physical.Algorithm = value; }
     public Bytes32 Secret { get => _physical.Secret; set => _physical.Secret = value; }
-    
+    public bool ExcludeFromIdleTimeout { get => _physical.ExcludeFromIdleTimeout; set => _physical.ExcludeFromIdleTimeout = value; }
+
     // --- METRICS ---
     public long UpTime => _physical.UpTime;
     public long BytesSent => _physical.BytesSent;
     public long BytesReceived => _physical.BytesReceived;
+    public long PacketsDropped => _physical.PacketsDropped;
     public long LastPingTime => _physical.LastPingTime;
-
-    // --- ERROR TRACKING ---
     public int ErrorCount => _physical.ErrorCount;
+
+    public void UpdateIdleTimeout(int newTimeoutMs) => _physical.UpdateIdleTimeout(newTimeoutMs);
+    public void IncrementBytesSent(int count) => _physical.IncrementBytesSent(count);
+    public void IncrementBytesReceived(int count) => _physical.IncrementBytesReceived(count);
+    public void IncrementPacketsDropped() => _physical.IncrementPacketsDropped();
     public void IncrementErrorCount() => _physical.IncrementErrorCount();
 
     // --- LIFECYCLE ---
-    public bool IsDisposed => _physical.IsDisposed;
     public void Disconnect(string? reason = null) => _physical.Disconnect(reason);
     public void Dispose() => _physical.Dispose();
 
     // --- EVENT DELEGATION ---
-    public event EventHandler<IConnectionEventArgs> OnCloseEvent { add => _physical.OnCloseEvent += value; remove => _physical.OnCloseEvent -= value; }
-    public event EventHandler<IConnectionEventArgs> OnProcessEvent { add => _physical.OnProcessEvent += value; remove => _physical.OnProcessEvent -= value; }
-    public event EventHandler<IConnectionEventArgs> OnPostProcessEvent { add => _physical.OnPostProcessEvent += value; remove => _physical.OnPostProcessEvent -= value; }
+    public event EventHandler<IConnectionEventArgs>? ConnectionClosed { add => _physical.ConnectionClosed += value; remove => _physical.ConnectionClosed -= value; }
+    public event EventHandler<IConnectionEventArgs>? MessageProcessing { add => _physical.MessageProcessing += value; remove => _physical.MessageProcessing -= value; }
+    public event EventHandler<IConnectionEventArgs>? MessageProcessed { add => _physical.MessageProcessed += value; remove => _physical.MessageProcessed -= value; }
 }
 ```
 
@@ -80,11 +88,14 @@ public sealed class UserShardProxy : IConnection
 Implement the `IPacketDispatch` interface to intercept incoming packets and resolve the Shard Proxy before passing them to the standard dispatch channel.
 
 ```csharp
-using Nalix.Runtime.Dispatching;
+using System.Threading;
+using Nalix.Abstractions;
 using Nalix.Abstractions.Networking;
+using Nalix.Runtime.Dispatching;
 
-public class UserBasedRouter : IPacketDispatch
+public sealed class UserBasedRouter : IPacketDispatch
 {
+    private static readonly AttributeKey UserIdKey = new("UserID");
     private readonly IPacketDispatch _inner; // The default PacketDispatchChannel
 
     public UserBasedRouter(IPacketDispatch inner)
@@ -92,15 +103,15 @@ public class UserBasedRouter : IPacketDispatch
         _inner = inner;
     }
 
-    public void HandlePacket(IBufferLease packet, IConnection connection)
+    public void HandlePacket(IBufferLease? packet, IConnection connection)
     {
         // 1. Resolve logical identity (e.g., UserID stored in connection attributes)
-        if (connection.Attributes.TryGetValue("UserID", out object? raw) && raw is long userId)
+        if (connection.Attributes.TryGetValue(UserIdKey, out object? raw) && raw is long userId)
         {
             // 2. Retrieve the shared proxy instance from your session manager.
             // MUST return the same instance for the same UserID.
             IConnection shardKey = GlobalSessionManager.GetOrCreateUserProxy(userId, connection);
-            
+
             // 3. Hand-off to the internal shard-aware channel using the proxy as the key.
             _inner.HandlePacket(packet, shardKey);
         }
@@ -111,11 +122,9 @@ public class UserBasedRouter : IPacketDispatch
         }
     }
 
-    // Delegate reporting and lifecycle to inner dispatcher
+    // Delegate lifecycle to inner dispatcher
     public void Activate(CancellationToken ct = default) => _inner.Activate(ct);
     public void Deactivate(CancellationToken ct = default) => _inner.Deactivate(ct);
-    public string GenerateReport() => _inner.GenerateReport();
-    public void WriteReportData(System.Text.Json.Utf8JsonWriter writer) => _inner.WriteReportData(writer);
 }
 ```
 
@@ -127,8 +136,8 @@ Inject your custom router into the protocol during the application bootstrapping
 var builder = NetworkApplication.CreateBuilder();
 
 // The builder provides the default PacketDispatchChannel (shard-aware engine)
-// as the 'dispatch' argument in the ListenTcp/ListenUdp factory.
-builder.ListenTcp<GameProtocol>().WithFactory(dispatch => 
+// as the 'dispatch' argument in the MapTcp/MapUdp factory.
+builder.MapTcp<GameProtocol>().WithFactory(dispatch => 
 {
     // Wrap the default shard engine with our custom UserBasedRouter
     var userRouter = new UserBasedRouter(dispatch);
@@ -142,12 +151,12 @@ await app.RunAsync();
 
 ## Configuration Parameters
 
-The shard-aware system behavior is influenced by `DispatchOptions`. Ensure these are tuned to handle the expected number of logical shards:
+The shard-aware system behavior is influenced by `DispatchOptions`. Ensure these are tuned to handle the expected per-shard load:
 
 | Option | Recommendation |
 | --- | --- |
-| `BucketCountMultiplier` | Increase if you have many logical shards (e.g., 100,000+ users) to reduce hash collisions in the dispatch buckets. |
-| `MaxPerConnectionQueue` | Limits how many packets can be queued for a single shard (Proxy instance) before the `DropPolicy` kicks in. |
+| `MaxPerConnectionQueue` | Limits how many packets can be queued for a single shard (`UserShardProxy` instance) before `DropPolicy` (`DropNewest`, `DropOldest`, `Coalesce`, or `Block`) triggers. Default is `4096` (set to `0` for unlimited, or a tighter bound such as `256` in production). |
+| `DropPolicy` | Choose `DropOldest` for real-time state updates or `Block` (with `BlockTimeout`) when backpressure should stall the reader. |
 
 ## Why this works
 

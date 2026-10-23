@@ -20,11 +20,11 @@ Monitor GC pause time and allocated bytes as your primary performance indicators
 
 For a complete end-to-end walkthrough of how these optimizations work together in a production scenario, see the [Zero-Allocation Design](./zero-allocation.md) guide.
 
-### Buffer Pooling (Slab-Based)
+### Buffer Pooling (`BufferPoolManager` + `ArrayPool<byte>.Shared`)
 
-Instead of allocating `byte[]` per request, Nalix uses a slab-oriented `BufferPoolManager` backed by standalone pinned arrays managed through internal slab buckets. `BufferLease` then exposes owned slices over those rented arrays. This keeps hot-path rentals predictable while avoiding per-request heap churn.
+Instead of allocating `byte[]` per request, Nalix uses `BufferPoolManager` wrapping `ArrayPool<byte>.Shared` with power-of-two bucket alignment and a 1-byte diagnostic sentinel (`0xA5`) to detect buffer overruns upon return. `BufferLease` then exposes owned slices over those rented arrays, keeping hot-path rentals predictable while avoiding per-request heap churn.
 
-- **Pinned pooled arrays** — Internal buckets keep reusable pinned arrays alive on the **Pinned Object Heap (POH)** so hot paths can rent already-prepared buffers instead of allocating new ones.
+- **Shared array pool with overrun detection** — `BufferPoolManager` rents from `ArrayPool<byte>.Shared` and stamps a trailing `0xA5` sentinel byte so out-of-bounds writes are caught deterministically when buffers return.
 - **Lock-free allocation** — Minimizes thread contention during high-frequency leasing using thread-local caches.
 - **Atomic Lease Tracking** — `BufferLease` instances are pooled using a lock-free free-list with an **O(1) atomic counter**, avoiding the linear-time overhead of traditional collection count checks.
 - **Span-first API** — Leverages `Span<byte>` and `ReadOnlySpan<byte>` for slicing without copying data.
@@ -62,9 +62,9 @@ Nalix uses a customized 64-bit Snowflake identifier for internal task tracking a
 
 | Design choice | Rationale |
 | :--- | :--- |
-| 64-bit (vs. standard 64-bit) | Fits efficiently into packed headers, avoids 53-bit precision limits in JavaScript-based clients |
-| 1 ms timestamp resolution | Sufficient for networking use cases; enables 4,096 IDs per millisecond per shard (12-bit sequence) |
-| Deterministic ordering | Snowflake IDs are sortable by creation time, enabling natural ordering in logs and diagnostics |
+| 64-bit packed layout | `[Type: 8 bits \| Timestamp: 32 bits (Unix seconds since 2025-01-01) \| Sequence: 14 bits \| MachineId: 10 bits]` |
+| 1-second timestamp + 14-bit sequence | Enables **16,384 IDs per second** per node (`MaxSequence = 16383`) across **1,024 nodes** (`MaxMachineId = 1023`) and **256 entity types** using a lock-free `Interlocked` CAS loop |
+| Deterministic ordering | Snowflake IDs are sortable by creation time and typed by `SnowflakeType`, enabling natural ordering in logs and diagnostics |
 
 ## 4. OpCode-Based Registry Lookups
 

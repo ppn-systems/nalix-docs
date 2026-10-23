@@ -8,10 +8,11 @@ Nalix implements a high-security, zero-trust handshake protocol based on **X2551
 
 ## Source Mapping
 
-- `src/Nalix.Codec/ProtocolFrames/Session/SessionInit.cs`
-- `src/Nalix.Codec/ProtocolFrames/Session/SessionChallenge.cs`
-- `src/Nalix.Codec/ProtocolFrames/Session/SessionProof.cs`
-- `src/Nalix.Codec/ProtocolFrames/Session/SessionEstablished.cs`
+- `src/Nalix.Codec/ProtocolFrames/SessionInit.cs`
+- `src/Nalix.Codec/ProtocolFrames/SessionChallenge.cs`
+- `src/Nalix.Codec/ProtocolFrames/SessionProof.cs`
+- `src/Nalix.Codec/ProtocolFrames/SessionEstablished.cs`
+- `src/Nalix.Codec/ProtocolFrames/SessionTofu.cs`
 - `src/Nalix.Codec/Security/HandshakeX25519.cs`
 - `src/Nalix.Runtime/Handlers/HandshakeHandlers.cs`
 - `src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs`
@@ -20,7 +21,7 @@ Nalix implements a high-security, zero-trust handshake protocol based on **X2551
 
 - **Mutual Agreement**: Both client and server contribute to the final session key.
 - **Perfect Forward Secrecy (PFS)**: Ephemeral keys are used for every session.
-- [x] **Identity Verification**: Requires pinned server public keys to prevent Man-in-the-Middle (MitM) attacks. Anonymous server handshakes are not supported.
+- [x] **Identity Verification**: Requires pinned server Ed25519 public keys in production to prevent Man-in-the-Middle (MitM) attacks (or explicit Trust-On-First-Use via `SessionTofu` when `TransportOptions.AllowTofu = true` in development).
 - [x] **Adaptive Proof-of-Work**: When enabled, the server may require clients to solve a PoW puzzle before the handshake proceeds, throttling automated connection floods. See [Proof-of-Work](../../api/security/proof-of-work.md).
 
 :::danger[Mandatory Identity]

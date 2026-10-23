@@ -1,136 +1,53 @@
 ---
 title: Connection Hub Options
-description: ConnectionHubOptions configures server-wide connection capacity, connection-hub sharding, broadcast batching, bulk-disconnect parallelism, and latency diagnostics for Connection...
+description: Reference for Nalix.Network.Options.ConnectionHubOptions — shard count, broadcast batching, bulk disconnect parallelism, and latency diagnostics for ConnectionHub.
 section: API Reference
-package: Nalix.Network / Nalix.Runtime
+package: Nalix.Network
 ---
 
-`ConnectionHubOptions` configures server-wide connection capacity, connection-hub
-sharding, broadcast batching, bulk-disconnect parallelism, and latency diagnostics
-for `ConnectionHub`.
+**Namespace:** `Nalix.Network.Options`  
+**Assembly:** `Nalix.Network`
+
+`ConnectionHubOptions` (`public sealed partial class ConnectionHubOptions : ConfigurationLoader, IValidatableConfiguration`) configures `ConnectionRegistry` shard count, bulk disconnect parallelism, legacy broadcast batching, and latency measurement for [ConnectionHub](../../network/connection/connection-hub.md).
 
 ## Source Mapping
 
 - `src/Nalix.Network/Options/ConnectionHubOptions.cs`
 - `src/Nalix.Network/Connections/ConnectionHub.cs`
 - `src/Nalix.Network/Connections/ConnectionHub.Broadcast.cs`
-- `src/Nalix.Hosting/Bootstrap.cs`
+- `src/Nalix.Network/Internal/Connections/ConnectionRegistry.cs`
 
 ## Defaults and Validation
 
-| Property | Default | Validation | Runtime consumer |
-| --- | ---: | --- | --- |
-| `ParallelDisconnectDegree` | `-1` | `-1..int.MaxValue`; `0` rejected by `Validate()` | `ParallelOptions.MaxDegreeOfParallelism` in hub disposal cleanup. |
-| `BroadcastBatchSize` | `0` | `0..int.MaxValue` | Enables `BroadcastBatchedAsync(...)` when greater than zero. |
-| `ShardCount` | `max(1, Environment.ProcessorCount)` | `1..int.MaxValue` | Number of internal `ConcurrentDictionary` shards. |
-| `IsEnableLatency` | `true` | Boolean | Gates performance timing logs for register, unregister, and broadcast paths. |
+Loaded from the `[ConnectionHub]` section of `default.ini`:
 
-`Validate()` runs data-annotation validation, then explicitly rejects `0` for
-`ParallelDisconnectDegree`. Use `-1` for the default mode or a positive value for an explicit limit.
+| Property | Type | Default | Validation | Runtime Consumer |
+| :--- | :--- | ---: | :--- | :--- |
+| `ParallelDisconnectDegree` | `int` | `-1` | `[ValueRange(-1, int.MaxValue)]`; `0` throws `ArgumentOutOfRangeException` | Passed to `ParallelOptions.MaxDegreeOfParallelism` when `ConnectionHub.Dispose()` disconnects all active connections (`-1` uses `ThreadPool` default parallelism). |
+| `BroadcastBatchSize` | `int` | `0` | `[ValueRange(0, int.MaxValue)]` | Controls batch size for legacy buffer-based `BroadcastAsync(ReadOnlyMemory<byte>, ...)` (`0` awaits all sends in a single batch). |
+| `ShardCount` | `int` | `Math.Max(1, Environment.ProcessorCount)` | `[ValueRange(1, int.MaxValue)]` | Number of internal `ConcurrentDictionary<ulong, IConnection>` shards in `ConnectionRegistry`. |
+| `IsEnableLatency` | `bool` | `true` | — | Enables `TimingScope` latency logs (`PERF.NW.*`) on `RegisterConnection`, `UnregisterConnection`, and `BroadcastAsync` when `Information` diagnostics are enabled. |
 
-## Hosting Initialization
+`Validate()` runs `this.ValidateDataAnnotations()` and explicitly throws `ArgumentOutOfRangeException` if `ParallelDisconnectDegree == 0`.
 
-`Bootstrap.Initialize()` materializes this option set during server startup:
-
-```csharp
-_ = ConfigurationManager.Instance.Get<ConnectionHubOptions>();
-```
-
-This ensures the generated active configuration file includes the connection-hub
-capacity and concurrency policy.
-
-## Construction and Sharding
-
-`ConnectionHub` loads and validates `ConnectionHubOptions` in its constructor. It
-then derives immutable runtime fields from the options:
-
-- `_shardCount` is clamped with `Math.Max(1, ShardCount)`.
-- `_shardMask` and `_isPowerOfTwoShardCount` optimize shard lookup for powers of two.
-- Each shard is a `ConcurrentDictionary<ulong, IConnection>`.
-
-Shard selection hashes the `ulong` connection id. Power-of-two shard counts use a
-bit mask; other counts use modulo.
-
-## Registration Flow
+## Sharding & Registration Flow
 
 ```mermaid
 flowchart TD
-    A["RegisterConnection(connection)"] --> B["TryRegisterCore(connection)"]
-    B --> C{"Hub disposed?"}
-    C -->|Yes| X["Return Disposed"]
-    C -->|No| D["Increment active count"]
-    D --> N["Add to shard"]
-    N --> O["Subscribe OnCloseEvent"]
+    A["RegisterConnection(connection)"] --> B{"_disposed?"}
+    B -->|Yes| X["Throw ObjectDisposedException"]
+    B -->|No| C["Subscribe connection.ConnectionClosed + Set OwnerHub Attribute"]
+    C --> D["ConnectionRegistry.TryAdd(connection.ConnectionId, connection)"]
+    D --> E{"Added to Shard?"}
+    E -->|No (Duplicate)| F["Unsubscribe + Throw InternalErrorException"]
+    E -->|Yes| G["Indexed in Shard & Endpoint Map"]
 ```
 
-A successful registration increments `_count` before the connection is added
-to the selected shard. If shard insertion fails, the `finally` block detaches the
-close handler and decrements `_count` to roll back the reservation.
-
-## Broadcast Behavior
-
-`BroadcastAsync(...)` captures a point-in-time connection snapshot using an
-`ArrayPool<IConnection>` buffer. The public method then chooses the send strategy:
-
-- `BroadcastBatchSize == 0`: send through `BroadcastCoreAsync(...)` and await all
-  incomplete send tasks together.
-
-- `BroadcastBatchSize > 0`: send through `BroadcastBatchedAsync(...)`, renting arrays
-  sized to the configured batch and awaiting each full batch before continuing.
-
-`BroadcastWhereAsync(...)` always uses `BroadcastCoreAsync(...)` with a predicate;
-it does not use `BroadcastBatchSize`.
-
-Both broadcast implementations rent task/owner arrays and return them in `finally`.
-Failed asynchronous sends are mapped back to owning connections for diagnostic logs.
-
-## Bulk Close Behavior
-
-Hub disposal snapshots current connections, detaches the close event
-handler from each connection, then disposes connections through `Parallel.ForEach`.
-`ParallelDisconnectDegree` is passed directly to
-`ParallelOptions.MaxDegreeOfParallelism`:
-
-- `-1` uses the runtime default parallelism.
-- Positive values cap the maximum concurrent dispose workers.
-
-After disposal, every shard and the anonymous queue are cleared and `_count` is reset
-to zero.
-
-## Latency Diagnostics
-
-When `IsEnableLatency` is `true` and the logger has `Information` enabled, the hub
-records elapsed time for:
-
-- `RegisterConnection`
-- `UnregisterConnection`
-- `BroadcastAsync`
-
-The timing path uses `TimingScope.Start()` and logs `[PERF.NW.*]` messages. Disabling
-`IsEnableLatency` removes this measurement work even when information logging is
-enabled.
-
-## Reporting
-
-`ConnectionHub` implements report-style diagnostics through:
-
-- `GenerateReport()` for a human-readable status summary;
-- `WriteReportData(Utf8JsonWriter)` for structured values such as total connections, evictions,
-  rejections, shard count, anonymous queue depth, capacity policy, byte totals,
-  uptime statistics, algorithm summary, permission-level summary, and sampled
-  connection rows.
-
-## Tuning Guidance
-
-- Choose a power-of-two `ShardCount` for the fastest shard-index path.
-- Set `BroadcastBatchSize` when large broadcasts create too many simultaneous send tasks.
-- Tune `ParallelDisconnectDegree` for shutdown behavior; high values close faster but can create I/O bursts.
+- `ConnectionRegistry` hashes `ulong` connection IDs with a 64-bit `MIX64` finalizer.
+- When `ShardCount` is a power of two, shard selection uses a bitwise mask (`hash & _shardMask`); otherwise it uses modulo (`hash % _shardCount`).
 
 ## Related APIs
 
 - [Connection Hub](../../network/connection/connection-hub.md)
-- [Connection Limiter](../../network/connection/connection-limiter.md)
-- [Connection Quota Options](./connection-quota-options.md)
-- [Connection Guard Options](./connection-guard-options.md)
-- [Trusted Proxy Options](./trusted-proxy-options.md)
-- [Session Store Options](./session-store-options.md)
+- [Connection Extensions](../../network/connection/connection-extensions.md)
+- [Network Options](./options.md)

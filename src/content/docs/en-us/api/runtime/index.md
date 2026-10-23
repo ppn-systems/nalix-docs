@@ -1,73 +1,75 @@
 ---
 title: Nalix.Runtime API Reference
-description: Nalix.Runtime is the server-side execution layer that converts incoming raw buffers into structured packet handlers. It manages the dispatching lifecycle, middleware pipelines,...
+description: Reference for Nalix.Runtime — server-side packet dispatching, actor-mailbox per-connection scheduling, middleware pipelines, token-bucket throttling, and session management.
 section: API Reference
 package: Nalix.Runtime
 ---
 
-`Nalix.Runtime` is the server-side execution layer that converts incoming raw buffers into structured packet handlers. It manages the dispatching lifecycle, middleware pipelines, and metadata resolution.
+**Namespaces:** `Nalix.Runtime.Dispatching`, `Nalix.Runtime.Routing`, `Nalix.Runtime.Middleware`, `Nalix.Runtime.Middleware.Standard`, `Nalix.Runtime.Throttling`, `Nalix.Runtime.Handlers`, `Nalix.Runtime.Sessions`, `Nalix.Runtime.Options`  
+**Assembly:** `Nalix.Runtime`
+
+`Nalix.Runtime` is the server-side execution engine that bridges raw transport frames (`IBufferLease`) and strongly-typed `[PacketHandler]` controllers. It owns the connection-isolated dispatch queues, middleware pipeline, per-endpoint and per-policy rate limiters, built-in handshake/session/control handlers, and pooled execution contexts.
 
 ## Runtime Execution Landscape
 
-The following diagram illustrates how a packet flows from the network layer into the application logic.
-
 ```mermaid
 flowchart TD
-    subgraph Network[Nalix.Network]
-        L[Listener] -->|Accept| C[Connection]
-        C -->|Raw Buffer| D[IPacketDispatch]
+    subgraph Network["Transport Layer (Nalix.Network)"]
+        L["Listener (TCP / UDP / WebSocket)"] -->|Receive & Transform| C["IConnection"]
+        C -->|"HandlePacket(IBufferLease, IConnection)"| D["IPacketDispatch (PacketDispatchChannel)"]
     end
 
-    subgraph Channel[Dispatch Layer]
-        D -->|Push| Q[DispatchChannel Queue]
-        Q -->|Priority Aware| WL[Worker Loops / RunLoop]
-        WL -->|Signal| Wake[Wake Semaphore]
+    subgraph Channel["Actor-Mailbox Dispatch Layer"]
+        D -->|"Retain() + PushCore"| Q["DispatchChannel<IPacket>"]
+        Q -->|RequestWake| Wake["WorkerWakeSignal (ValueTaskSource)"]
+        Wake --> WL["DispatchWorkerLoopAsync (TryClaim Session)"]
     end
 
-    subgraph Pipeline[Processing Pipeline]
-        WL -->|Step 1| Des[PacketRegistry.Deserialize]
-        Des -->|Step 2| PM[MiddlewarePipeline]
-        PM -->|Step 3| H[Packet Handler]
-    end
-
-    subgraph State[Context & Metadata]
-        PM -.->|Initialize|Ctx[PacketContext]
-        Ctx -.->|Resolve| Meta[Metadata Provider]
+    subgraph Pipeline["Opcode Resolution & Middleware Pipeline"]
+        WL -->|"1. Extract OpCode & TryResolveHandler"| HSlot["HandlerSlot?[65536]"]
+        HSlot -->|"2. PacketRegistry.TryDeserialize"| Des["IPacket / MemoryPacket"]
+        Des -->|"3. Rent & Initialize"| Ctx["PacketContext<IPacket>"]
+        Ctx -->|"4. ExecuteAsync"| PM["MiddlewarePipeline<IPacket>"]
+        PM -->|"5. ExecuteTerminalHandler"| H["Compiled PacketHandler<IPacket>"]
+        H -->|"6. ReplyAsync / SendAsync"| Snd["PacketSender"]
     end
 ```
 
-## Why This Package Exists
+## Core Public Namespaces & Types
 
-`Nalix.Network` focuses on "Moving Bytes" and managing connections, while `Nalix.Runtime` focuses on "Executing Logic". This separation allows for:
+### 1. Dispatching & Routing (`Nalix.Runtime.Dispatching`, `Nalix.Runtime.Routing`)
 
-- **Independent Scaling**: You can scale the number of dispatch workers independently of the number of socket listeners.
-- **Pluggable Protocols**: The runtime doesn't care if the packet came from TCP or UDP; it only cares about the dispatch contract.
-- **Middleware Reuse**: Security, logging, and validation middleware can be shared across all transport types.
+| Type | Role | Reference |
+| :--- | :--- | :--- |
+| `IPacketDispatch` | Entry-point interface (`HandlePacket(IBufferLease, IConnection)`, `IActivatable`, `IReportable`) used by listeners to hand off frames. | [Dispatch Contracts](./routing/dispatch-contracts.md) |
+| `IDispatchChannel<TPacket>` / `IDispatchSession` | Actor-mailbox queue contract ensuring strict per-connection ordering across concurrent worker loops. | [Dispatch Contracts](./routing/dispatch-contracts.md) |
+| `PacketDispatchChannel` | Production dispatcher with coalesced `WorkerWakeSignal` wake-ups, weighted round-robin priority draining, and zero-allocation sync fast paths. | [Packet Dispatch](./routing/packet-dispatch.md) |
+| `PacketDispatcherBase<TPacket>` | Abstract base class holding `PacketDispatchOptions<TPacket>`. | [Dispatch Channel and Router](./routing/dispatch-channel-and-router.md) |
+| `PacketDispatchOptions<TPacket>` | Fluent builder (`WithHandler`, `WithMiddleware`, `WithErrorHandling`, `WithDispatchLoopCount`) and $O(1)$ 65,536-slot handler table. | [Packet Dispatch Options](../options/runtime/packet-dispatch-options.md) |
+| `PacketContext<TPacket>` | Pooled execution context (`IPacketContext<TPacket>`) carrying `Packet`, `Connection`, `Attributes`, `Sender`, `Scope`, `IsReliable`, and `EncryptedOnWire`. | [Packet Context](./routing/packet-context.md) |
+| `PacketSender` | Metadata-aware outbound sender (`SendAsync`, `ReplyAsync`) bound to `PacketContext<TPacket>`. | [Packet Sender](./routing/packet-sender.md) |
 
-## Core Public Types
+### 2. Middleware & Throttling (`Nalix.Runtime.Middleware`, `Nalix.Runtime.Throttling`)
 
-### Dispatching
+| Type | Role | Reference |
+| :--- | :--- | :--- |
+| `MiddlewarePipeline<TPacket>` | Three-stage (`Inbound`, `OutboundAlways`, `Outbound`) pipeline with pooled `PooledPipelineContext` runners. | [Middleware Pipeline](./middleware/pipeline.md) |
+| `PermissionMiddleware` | Fail-closed inbound security guard (`Order = -50`) enforcing `[PacketPermission]`. | [Permission Middleware](./middleware/permission-middleware.md) |
+| `RateLimitMiddleware` | Inbound throttling guard (`Order = 50`) routing between `PolicyRateLimiter` and `TokenBucketLimiter`. | [Middleware Overview](./middleware/index.md) |
+| `TimeoutMiddleware` | Inbound execution timeout guard (`Order = 75`) using pooled `PooledCancellationTokenSource` instances. | [Timeout Middleware](./middleware/timeout-middleware.md) |
+| `PolicyRateLimiter` | Stateless `[PacketRateLimit]` evaluator backed by `ScopedEndpoint` caching and the shared `TokenBucketLimiter`. | [Policy Rate Limiter](./middleware/policy-rate-limiter.md) |
+| `TokenBucketLimiter` | Sharded, fixed-point micro-token rate limiter with CPU-adaptive scaling and soft-to-hard lockout escalation. | [Token Bucket Limiter](./middleware/token-bucket-limiter.md) |
 
-- [IPacketDispatch](./routing/dispatch-contracts.md): The primary entry point for handing off buffers from transport to runtime.
-- [PacketDispatchChannel](./routing/packet-dispatch.md): High-throughput dispatcher that uses worker loops and coalesced wake signaling to minimize context switching.
-- [PacketDispatcherBase<`TPacket`>](./routing/dispatch-channel-and-router.md): The base execution engine that handles handler discovery and invocation.
-- [PacketContext<`TPacket`>](./routing/packet-context.md): The pooled concrete runtime context behind `IPacketContext<TPacket>`.
-- [PacketSender](./routing/packet-sender.md): A metadata-aware response helper injected into handlers.
+### 3. Configuration Options (`Nalix.Runtime.Options`)
 
-### Middleware & Routing
-
-- [Middleware Overview](./middleware/index.md): Explains the packet-level pipeline (`MiddlewarePipeline`).
-- [Routing Overview](./routing/index.md): Details how Nalix finds the right handler for each packet opcode.
-- [Metadata Provider](../abstractions/packet-metadata.md): Service for enriching the dispatch context with session or business data.
-
-## Architecture Notes
-
-- **Zero-Allocation Contexts**: `PacketContext<TPacket>` is heavily pooled to prevent GC spikes during high-frequency dispatching.
-- **Priority Weights**: The `PacketDispatchChannel` respects `PacketPriority`, ensuring critical system packets (like Heartbeats) are processed before bulk data.
-- **Worker Fairness**: The dispatch loops use a "Drain" strategy to ensure one high-volume connection doesn't starve others in the same channel.
+- [DispatchOptions](../options/runtime/dispatch-options.md) — Per-connection queue bounds (`MaxPerConnectionQueue = 4096`), `DropPolicy`, and `PriorityWeights`.
+- [PacketDispatchOptions and PacketDrainOptions](../options/runtime/packet-dispatch-options.md) — Worker loop counts, CPU core affinities, and per-wake drain budgets.
+- [TokenBucketOptions](../options/network/token-bucket-options.md) — Burst capacity, refill rate, shard count, and soft/hard violation windows.
+- [DirectiveGuardOptions](../options/network/directive-guard-options.md) — Per-connection cooldown (`DefaultCooldownMs = 1000`) suppressing repeated failure directives.
 
 ## Related APIs
 
-- [Framework Core](../framework/index.md)
-- [Network Transport](../network/index.md)
-- [Common Contracts](../abstractions/index.md)
+- [Routing Overview](./routing/index.md)
+- [Middleware Overview](./middleware/index.md)
+- [Handler Return Types](./routing/handler-results.md)
+- [Packet Handler Generator](../analyzers/autogen/packet-handler-generator.md)

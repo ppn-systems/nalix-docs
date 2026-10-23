@@ -22,7 +22,7 @@ source generator. The generator reads the attributes on your handler methods and
 
 1. You annotate handler methods with built-in attributes (`[PacketOpcode]`,
    `[PacketPermission]`, `[PacketEncryption]`, etc.).
-2. The `PacketHandlerGenerator` scans all `[PacketHandler]` classes at compile time.
+2. The `PacketHandlerGenerator` scans all `[PacketController]` classes at compile time.
 3. For each handler method, the generator emits code that constructs a `PacketMetadata`
    instance from the declared attributes.
 4. At runtime, `PacketHandlerRegistry` registers the generated handlers without reflection.
@@ -46,7 +46,7 @@ public sealed class PacketTenantAttribute : Attribute
 Apply the attribute on a handler method:
 
 ```csharp
-[PacketHandler("SampleInvoiceHandlers")]
+[PacketController("SampleInvoiceHandlers")]
 public sealed class SampleInvoiceHandlers
 {
     [PacketOpcode(0x2201)]
@@ -97,6 +97,9 @@ public sealed class TenantGuardMiddleware<TPacket> : IPacketMiddleware<TPacket>
 ```
 
 ## Mental model
+
+- **Compile-Time Collection**: `PacketHandlerGenerator` inspects all attributes on `[PacketController]` methods and embeds them into `PacketMetadata.CustomAttributes` (`FrozenDictionary<Type, Attribute>`).
+- **Zero-Reflection Lookup**: Middleware reads custom attributes in $O(1)$ time via `context.Attributes.GetCustomAttribute<T>()` without `MethodInfo.GetCustomAttributes()`.
 
 ## Related pages
 

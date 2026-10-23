@@ -1,67 +1,99 @@
 ---
 title: Handler Return Types
-description: Handler return types are resolved at compile time by the PacketHandlerGenerator source generator. The generator inspects each handler method signature and emits an optimized inv...
+description: Reference for all handler parameter and return type signatures compiled by PacketHandlerGenerator and executed by PacketDispatchOptions<TPacket>.
 section: API Reference
 package: Nalix.Runtime
 ---
 
-Handler return types are resolved at compile time by the `PacketHandlerGenerator` source generator. The generator inspects each handler method signature and emits an optimized invoker delegate that handles the return value without runtime reflection.
+**Namespace:** `Nalix.Runtime.Routing`  
+**Assembly:** `Nalix.Runtime`
 
-## Overview
-
-Nalix allows you to choose the most natural return style for your handler logic — synchronous, asynchronous, or raw binary data — while keeping outbound transport logic centralized and consistent.
+At compile time, [PacketHandlerGenerator](../../analyzers/autogen/packet-handler-generator.md) inspects every `[PacketOpcode]` method inside a `[PacketHandler]` controller and emits a reflection-free invoker delegate (`Func<object?, PacketContext<TPacket>, ValueTask<object?>>`). At runtime, `PacketDispatchOptions<TPacket>` dispatches the returned value through `PacketSender`.
 
 ## Source Mapping
 
 - `analyzers/Nalix.Analyzers.Generators/PacketHandlerGenerator.cs`
-- `src/Nalix.Runtime/Dispatching/Options/PacketDispatchOptions.PublicMethods.cs`
+- `src/Nalix.Runtime/Dispatching/Options/PacketDispatchOptions.Execution.cs`
 
-## Supported Shapes
+## Supported Return Types
 
-| Return type shape | Behavior |
-| --- | --- |
-| `void` | No payload is sent. |
-| `Task` / `ValueTask` | Awaited to completion; no payload is sent. |
-| `TPacket` (or any `IPacket`) | Sent as a packet response through the runtime sender flow. |
-| `byte[]` | Sent as raw payload. |
-| `Memory<byte>` / `ReadOnlyMemory<byte>` | Sent as raw payload memory. |
-| `Task<T>` / `ValueTask<T>` | Awaited, then the inner `T` is resolved as one of the above shapes. |
+| Return Type | `SkipOutbound` | Runtime Behavior |
+| :--- | :---: | :--- |
+| `void` | `true` | Executes synchronously; sends no automatic response. |
+| `Task` / `ValueTask` | `true` | Awaits completion; sends no automatic response. |
+| `TResponse` (where `TResponse : IPacket`) | `false` | Sends `response` via `context.Sender.ReplyAsync` (when `response.Header.SequenceId == 0`) or `context.Sender.SendAsync` (when `SequenceId != 0`), then disposes `response` if it is a distinct `IDisposable` instance. |
+| `Task<TResponse>` / `ValueTask<TResponse>` | `false` | Awaits the result, then sends and disposes `TResponse` as above. |
+| `byte[]` / `Memory<byte>` / `ReadOnlyMemory<byte>` (or `Task<...>` / `ValueTask<...>`) | `false` | Sends the raw bytes directly on `context.Connection.TCP` (if reliable or UDP is `null`) or `context.Connection.UDP`. |
+| `IAsyncEnumerable<TResponse>` (where `TResponse : IPacket`) | `false` | Streams each yielded packet via `context.Sender.ReplyAsync(item, ct)`. Uses a one-item look-ahead to set `IPacketStreamable.IsEndOfStream = true` on the final yielded packet before sending, and disposes each yielded `IDisposable` packet after sending. |
 
-## Why It Exists
+## Supported Handler Parameter Shapes
 
-Handlers should be able to return responses naturally (sync or async) while the runtime keeps sending behavior centralized and consistent.
+`PacketHandlerGenerator` enforces strict compile-time parameter rules for `[PacketOpcode]` handler methods:
 
-## Practical Examples
+1. **First Parameter (`index == 0`)**:
+   - Must be `IPacketContext<TPacket>` or `PacketContext<TPacket>` (where `TPacket : IPacket`).
+   - Legacy `(TPacket packet, IConnection connection)` signatures are rejected with diagnostic **`NALIX003`**.
+2. **Additional Scoped Parameters (`index >= 1`)**:
+   - Every trailing parameter must be a **reference type** decorated with `[FromScope]` (otherwise rejected with **`NALIX067`**).
+   - Non-nullable `[FromScope] TScoped` resolves via `context.Scope.GetRequiredService<TScoped>()`.
+   - Nullable `[FromScope] TScoped?` resolves via `context.Scope.GetService<TScoped>()`.
+   - Scoped services are disposed automatically when `PacketContext<TPacket>` returns to the pool.
+3. **Controller Dependencies & Cancellation**:
+   - Singleton services are injected via constructor parameters or `[Inject]` controller fields/properties (not handler method parameters).
+   - The request's cancellation token is accessed via `context.CancellationToken`.
+
+## Examples
 
 ```csharp
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Nalix.Abstractions.Injection;
 using Nalix.Abstractions.Networking.Packets;
+using Nalix.Codec.Pooling;
 
-[PacketOpcode(0x1001)]
-public static LoginResponse Handle(LoginRequest request) => new();
-
-[PacketOpcode(0x1002)]
-public static async Task<LoginResponse> HandleAsync(LoginRequest request)
+[PacketHandler]
+public sealed class InventoryController
 {
-    await Task.Yield();
-    return new LoginResponse();
+    // 1. Synchronous packet return (auto-stamped with request SequenceId via ReplyAsync)
+    [PacketOpcode(0x2001)]
+    public InventoryReply GetQuickSummary(IPacketContext<InventoryQuery> context)
+    {
+        InventoryReply reply = InventoryReply.Create();
+        reply.TotalItems = 42;
+        return reply;
+    }
+
+    // 2. Async ValueTask with [FromScope] per-packet scoped service
+    [PacketOpcode(0x2002)]
+    public async ValueTask HandleUpdateAsync(
+        IPacketContext<InventoryUpdate> context,
+        [FromScope] AuditUnitOfWork unitOfWork)
+    {
+        await unitOfWork.RecordAsync(context.Packet, context.CancellationToken);
+    }
+
+    // 3. Server-to-client streaming (IAsyncEnumerable<TResponse> where TResponse : IPacketStreamable)
+    [PacketOpcode(0x2003)]
+    public async IAsyncEnumerable<InventoryChunkPacket> StreamInventoryAsync(
+        IPacketContext<InventoryStreamRequest> context)
+    {
+        for (int page = 0; page < 3; page++)
+        {
+            context.CancellationToken.ThrowIfCancellationRequested();
+            await Task.Yield();
+            InventoryChunkPacket chunk = InventoryChunkPacket.Create();
+            chunk.PageIndex = page;
+            // The runtime automatically sets chunk.IsEndOfStream = true on the last yielded item
+            // and disposes chunk after ReplyAsync completes.
+            yield return chunk;
+        }
+    }
 }
-
-[PacketOpcode(0x1003)]
-public static ValueTask HandleNoReply(IPacketContext<LoginRequest> context)
-    => ValueTask.CompletedTask;
 ```
-
-For detailed implementation patterns and error handling, see the [Implementing Packet Handlers](../../../guides/application/packet-handlers.md) guide.
-
-## Best Practices
-
-- Prefer returning packet types for simple request/response handlers.
-- Use `IPacketContext<TPacket>.Sender` when you need multiple replies or custom send timing.
-- Keep return types explicit and consistent across a controller.
 
 ## Related APIs
 
-- [Packet Context](./packet-context.md)
-- [Packet Dispatch](./packet-dispatch.md)
-- [Packet Sender](./packet-sender.md)
+- [Packet Handler Generator](../../analyzers/autogen/packet-handler-generator.md)
+- [Packet Context (PacketContext<TPacket>)](./packet-context.md)
+- [Packet Sender (PacketSender)](./packet-sender.md)
+- [Session Extensions](../../sdk/tcp-session-extensions.md)

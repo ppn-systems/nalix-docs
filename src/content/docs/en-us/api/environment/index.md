@@ -1,31 +1,31 @@
 ---
 title: Nalix.Environment API Reference
-description: Nalix.Environment provides the foundational memory, configuration, and cross-platform environmental services.
+description: Reference for Nalix.Environment — zero-allocation memory leases, binary readers/writers, INI configuration, monotonic clock, OS CSPRNG, packet fragmentation, and replay sequencing.
 section: API Reference
 package: Nalix.Environment
 ---
 
-`Nalix.Environment` provides the foundational memory, configuration, and cross-platform environmental services.
+`Nalix.Environment` provides the **Level 1** memory, binary IO, configuration, time, cryptographic randomness, packet fragmentation, and sequence counter primitives used across the Nalix ecosystem.
 
-## Memory & IO
+## Memory & Binary IO (`Nalix.Environment.Memory`)
 
-Foundational primitives for high-performance, zero-allocation data handling.
+- [**Buffer Management**](./memory/buffer-management.md) — `IBufferLease`, `BufferLease`, `BufferPoolManager`, and `BufferOptions`.
+- [**BufferLease**](./memory/buffer-lease.md) — Reference-counted pooled memory slice with headroom and cryptographic zeroing (`ZeroOnDispose`).
+- [**DataReader**](./memory/data-reader.md) — Zero-allocation `ref struct` binary reader over `ReadOnlySpan<byte>`, `ReadOnlyMemory<byte>`, `byte[]`, and `byte*`.
+- [**DataWriter**](./memory/data-writer.md) — Zero-allocation `ref struct` binary writer supporting pooled auto-expanding and fixed-span modes.
 
-- [**Buffer Management**](./memory/buffer-management.md): High-level byte buffer management.
-- [**BufferLease**](./memory/buffer-lease.md): Rented memory segments with reference counting.
-- [**DataReader**](./memory/data-reader.md): Fast binary reading from spans and memory.
-- [**DataWriter**](./memory/data-writer.md): Fast, growable binary writing.
+## Configuration (`Nalix.Environment.Configuration`)
 
-## Configuration
+- [**Configuration (ConfigurationManager & ConfigurationLoader)**](./configuration.md) — Thread-safe `.ini` configuration binding, live file watching, and validation.
 
-- [**Configuration**](./configuration.md): INI-based typed options management.
+## Platform, Time, Random & Sequencing
 
-## Platform Helpers
-
-- [**Directories**](./directories.md): Standardized application paths.
-- [**Clock**](./clock.md): Monotonic time source.
-- [**Random**](./random.md): Thread-safe random number generation.
-- [**Timing Scope**](./timing-scope.md): Lightweight latency measurement.
+- [**Directories**](./directories.md) — Environment- and container-aware application directory resolution (`Directories`) with Unix permission hardening.
+- [**Clock**](./clock.md) — High-resolution monotonic and UTC Unix timestamp utilities (`Clock`).
+- [**Timing Scope**](./timing-scope.md) — Zero-allocation `readonly struct` (`TimingScope`) for measuring elapsed ticks, microseconds, and milliseconds.
+- [**Random (Csprng)**](./random.md) — Cryptographically strong random number generator backed by OS entropy (`OsCsprng`).
+- [**Sequencing (SequenceCounter)**](./sequencing.md) — Thread-safe monotonic sequence counter and sliding-window replay validator (`Nalix.Environment.Sequencing`).
+- [**Fragmentation (FragmentAssembler & FragmentHeader)**](../codec/packets/fragmentation.md) — Splitting and reassembling oversized payloads (`Nalix.Environment.Fragments` and `FragmentOptions`).
 
 ## Related Packages
 

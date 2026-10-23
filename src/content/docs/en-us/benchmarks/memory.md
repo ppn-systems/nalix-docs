@@ -39,11 +39,8 @@ Comparison of memory acquisition strategies across various sizes (64 B, 1 KB, an
 
 ### Why Nalix Memory?
 
-- **Tiered Buffer Rental**: The `BufferPoolManager` optimizes throughput using a multi-path strategy:
-    - **Fast Path**: Common block sizes (256B to 4KB) bypass expensive lookup logic via direct array index resolutions.
-    - **Adaptive Allocation**: Large allocations fall back to standard `ArrayPool<byte>.Shared` to prevent memory spikes, but return memory cleanly to avoid fragmentation.
-- **Lease Safety**: `BufferLease` provides a scope-bound, auto-disposed rental wrapper that keeps rent/return usage allocation-free in the latest benchmark while reducing leak risk in high-complexity code.
-- **Trimming & Stability**: The system implements automated shrinking policies to safely return unused memory blocks to the operating system during long periods of low load, keeping the application footprint minimal.
+- **Pooled Array Rental (`BufferPoolManager`)**: `BufferPoolManager` wraps `ArrayPool<byte>.Shared` with atomic rent/return counters and optional leak-detection diagnostics (`BufferOptions.EnableBufferLeakDetection`), delivering 0 B allocation across all payload sizes.
+- **Reference-Counted Lease Safety (`BufferLease`)**: `BufferLease` provides a pooled, reference-counted (`Retain()` / `Dispose()`) rental wrapper (`IBufferLease`) that keeps rent/dispose cycles allocation-free (0 B) while preventing premature buffer returns across async boundaries.
 
 ---
 

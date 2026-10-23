@@ -1,51 +1,45 @@
 ---
 title: Trusted Proxy Options
-description: TrustedProxyOptions configures proxy-related network configurations, including trusted CDNs/Proxies, and customized rate limits for connections coming through these trusted inte...
+description: Reference for Nalix.Network.Options.TrustedProxyOptions — trusted reverse proxy and CDN allowlist file and elevated connection rate ceilings for ConnectionGuard.
 section: API Reference
-package: Nalix.Network / Nalix.Runtime
+package: Nalix.Network
 ---
 
-`TrustedProxyOptions` configures proxy-related network configurations, including trusted CDNs/Proxies, and customized rate limits for connections coming through these trusted intermediaries.
+**Namespace:** `Nalix.Network.Options`  
+**Assembly:** `Nalix.Network`
+
+`TrustedProxyOptions` (`public sealed partial class TrustedProxyOptions : ConfigurationLoader, IValidatableConfiguration`) configures the trusted reverse proxy / CDN IP and CIDR allowlist (`"trusted_proxies.txt"`) and elevated connection quotas used by `ConnectionGuard`, `TcpListenerBase` (PROXY Protocol), and `WebSocketListenerBase` (`ForwardedHeadersOptions`).
 
 ## Source Mapping
 
 - `src/Nalix.Network/Options/TrustedProxyOptions.cs`
+- `src/Nalix.Network/Internal/Security/NetworkAccessList.cs`
 - `src/Nalix.Network/RateLimiting/Connection.Guard.cs`
-- `src/Nalix.Hosting/Bootstrap.cs`
+- `src/Nalix.Network/RateLimiting/Connection.Guard.Slot.cs`
 
 ## Defaults and Validation
 
-| Property | Default | Validation | Runtime consumer |
-| --- | ---: | --- | --- |
-| `StoreFileName` | `"trusted_proxies.txt"` | File name string | Path to the file containing line-separated trusted proxy IPs/CIDRs. |
-| `MaxTrustedProxies` | `100,000` | `10..1_000_000` | Maximum number of trusted proxies to load from disk. |
-| `MaxConnectionsPerTrustedProxy` | `5000` | `1..100_000` | Concurrent connection cap allowed from a single trusted proxy IP. |
-| `MaxAttemptsPerTrustedProxyWindow` | `2000` | `1..10_000_000` | Connection attempt rate limit allowed from a single trusted proxy within the window. |
+Loaded from the `[TrustedProxy]` section of `default.ini`:
 
-`Validate()` runs DataAnnotation validation and throws `ValidationException` when constraints are violated.
+| Property | Type | Default | Validation | Runtime Consumer |
+| :--- | :--- | ---: | :--- | :--- |
+| `StoreFileName` | `string` | `"trusted_proxies.txt"` | — | File name in `Directories.ConfigurationDirectory` containing line-separated trusted proxy IPs or CIDR ranges (supports `#` comments and hot-reload). |
+| `MaxTrustedProxies` | `int` | `100_000` | `[ValueRange(10, 1_000_000)]` | Maximum number of trusted proxy IP/CIDR entries loaded from disk. |
+| `MaxConnectionsPerTrustedProxy` | `int` | `5000` | `[ValueRange(1, 100_000)]` | Concurrent connection ceiling permitted from a single trusted proxy IP. |
+| `MaxAttemptsPerTrustedProxyWindow` | `int` | `2000` | `[ValueRange(1, 10_000_000)]` | Maximum connection attempts permitted from a single trusted proxy IP within `ConnectionQuotaOptions.ConnectionRateWindow`. |
 
-## Hosting Initialization
+`Validate()` runs `this.ValidateDataAnnotations()` and throws `ValidationException` when constraints are violated.
 
-`Bootstrap.Initialize()` loads `TrustedProxyOptions` during server startup so the server configuration template includes proxy-related options:
+## Runtime Behavior
 
-```csharp
-_ = ConfigurationManager.Instance.Get<TrustedProxyOptions>();
-```
+When an incoming connection's source IP matches `NetworkAccessList.IsTrustedProxy`:
 
-## Trusted Proxy Admission Controls
-
-For incoming connections, `ConnectionGuard` identifies if the source IP matches one of the networks loaded from the file specified by `StoreFileName`.
-
-If the source matches a trusted proxy:
-
-- It allows a higher number of concurrent connections capped at `MaxConnectionsPerTrustedProxy`.
-- It allows a higher attempt limit capped at `MaxAttemptsPerTrustedProxyWindow` per window.
-
-This prevents the server from blacklisting CDN edges or reverse proxies (like Cloudflare or NGINX) that aggregate genuine traffic from many distinct users.
+1. **`ConnectionGuard` Admission**: Uses `MaxConnectionsPerTrustedProxy` (`5000`) and `MaxAttemptsPerTrustedProxyWindow` (`2000`) instead of the standard per-IP limits (`10`), and never applies progressive IP bans (`BanEndpoint` also ignores trusted proxy IPs).
+2. **PROXY Protocol & Forwarded Headers**: When `ProxyProtocolOptions.RequireTrustedProxy` or `ForwardedHeadersOptions.RequireTrustedProxy` is `true`, only physical peers matching `TrustedProxyOptions` are allowed to supply a real client IP header.
 
 ## Related APIs
 
-- [Connection Limiter](../../network/connection/connection-limiter.md)
+- [Connection Guard](../../network/connection/connection-guard.md)
 - [Connection Quota Options](./connection-quota-options.md)
 - [Connection Guard Options](./connection-guard-options.md)
 - [Network Options](./options.md)

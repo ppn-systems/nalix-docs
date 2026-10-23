@@ -36,7 +36,7 @@ session.OnMessageReceived += (sender, lease) =>
 
 ### Purely Asynchronous Queuing (`OnMessageAsync`)
 
-Provides an asynchronous receive pipeline. For `TcpSession`, the lease is retained while the async handler runs; for `UdpSession`, async handlers are drained through a bounded queue sized by `TransportOptions.AsyncQueueCapacity`.
+Provides an asynchronous receive pipeline (`event Func<ReadOnlyMemory<byte>, Task>?` declared on concrete sessions `TcpSession`, `UdpSession`, and `WebSocketSession`). Retains the underlying lease automatically (`lease.Retain()`) for the duration of the returned `Task` and disposes it upon completion (`TcpSession` and `WebSocketSession` observe completion via continuation, while `UdpSession` awaits the handler directly before reading the next datagram). Note that `TransportOptions.AsyncQueueCapacity` is currently reserved and not consumed.
 
 ```csharp
 session.OnMessageAsync += async (payload) => 
@@ -58,7 +58,7 @@ When orchestrating connections manually using `ConnectAsync()`, it is extremely 
 await session.ConnectAsync();
 
 // 2. Check if this is a Reconnection (We still have the old Identity State)
-if (options.SessionToken != 0 && !options.Secret.IsZero)
+if (session.State.SessionToken != 0 && !session.State.Secret.IsZero)
 {
     // Fast path: Tell the server we dropped connection but still have our keys.
     ProtocolReason resumeResult = await session.ResumeSessionAsync();
@@ -97,16 +97,16 @@ This is massively beneficial for high throughput servers blasting the exact same
 
 ## 4. Manual Encryption Overrides (Per-Packet)
 
-While `TransportOptions.EncryptionEnabled` strictly governs global cryptographic enforcement across the `TransportSession`, there are scenarios where a highly specific internal frame must bypass the global rules (e.g. sending a `Handshake` packet before encryption keys are actually finalized).
+While `session.State.EncryptionEnabled` strictly governs global cryptographic enforcement across the `TransportSession`, there are scenarios where a highly specific internal frame must bypass the global rules (e.g. sending a `SessionInit` packet before encryption keys are actually finalized).
 
-If you are working directly with a `TcpSession`, you can override encryption per send:
+If you are working directly with an `ITransportSession`, you can override encryption per send:
 
 ```csharp
-TcpSession session = myTcpSession;
+ITransportSession session = myTcpSession;
 
 // Example: force this one packet to travel in plaintext even if the
 // session would normally encrypt payloads.
-await session.SendAsync(SessionInit.Create(), encrypt: false);
+await session.SendAsync(new SessionInit(), encrypt: false);
 ```
 
 :::danger

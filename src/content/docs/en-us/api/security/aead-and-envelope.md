@@ -5,6 +5,9 @@ section: API Reference
 package: Nalix.Codec / Nalix.Network
 ---
 
+**Namespaces:** `Nalix.Codec.Security`, `Nalix.Codec.Security.Aead`, `Nalix.Codec.Security.Symmetric`, `Nalix.Codec.Security.Engine`  
+**Assembly:** `Nalix.Codec`
+
 This page covers the encryption primitives that matter most to transport and packet protection.
 
 ## Source mapping
@@ -65,20 +68,48 @@ EnvelopeCipher.Encrypt(
     out int written);
 ```
 
-## Decryption APIs
+## Encryption & Decryption APIs
 
-`EnvelopeCipher` exposes two decryption overloads for each cipher mode (AEAD and symmetric):
+`EnvelopeCipher` exposes both 6-parameter (no explicit AAD) and 7-parameter (with `ReadOnlySpan<byte> aad`) overloads for `Encrypt`, `Decrypt`, and `TryDecrypt`:
 
-### Throwing API
+### Encryption API
+
+```csharp
+public static void Encrypt(
+    ReadOnlySpan<byte> key,
+    ReadOnlySpan<byte> plaintext,
+    Span<byte> ciphertext,
+    uint? seq,
+    CipherSuiteType algorithm,
+    out int written);
+
+public static void Encrypt(
+    ReadOnlySpan<byte> key,
+    ReadOnlySpan<byte> plaintext,
+    Span<byte> ciphertext,
+    ReadOnlySpan<byte> aad,
+    uint? seq,
+    CipherSuiteType algorithm,
+    out int written);
+```
+
+### Throwing Decryption API
 
 ```csharp
 public static void Decrypt(
     ReadOnlySpan<byte> key,
     ReadOnlySpan<byte> envelope,
     Span<byte> plaintext,
+    CipherSuiteType expectedAlgorithm,
+    out int written, out uint seq);
+
+public static void Decrypt(
+    ReadOnlySpan<byte> key,
+    ReadOnlySpan<byte> envelope,
+    Span<byte> plaintext,
     ReadOnlySpan<byte> aad,
     CipherSuiteType expectedAlgorithm,
-    out int written, out uint seq)
+    out int written, out uint seq);
 ```
 
 Throws `CipherException` on parse failure, algorithm mismatch, or authentication failure.
@@ -86,16 +117,23 @@ Throws `ArgumentException` if the destination plaintext buffer is too small.
 
 `Decrypt` delegates internally to `TryDecrypt` and translates `CipherError` into exceptions.
 
-### Non-throwing API
+### Non-throwing Decryption API
 
 ```csharp
 public static bool TryDecrypt(
     ReadOnlySpan<byte> key,
     ReadOnlySpan<byte> envelope,
     Span<byte> plaintext,
+    CipherSuiteType expectedAlgorithm,
+    out int written, out uint seq);
+
+public static bool TryDecrypt(
+    ReadOnlySpan<byte> key,
+    ReadOnlySpan<byte> envelope,
+    Span<byte> plaintext,
     ReadOnlySpan<byte> aad,
     CipherSuiteType expectedAlgorithm,
-    out int written, out uint seq)
+    out int written, out uint seq);
 ```
 
 Returns `false` on any failure. Does not throw on authentication or formatting failures.

@@ -1,116 +1,93 @@
 ---
 title: Timeout Middleware
-description: TimeoutMiddleware enforces per-handler execution time limits for inbound packet processing. It wraps downstream middleware and the final handler in a timed CancellationToken and...
+description: Reference for Nalix.Runtime.Middleware.Standard.TimeoutMiddleware — pooled per-handler timeout enforcement for [PacketTimeout].
 section: API Reference
 package: Nalix.Runtime
 ---
 
-`TimeoutMiddleware` enforces per-handler execution time limits for inbound packet
-processing. It wraps downstream middleware and the final handler in a timed
-`CancellationToken` and emits a transient timeout directive when the local timer,
-rather than the caller's cancellation token, causes execution to stop.
+**Namespace:** `Nalix.Runtime.Middleware.Standard`  
+**Assembly:** `Nalix.Runtime`
 
-## Source mapping
+`TimeoutMiddleware` (`[MiddlewareOrder(75)] [MiddlewareStage(MiddlewareStage.Inbound)] public sealed class TimeoutMiddleware : IPacketMiddleware<IPacket>`) enforces per-handler execution time limits configured via `[PacketTimeout(timeoutMilliseconds)]`.
+
+## Source Mapping
 
 - `src/Nalix.Runtime/Middleware/Standard/TimeoutMiddleware.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketTimeoutAttribute.cs`
+- `src/Nalix.Runtime/Internal/RateLimiting/DirectiveGuard.cs`
+- `src/Nalix.Codec/ProtocolFrames/Directive.cs`
 
-## Runtime role
+## Pooled Timer Architecture (`PooledCancellationTokenSource`)
 
-`TimeoutMiddleware` is an inbound middleware with `MiddlewareOrder(75)`. It runs
-late in the inbound chain so earlier security and throttling checks can reject
-bad traffic before a per-request timer is allocated.
-
-The middleware is metadata-driven. It reads `context.Attributes.Timeout`, which
-is populated from `PacketTimeoutAttribute` on the handler method.
-
-## Applying a timeout
-
-```csharp
-[PacketTimeout(5000)]
-public async Task ProcessHeavyData(IPacketContext<WorkPacket> request)
-{
-    // This handler is expected to finish within 5 seconds.
-}
-```
-
-`PacketTimeoutAttribute` is declared for methods only and stores one value:
-`TimeoutMilliseconds`.
-
-## Execution behavior
+To avoid allocating a new `CancellationTokenSource` on every timed packet, `TimeoutMiddleware` maintains an internal `PooledCancellationTokenSource` class registered in `ObjectPoolManager.Shared` (`MaxCapacity = 2048`, `Prealloc = 16`) that calls `CancellationTokenSource.TryReset()` when returned to the pool.
 
 ```mermaid
 sequenceDiagram
-    participant P as Pipeline
-    participant M as TimeoutMiddleware
-    participant H as Downstream middleware or handler
-    participant C as Client sender
+    participant P as MiddlewarePipeline
+    participant M as TimeoutMiddleware (Order 75)
+    participant H as Handler
+    participant C as Client (PacketSender)
 
     P->>M: InvokeAsync(context, next)
-    M->>M: Read context.Attributes.Timeout
-    alt timeout <= 0 or missing
-        M->>H: next(context.CancellationToken)
-    else timeout configured
-        M->>M: Create linked CTS when caller token can cancel
-        M->>M: CancelAfter(timeoutMilliseconds)
-        M->>H: next(timeout token)
-        H-->>M: OperationCanceledException from timeout token
-        M->>C: Send TIMEOUT directive
+    alt No [PacketTimeout] or TimeoutMilliseconds <= 0
+        M->>H: next(context.CancellationToken) (Zero-Alloc Sync Fast Path)
+    else TimeoutMilliseconds > 0
+        M->>M: Rent PooledCancellationTokenSource + CancelAfter(timeoutMs)
+        M->>M: UnsafeRegister caller CancellationToken -> timeoutCts.Cancel()
+        M->>H: await next(timeoutCts.Token)
+        alt Handler times out (timeoutCts cancelled && !context.CancellationToken.IsCancellationRequested)
+            H-->>M: OperationCanceledException
+            M->>M: DirectiveGuard.TryAcquire(InboundDirectiveTimeoutLastSentAtMs)
+            M->>C: SendAsync(Directive: TIMEOUT, RETRY, IS_TRANSIENT, arg0 = timeoutMs / 100)
+        end
+        M->>M: Dispose registration + Return PooledCancellationTokenSource
     end
 ```
 
-If no timeout attribute exists, or the configured timeout is less than or equal
-to zero, the middleware is a no-op and passes the original context cancellation
-token to `next`.
+## Timeout Directive Format
 
-When a positive timeout is configured:
+When `timeoutCts.Token` fires while `context.CancellationToken` is **not** cancelled (distinguishing a handler timeout from a normal connection disconnect), and `DirectiveGuard` permits sending, `TimeoutMiddleware` sends a pooled `Directive` (`0x0008`, 21 bytes) using `CancellationToken.None`:
 
-1. if the context token can cancel, a linked `CancellationTokenSource` is created
-2. otherwise a standalone `CancellationTokenSource` is created
-3. `CancelAfter(timeoutMilliseconds)` arms the local timer
-4. downstream execution receives the timeout token
-5. the CTS is disposed when execution completes
+| Field | Value |
+| :--- | :--- |
+| `Type` | `ControlType.TIMEOUT` |
+| `Reason` | `ProtocolReason.TIMEOUT` |
+| `Action` | `ProtocolAdvice.RETRY` |
+| `SequenceId` | `context.Packet.Header.SequenceId` |
+| `Control` | `ControlFlags.IS_TRANSIENT` |
+| `Arg0` | `(uint)(timeoutMilliseconds / 100)` |
 
-## Timeout detection
+## Usage Example
 
-The middleware only converts cancellation into a timeout response when both
-conditions are true:
+```csharp
+using System.Threading;
+using System.Threading.Tasks;
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Runtime.Middleware.Standard;
 
-- the middleware-owned timeout token is canceled
-- `context.CancellationToken` is not canceled
+// 1. Register TimeoutMiddleware in PacketDispatchOptions
+builder.ConfigureDispatch(options =>
+{
+    options.WithMiddleware(new TimeoutMiddleware());
+});
 
-This distinction prevents normal connection shutdown or caller cancellation from
-being reported as a handler timeout.
-
-## Timeout directive
-
-On a local timeout, `TimeoutMiddleware` first checks `DirectiveGuard` using
-`ConnectionAttributes.InboundDirectiveTimeoutLastSentAtMs`. If notification is
-allowed, it rents a pooled `Directive` and sends:
-
-```text
-ControlType   = TIMEOUT
-Reason        = TIMEOUT
-Advice        = RETRY
-SequenceId    = original packet sequence id
-ControlFlags  = IS_TRANSIENT
-Arg0          = timeoutMilliseconds / 100
+// 2. Decorate slow/IO-bound handlers with [PacketTimeout]
+[PacketHandler]
+public sealed class MatchmakingController
+{
+    [PacketOpcode(0x4001)]
+    [PacketTimeout(3000)] // 3000 ms (3 seconds)
+    public async ValueTask FindMatchAsync(IPacketContext<FindMatchPacket> context, CancellationToken ct)
+    {
+        // ct is automatically linked to the 3-second PooledCancellationTokenSource
+        await MatchmakerService.WaitForOpponentAsync(context.Connection, ct);
+    }
+}
 ```
-
-The directive send uses `CancellationToken.None`, so the timeout notification is
-not canceled by the expired handler token.
-
-If `DirectiveGuard` suppresses the response, the middleware returns silently.
-
-## Error handling boundaries
-
-`TimeoutMiddleware` catches only the timeout-shaped
-`OperationCanceledException`. Other exceptions from downstream middleware or the
-handler continue to the pipeline error path.
 
 ## Related APIs
 
-- [Pipeline](./pipeline.md)
+- [Middleware Pipeline](./pipeline.md)
 - [Permission Middleware](./permission-middleware.md)
 - [Policy Rate Limiter](./policy-rate-limiter.md)
-- [Packet Attributes](../../abstractions/packet-attributes.md)
+- [Directive Guard Options](../../options/network/directive-guard-options.md)

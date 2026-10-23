@@ -90,6 +90,7 @@ Thrown when a configuration or data validation check fails. This is the AOT-safe
   ValidationException()
   ValidationException(string message)
   ValidationException(string message, Exception innerException)
+  ValidationException(string propertyName, object? invalidValue, string reason)
   ```
 
 ## Usage in Options
@@ -100,7 +101,7 @@ Nalix option types use these attributes and call `ValidateDataAnnotations()` in 
 using Nalix.Abstractions.Validation;
 using Nalix.Environment.Configuration.Binding;
 
-public sealed class MyOptions : ConfigurationLoader, IValidatableConfiguration
+public sealed partial class MyOptions : ConfigurationLoader, IValidatableConfiguration
 {
     [ValueRange(1, 10_000)]
     public int MaxItems { get; set; } = 100;

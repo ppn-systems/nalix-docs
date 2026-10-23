@@ -1,188 +1,228 @@
 ---
 title: Network Application
-description: Nalix.Hosting provides a Microsoft-style builder and host for Nalix servers. It simplifies the setup of protocols, listeners, dispatchers, and dependency injection into a single...
+description: API reference for NetworkApplication, INetworkApplicationBuilder, IProtocolBindingBuilder, DefaultProtocol, and NetworkApplicationBuilderExtensions in Nalix.Hosting.
 section: API Reference
 package: Nalix.Hosting
 ---
 
-`Nalix.Hosting` provides a Microsoft-style builder and host for Nalix servers. It simplifies the setup of protocols, listeners, dispatchers, and dependency injection into a single fluent flow.
+**Namespaces:** `Nalix.Hosting`, `Nalix.Hosting.Protocols`  
+**Assembly:** `Nalix.Hosting`
 
-## Why use the Hosting Builder?
+`Nalix.Hosting` provides a Microsoft-style fluent builder (`INetworkApplicationBuilder` / `NetworkApplicationBuilder`) and server host (`NetworkApplication`) that orchestrate configuration loading, dependency registration, compile-time packet handler wiring, and multi-transport listener lifecycles (TCP, UDP, and WebSocket).
 
-While you can instantiate listeners and protocols manually, the `NetworkApplicationBuilder` is **highly recommended** for production applications.
-
-- **Unified Lifecycle**: Ensures that the memory pool, handler registry, dispatcher, and listeners are activated and deactivated in the correct order.
-- **Automatic Service Injection**: Automatically registers critical shared services (Logger, ConnectionHub, BufferPool) into the `InstanceManager`.
-- **Handler Discovery**: Registers `[PacketHandler]` classes for source-generated dispatch. The `PacketHandlerGenerator` produces zero-allocation invokers at compile time, eliminating runtime reflection.
-- **Coexistence**: Easily manages multiple listeners (e.g., TCP and UDP) within the same application process.
-
-The public API surface revolves around two main types:
-
-- `NetworkApplication` is the runnable host.
-- `INetworkApplicationBuilder` is the fluent configuration contract.
-
-## Source mapping
+## Source Mapping
 
 - `src/Nalix.Hosting/NetworkApplication.cs`
 - `src/Nalix.Hosting/INetworkApplicationBuilder.cs`
 - `src/Nalix.Hosting/NetworkApplicationBuilder.cs`
+- `src/Nalix.Hosting/NetworkApplicationBuilder.Extensions.cs`
+- `src/Nalix.Hosting/IProtocolBindingBuilder.cs`
+- `src/Nalix.Hosting/IWebSocketBindingBuilder.cs`
+- `src/Nalix.Hosting/Protocols/DefaultProtocol.cs`
+- `src/Nalix.Hosting/Protocols/DefaultFrameProcessor.cs`
+- `src/Nalix.Hosting/Protocols/DefaultOpCodeExtractor.cs`
 
-## Startup Flow
+## Startup & Lifecycle Flow
 
 ```mermaid
-graph LR
-    subgraph Configuration ["Phase 1: Configuration"]
-        Create["CreateBuilder()"] --> Config["Configure Loggers, Options, Hubs"]
-        Config --> Discover["MapHandlers()"]
-        Discover --> Bind["ListenTcp() / ListenUdp()"]
+flowchart LR
+    subgraph Phase1["1. Fluent Configuration"]
+        CB["NetworkApplication.CreateBuilder()"] --> Opts["Configure<TOptions>() / UseLogger()"]
+        Opts --> Feat["UseSecureConnections() / UseSessions() / UseGroups()"]
+        Feat --> Map["MapHandlers<THandler>() / RegisterScoped<T>()"]
+        Map --> Bind["MapTcp<T>() / MapUdp<T>() / MapWebSocket<T>().Bind()"]
     end
 
-    subgraph Composition ["Phase 2: Composition"]
-        Bind --> Build["Build()"]
-        Build --> Prep["Initialize Context"]
+    subgraph Phase2["2. Build()"]
+        Bind --> Bld["Build()"]
+        Bld --> RegPkt["RegisterPacketRegistry() + ApplyOptions()"]
+        RegPkt --> Factories["Capture Dispatch & Listener Factories"]
     end
 
-    subgraph Activation ["Phase 3: Activation"]
-        Prep --> Services["Register logger, options, registry, hub, buffers, identity"]
-        Services --> Dispatch["Create and activate packet dispatch"]
-        Dispatch --> Listeners["Create and start TCP/UDP listeners"]
+    subgraph Phase3["3. ActivateAsync() / RunAsync()"]
+        Factories --> Prep["Register Logger, Hub, Guard, BufferPool, ObjectPool"]
+        Prep --> Disp["Create & Activate IPacketDispatch"]
+        Disp --> Listen["Construct & Activate TCP / UDP / WebSocket Listeners"]
     end
 ```
 
-## Public members at a glance
-
-| Type | Public members |
-|---|---|
-| `NetworkApplication` | `CreateMinimal(...)`, `CreateBuilder()`, `ActivateAsync(...)`, `DeactivateAsync(...)`, `RunAsync(...)`, `DisposeAsync()`, `Dispose()` |
-| `INetworkApplicationBuilder` | `UseLogger(...)`, `UseConnectionHub(...)`, `UseBufferPoolManager(...)`, `UseObjectPoolManager(...)`, `UseSecureConnections(...)`, `Configure<TOptions>(...)`, `UseSessionService(...)`, `UseSessionStore(...)`, `UseSessionFactory(...)`, `MapHandlers(...)`, `ConfigureDispatchOptions(...)`, `ConfigureDispatch(...)`, `ListenTcp<T>().Bind()`, `ListenUdp<T>().Bind()`, `ListenWebSocket<T>().Bind()`, `Build()` |
-
-## Builder composition details
-
-`Build()` captures the fluent configuration into activation-time callbacks. The host does not create listener instances during fluent configuration; listener bindings are materialized during `ActivateAsync(...)` after packet dispatch has been created.
-
-During activation, the builder preparation callback performs this source-defined setup order:
-
-1. register the configured `ILogger` in `InstanceManager`
-2. apply all `Configure<TOptions>(...)` delegates, then call public `Validate()` when the options type exposes one
-3. create or register the packet registry
-4. ensure an `IConnectionHub` exists, creating `ConnectionHub(logger)` when missing
-5. ensure a `BufferPoolManager` exists and bind `BufferLease.ByteArrayPool` to it
-6. configure `HandshakeHandlers` with `UseSecureConnections(...)` when provided, otherwise initialize the default identity path
-
-Listener factories then resolve the shared `IConnectionHub` from `InstanceManager` and construct `TcpServerListener` or `UdpServerListener` with the protocol instance, optional explicit port, and optional UDP authentication predicate.
-
-## `NetworkApplication`
-
-`NetworkApplication` manages the lifecycle of the server runtime. It handles the activation and deactivation of the packet dispatcher, protocols, and listeners in the correct order.
-The hosted pipeline remains generic-friendly, so the same builder flow works for built-in packets and custom packet types.
-
-### Creation and Lifecycle
-
-- `CreateBuilder()`: Creates a new `NetworkApplicationBuilder`.
-- `CreateMinimal(port)`: Creates a minimal `NetworkApplication` with a default logger, default hubs/pools, automatic handler scanning from the calling assembly, and a TCP listener on the specified (or configured) port.
-- `ActivateAsync(...)`: Acquires the lifecycle gate, runs builder preparation callbacks, creates packet dispatch, best-effort registers it as `IPacketDispatch`, activates packet dispatch, then creates and starts each TCP/UDP listener.
-:::note
-Middleware is registered globally but executed inside the sharded dispatch loop. Ensure your custom middleware is thread-safe or uses localized state.
-:::
-
-- `RunAsync(...)`: Calls `ActivateAsync(...)`, waits until cancellation, then calls `DeactivateAsync(CancellationToken.None)` in a `finally` block.
-- `DeactivateAsync(...)`: Stops and disposes listeners in reverse order, disposes protocols in reverse order, deactivates the packet dispatcher, waits for background task groups (`net/*` and `time/*`) via `ITaskManager.WaitGroupAsync`, clears runtime lists, then marks the application stopped.
-- `DisposeAsync()`: Asynchronous disposal; calls `DeactivateAsync(CancellationToken.None)` and releases resources.
-- `Dispose()`: Synchronous disposal; calls `DeactivateAsync(CancellationToken.None)`, logs deferred failures, disposes the lifecycle gate, and suppresses finalization.
-
-## `INetworkApplicationBuilder`
-
-The builder uses a fluent API to configure the host before it is built.
-
-### Logging and Options
-
-- `UseLogger(ILogger)`: Registers the logger into the `InstanceManager` immediately and stores it for later host construction.
-- `UseConnectionHub(IConnectionHub)`: Registers the shared connection hub into the `InstanceManager`. If omitted, the builder creates a default `ConnectionHub` during activation.
-- `UseBufferPoolManager(BufferPoolManager)`: Explicitly registers a custom buffer pool manager and binds `BufferLease.ByteArrayPool` to that manager for pooled receive/send paths. If omitted, the builder creates and binds a default manager during activation.
-- `UseObjectPoolManager(ObjectPoolManager)`: Explicitly registers a custom object pool manager for pooled object paths.
-- `UseSecureConnections(string path)`: Stores the certificate path for activation; the path is passed to `HandshakeHandlers.SetCertificatePath(...)` during builder preparation.
-- `UseSessionService(ISessionService)`: Registers a custom session service for session persistence.
-- `UseSessionStore(ISessionStore)`: Registers a custom session store for the default session service.
-- `UseSessionFactory(ISessionFactory)`: Registers a custom session factory for the default session service.
-- `Configure<TOptions>(Action<TOptions>)`: Configures a specific options type during activation by mutating `ConfigurationManager.Instance.Get<TOptions>()`.
-
-:::note
-The builder automatically registers built-in `SessionHandlers`, `HandshakeHandlers`, and `SystemControlHandlers` in its constructor before user-defined handler discovery runs.
-`Configure<TOptions>(...)` applies delegates during host activation, not at the fluent call site. Use it for options that must be loaded into `ConfigurationManager` before dispatch and listeners start.
-:::
-
-### Handler Registration
-
-- `MapHandlers<THandler>()`: Registers a handler type using the default Nalix activator with dependency injection.
-- `MapHandlers<THandler>(Func<THandler> factory)`: Registers a handler type with a custom factory.
-- `MapHandlers(Type controllerType)`: Registers a controller type directly. Primarily used for static controller classes.
-
-Handler registration stores descriptors in a type-keyed list. During activation, each registered type is passed to `PacketDispatchOptions.WithHandler(...)`, which delegates to the source-generated compiler via `PacketHandlerRegistry`.
-
-### Dispatch Configuration
-
-- `ConfigureDispatchOptions(Action<PacketDispatchOptions<IPacket>>)`: Configures the `PacketDispatchChannel` options, including middleware and custom logic for built-in and custom packet pipelines.
-- `ConfigureDispatch(Func<Action<PacketDispatchOptions<IPacket>>, IPacketDispatch>)`: Configures a custom `IPacketDispatch` implementation by providing a factory that receives the dispatch configuration.
-
-When dispatch is created, the builder applies logging first, then all `ConfigureDispatchOptions(...)` callbacks, then resolved handler registrations.
-
-
-### Server Bindings
-
-The `Nalix.Hosting` namespace provides a built-in `DefaultProtocol` that can be used instead of creating a custom protocol class. Use `.ListenTcp<DefaultProtocol>().Bind()` for simple scenarios where custom protocol logic is not needed.
-
-- `ListenTcp<TProtocol>().Bind()`: Registers a TCP server for the specified protocol using the configured `NetworkSocketOptions.Port`.
-- `ListenTcp<TProtocol>().WithFactory(factory).Bind()`: Registers a TCP server with a custom protocol factory.
-- `ListenTcp<TProtocol>().OnPort(port).Bind()`: Registers a TCP server for an explicit port, overriding the socket option for that binding.
-- `ListenTcp<TProtocol>().OnPort(port).WithFactory(factory).Bind()`: Registers an explicit-port TCP server with a custom protocol factory.
-- `ListenUdp<TProtocol>().Bind()`: Registers a UDP server for the specified protocol using the configured `NetworkSocketOptions.Port`.
-- `ListenUdp<TProtocol>().WithAuthentication(authen).Bind()`: Registers a UDP server with a custom authentication predicate.
-- `ListenUdp<TProtocol>().WithFactory(factory).Bind()`: Registers a UDP server with a custom protocol factory.
-- `ListenUdp<TProtocol>().WithFactory(factory).WithAuthentication(authen).Bind()`: Registers a UDP server with both a custom factory and an authentication predicate.
-- `ListenUdp<TProtocol>().OnPort(port).Bind()`: Registers a UDP server for an explicit port.
-- `ListenUdp<TProtocol>().OnPort(port).WithAuthentication(authen).Bind()`: Registers an explicit-port UDP server with an authentication predicate.
-- `ListenUdp<TProtocol>().OnPort(port).WithFactory(factory).Bind()`: Registers an explicit-port UDP server with a custom protocol factory.
-- `ListenUdp<TProtocol>().OnPort(port).WithFactory(factory).WithAuthentication(authen).Bind()`: Registers an explicit-port UDP server with both a custom factory and authentication predicate.
-- `ListenWebSocket<TProtocol>().Bind()`: Registers a WebSocket server for the specified protocol using the configured `NetworkWebSocketOptions.Port` and `NetworkWebSocketOptions.Path`.
-- `ListenWebSocket<TProtocol>().OnPort(port).Bind()`: Registers a WebSocket server on an explicit port, overriding the default.
-- `ListenWebSocket<TProtocol>().WithPath(path).Bind()`: Registers a WebSocket server with an explicit HTTP path prefix (e.g. `"/nalix"`), overriding the default.
-- `ListenWebSocket<TProtocol>().WithFactory(factory).Bind()`: Registers a WebSocket server with a custom protocol factory.
-
-Protocol types can expose a constructor that accepts `IPacketDispatch`; otherwise the builder uses the default activator path.
-
-## Basic usage
+## `NetworkApplication` Reference
 
 ```csharp
-var app = NetworkApplication.CreateBuilder()
-    .UseLogger(logger)
-    .UseConnectionHub(new ConnectionHub())
-    .UseBufferPoolManager(new BufferPoolManager())
-    .Configure<NetworkSocketOptions>(options =>
-    {
-        options.Port = 57206;
-    })
-    .MapHandlers<SampleHandlers>()
-    .ListenTcp<SampleProtocol>().Bind()
-    .Build();
+public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable
+{
+    public static NetworkApplicationBuilder CreateBuilder();
+    public static NetworkApplication CreateMinimal(ushort? port = null);
 
-await app.RunAsync(cancellationToken);
+    public Task RunAsync(CancellationToken cancellationToken = default);
+    public Task ActivateAsync(CancellationToken cancellationToken = default);
+    public Task DeactivateAsync(CancellationToken cancellationToken = default);
+    public ValueTask DisposeAsync();
+    public void Dispose();
+}
 ```
 
-## Zero-allocation receive checklist
+### Method Details
 
-To keep message reading allocation-free on the server hot path:
+| Method | Description |
+| :--- | :--- |
+| `CreateBuilder()` | Creates a new `NetworkApplicationBuilder` initialized with an empty `HostingBuilderContext`. |
+| `CreateMinimal(ushort? port = null)` | Creates a ready-to-run `NetworkApplication` bound to `MapTcp<DefaultProtocol>()` on `port` (or `NetworkSocketOptions.Port` when `null`). Note: runtime assembly scanning is omitted for Native AOT safety; handlers are resolved via the compile-time `PacketHandlerRegistry` or `MapHandlers<T>()`. |
+| `ActivateAsync(CancellationToken)` | Acquires the lifecycle gate, invokes `PrepareCallbacks` (registering `ILogger`, `IConnectionHub`, `IConnectionGuard`, `IBufferPoolManager`, and `IObjectPoolManager`), creates and activates `IPacketDispatch`, constructs each bound listener (`TcpServerListener`, `UdpServerListener`, `UdpPassthroughListener`, `WebSocketServerListener`), registers them in `ReportRegistry`, and activates them. Rolls back partial activation on failure. |
+| `RunAsync(CancellationToken)` | Calls `ActivateAsync(cancellationToken)`, awaits `Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)`, and guarantees `DeactivateAsync(CancellationToken.None)` in a `finally` block. |
+| `DeactivateAsync(CancellationToken)` | Deactivates and disposes all listeners in reverse registration order, disposes all protocols in reverse order, deactivates `IPacketDispatch`, and awaits `TaskManager.WaitGroupAsync("net/*", ct)` and `WaitGroupAsync("time/*", ct)` so no background workers leak across restarts. |
+| `DisposeAsync()` / `Dispose()` | Idempotently invokes `DeactivateAsync(CancellationToken.None)` and disposes the internal `SemaphoreSlim` gate. |
 
-- register a `BufferPoolManager` with `UseBufferPoolManager(...)` (or let the builder create one)
-- keep protocol `ProcessMessage(...)` lease-based (`args.Lease`) and forward directly to dispatch
-- avoid copying raw payload into new `byte[]` in middleware/protocol unless required by business logic
+---
+
+## `INetworkApplicationBuilder` Reference
+
+### Core Builder Methods
+
+| Method | Description |
+| :--- | :--- |
+| `Configure<TOptions>(Action<TOptions>)` | Queues a configuration mutator for `TOptions : ConfigurationLoader, new()`. During `Build()`, resolves `ConfigurationManager.Instance.Get<TOptions>()`, runs the delegate, calls `Validate()` if `TOptions` implements `IValidatableConfiguration`, and marks the option type as manually configured. |
+| `ConfigureDispatchOptions(Action<PacketDispatchOptions<IPacket>>)` | Registers a callback to configure middleware, rate limiters, handler result stages, or custom error handling on [PacketDispatchOptions&lt;IPacket&gt;](../options/runtime/packet-dispatch-options.md). |
+| `ConfigureDispatch(Func<Action<PacketDispatchOptions<IPacket>>, IPacketDispatch>)` | Replaces the default `PacketDispatchChannel` with a custom `IPacketDispatch` implementation (e.g., synchronous `PacketRouter`). |
+| `UseLogger(ILogger)` | Registers `logger` into `InstanceManager` immediately and attaches the internal `DiagnosticChannel` event listener. |
+| `UseConnectionHub(IConnectionHub)` | Registers a custom `IConnectionHub` (and `IConnectionBroadcaster` if implemented). When omitted, a default `ConnectionHub` is created during `ActivateAsync`. |
+| `UseConnectionGuard(IConnectionGuard)` | Registers a custom `IConnectionGuard` (and `IProofOfWorkPolicy` if implemented). When omitted, a default `ConnectionGuard` is created during `ActivateAsync`. |
+| `UseBufferPoolManager(IBufferPoolManager)` | Registers a custom `IBufferPoolManager` and binds `BufferLease.ByteArrayPool`. |
+| `UseObjectPoolManager(IObjectPoolManager)` | Registers a custom `IObjectPoolManager` and configures `BufferLease`, `PacketRegistry`, and `ObjectPoolManager`. |
+| `RegisterScoped<TService>(Func<IPacketScope, TService>)` | Registers a per-packet scoped service factory (`where TService : class`) in `ScopedServiceRegistry.Instance` for `[FromScope]` handler parameters. |
+| `MapHandlers<THandler>()` | Validates and registers a `[PacketController]` class constructed via `InstanceManager.Instance.CreateInstanceWithInjection(typeof(THandler))`. |
+| `MapHandlers<THandler>(Func<THandler>)` | Validates and registers a `[PacketController]` class constructed via an explicit factory delegate. |
+| `MapHandlers(Type)` | Validates and registers a `[PacketController]` type directly (supports static handler classes). |
+| `MapTcp<TProtocol>()` | Begins a fluent TCP listener binding (`IProtocolBindingBuilder`) for `TProtocol : class, IProtocol`. |
+| `MapUdp<TProtocol>()` | Begins a fluent UDP listener binding (`IProtocolBindingBuilder`) for `TProtocol : class, IProtocol`. |
+| `MapWebSocket<TProtocol>()` | Begins a fluent WebSocket listener binding ([IWebSocketBindingBuilder](./websocket-binding.md)) for `TProtocol : class, IProtocol`. |
+| `Build()` | Applies options, registers the compile-time packet registry, and returns a configured `NetworkApplication`. |
+
+:::warning[Obsolete Binding Methods]
+`ListenTcp<TProtocol>()`, `ListenUdp<TProtocol>()`, and `ListenWebSocket<TProtocol>()` are marked `[Obsolete]` in `INetworkApplicationBuilder`. Always use `MapTcp<TProtocol>()`, `MapUdp<TProtocol>()`, and `MapWebSocket<TProtocol>()` in new code.
+:::
+
+---
+
+## Feature Extension Methods (`NetworkApplicationBuilderExtensions`)
+
+`Nalix.Hosting` provides opt-in extension methods on `INetworkApplicationBuilder` for built-in runtime subsystems:
+
+| Extension Method | Registered Handlers & Services |
+| :--- | :--- |
+| `UseTimeSync()` | Maps `SystemTimeSyncHandlers` (`ControlType.TIMESYNCREQUEST`). |
+| `UseSystemControl()` | Idempotently maps `SystemControlHandlers` (`PING`, `DISCONNECT`, `CIPHER_UPDATE`, `PUBLIC_KEY_REQUEST`, etc.). |
+| `UseSecureConnections(string? certificatePath = null)` | Registers `FileCertificateStore` as `ICertificateStore` (if none exists), idempotently maps `HandshakeHandlers`, `ProofOfWorkHandlers`, and `SystemControlHandlers`, and initializes the static X25519 server certificate (`HandshakeHandlers.SetCertificatePath(certificatePath)` or `HandshakeHandlers.Initialize()`). |
+| `UseSessions()` | Maps `SessionHandlers` and calls `ServiceRegistrar.RegisterSessions()` to register `ISessionService` (`SessionService`) and `SessionPersistenceObserver`. |
+| `UseGroups()` | Calls `ServiceRegistrar.RegisterGroups()` to register `IConnectionGroupRegistry` (`InMemoryGroupStore`) and `GroupMembershipObserver`. |
+| `UseSessionService(SessionService)` | Registers a custom `SessionService` instance as `ISessionService`. |
+| `UseSessionStore(ISessionStore)` | Registers a custom `ISessionStore` backing store (e.g., Redis) for `SessionService`. |
+| `UseSessionFactory(ISessionFactory)` | Registers a custom `ISessionFactory` for `SessionService`. |
+
+---
+
+## `IProtocolBindingBuilder` Reference (TCP & UDP)
+
+`MapTcp<TProtocol>()` and `MapUdp<TProtocol>()` return an `IProtocolBindingBuilder`:
+
+```csharp
+public interface IProtocolBindingBuilder
+{
+    IProtocolBindingBuilder OnPort(ushort port);
+    IProtocolBindingBuilder WithMode(OperatingMode mode);
+    IProtocolBindingBuilder WithFactory(Func<IPacketDispatch, IProtocol> factory);
+    IProtocolBindingBuilder WithAuthentication(Func<IConnection, EndPoint, ReadOnlySpan<byte>, bool> authen);
+    INetworkApplicationBuilder Bind();
+}
+```
+
+| Method | Applies To | Description |
+| :--- | :--- | :--- |
+| `OnPort(ushort port)` | TCP & UDP | Overrides `NetworkSocketOptions.Port` (`57206`) for this specific listener binding. |
+| `WithFactory(Func<IPacketDispatch, IProtocol>)` | TCP & UDP | Supplies a custom factory to instantiate `TProtocol`. When omitted, `NetworkApplicationBuilder` automatically resolves constructors matching `(ILogger, IPacketDispatch)`, `(IPacketDispatch, ILogger)`, `(IPacketDispatch)`, or `()`. |
+| `WithMode(OperatingMode mode)` | UDP only | Selects `OperatingMode.Server` (`0`, default authenticated `UdpListenerBase`) or `OperatingMode.Passthrough` (`1`, raw `UdpPassthroughListener` without Nalix session/MAC framing). |
+| `WithAuthentication(Func<IConnection, EndPoint, ReadOnlySpan<byte>, bool>)` | UDP (`Server` mode) | Supplies a custom datagram authentication predicate for `UdpServerListener`. Throws `InvalidOperationException` if combined with `OperatingMode.Passthrough`. |
+| `Bind()` | TCP & UDP | Finalizes the binding and returns the parent `INetworkApplicationBuilder`. |
+
+---
+
+## `DefaultProtocol` Reference
+
+For applications that route all frames directly into `IPacketDispatch` without custom protocol-level state machines, `Nalix.Hosting.Protocols.DefaultProtocol` eliminates the need to write a custom `Protocol` subclass:
+
+```csharp
+[Injectable]
+public sealed class DefaultProtocol : Protocol
+{
+    public DefaultProtocol(ILogger logger, IPacketDispatch dispatch);
+    public override IFrameProcessor FrameProcessor { get; }
+    public override IOpCodeExtractor OpCodeExtractor { get; }
+    public override void ProcessMessage(object? sender, IConnectionEventArgs args);
+}
+```
+
+- Sets `IsAccepting = true` and `KeepConnectionOpen = true` on construction.
+- Uses `DefaultFrameProcessor` and `DefaultOpCodeExtractor` (reading `payload.AsHeaderRef().OpCode` from `PacketHeader`).
+- Forwards `args.Lease` and `args.Connection` directly to `_dispatch.HandlePacket(args.Lease, args.Connection)`.
+
+---
+
+## Production Usage Example
+
+```csharp
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Nalix.Hosting;
+using Nalix.Hosting.Protocols;
+using Nalix.Network.Options;
+using Nalix.Runtime.Middleware;
+
+public static class Program
+{
+    public static async Task Main(string[] args)
+    {
+        using ILoggerFactory loggerFactory = LoggerFactory.Create(b => b.AddConsole());
+        ILogger logger = loggerFactory.CreateLogger("GameServer");
+
+        await using NetworkApplication app = NetworkApplication.CreateBuilder()
+            .UseLogger(logger)
+            .Configure<NetworkSocketOptions>(opt =>
+            {
+                opt.Port = 57206;
+                opt.EnableDualStack = true;
+            })
+            .UseSecureConnections()
+            .UseSessions()
+            .UseGroups()
+            .UseTimeSync()
+            .ConfigureDispatchOptions(dispatch =>
+            {
+                dispatch.WithMiddleware(new TokenBucketMiddleware());
+            })
+            .MapHandlers<PlayerController>()
+            .MapTcp<DefaultProtocol>().OnPort(57206).Bind()
+            .MapUdp<DefaultProtocol>().OnPort(57206).Bind()
+            .Build();
+
+        using CancellationTokenSource cts = new();
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true;
+            cts.Cancel();
+        };
+
+        await app.RunAsync(cts.Token);
+    }
+}
+```
 
 ## Related APIs
 
-- [Nalix.Hosting package overview](../../packages/nalix-hosting.md)
+- [WebSocket Hosting Binding](./websocket-binding.md)
+- [Hosting Options](../options/hosting/hosting-options.md)
 - [Protocol](../network/protocol.md)
 - [TCP Listener](../network/tcp-listener.md)
 - [UDP Listener](../network/udp-listener.md)
-- [Packet Dispatch](../runtime/routing/packet-dispatch.md)
-- [Packet Registry](../codec/packets/packet-registry.md)
-- [Configuration](../environment/configuration.md)
-- [Instance Manager (DI)](../framework/instance-manager.md)
+- [Packet Dispatch Channel & Router](../runtime/routing/dispatch-channel-and-router.md)
+- [Packet Dispatch Options](../options/runtime/packet-dispatch-options.md)

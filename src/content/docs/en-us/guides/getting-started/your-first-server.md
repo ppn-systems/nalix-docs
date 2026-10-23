@@ -32,7 +32,7 @@ Full source: `samples/HelloWorld/README.md`
 
 See the packet definition in [Quick Start §2](../../quickstart.md#2-define-the-packets).
 
-`[Packet]` registers the type so Nalix can look it up by opcode at runtime. `[GenerateFormatter]` generates the binary reader/writer for you at compile time — you never hand-write serialization code. `StaticOpCode` is the number that identifies this packet type on the wire; pick any value that doesn't collide with another packet in your project.
+`[GenerateFormatter]` instructs the Nalix Roslyn source generator to emit a zero-reflection binary serializer and a `[ModuleInitializer]` (`PacketRegistryGenerator`) that automatically registers the packet in `PacketRegistry` at startup. `StaticOpCode` (`IPacketStaticOpcode`) is the 16-bit number that identifies this packet type on the wire; pick any value `>= 0x0100` (such as `0x7001`) that doesn't collide with another packet in your project (`0x0000..0x00FF` are reserved for built-in system frames, enforced by analyzer `NALIX035`). `PacketBase<TSelf>` provides the 6-byte wire header (`OpCode`, `Flags`, `Priority`, `SequenceId`) at `[SerializeOrder(0..3)]`, so payload properties start at `PacketHeaderOffset.Region` (`4`) or higher.
 
 ## Handlers respond to one opcode each
 
@@ -44,7 +44,7 @@ See the handler in [Quick Start §3](../../quickstart.md#3-write-the-server).
 
 See the builder chain in [Quick Start §3](../../quickstart.md#3-write-the-server).
 
-`MapHandlers` registers your handler class. `ListenTcp<DefaultProtocol>().OnPort(...).Bind()` opens a TCP listener using the built-in protocol — you only need a custom protocol if you're doing something unusual with raw frames. `RunAsync` blocks until the cancellation token fires (here, on Ctrl+C).
+`MapHandlers` registers your handler class. `MapTcp<DefaultProtocol>().OnPort(...).Bind()` opens a TCP listener using the built-in protocol — you only need a custom protocol if you're doing something unusual with raw frames. `RunAsync` blocks until the cancellation token fires (here, on Ctrl+C).
 
 ## The client sends and awaits a typed reply
 

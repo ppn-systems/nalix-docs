@@ -1,6 +1,6 @@
 ---
 title: API Reference
-description: Nalix API documentation is organized by package boundary and runtime responsibility so you can move from contracts (Nalix.Abstractions) to execution (Nalix.Runtime, Nalix.Networ...
+description: Nalix API documentation organized by package boundary — from contracts (Nalix.Abstractions) and primitives (Nalix.Environment, Nalix.Codec) to server execution (Nalix.Runtime, Nalix.Network, Nalix.Hosting) and client sessions (Nalix.SDK).
 section: API Reference
 ---
 
@@ -25,11 +25,16 @@ or explore the [Guides](../guides/index.md) first.
 ## Source Mapping
 
 - `src/Nalix.Abstractions`
+- `src/Nalix.Environment`
+- `src/Nalix.Codec`
 - `src/Nalix.Framework`
 - `src/Nalix.Runtime`
 - `src/Nalix.Network`
 - `src/Nalix.Hosting`
 - `src/Nalix.SDK`
+- `analyzers/Nalix.Analyzers`
+- `analyzers/Nalix.Analyzers.CodeFix`
+- `analyzers/Nalix.Analyzers.CodeGen`
 
 ## Why This Structure Exists
 

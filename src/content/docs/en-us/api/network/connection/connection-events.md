@@ -1,104 +1,90 @@
 ---
 title: Connection Events
-description: In Nalix, network events are orchestrated through a high-performance, dual-lane callback system. This system ensures that critical operations (like disconnects) are never delaye...
+description: Reference for ConnectionEventArgs and the multi-lane AsyncCallback dispatcher in Nalix.Network.
 section: API Reference
 package: Nalix.Network
 ---
 
-In Nalix, network events are orchestrated through a high-performance, dual-lane callback system. This system ensures that critical operations (like disconnects) are never delayed by a flood of regular traffic.
+**Namespace:** `Nalix.Network.Connections`  
+**Assembly:** `Nalix.Network`
+
+Network events on `IConnection` (`MessageProcessing`, `MessageProcessed`, and `ConnectionClosed`) are carried by pooled `ConnectionEventArgs` instances and scheduled through the internal `AsyncCallback` multi-lane dispatcher (`CallbackLane.Process`, `CallbackLane.Post`, and `InvokeHighPriority`).
 
 ## Source Mapping
 
+- `src/Nalix.Abstractions/Networking/IConnectionEventArgs.cs`
 - `src/Nalix.Network/Connections/Connection.EventArgs.cs`
+- `src/Nalix.Network/Connections/Connection.cs`
 - `src/Nalix.Network/Internal/Transport/AsyncCallback.cs`
+- `src/Nalix.Network/Options/NetworkCallbackOptions.cs`
 
 ## Event Execution Pipeline
 
-The following diagram illustrates how event arguments are pooled and dispatched across the two processing lanes.
-
 ```mermaid
 sequenceDiagram
-    participant S as Transport (Socket)
-    participant AC as AsyncCallback (Dispatcher)
-    participant P as ObjectPool
+    participant S as SocketConnection / UdpListenerBase
+    participant C as Connection (LocalPool)
+    participant AC as AsyncCallback
     participant TP as ThreadPool
-    participant H as Application Handler
+    participant H as Protocol / Event Handler
 
-    S->>P: Rent ConnectionEventArgs & Context
-    S->>AC: Invoke(Normal) or InvokeHighPriority()
-    
-    alt Normal Priority (OnProcess, OnPostProcess)
-        AC->>AC: Check Global & Per-IP Throttle
-        alt Under Limit
-            AC->>TP: QueueUserWorkItem
-            TP->>H: Invoke EventHandler
-            H-->>TP: Return
-            TP->>S: ReleasePendingPacket()
-            TP->>P: Return Context & Args
-        else Throttled
-            AC->>S: ReleasePendingPacket()
-            AC->>P: Return Args (Drop Callback)
+    S->>C: OnFrameReceived(lease) -> AcquireEventArgs() + Initialize(lease, connection)
+    alt AsyncCallback.CanRunInline(MessageProcessing) == true
+        C->>AC: InvokeInline(bridge, sender, args)
+        AC->>H: Raise MessageProcessing synchronously on I/O thread
+        AC->>C: Dispose ConnectionEventArgs
+    else Queued via AsyncCallback.Invoke(CallbackLane.Process / Post)
+        C->>AC: Invoke(bridge, sender, args, CallbackLane.Process)
+        alt Process / Post Lane (Under Global & Per-IP Cap)
+            AC->>TP: UnsafeQueueUserWorkItem(PooledConnectEventContext)
+            TP->>H: Raise MessageProcessing (or MessageProcessed on OnFrameSent)
+            H-->>TP: Complete
+            TP->>C: ReleasePendingPacket() + Dispose ConnectionEventArgs
+        else Throttled (Over Cap)
+            AC->>C: ReleasePendingPacket() + Dispose ConnectionEventArgs
         end
-    else High Priority (OnClose)
-        AC->>TP: QueueUserWorkItem (Immediate)
-        TP->>H: Invoke EventHandler
-        H-->>TP: Return
-        TP->>P: Return Context & Args
     end
 ```
 
-## Internal Responsibilities (Source-Verified)
+## `ConnectionEventArgs` (`public sealed class`)
 
-### 1. Dual-Lane Dispatching
+```csharp
+namespace Nalix.Network.Connections;
 
-Nalix separates callbacks into two distinct lanes to maintain system stability under load:
+public sealed class ConnectionEventArgs : EventArgs, IConnectionEventArgs, IPoolable, IPoolRentable
+{
+    public IBufferLease? Lease { get; }
+    public IConnection Connection { get; }
+    public INetworkEndpoint NetworkEndpoint { get; }
 
-- **Normal Priority**: Handles `OnProcess` and `OnPostProcess` packet events. These are subject to both global caps and per-IP fairness limits.
-- **High Priority**: Handles `OnClose` and `Disconnect` events. These **bypass all backpressure limits**, ensuring that even during a heavy DDoS attack, the system can always release connection resources.
+    public IBufferLease? ExchangeLease([Borrowed] IBufferLease? newLease);
+    public void OnRent();
+    public void ResetForPool();
+    public void Dispose();
+}
+```
 
-:::important[Backpressure Enforcement]
-If the global `MaxPendingNormalCallbacks` limit is reached, Nalix will drop incoming normal-priority callbacks and log a warning. This prevents a "Callback Explosion" from crashing the server process.
+- **`ExchangeLease(newLease)`**: Atomically swaps the underlying `IBufferLease?` (used by `TcpListenerBase` / `WebSocketListenerBase` after `FramePipeline.ProcessInbound` decrypts or decompresses an inbound frame in place) and returns the previous lease so the caller can dispose it.
+- **Two-Tier Pooling**: `Connection` and `WebSocketConnection` maintain an 8-slot lock-free `LocalPool` for `ConnectionEventArgs` and `PooledConnectEventContext`, falling back to `ObjectPoolManager.Shared` when the per-connection local pool is full.
+
+:::warning[Never Retain `ConnectionEventArgs`]
+`ConnectionEventArgs` and its `Lease` are automatically returned to the pool as soon as the event bridge completes (unless ownership of `Lease` was transferred via `Retain()` or `ExchangeLease(null)`). Never store `args` after the handler returns.
 :::
 
-### 2. Per-IP Fairness Tracking
+## Three Dispatch Lanes in `AsyncCallback`
 
-The dispatcher enforces per-IP fairness to prevent a single attacker from monopolizing the global callback quota:
+| Event | `AsyncCallback` Lane | Global Cap | Per-IP Cap | Behavior |
+| :--- | :--- | ---: | ---: | :--- |
+| `MessageProcessing` | `CallbackLane.Process` (or `InvokeInline`) | `MaxPendingNormalCallbacks` (`10,000`) | `MaxPendingPerIp` (`64`) | Decrypts/decompresses frame (`FramePipeline.ProcessInbound`), verifies sequence, and invokes `IProtocol.ProcessMessage`. Executes inline via `AsyncCallback.CanRunInline` / `InvokeInline` when bound to a single `IFrameProcessor { SupportsInlineProcessing: true }` subscriber. |
+| `MessageProcessed` | `CallbackLane.Post` | `MaxPendingPostCallbacks` (`5,000`) | `MaxPendingPostPerIp` (`32`) | Triggered by `Connection.OnFrameSent` when an outbound frame send completes; invokes `IProtocol.PostProcessMessage` (metrics & `KeepConnectionOpen` teardown). |
+| `ConnectionClosed` | `InvokeHighPriority` | Unbounded | Unbounded | Bypasses all normal/post backpressure gates so disconnect cleanup and unregistration never stall under flood conditions. |
 
-- `MaxPendingPerIp`: Maximum normal-priority callbacks pending for a single remote IP (default 64). Callbacks from that IP are dropped individually once exceeded.
-- `FairnessMapSize`: Size of the fixed-size hash-map array used for per-IP tracking (default 4096). Larger values reduce hash collisions.
+### Per-IP Fairness Accounting (`FairnessMapSize = 16384`)
 
-### 3. Zero-Allocation Pooling
+`AsyncCallback` hashes `IConnectionEventArgs.NetworkEndpoint` into fixed-size `long[FairnessMapSize]` arrays (`s_perIpProcessMap` and `s_perIpPostMap`, default `16,384` slots), packing `((long)(uint)hash << 32) | count` into each 64-bit slot to track pending callbacks per remote IP without heap allocations. Slow callbacks exceeding `MaxCallbackExecutionMs` (`50` ms) are counted in `AsyncCallbackMetrics.SlowCallbacks` and logged via throttled diagnostics.
 
-Both `ConnectionEventArgs` and the internal `PooledConnectEventContext` are recyclables.
-
-- **Two-Level Pooling**: `ConnectionEventArgs` are first attempted to be returned to a high-speed **local pool** on the `Connection` instance itself to minimize global lock contention. If the local pool is full, they fallback to the `ObjectPoolManager`.
-- They are rented before being sent to the `ThreadPool`.
-- The normal and high-priority dispatcher paths both clean up in `finally`, while each bridge (`OnProcessEventBridge`, `OnPostProcessEventBridge`) also disposes the args after invoking the subscribed handlers.
-
-:::warning[Handler Safety]
-Because `ConnectionEventArgs` is pooled, **you must not cache or store references to it** outside the scope of the event handler. Any data you need for long-term use should be copied into your own state objects.
-:::
-
-### 4. Lease Reclamation
-
-`ConnectionEventArgs` carries an `IBufferLease` through its `Lease` property.
-
-- For `OnProcess` events, the lease is automatically managed.
-- Once the callback completes throughout the entire pipeline (Normal lane), the dispatcher calls `connection.ReleasePendingPacket()`, which decrements the connection's "pending callback" counter and signals the transport layer that the next packet can be processed.
-
-## Event Summary
-
-| Event | Lane | Subjects | Description |
-| --- | --- | --- | --- |
-| `OnProcessEvent` | Normal | Packets | Logic for initial packet handling and decoding. |
-| `OnPostProcessEvent` | Normal | Cleanup | Non-critical follow-up logic after processing. |
-| `OnCloseEvent` | **High** | Lifecycle | Disconnect and resource cleanup logic. |
-
-## Related Information Paths
+## Related APIs
 
 - [Connection](./connection.md)
 - [Socket Connection](../socket-connection.md)
 - [Network Callback Options](../../options/network/network-callback-options.md)
-- [Object Pooling](../../framework/memory/object-pooling.md)
-- [Object Map](../../framework/memory/object-map.md)
-- [Typed Object Pools](../../framework/memory/typed-object-pools.md)

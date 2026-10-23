@@ -162,7 +162,7 @@ public sealed class UserShardProxy : IConnection
     // reuse the SAME object instance for all connections belonging to the same Shard.
     
     // Delegate required members...
-    public ulong ID => PhysicalConnection.ID;
+    public ulong ConnectionId => PhysicalConnection.ConnectionId;
     public INetworkEndpoint NetworkEndpoint => PhysicalConnection.NetworkEndpoint;
     // ... other IConnection members
 }
@@ -171,8 +171,8 @@ public sealed class UserShardProxy : IConnection
 public void RouteToUserShard(IConnection rawConnection, IBufferLease packet)
 {
     // Retrieve the shared proxy instance from your session manager.
-    // Ensure this returns the EXACT SAME instance for the same UserID.
-    var proxy = SessionManager.GetOrCreateUserShard(rawConnection.UserID);
+    // Ensure this returns the EXACT SAME instance for the same UserId.
+    var proxy = SessionManager.GetOrCreateUserShard(rawConnection.UserId!);
     
     // The dispatcher now treats all packets for this 'proxy' instance 
     // as a single sequential stream (Shard).

@@ -10,7 +10,6 @@ A packet is a plain C# class with attributes that tell Nalix how to put it on th
 
 ```csharp
 // samples/HelloWorld/HelloWorld.Contracts/HelloRequestPacket.cs
-[Packet]
 [GenerateFormatter]
 [SerializePackable(SerializeLayout.Explicit)]
 public sealed partial class HelloRequestPacket
@@ -27,9 +26,8 @@ public sealed partial class HelloRequestPacket
 }
 ```
 
-- `[Packet]` registers the type so Nalix can look it up by opcode at runtime.
-- `[GenerateFormatter]` generates the binary reader/writer for this class at compile time — you never hand-write serialization code.
-- `StaticOpCode` is the number that identifies this packet type on the wire. Pick any value that doesn't collide with another packet in your project.
+- `[GenerateFormatter]` generates the binary reader/writer for this class at compile time and registers the packet in `PacketRegistry` via a `[ModuleInitializer]` — you never hand-write serialization code. (Note: `[Packet]` is obsolete (`NAL001`) and no longer required.)
+- `StaticOpCode` (`IPacketStaticOpcode`) is the 16-bit number that identifies this packet type on the wire. Pick any value that doesn't collide with another packet in your project.
 - `[SerializeOrder(n)]` fixes each field's position in the byte stream, starting at 0. Once a packet ships, don't reorder or remove existing `SerializeOrder` values — add new fields with higher numbers instead.
 
 Full source: `samples/HelloWorld/HelloWorld.Contracts/HelloRequestPacket.cs`
@@ -40,7 +38,6 @@ Fixed-size fields like `byte` and `int` are enough for simple packets, but chat 
 
 ```csharp
 // samples/ChatRoom/ChatRoom.Contracts/ChatMessagePacket.cs
-[Packet]
 [GenerateFormatter]
 [SerializePackable(SerializeLayout.Explicit)]
 public sealed partial class ChatMessagePacket : PacketBase<ChatMessagePacket>, IPacketStaticOpcode

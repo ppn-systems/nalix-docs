@@ -10,7 +10,7 @@ Everything here is correct and kept up to date, but it goes deeper than most peo
 
 ## What's here
 
-- **How the pieces fit together**: [Architecture](architecture.md), [Packet Lifecycle](packet-lifecycle.md), [Real-time Engine](real-time-engine.md)
+- **How the pieces fit together**: [Architecture](architecture.md), [Packet Lifecycle](packet-lifecycle.md), [Middleware Pipeline](middleware-pipeline.md), [Configuration Internals](configuration.md), [Real-time Engine](real-time-engine.md)
 - **Wire format and errors**: [Binary Specification](binary-spec.md), [Errors and Diagnostics](errors-and-diagnostics.md)
 - **Security in depth**: [Security Architecture](security-architecture.md), [Encryption Model](encryption-model.md), [Handshake Protocol](handshake-protocol.md), [Session Resumption](session-resumption.md)
 - **Performance and scale**: [Sharding and Concurrency](sharding.md), [Zero-Allocation Path](zero-allocation.md), [Performance Optimizations](performance-optimizations.md)

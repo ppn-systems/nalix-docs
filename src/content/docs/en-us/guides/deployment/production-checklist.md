@@ -44,7 +44,7 @@ Before launch, check:
 - `TcpListenerBase` or `UdpListenerBase` starts cleanly
 - `GenerateReport()` works
 - listen port and backlog are correct
-- `EnableTimeout` and `TimingWheelOptions.IdleTimeoutMs` match your real idle behavior expectations
+- `TimingWheelOptions.IdleTimeoutMs` (and `connection.ExcludeFromIdleTimeout` for exempt connections) match your real idle behavior expectations
 
 ## 4. Dispatch safety
 
@@ -200,7 +200,6 @@ Putting the checklist into practice: a handler with explicit contracts, rate lim
 
 ```csharp
 // samples/HelloWorld/HelloWorld.Contracts/HelloRequestPacket.cs
-[Packet]
 [GenerateFormatter]
 [SerializePackable(SerializeLayout.Explicit)]
 public sealed partial class HelloRequestPacket
@@ -225,7 +224,7 @@ await using NetworkApplication app = NetworkApplication.CreateBuilder()
             .WithErrorHandling((ex, opcode) =>
                 logger.Error($"Unhandled error in opcode 0x{opcode:X4}", ex));
     })
-    .ListenTcp<DefaultProtocol>().OnPort(57206).Bind()
+    .MapTcp<DefaultProtocol>().OnPort(57206).Bind()
     .Build();
 
 await app.RunAsync(cts.Token);

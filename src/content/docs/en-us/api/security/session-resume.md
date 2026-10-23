@@ -57,24 +57,23 @@ sequenceDiagram
 
 ## 4. Implementation Details
 
-### Server Handling Logic
+### Server Handling Logic (`SessionHandlers.HandleAsync`)
 
-When a `SessionResume` request arrives at `SessionHandlers.Handle`:
+When a `SessionResume` (`0x0002`, `SESSION_SIGNAL`) request arrives at `SessionHandlers.HandleAsync`:
 
-1. The incoming packet is validated to ensure the `Stage`, `SessionToken`, and `Proof` fields are structurally sound for a `REQUEST`.
-2. The server extracts the `SessionToken` from the payload.
-3. It resolves and validates a resumable `SessionEntry` through the active `ISessionService`.
-4. It validates `Proof` using `HmacKeccak256` over the 8-byte session token and the stored session secret.
-5. If validation succeeds, the runtime restores the connection's `Secret`, `Algorithm`, `Level`, and saved `Attributes`, then marks `ConnectionAttributes.HandshakeEstablished = true`.
-6. The runtime stores the live connection back into `IConnectionHub.SessionService` via `SaveSessionAsync(...)`, computes a response proof for the new token, and sends a `RESPONSE` with `ProtocolReason.NONE`.
-7. If validation, token lookup, or proof verification fails, the server sends an error reason and disconnects.
+1. The incoming packet is validated to ensure the `Stage` (`SessionResumeStage.REQUEST`), `SessionToken`, and `Proof` fields are structurally sound.
+2. The server calls `ISessionService.ConsumeAsync(packet.SessionToken, entry => ...)` to atomically validate and consume the stored `SessionEntry`.
+3. Inside the predicate, it verifies `Proof` in constant time using `HmacKeccak256.Compute` over the 16-byte buffer `SessionToken (8B LE) || TimeWindow (8B LE, UnixSeconds / 30)` across the `[t - 1, t, t + 1]` time windows (30-second buckets).
+4. If validation succeeds, the runtime restores the connection's `Secret`, `Algorithm`, `Level`, and saved state, and marks the handshake state as established.
+5. The runtime persists the live connection under its new `ConnectionId` (`newToken`) via `ISessionService.SaveSessionAsync(connection)`, computes a server response proof (`HmacKeccak256` over `newToken (8B LE) || TimeWindow (8B LE)`), and sends `SessionResume` (`Stage = RESPONSE`, `SessionToken = newToken`, `Reason = ProtocolReason.NONE`, `Proof = responseProof`).
+6. If validation, token lookup, or proof verification fails, the server sends a `SessionResume` (`Stage = RESPONSE`) with the failure `ProtocolReason` and closes the connection.
 
 ---
 
 ## 5. Security & Operations
 
 - **Token Confidentiality**: While the token is not a replacement for the symmetric secret, it should be treated as sensitive material as it identifies an active session.
-- **Rotation Policy**: Clients must update their local `TransportOptions.SessionToken` immediately upon receiving a successful `RESPONSE`. The SDK already does this in `src/Nalix.SDK/Transport/Extensions/ResumeExtensions.cs`.
+- **Rotation Policy**: Clients must update their local `session.State.SessionToken` immediately upon receiving a successful `RESPONSE`. The SDK already does this in `src/Nalix.SDK/Transport/Extensions/ResumeExtensions.cs`.
 - **Invalidation**: Sessions are invalidated upon explicit disconnect or after the configured session-store TTL (Time-To-Live) expires.
 
 ---

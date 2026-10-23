@@ -1,49 +1,54 @@
 ---
 title: Network Options
-description: Network options represent the "tunable knobs" of the Nalix networking stack. They control everything from raw socket behavior and buffer pooling to administrative limits and sec...
+description: Overview of all configuration option classes in Nalix.Network, Nalix.Runtime, and Nalix.Codec — socket parameters, connection quotas, progressive bans, proxy protocols, and callback backpressure.
 section: API Reference
 package: Nalix.Network / Nalix.Runtime
 ---
 
-Network options represent the "tunable knobs" of the Nalix networking stack. They control everything from raw socket behavior and buffer pooling to administrative limits and security policies.
+**Namespaces:** `Nalix.Network.Options`, `Nalix.Runtime.Options`, `Nalix.Codec.Options`  
+**Assemblies:** `Nalix.Network`, `Nalix.Runtime`, `Nalix.Codec`
+
+Network and runtime option classes inherit from `ConfigurationLoader` and map directly to INI sections in `default.ini` (via `ConfigurationManager.Instance.Get<TOptions>()` or `builder.Configure<TOptions>(...)`).
 
 ## Configuration Topology
 
-The following diagram illustrates how various Options classes map to the core runtime components they configure.
-
 ```mermaid
 flowchart LR
-    subgraph Config[Options Layer]
-        NSO[NetworkSocketOptions]
-        CQO[ConnectionQuotaOptions]
-        CGO[ConnectionGuardOptions]
-        TPO[TrustedProxyOptions]
-        DGO[DatagramGuardOptions]
-        NCO[NetworkCallbackOptions]
-        CHO[ConnectionHubOptions]
-        TWO[TimingWheelOptions]
-        SSO[SessionStoreOptions]
+    subgraph Config["Options Layer"]
+        NSO["NetworkSocketOptions"]
+        NWSO["NetworkWebSocketOptions / ForwardedHeadersOptions"]
+        PPO["ProxyProtocolOptions"]
+        CQO["ConnectionQuotaOptions"]
+        CGO["ConnectionGuardOptions"]
+        TPO["TrustedProxyOptions"]
+        CBSO["ConnectionBanStoreOptions / ConnectionBlacklistStoreOptions"]
+        DGO["DatagramGuardOptions"]
+        NCO["NetworkCallbackOptions"]
+        CHO["ConnectionHubOptions"]
+        TWO["TimingWheelOptions"]
+        SSO["SessionStoreOptions"]
     end
 
-    subgraph Runtime[Runtime Components]
-        SC[SocketConnection]
-        CG[ConnectionGuard]
-        DG[DatagramGuard]
-        AC[AsyncCallback]
-        Hub[ConnectionHub]
-        TW[TimingWheel]
-        SS[SessionService]
+    subgraph Runtime["Runtime Components"]
+        TCP["TcpListenerBase / SocketConnection"]
+        WS["WebSocketListenerBase"]
+        CG["ConnectionGuard"]
+        DG["DatagramGuard"]
+        AC["AsyncCallback"]
+        Hub["ConnectionHub"]
+        TW["TimingWheel"]
+        SS["SessionService"]
     end
 
-    NSO --> SC
-    CGO --> SC
-
+    NSO --> TCP
+    PPO --> TCP
+    NWSO --> WS
     CQO --> CG
     CGO --> CG
     TPO --> CG
+    CBSO --> CG
     DGO --> DG
     NCO --> AC
-
     CHO --> Hub
     TWO --> TW
     SSO --> SS
@@ -51,50 +56,37 @@ flowchart LR
 
 ## Option Ownership Matrix
 
-Nalix uses a modular configuration system. Depending on the packages you have installed, different options become available.
+| Option Type | Namespace / Package | INI Section | Primary Role |
+| :--- | :--- | :--- | :--- |
+| [NetworkSocketOptions](./network-socket-options.md) | `Nalix.Network.Options` | `[NetworkSocket]` | Port (`57206`), backlog (`512`), dual-stack IPv6 (`EnableDualStack = true`), buffers (`65536`), accept parallelism, and UDP datagram cap (`1440`). |
+| `NetworkWebSocketOptions` | `Nalix.Network.Options` | `[NetworkWebSocket]` | WebSocket port (`57207`), path (`"/ws/"`), subprotocol (`"nalix.v1"`), DevOps endpoints (`/healthz`, `/version`, `/metrics`), and CSWSH `AllowedOrigins`. |
+| `ProxyProtocolOptions` | `Nalix.Network.Options` | `[ProxyProtocol]` | HAProxy / AWS NLB PROXY Protocol v1/v2 real client IP extraction (`Enabled`, `RequireTrustedProxy`, `HeaderTimeoutMs = 2000`, `MaxPendingProxyConnections = 1024`). |
+| `ForwardedHeadersOptions` | `Nalix.Network.Options` | `[ForwardedHeaders]` | L7 HTTP proxy header (`CF-Connecting-IP`, `X-Forwarded-For`) parsing for `WebSocketListenerBase`. |
+| `VarIntFramingOptions` | `Nalix.Network.Options` | `[VarIntFraming]` | Maximum VarInt-framed payload size (`MaxPayloadSize = 131_072`). |
+| [ConnectionQuotaOptions](./connection-quota-options.md) | `Nalix.Network.Options` | `[ConnectionQuota]` | Per-IP (`10`) and per-subnet (`50`) concurrency caps, rate windows (`5s`), burst detection, and adaptive Proof-of-Work (`AdaptivePowMinDifficulty = 12`). |
+| [ConnectionGuardOptions](./connection-guard-options.md) | `Nalix.Network.Options` | `[ConnectionGuard]` | Global connection ceiling (`MaxConnections = 2000`), progressive banning (`EnableProgressiveBanning = true`), error threshold (`50`), and UDP packet rate (`128` pkt/s). |
+| [TrustedProxyOptions](./trusted-proxy-options.md) | `Nalix.Network.Options` | `[TrustedProxy]` | Trusted reverse proxy / CDN allowlist (`"trusted_proxies.txt"`) and elevated connection ceilings (`5000`). |
+| [ConnectionBanStoreOptions](./connection-ban-store-options.md) | `Nalix.Network.Options` | `[ConnectionBanStore]` | Disk persistence (`"banned_ips.bin"`) and 7-day decay window for dynamic IP bans. |
+| [ConnectionBlacklistStoreOptions](./connection-blacklist-store-options.md) | `Nalix.Network.Options` | `[ConnectionBlacklistStore]` | Permanent IP/CIDR blocklist loaded from `"blacklist.txt"`. |
+| `DatagramGuardOptions` | `Nalix.Network.Options` | `[DatagramGuard]` | Bounded IPv4 (`65,536`) / IPv6 (`16,384`) UDP source windows and replay window size (`UdpReplayWindowSize = 512` bits). |
+| [ConnectionHubOptions](./connection-hub-options.md) | `Nalix.Network.Options` | `[ConnectionHub]` | Shard count (`max(1, ProcessorCount)`), broadcast batching, bulk disconnect parallelism, and latency logging. |
+| [TimingWheelOptions](./timing-wheel-options.md) | `Nalix.Network.Options` | `[TimingWheel]` | Bucket count (`512`), tick interval (`1000` ms), and connection idle timeout (`60,000` ms). |
+| [NetworkCallbackOptions](./network-callback-options.md) | `Nalix.Network.Options` | `[NetworkCallback]` | Per-connection pending packet cap (`16`), `OverflowPolicy`, global/per-IP callback caps (`10,000` / `64`), and `FairnessMapSize` (`16,384`). |
+| [SessionStoreOptions](./session-store-options.md) | `Nalix.Runtime.Options` | `[SessionStore]` | Disconnected session resume TTL (`SessionTtl = 5m`) and `MinAttributesForPersistence` (`10`). |
+| [CompressionOptions](./compression-options.md) | `Nalix.Codec.Options` | `[Compression]` | Outbound LZ4 compression threshold (`MinSizeToCompress = 512`) and inbound zip-bomb guard (`MaxDecompressedSize = 32 MB`). |
+| [TokenBucketOptions](./token-bucket-options.md) | `Nalix.Runtime.Options` | `[TokenBucket]` | Sharded micro-token rate limiter burst/refill settings (`CapacityTokens = 64`, `RefillTokensPerSecond = 32.0`). |
+| [DirectiveGuardOptions](./directive-guard-options.md) | `Nalix.Runtime.Options` | `[DirectiveGuard]` | Per-connection cooldown (`DefaultCooldownMs = 1000`) suppressing repeated failure directives. |
 
-| Option type | Package | Primary Role | Tuning Impact |
-| --- | --- | --- | --- |
-| `NetworkSocketOptions` | `Nalix.Network` | Low-level OS socket settings. | Throughput / Latency |
-| `ConnectionQuotaOptions` | `Nalix.Network` | Per-IP concurrent connection caps and window-based rate limits. | Security |
-| `ConnectionGuardOptions` | `Nalix.Network` | Global connection ceiling, ban duration, packet rate limit, and error thresholds. | Security |
-| `TrustedProxyOptions` | `Nalix.Network` | Trusted reverse proxy / CDN definitions and customized limits. | Security |
-| `ProxyProtocolOptions` | `Nalix.Network` | PROXY Protocol v1/v2 parsing for real client IP behind load balancers. | Security |
-| `DatagramGuardOptions` | `Nalix.Network` | Bounded UDP source-window tracking. | Security / Memory |
-| `ConnectionHubOptions` | `Nalix.Network` | Hub sharding and total capacity. | Concurrency |
-| `TimingWheelOptions` | `Nalix.Network` | Idle cleanup granularity. | CPU Overhead |
-| `NetworkCallbackOptions` | `Nalix.Network` | ThreadPool dispatch pressure. | Stability |
-| `SessionStoreOptions` | `Nalix.Runtime` | Token TTL and persistence. | Reliability |
-| `DispatchOptions` | `Nalix.Runtime` | Internal message routing. | Parallelism |
-| `CompressionOptions` | `Nalix.Codec` | LZ4 threshold settings. | Bandwidth |
-| `TokenBucketOptions` | `Nalix.Runtime` | Token-bucket traffic shaping. | QoS |
-| `ConcurrencyOptions` | `Nalix.Runtime` | Global concurrency gate and circuit-breaker thresholds. | Resilience |
-| `DirectiveGuardOptions` | `Nalix.Runtime` | Inbound directive cooldown suppression. | Anti-spam |
+## VarInt Framing Configuration (`VarIntFramingOptions`)
 
-## Internal Guidelines (Source-Verified)
+`VarIntFramingOptions` (`src/Nalix.Network/Options/VarIntFramingOptions.cs`) maps to the `[VarIntFraming]` section in `default.ini` and configures maximum frame size for protocols using LEB128 VarInt length-prefixed framing (`TransportFraming.VarInt`, such as Minecraft-compatible streams):
 
-### 1. Hub Sharding
+| Property | Type | Default | Description |
+| :--- | :--- | ---: | :--- |
+| `MaxPayloadSize` | `int` | `131_072` (128 KB) | Maximum allowed payload size in bytes for a VarInt-framed packet. Connections sending frames larger than this limit are disconnected immediately. |
 
-`ConnectionHubOptions.ShardCount` defaults to `max(1, Environment.ProcessorCount)` and must be at least `1`. It controls how many internal connection dictionary shards the hub uses to reduce contention during registration, lookup, broadcast, and disconnect operations.
-
-### 2. Callback Backpressure
-
-`NetworkCallbackOptions.MaxPendingNormalCallbacks` acts as the server's circuit breaker. If Nalix cannot keep up with the incoming packet rate, it will drop callbacks rather than allowing the `ThreadPool` queue to grow indefinitely, preventing an "Out of Memory" event.
-
-### 3. Startup Validation
-
-Many network/runtime option types in the current source tree expose a `Validate()` method, including `NetworkSocketOptions`, `ConnectionQuotaOptions`, `ConnectionGuardOptions`, `TrustedProxyOptions`, `DatagramGuardOptions`, `DispatchOptions`, `ConcurrencyOptions`, and `DirectiveGuardOptions`.
-
-Do not assume every Nalix option type has a validation method. Validate the specific option class you are using when the type actually exposes one.
-
-:::tip[Operational Recommendation]
-In production deployments, prioritize tuning `NetworkCallbackOptions`, `ConnectionQuotaOptions`, and `ConnectionGuardOptions` first. These provide the highest protection against noisy or malicious traffic.
-:::
-
-## Related Information Paths
+## Related APIs
 
 - [Configuration System](../../environment/configuration.md)
-- [Instance Manager (DI)](../../framework/instance-manager.md)
-- [TCP Listener](../../network/tcp-listener.md)
-- [UDP Listener](../../network/udp-listener.md)
-- [Connection Hub](../../network/connection/connection-hub.md)
+- [Network Overview](../../network/index.md)
+- [Runtime Overview](../../runtime/index.md)

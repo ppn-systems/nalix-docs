@@ -1,17 +1,18 @@
 ---
 title: Frame Reader and Sender
-description: FrameReader and FrameSender abstractions are the internal workhorses of the Nalix.SDK transport layer. To support multiple underlying protocols, these responsibilities are split...
+description: Reference for internal TCP, UDP, and WebSocket frame readers and senders in Nalix.SDK.Transport.Internal — framing, fragmentation, MAC envelopes, and sequence counters.
 section: API Reference
 package: Nalix.SDK
 ---
 
-`FrameReader` and `FrameSender` abstractions are the internal workhorses of the `Nalix.SDK` transport layer. To support multiple underlying protocols, these responsibilities are split into specialized pairs:
+**Namespaces:** `Nalix.SDK.Transport.Internal`, `Nalix.Environment.Sequencing`  
+**Assembly:** `Nalix.SDK`
 
-- **TCP**: `TcpFrameReader` and `TcpFrameSender`
-- **UDP**: `UdpFrameReader` and `UdpFrameSender`
-- **WebSocket**: `WsFrameReader` and `WsFrameSender`
+Each concrete session in `Nalix.SDK` delegates low-level wire I/O, fragmentation, `FramePipeline` transforms (LZ4 compression and AEAD encryption), and replay window validation to an internal reader/sender pair plus a lock-free `SequenceCounter`.
 
-They manage the low-level serialization of frames, socket I/O, sequence tracking, and payload transformations, abstracting these complexities away from high-level sessions.
+:::warning[Internal Transport Machinery]
+`TcpFrameReader`, `TcpFrameSender`, `UdpFrameReader`, `UdpFrameSender`, `WsFrameReader`, and `WsFrameSender` are `internal sealed` types. Application code interacts with them through [TcpSession](./tcp-session.md), [UdpSession](./udp-session.md), and [WebSocketSession](./websocket-session.md).
+:::
 
 ## Source Mapping
 
@@ -21,53 +22,44 @@ They manage the low-level serialization of frames, socket I/O, sequence tracking
 - `src/Nalix.SDK/Transport/Internal/Udp/UdpFrameSender.cs`
 - `src/Nalix.SDK/Transport/Internal/Ws/WsFrameReader.cs`
 - `src/Nalix.SDK/Transport/Internal/Ws/WsFrameSender.cs`
+- `src/Nalix.Environment/Sequencing/SequenceCounter.cs`
 
----
+## Transport Framing Comparison
 
-## 1. TCP Framers (`TcpFrameReader` & `TcpFrameSender`)
+| Transport | Reader / Sender | Wire Framing | Fragmentation | Replay / Sequence Protection |
+| :--- | :--- | :--- | :--- | :--- |
+| **TCP** (`TcpSession`) | `TcpFrameReader` / `TcpFrameSender` | 2-byte little-endian `ushort` total frame length prefix (`HeaderSize = 2`) | Outbound `FragmentHeader` chunking (`>= MaxChunkSize`) / Inbound `FragmentAssembler` | `SequenceCounter.IsValid(seq, TcpWindow)` (`1024`-bit sliding window) |
+| **UDP** (`UdpSession`) | `UdpFrameReader` / `UdpFrameSender` | `[8B SessionToken (outbound)][Payload][4B XxHash32 MAC]` (`<= MaxUdpDatagramSize`) | None (single datagram MTU guard) | `SequenceCounter.IsValid(seq, UdpWindow)` (`512`-bit sliding window) |
+| **WebSocket** (`WebSocketSession`) | `WsFrameReader` / `WsFrameSender` | `WebSocketMessageType.Binary` (`EndOfMessage` frames) | Inbound `FragmentAssembler` (outbound sends complete binary WebSocket messages directly) | `SequenceCounter.IsValid(seq, TcpWindow)` (`1024`-bit sliding window) |
 
-TCP is a streaming protocol and does not maintain message boundaries natively. The TCP framers handle:
+## Outbound & Inbound Transform Pipeline
 
-- **2-Byte Length Prefixing**: Prepend a 2-byte little-endian `ushort` representing the payload size.
-- **Exact Reads**: The reader performs loops of `Socket.ReceiveAsync` until the required header or payload size is fully filled to avoid corruption from partial packets.
-- **Segmentation and Reassembly**: Automatically splits outgoing frames larger than the maximum chunk size into fragment streams and reassembles them on the receiver using the `FragmentAssembler`.
-- **Write Serialization**: Writes are synchronized via a `SemaphoreSlim` to prevent concurrent writes from interleaving bytes on the stream.
+```mermaid
+flowchart LR
+    subgraph Outbound["Outbound (Tcp/Udp/WsFrameSender)"]
+        P1["Serialized BufferLease"] --> P2["FramePipeline.ProcessOutbound<br/>(LZ4 Compress -> AEAD Encrypt with SequenceCounter.Next())"]
+        P2 --> P3["FragmentHeader Chunking (TCP if >= MaxChunkSize)<br/>or 8B Token + 4B XxHash32 MAC (UDP)"]
+        P3 --> P4["Socket / ClientWebSocket Send"]
+    end
 
----
+    subgraph Inbound["Inbound (Tcp/Udp/WsFrameReader)"]
+        R1["Socket / ClientWebSocket Receive"] --> R2["FragmentAssembler (TCP/WS)<br/>or 4B XxHash32 MAC Check (UDP)"]
+        R2 --> R3["FramePipeline.ProcessInbound<br/>(AEAD Decrypt -> LZ4 Decompress)"]
+        R3 --> R4["SequenceCounter.IsValid(seq, window)"]
+        R4 --> R5["HandleReceiveMessage(IBufferLease)"]
+    end
+```
 
-## 2. UDP Framers (`UdpFrameReader` & `UdpFrameSender`)
+### Key Internal Invariants
 
-UDP is datagram-oriented, meaning boundaries are preserved, but delivery is unreliable. The UDP framers handle:
-
-- **Session Authentication Prefix**: Prepend an 8-byte `ulong` session token (`SessionToken`) to the beginning of every outbound datagram, allowing the server to identify the client session.
-- **Size Constraints**: Validate datagram sizes against `MaxUdpDatagramSize` to prevent IP-level fragmentation.
-- **Zero-Allocation Reading**: Rent memory from `BufferLease.ByteArrayPool` for incoming datagrams and pass them directly up.
-
----
-
-## 3. WebSocket Framers (`WsFrameReader` & `WsFrameSender`)
-
-WebSocket operates over a structured frame protocol on top of TCP, handled by `System.Net.WebSockets.ClientWebSocket`.
-
-- **Framed I/O**: The sender writes messages using `socket.SendAsync` with `WebSocketMessageType.Binary`.
-- **Fast-Path Reading**: For messages that fit entirely within the initial read buffer (8 KB), they are processed immediately with zero copy.
-- **Slow-Path Large Message Handling**: If `result.EndOfMessage` is false, the reader falls back to a slow-path receive loop using a `MemoryStream` to assemble the full message, enforcing size limits against `WebSocketTransportOptions.MaxMessageSize`.
-- **Stateless Transformation**: The reader performs in-place transformations (decryption/compression) on the rented `BufferLease` and updates the client sequence counter (`SequenceCounter`).
-
----
-
-## Memory Ownership and Zero-Copy
-
-All framers adhere to Nalix's zero-copy performance model:
-
-1. **Renting**: Recycled byte arrays are rented from the shared `ArrayPool<byte>` via the `BufferLease` abstraction.
-2. **Transformation**: Compression and decryption are performed directly inside the rented buffers.
-3. **Dispatch**: The lease is passed to session events (`OnMessageReceived`).
-4. **Disposal**: The calling application is responsible for disposing the lease, returning the underlying byte array back to the pool.
+1. **Serialized Outbound Sends**: `TcpFrameSender` and `WsFrameSender` guard socket writes with a `SemaphoreSlim(1, 1)` (`_sendLock`) so concurrent `SendAsync` callers never interleave frames or fragment chunks on the stream.
+2. **Symmetric Compress-then-Encrypt**: Outbound frames run `FramePipeline.ProcessOutbound` (compressing payloads $\ge$ `CompressionOptions.MinSizeToCompress` before AEAD encryption when `encrypt == true`), while inbound frames run `FramePipeline.ProcessInbound` (decrypting `PacketFlags.ENCRYPTED` before decompressing `PacketFlags.COMPRESSED`).
+3. **`SequenceCounter` Replay Window**: Tracks the 32-bit transport sequence number embedded in encrypted frames and rejects duplicate or out-of-window packets before they reach `OnMessageReceived`.
 
 ## Related APIs
 
 - [TCP Session](./tcp-session.md)
 - [UDP Session](./udp-session.md)
 - [WebSocket Session](./websocket-session.md)
-- [Buffer Management](../environment/memory/buffer-management.md)
+- [Packet Compression](../codec/frame-pipeline.md)
+- [AEAD Ciphers](../security/aead-and-envelope.md)

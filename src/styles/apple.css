@@ -1554,6 +1554,130 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
 }
 
 /* ==========================================================================
+   Developer Experience Enhancements (Copy Markdown, Mobile TOC, Floating Top, Print)
+   ========================================================================== */
+
+.nlx-copy-md-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-divider);
+  background-color: var(--bg-paper);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
+  margin-left: auto;
+}
+
+.nlx-copy-md-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background-color: var(--bg-elevated);
+}
+
+.nlx-copy-md-btn.is-copied {
+  color: var(--success-main);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.nlx-mobile-toc {
+  display: none;
+  margin: 0 0 24px;
+  border-radius: 8px;
+  border: 1px solid var(--border-divider);
+  background-color: var(--bg-paper);
+  overflow: hidden;
+}
+
+.nlx-mobile-toc__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.nlx-mobile-toc__summary::-webkit-details-marker {
+  display: none;
+}
+
+.nlx-mobile-toc__chevron {
+  color: var(--text-secondary);
+  transition: transform 0.16s ease;
+}
+
+.nlx-mobile-toc[open] .nlx-mobile-toc__chevron {
+  transform: rotate(90deg);
+}
+
+.nlx-mobile-toc__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 14px 12px;
+  border-top: 1px solid var(--border-divider);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nlx-mobile-toc__item--sub {
+  padding-left: 14px;
+}
+
+.nlx-mobile-toc__link {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.nlx-mobile-toc__link:hover {
+  color: var(--primary-lighter);
+}
+
+.nlx-floating-top {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 95;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border-divider);
+  background-color: var(--bg-elevated);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 0.18s ease, transform 0.18s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.nlx-floating-top.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.nlx-floating-top:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+/* ==========================================================================
    Responsive Breakpoints
    ========================================================================== */
 
@@ -1563,6 +1687,9 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
   }
   .nlx-toc {
     display: none;
+  }
+  .nlx-mobile-toc {
+    display: block;
   }
 }
 
@@ -1611,5 +1738,25 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
   }
   .nlx-pager__card--next {
     grid-column: 1;
+  }
+}
+
+@media print {
+  .nlx-header,
+  .nlx-sidebar,
+  .nlx-toc,
+  .nlx-mobile-toc,
+  .nlx-doc-footer,
+  .nlx-floating-top,
+  .nlx-copy-md-btn,
+  .nlx-code-copy {
+    display: none !important;
+  }
+  .nlx-workspace {
+    display: block !important;
+  }
+  .nlx-main {
+    max-width: 100% !important;
+    padding: 0 !important;
   }
 }

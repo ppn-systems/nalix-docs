@@ -1,51 +1,50 @@
 ---
 title: Nalix.Framework
-description: Nalix.Framework provides core runtime services for dependency injection, task scheduling, system-wide identifiers, and high-level memory management.
+description: Level 2 core infrastructure package providing singleton dependency injection (InstanceManager), background workers (TaskManager), Snowflake IDs, and object/buffer pool managers.
 section: Packages
 package: Nalix.Framework
 ---
 
-`Nalix.Framework` provides core runtime services for dependency injection, task scheduling, system-wide identifiers, and high-level memory management.
+`Nalix.Framework` is the **Level 2** runtime services package (depending on `Nalix.Environment` and `Nalix.Abstractions`). It provides singleton service registration (`InstanceManager`), managed background workers and recurring timers (`TaskManager`), 64-bit sortable identifiers (`Snowflake`), and centralized pool managers (`BufferPoolManager` and `ObjectPoolManager`).
 
 ## Runtime Services Map
 
 ```mermaid
 flowchart LR
-    A["InstanceManager"] --> B["Service Registry"]
-    A --> C["TaskManager"]
-    B --> D["Application Infrastructure"]
-    C --> E["Recurring Workers / Cleanup Jobs"]
+    A["InstanceManager"] --> B["Singleton Service Registry"]
+    A --> C["TaskManager (Workers & Recurring Jobs)"]
+    A --> D["BufferPoolManager & ObjectPoolManager"]
+    A --> E["Snowflake (64-bit Sortable IDs)"]
 ```
 
-## What belongs here
+## Core Components
 
-- `InstanceManager` for registering and resolving shared services and infrastructure.
-- `TaskManager` for managing named background workers and recurring jobs.
-- `Snowflake` for generating 64-bit compact, sortable identifiers.
-- `TimingScope` (in `Nalix.Environment`) for lightweight, high-precision latency measurement.
-- `BufferPoolManager` and `ObjectPoolManager` for managing shared resource pools.
+### `InstanceManager` (Dependency Injection)
 
-## Instance Registration
+`InstanceManager` (`Nalix.Framework.Injection.InstanceManager`) is the thread-safe singleton registry used across the stack to publish and resolve shared infrastructure (`ILogger`, `IConnectionHub`, `IConnectionGuard`, `IBufferPoolManager`, `IObjectPoolManager`, `ISessionService`).
 
-`InstanceManager` is the common registry used across the stack. It can register existing instances or lazily create new ones. It is the preferred way to publish infrastructure such as loggers and packet registries.
-
-### Quick Example
+Classes annotated with `[Injectable]` and subclasses of `SingletonBase<T>` have zero-reflection activators and service mappings generated at compile time by `InstanceGenerator` (while `[Inject]` fields and properties on `[PacketHandler]` controllers are wired by `PacketHandlerGenerator`).
 
 ```csharp
-// Register a logger
+using Microsoft.Extensions.Logging;
+using Nalix.Framework.Injection;
+using Nalix.Framework.Tasks;
+
+// Register a shared singleton instance
 InstanceManager.Instance.Register<ILogger>(logger);
 
-// Resolve or create a task manager
+// Lazily resolve or create a managed service
 TaskManager taskManager = InstanceManager.Instance.GetOrCreateInstance<TaskManager>();
 ```
 
-## Background Work
+### `TaskManager` (Background Workers & Recurring Jobs)
 
-`TaskManager` manages the execution and lifecycle of background tasks and recurring jobs. It provides features like group concurrency limits, named workers, and execution reporting.
-
-### Quick Example
+`TaskManager` (`Nalix.Framework.Tasks.TaskManager`) schedules and supervises named background workers (`ScheduleWorker`) and periodic recurring jobs (`ScheduleRecurring`) with group concurrency limits, cancellation propagation, and diagnostic reporting (`GenerateReport()`).
 
 ```csharp
+using Nalix.Framework.Injection;
+using Nalix.Framework.Tasks;
+
 TaskManager manager = InstanceManager.Instance.GetOrCreateInstance<TaskManager>();
 
 manager.ScheduleRecurring(
@@ -54,25 +53,29 @@ manager.ScheduleRecurring(
     async ct => await CleanupExpiredSessionsAsync(ct));
 ```
 
-## Identifiers and Timing
+### `Snowflake` (64-bit Sortable Identifiers)
 
-- `Snowflake` provides unique, time-sortable 64-bit IDs suitable for tasks, sessions, and packets.
-- `TimingScope` allows for easy measurement of operation duration with minimal overhead.
+`Snowflake` (`Nalix.Framework.Identifier.Snowflake`) generates compact, time-sortable 64-bit identifiers (`ISnowflake`) incorporating machine ID, type tag (`SnowflakeType`), and monotonic sequence counters—ideal for connection IDs, session tokens, and entity identifiers.
 
-## Memory Management
+### `BufferPoolManager` and `ObjectPoolManager`
 
-`Nalix.Framework` owns the management logic for resource pools. While the actual leasing primitives (like `BufferLease`) live in `Nalix.Environment`, the managers that own the underlying arrays and objects live here.
+While low-level `BufferLease` primitives reside in `Nalix.Environment`, `Nalix.Framework` owns the adaptive pool managers:
 
-- `BufferPoolManager`: Manages pooled pinned byte arrays and buffer trimming policy.
-- `ObjectPoolManager`: Manages pools of reusable class instances to minimize GC pressure.
+- `BufferPoolManager` (`Nalix.Framework.Memory.Buffers.BufferPoolManager`): Manages bucketed byte-array pools (`BufferConfig`), allocation metrics, and adaptive background trimming based on `BufferOptions`.
+- `ObjectPoolManager` (`Nalix.Framework.Memory.Objects.ObjectPoolManager`): Manages strongly-typed `TypedObjectPool<T>` instances for `IPoolable` objects (configured via `ObjectPoolOptions`).
+- `ObjectMap<TKey, TValue>` (`Nalix.Framework.Memory.Objects.ObjectMap<TKey, TValue>`): Sharded concurrent key-value map for high-read/write runtime lookups.
+
+:::note[Where does `TimingScope` live?]
+`TimingScope` lives in **`Nalix.Environment.Time`** so that both `Nalix.Environment` and `Nalix.Codec` can measure hot-path latencies without depending on `Nalix.Framework`.
+:::
 
 ## Key API Pages
 
 - [Instance Manager (DI)](../api/framework/instance-manager.md)
 - [Task Manager](../api/framework/task-manager.md)
-- [Timing Scope](../api/environment/timing-scope.md)
-- [Snowflake](../api/framework/snowflake.md)
-- [Buffer Management](../api/environment/memory/buffer-management.md)
+- [Snowflake Identifiers](../api/framework/snowflake.md)
 - [Object Pooling](../api/framework/memory/object-pooling.md)
-- [Object Map](../api/framework/memory/object-map.md)
 - [Typed Object Pools](../api/framework/memory/typed-object-pools.md)
+- [Object Map](../api/framework/memory/object-map.md)
+- [Buffer Management](../api/environment/memory/buffer-management.md)
+- [Clock & TimingScope](../api/environment/clock.md)

@@ -23,7 +23,7 @@ var builder = NetworkApplication.CreateBuilder();
 builder.UseSecureConnections("path/to/certificate.private")
        .Configure<NetworkSocketOptions>(options => options.Port = 8080)
        .MapHandlers<MyHandlers>()
-       .ListenTcp<MyProtocol>()
+       .MapTcp<MyProtocol>()
        .Bind();
 
 var app = builder.Build();

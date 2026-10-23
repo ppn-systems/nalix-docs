@@ -1,63 +1,70 @@
 ---
 title: Packet Sender
-description: PacketSender is the default runtime sender implementation bound to the pooled PacketContext<TPacket> used during dispatch and exposed to application code through IPacketContext<...
+description: Reference for Nalix.Runtime.Dispatching.PacketSender — metadata-aware outbound packet serializer, compressor, encryptor, and transport router.
 section: API Reference
 package: Nalix.Runtime
 ---
 
-`PacketSender` is the default runtime sender implementation bound to the pooled `PacketContext<TPacket>` used during dispatch and exposed to application code through `IPacketContext<TPacket>.Sender`.
+**Namespace:** `Nalix.Runtime.Dispatching`  
+**Assembly:** `Nalix.Runtime`
 
-## Overview
-
-`PacketSender` is the default runtime sender implementation bound to the pooled `PacketContext<TPacket>` used during dispatch and exposed to application code through `IPacketContext<TPacket>.Sender`. It provides a high-performance, asynchronous API for sending packets back to the client while automatically respecting the security and transport policies defined via attributes on your handlers.
+`PacketSender` (`public sealed class PacketSender : IPacketSender`) is the default runtime implementation of `IPacketSender` bound to each pooled `PacketContext<TPacket>` and exposed via `context.Sender`.
 
 ## Source Mapping
 
 - `src/Nalix.Abstractions/Networking/Packets/IPacketSender.cs`
 - `src/Nalix.Runtime/Dispatching/PacketSender.cs`
+- `src/Nalix.Runtime/Extensions/ConnectionExtensions.cs`
 
-## Why This Type Exists
+## How `PacketSender` Routes & Transforms Outbound Packets
 
-Handlers need a safe send API that respects runtime metadata while keeping serialization/transform logic centralized and reusable.
+When `SendAsync` or `ReplyAsync` is called:
 
-## Send Behavior
+1. **Transport Selection (`GetTransport`)**:
+   - If the handler has `[PacketTransport(NetworkTransport.UDP)]`, selects `connection.UDP` (throwing `InvalidOperationException` if the UDP companion transport is not initialized).
+   - If `[PacketTransport]` specifies `TCP` or `WEBSOCKET`, selects `connection.TCP`.
+   - If `[PacketTransport]` is absent, replies on `connection.UDP` when the inbound request arrived over UDP (`!context.IsReliable && connection.UDP is not null`), or `connection.TCP` otherwise.
+2. **Encryption Decision**:
+   - `SendAsync(packet, ct)` uses `needEncrypt = context.Attributes.Encryption?.IsEncrypted ?? false` (from `[PacketEncryption]`).
+   - `SendAsync(packet, forceEncrypt, ct)` overrides the attribute policy with `forceEncrypt`.
+3. **Serialization & Frame Transformation**:
+   - Serializes `packet` into a pooled `BufferLease` via `PacketPipeline.Serialize(packet, zeroOnDispose: needEncrypt)`.
+   - Calls `PacketPipeline.ProcessAndSendAsync` with `CompressionOptions.Enabled` and `CompressionOptions.MinSizeToCompress`, applying LZ4 compression (if beneficial) and AEAD/symmetric encryption before sending on the selected transport.
+   - Disposes the `BufferLease` deterministically on both synchronous and asynchronous completion paths.
 
-`PacketSender` serializes the packet into a pooled `BufferLease`, then delegates to `FramePipeline.ProcessOutbound()` for compression/encryption transforms, and finally sends via the selected transport.
+## Public Methods (`IPacketSender`)
 
-### Decision inputs
+| Method | Signature | Description |
+| :--- | :--- | :--- |
+| `ReplyAsync` | `public ValueTask ReplyAsync(IPacket response, CancellationToken ct = default)` | Copies the inbound request's `SequenceId` onto `response.Header.SequenceId` (for client `RequestAsync` / `StreamAsync` correlation) and calls `SendAsync(response, ct)`. |
+| `SendAsync` (default policy) | `public ValueTask SendAsync(IPacket packet, CancellationToken ct = default)` | Serializes and sends `packet` using the handler's `[PacketEncryption]` and `[PacketTransport]` metadata without altering `packet.Header.SequenceId`. |
+| `SendAsync` (explicit encryption) | `public ValueTask SendAsync(IPacket packet, bool forceEncrypt, CancellationToken ct = default)` | Serializes and sends `packet` with an explicit `forceEncrypt` override. |
+| `Initialize<TPacket>` | `public void Initialize<TPacket>(IPacketContext<TPacket> context) where TPacket : IPacket` | Binds the sender to `context` (invoked automatically by `PacketContext<TPacket>.Initialize`). |
+| `ResetForPool` | `public void ResetForPool()` | Clears connection, metadata, token, and sequence state when `PacketContext<TPacket>` returns to the pool. |
 
-- Compression: `CompressionOptions.Enabled` and `MinSizeToCompress` threshold.
-- Encryption default: `context.Attributes.Encryption?.IsEncrypted ?? false`.
-- Encryption override: `SendAsync(packet, forceEncrypt, ...)`.
-- Transport selection: `attributes.Transport?.TransportType ?? NetworkTransport.TCP` — selects TCP or UDP per handler metadata.
-
-### Flow
-
-1. Serialize packet into `BufferLease.Rent(packetLength)`.
-2. `FramePipeline.ProcessOutbound()` applies compression then encryption as needed.
-3. `GetTransport()` resolves TCP or UDP from handler attributes.
-4. Transport sends the final buffer.
-
-## Core API
-
-- `SendAsync(IPacket packet, CancellationToken ct = default)`
-- `SendAsync(IPacket packet, bool forceEncrypt, CancellationToken ct = default)`
-
-## Practical Example
+## Usage Example
 
 ```csharp
-await context.Sender.SendAsync(replyPacket, ct);
-await context.Sender.SendAsync(replyPacket, forceEncrypt: true, ct);
+using System.Threading.Tasks;
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Codec.Pooling;
+
+[PacketOpcode(0x1010)]
+[PacketEncryption(true)]
+public async ValueTask HandleOrder(IPacketContext<OrderRequestPacket> context)
+{
+    using PacketScope<OrderAckPacket> lease = PacketFactory<OrderAckPacket>.Acquire();
+    OrderAckPacket ack = lease.Value;
+    ack.Initialize(orderId: 9001);
+
+    // ReplyAsync automatically stamps ack.Header.SequenceId = context.Packet.Header.SequenceId
+    await context.Sender.ReplyAsync(ack, context.CancellationToken);
+}
 ```
-
-## Best Practices
-
-- Use default `SendAsync(packet)` for normal metadata-driven behavior.
-- Use `forceEncrypt: true` only when you intentionally override handler metadata policy.
-- Do not use `PacketSender` without runtime initialization (`PacketContext` initializes it).
 
 ## Related APIs
 
-- [Packet Context](./packet-context.md)
+- [Packet Context (PacketContext<TPacket>)](./packet-context.md)
+- [Handler Return Types](./handler-results.md)
+- [Frame Pipeline](../../codec/frame-pipeline.md)
 - [Compression Options](../../options/network/compression-options.md)
-- [Packet Dispatch](./packet-dispatch.md)

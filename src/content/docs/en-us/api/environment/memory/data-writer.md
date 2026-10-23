@@ -14,7 +14,7 @@ package: Nalix.Environment
 
 `DataWriter` can operate in two distinct modes depending on how it is constructed:
 
-1. **Rented Mode**: Constructed via `new DataWriter(int size)`. The writer internally rents a `byte[]` from `BufferLease.ByteArrayPool`. In this mode, the writer can dynamically `Expand()` if it runs out of space, automatically renting a larger array (typically doubling) and copying data over. Calling `Dispose()` returns the rented array to the pool.
+1. **Rented Mode**: Constructed via `new DataWriter(int size)` (allocates at least `32` bytes via `Math.Max(size, 32)`). The writer internally rents a `byte[]` from `BufferLease.ByteArrayPool`. In this mode, the writer can dynamically `Expand()` up to `MemoryOptions.MaxWriterCapacity` (`128 MiB`, `134_217_728` bytes by default; exceeding this throws `SerializationFailureException`). Calling `Dispose()` returns the rented array to the pool.
 2. **Fixed Mode**: Constructed via `new DataWriter(byte[] buffer)` or `new DataWriter(Span<byte> span)`. The writer wraps an external, fixed-size buffer. In this mode, calling `Expand()` when there is insufficient space throws an `InternalErrorException`, and `Dispose()` performs no pooling actions.
 
 ## Key Properties

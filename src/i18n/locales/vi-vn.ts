@@ -40,6 +40,8 @@ export const viVn: TranslationDictionary = {
   'doc.next': 'Trang tiếp',
   'doc.copyCode': 'Sao chép',
   'doc.copiedCode': 'Đã chép',
+  'doc.copyMarkdown': 'Chép Markdown',
+  'doc.copiedMarkdown': 'Đã chép Markdown',
   'doc.fallbackBannerTitle': 'Đang cập nhật bản dịch',
   'doc.fallbackBannerBody':
     'Trang này hiện chưa có bản dịch Tiếng Việt (vi-VN). Hệ thống đang hiển thị nội dung tiếng Anh (en-US) gốc.',

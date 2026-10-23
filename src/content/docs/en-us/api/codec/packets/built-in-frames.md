@@ -1,189 +1,181 @@
 ---
 title: Built-in Frames
-description: This page covers the built-in packet types that Nalix ships out of the box.
+description: Reference for all 11 built-in system, handshake, session resumption, and Proof-of-Work protocol frames in Nalix.Codec.ProtocolFrames.
 section: API Reference
 package: Nalix.Codec
 ---
 
-This page covers the built-in packet types that Nalix ships out of the box.
+**Namespace:** `Nalix.Codec.ProtocolFrames`  
+**Assembly:** `Nalix.Codec`
 
-## Source mapping
+`Nalix.Codec` ships **11 fixed-size built-in protocol frames** in `namespace Nalix.Codec.ProtocolFrames` occupying reserved system opcodes `0x0000` through `0x000B` (with `ProtocolOpCode.SESSION_REKEY = 0x0009` carried via `Control`). All 11 frames inherit from `PacketBase<TSelf>`, implement `IFixedSizeSerializable` and `IPacketStaticOpcode`, and are pre-registered in `PacketRegistry` with a pool capacity of `128` each.
+
+## Source Mapping
 
 - `src/Nalix.Codec/ProtocolFrames/Control.cs`
 - `src/Nalix.Codec/ProtocolFrames/Directive.cs`
 - `src/Nalix.Codec/ProtocolFrames/TimeSync.cs`
 - `src/Nalix.Codec/ProtocolFrames/Session/SessionInit.cs`
-- `src/Nalix.Codec/ProtocolFrames/Session/SessionProof.cs`
-- `src/Nalix.Codec/ProtocolFrames/Session/SessionTofu.cs`
-- `src/Nalix.Codec/ProtocolFrames/Session/SessionResume.cs`
 - `src/Nalix.Codec/ProtocolFrames/Session/SessionChallenge.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionProof.cs`
 - `src/Nalix.Codec/ProtocolFrames/Session/SessionEstablished.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionResume.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionTofu.cs`
+- `src/Nalix.Codec/ProtocolFrames/Security/ProofOfWorkChallenge.cs`
+- `src/Nalix.Codec/ProtocolFrames/Security/ProofOfWorkProof.cs`
 
-## Main types
+## Built-in Protocol Frames Summary
 
-- `Control`
-- `Directive`
-- `TimeSync`
-- `SessionInit`
-- `SessionProof`
-- `SessionTofu`
-- `SessionResume`
-- `SessionChallenge`
-- `SessionEstablished`
+| Frame Class | `ProtocolOpCode` | Hex OpCode | Wire Size (`Size`) | Purpose |
+| --- | --- | :---: | ---: | --- |
+| `SessionInit` | `SESSION_INIT` | `0x0000` | `70` bytes | Handshake step 1 (Client $\rightarrow$ Server): ephemeral X25519 `PublicKey` (`Bytes32`) + `Nonce` (`Bytes32`). |
+| `Control` | `SYSTEM_CONTROL` | `0x0001` | `9` bytes | System control signaling (`PING`, `PONG`, `DISCONNECT`, `SESSION_REKEY`, `SESSION_REKEY_ACK`, `POW_REQUEST`, `PUBLIC_KEY_REQUEST`, etc.). |
+| `SessionResume` | `SESSION_SIGNAL` | `0x0002` | `49` bytes | Single-RTT session resumption (`Stage`, `SessionToken`, `Reason`, `Proof`). |
+| `SessionProof` | `SESSION_PROOF` | `0x0003` | `38` bytes | Handshake step 3 (Client $\rightarrow$ Server): client `Proof` (`Bytes32`). |
+| `TimeSync` | `SYSTEM_TIMESYNC` | `0x0004` | `23` bytes | Clock synchronization and RTT measurement (`Type`, `Timestamp`, `MonoTicks`). |
+| `SessionTofu` | `SESSION_TOFU` | `0x0005` | `38` bytes | Trust-On-First-Use reply carrying the server's static X25519 `PublicKey` (`Bytes32`). |
+| `SessionChallenge` | `SESSION_CHALLENGE` | `0x0006` | `102` bytes | Handshake step 2 (Server $\rightarrow$ Client): ephemeral `PublicKey` (`Bytes32`) + `Nonce` (`Bytes32`) + server `Proof` (`Bytes32`). |
+| `SessionEstablished` | `SESSION_ESTABLISHED` | `0x0007` | `46` bytes | Handshake step 4 (Server $\rightarrow$ Client): server finish `Proof` (`Bytes32`) + assigned 8-byte `SessionToken` (`ulong`). |
+| `Directive` | `SYSTEM_DIRECTIVE` | `0x0008` | `21` bytes | Server-to-client structured feedback (`Type`, `Reason`, `Action`, `Control`, `Arg0`, `Arg1`, `Arg2`). |
+| `ProofOfWorkChallenge` | `POW_CHALLENGE` | `0x000A` | `79` bytes | Server-issued stateless PoW puzzle (`Nonce`, `Difficulty`, `TimestampTicks`, `Mac`). |
+| `ProofOfWorkProof` | `POW_PROOF` | `0x000B` | `87` bytes | Client-submitted PoW solution (`Nonce`, `Difficulty`, `TimestampTicks`, `Mac`, `Solution`). |
 
-## Control
+---
 
-`Control` is the built-in frame for protocol control traffic such as ping/pong and related signaling.
+## 1. System & Control Frames
 
-## Basic usage
+### `Control` (`0x0001`, 9 bytes)
 
-```csharp
-var control = new Control();
-control.Initialize(ControlType.PING, sequenceId: 42, flags: PacketFlags.SYSTEM | PacketFlags.RELIABLE);
-```
+Carries protocol control signals (`Reason`, `Type`).
 
-Important public members:
-
-- `Initialize(ControlType, ...)`
-- `Initialize(opCode, ControlType, ...)`
-- `ResetForPool()`
-
-## SessionInit
-
-`SessionInit` is the first step of the session handshake where the client sends its ephemeral public key and nonce.
-
-```csharp
-var init = SessionInit.Create();
-init.Initialize(clientPublicKey, clientNonce, PacketFlags.SYSTEM | PacketFlags.RELIABLE);
-```
-
-Important public members:
-
-- `PublicKey` (`Bytes32`) — the client's ephemeral public key
-- `Nonce` (`Bytes32`) — the client's nonce
-- `Initialize(Bytes32 publicKey, Bytes32 nonce, PacketFlags flags)`
-- `Validate(out string?)`
-- `ResetForPool()`
-
-## SessionProof
-
-`SessionProof` is the client's confirmation of the derived transcript and proof of possession.
+- **Properties**:
+  - `ProtocolReason Reason { get; set; }` (`[SerializeOrder(0)]`, 2 bytes)
+  - `ControlType Type { get; set; }` (`[SerializeOrder(1)]`, 1 byte)
+- **Method**:
+  - `void Initialize(ControlType type, ushort sequenceId = 0, PacketFlags flags = PacketFlags.SYSTEM, ProtocolReason reasonCode = ProtocolReason.NONE)`
 
 ```csharp
-var proof = SessionProof.Create();
-proof.Initialize(clientProof, PacketFlags.SYSTEM | PacketFlags.RELIABLE);
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Abstractions.Networking.Protocols;
+using Nalix.Codec.Pooling;
+using Nalix.Codec.ProtocolFrames;
+
+using PacketScope<Control> lease = PacketFactory<Control>.Acquire();
+Control control = lease.Value;
+control.Initialize(ControlType.PING, sequenceId: 42, flags: PacketFlags.SYSTEM);
 ```
 
-Important public members:
+### `Directive` (`0x0008`, 21 bytes)
 
-- `Proof` (`Bytes32`) — the client's proof
-- `Initialize(Bytes32 proof, PacketFlags flags)`
-- `Validate(out string?)`
-- `ResetForPool()`
+Sent by the server to instruct the client to throttle, back off, solve a Proof-of-Work challenge, or reconnect.
 
-## SessionTofu
+- **Properties**:
+  - `ControlType Type { get; set; }` (`[SerializeOrder(0)]`, 1 byte)
+  - `ProtocolReason Reason { get; set; }` (`[SerializeOrder(1)]`, 2 bytes)
+  - `ProtocolAdvice Action { get; set; }` (`[SerializeOrder(2)]`, 1 byte)
+  - `ControlFlags Control { get; set; }` (`[SerializeOrder(3)]`, 1 byte)
+  - `uint Arg0 { get; set; }` (`[SerializeOrder(4)]`, 4 bytes)
+  - `uint Arg1 { get; set; }` (`[SerializeOrder(5)]`, 4 bytes)
+  - `ushort Arg2 { get; set; }` (`[SerializeOrder(6)]`, 2 bytes)
+- **Method**:
+  - `void Initialize(ControlType type, ProtocolReason reason, ProtocolAdvice action, ushort sequenceId, PacketFlags flags = PacketFlags.SYSTEM, ControlFlags controlFlags = ControlFlags.NONE, uint arg0 = 0, uint arg1 = 0, ushort arg2 = 0)`
 
-`SessionTofu` is a Trust-On-First-Use packet where the server returns its static public key.
+### `TimeSync` (`0x0004`, 23 bytes)
+
+Used by `PingExtensions` and `SystemTimeSyncHandlers` for RTT measurement and monotonic/UTC clock synchronization.
+
+- **Properties**:
+  - `ControlType Type { get; set; }` (`[SerializeOrder(0)]`) — `PING`, `PONG`, `TIMESYNCREQUEST`, or `TIMESYNCRESPONSE`
+  - `long Timestamp { get; set; }` (`[SerializeOrder(1)]`) — UTC Unix timestamp in milliseconds
+  - `long MonoTicks { get; set; }` (`[SerializeOrder(2)]`) — Monotonic clock ticks
+- **Method**:
+  - `void Initialize(ControlType type, ushort sequenceId = 0, PacketFlags flags = PacketFlags.SYSTEM)` — Sets `Type`, `SequenceId`, `Flags`, and automatically stamps `MonoTicks = Clock.MonoTicksNow()` and `Timestamp = Clock.UnixMillisecondsNow()`.
+
+---
+
+## 2. Session & Handshake Frames
+
+All session frames implement `IPacketValidatable` (`bool Validate(out string? reason)`).
+
+### `SessionInit` (`0x0000`, 70 bytes)
+
+- **Properties**: `Bytes32 PublicKey` (`[SerializeOrder(0)]`), `Bytes32 Nonce` (`[SerializeOrder(1)]`)
+- **Method**: `void Initialize(Bytes32 publicKey, Bytes32 nonce, PacketFlags flags = PacketFlags.SYSTEM)`
+
+### `SessionChallenge` (`0x0006`, 102 bytes)
+
+- **Properties**: `Bytes32 PublicKey` (`[SerializeOrder(0)]`), `Bytes32 Nonce` (`[SerializeOrder(1)]`), `Bytes32 Proof` (`[SerializeOrder(2)]`)
+- **Method**: `void Initialize(Bytes32 publicKey, Bytes32 nonce, Bytes32 proof, PacketFlags flags = PacketFlags.SYSTEM)`
+
+### `SessionProof` (`0x0003`, 38 bytes)
+
+- **Property**: `Bytes32 Proof` (`[SerializeOrder(0)]`)
+- **Method**: `void Initialize(Bytes32 proof, PacketFlags flags = PacketFlags.SYSTEM)`
+
+### `SessionEstablished` (`0x0007`, 46 bytes)
+
+- **Properties**: `Bytes32 Proof` (`[SerializeOrder(0)]`), `ulong SessionToken` (`[SerializeOrder(1)]`)
+- **Method**: `void Initialize(Bytes32 proof, ulong sessionToken, PacketFlags flags = PacketFlags.SYSTEM)`
+
+### `SessionResume` (`0x0002`, 49 bytes)
+
+- **Properties**:
+  - `SessionResumeStage Stage { get; set; }` (`[SerializeOrder(0)]`) — `NONE`, `REQUEST`, or `RESPONSE`
+  - `ulong SessionToken { get; set; }` (`[SerializeOrder(1)]`)
+  - `ProtocolReason Reason { get; set; }` (`[SerializeOrder(2)]`)
+  - `Bytes32 Proof { get; set; }` (`[SerializeOrder(3)]`)
+- **Method**: `void Initialize(SessionResumeStage stage, ulong sessionToken, ProtocolReason reason = ProtocolReason.NONE, Bytes32 proof = default, PacketFlags flags = PacketFlags.SYSTEM)`
+
+### `SessionTofu` (`0x0005`, 38 bytes)
+
+- **Property**: `Bytes32 PublicKey` (`[SerializeOrder(0)]`)
+- **Method**: `void Initialize(Bytes32 publicKey)`
+
+---
+
+## 3. Proof-of-Work Frames
+
+### `ProofOfWorkChallenge` (`0x000A`, 79 bytes)
+
+- **Properties**:
+  - `Bytes32 Nonce { get; set; }` (`[SerializeOrder(0)]`) — 32-byte server challenge nonce
+  - `byte Difficulty { get; set; }` (`[SerializeOrder(1)]`) — Required leading zero bits (`0..64`)
+  - `long TimestampTicks { get; set; }` (`[SerializeOrder(2)]`) — Server timestamp (`Environment.TickCount64`)
+  - `Bytes32 Mac { get; set; }` (`[SerializeOrder(3)]`) — 32-byte `HmacKeccak256` tag binding `Nonce | Difficulty | TimestampTicks | ConnectionId`
+- **Method**: `void Initialize(Bytes32 nonce, byte difficulty, long timestampTicks, Bytes32 mac, PacketFlags flags = PacketFlags.SYSTEM)`
+
+### `ProofOfWorkProof` (`0x000B`, 87 bytes)
+
+- **Properties**:
+  - `Bytes32 Nonce { get; set; }` (`[SerializeOrder(0)]`)
+  - `byte Difficulty { get; set; }` (`[SerializeOrder(1)]`)
+  - `long TimestampTicks { get; set; }` (`[SerializeOrder(2)]`)
+  - `Bytes32 Mac { get; set; }` (`[SerializeOrder(3)]`)
+  - `long Solution { get; set; }` (`[SerializeOrder(4)]`) — 8-byte counter solved by `ProofOfWorkSolver.SolveChallenge`
+- **Method**: `void Initialize(Bytes32 nonce, byte difficulty, long timestampTicks, Bytes32 mac, long solution, PacketFlags flags = PacketFlags.SYSTEM)`
+
+---
+
+## Pooling Built-in Frames (`PacketFactory<T>`)
+
+Use `PacketFactory<TPacket>.Acquire()` to rent a disposable `PacketScope<TPacket>` wrapper that automatically returns the packet to `IObjectPoolManager` on disposal (enforced by analyzer **`NALIX075`**):
 
 ```csharp
-var tofu = SessionTofu.Create();
-tofu.Initialize(serverPublicKey);
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Codec.Pooling;
+using Nalix.Codec.ProtocolFrames;
+
+using PacketScope<SessionInit> scope = PacketFactory<SessionInit>.Acquire();
+SessionInit init = scope.Value;
+init.Initialize(clientPublicKey, clientNonce, PacketFlags.SYSTEM);
+
+await session.SendAsync(init, ct);
 ```
-
-Important public members:
-
-- `PublicKey` (`Bytes32`) — the server's public key
-- `Initialize(Bytes32 publicKey)`
-- `Validate(out string?)`
-- `ResetForPool()`
-
-## SessionResume
-
-`SessionResume` is a fixed-size frame for resuming a previously established session using a token and proof.
-
-Important public members:
-
-- `Stage` (`SessionResumeStage`) — `NONE`, `REQUEST`, or `RESPONSE`
-- `SessionToken` (`ulong`) — the session token
-- `Reason` (`ProtocolReason`) — reason code (used in responses)
-- `Proof` (`Bytes32`) — HMAC proof of session secret possession
-- `Initialize(SessionResumeStage, ulong, ProtocolReason, Bytes32, PacketFlags)`
-- `Validate(out string?)`
-- `ResetForPool()`
-
-## SessionChallenge
-
-`SessionChallenge` is the server's response to `SessionInit`, providing its ephemeral key, nonce, and proof.
-
-Important public members:
-
-- `PublicKey` (`Bytes32`) — the server's ephemeral public key
-- `Nonce` (`Bytes32`) — the server's nonce
-- `Proof` (`Bytes32`) — the server's challenge proof
-- `Initialize(Bytes32 publicKey, Bytes32 nonce, Bytes32 proof, PacketFlags flags)`
-- `Validate(out string?)`
-- `ResetForPool()`
-
-## SessionEstablished
-
-`SessionEstablished` is the server's acknowledgment of handshake completion and session establishment.
-
-Important public members:
-
-- `Proof` (`Bytes32`) — the server's final finish proof
-- `SessionToken` (`ulong`) — the assigned session token
-- `Initialize(Bytes32 proof, ulong sessionToken, PacketFlags flags)`
-- `Validate(out string?)`
-- `ResetForPool()`
-
-## Packet pooling
-
-Nalix uses a sophisticated, type-safe pooling system for all packet types. Instead of manual `new` allocations, you should rent packets from the pool to minimize GC pressure.
-
-### The `Create()` Pattern
-Every packet inheriting from `PacketBase<TSelf>` provides a static `Create` method:
-
-```csharp
-// 1. Rent a packet from the pool
-using var init = SessionInit.Create();
-
-// 2. Initialize the packet
-init.Initialize(clientPublicKey, clientNonce);
-
-// The packet is automatically returned to the pool when 'init' is disposed.
-```
-
-### Key APIs
-
-- `PacketBase<TSelf>.Create()`: Rents an instance from the underlying `IObjectPoolManager`.
-- `PacketBase<TSelf>.Dispose()`: Returns the instance to the pool.
-
-## Directive
-
-`Directive` is a directive frame used for control and server feedback. It carries a `ControlType`, `ProtocolReason`, and a `ProtocolAdvice` action.
-
-Important public members:
-
-- `Type` (`ControlType`) — the directive type
-- `Reason` (`ProtocolReason`) — the reason for the directive
-- `Action` (`ProtocolAdvice`) — the recommended action
-- `Initialize(ControlType, ProtocolReason, ProtocolAdvice, ...)`
-- `ResetForPool()`
-
-## TimeSync
-
-`TimeSync` is a time synchronization and ping packet used for RTT measurement and clock alignment.
-
-Important public members:
-
-- `Type` (`ControlType`) — the control message type (e.g., `PING`, `PONG`, `TIMESYNCREQUEST`)
-- `Timestamp` (`long`) — wall-clock timestamp
-- `MonoTicks` (`long`) — monotonic clock ticks
-- `Initialize(ControlType, ...)`
 
 ## Related APIs
 
 - [Frame Model](./frame-model.md)
 - [Packet Registry](./packet-registry.md)
-- [Packet Contracts](../../abstractions/packet-contracts.md)
-- [Object Pooling](../../framework/memory/object-pooling.md)
+- [Handshake Protocol](../../security/handshake.md)
+- [Proof-of-Work](../../security/proof-of-work.md)
+- [Session Resumption](../../security/session-resume.md)

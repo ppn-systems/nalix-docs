@@ -1,50 +1,72 @@
 ---
 title: RecurringOptions
-description: RecurringOptions configures recurring job behavior in TaskManager.
+description: Reference for Nalix.Framework.Options.RecurringOptions — startup jitter, non-reentrant execution, per-run timeout, and exponential backoff configuration for TaskManager recurring jobs.
 section: API Reference
 package: Nalix.Framework
 ---
 
-`RecurringOptions` configures recurring job behavior in `TaskManager`.
+**Namespace:** `Nalix.Framework.Options`  
+**Assembly:** `Nalix.Framework`
 
-## Source mapping
+`RecurringOptions` (`public sealed class RecurringOptions : IRecurringOptions`) configures non-reentrant execution, startup jitter, per-run timeout, and failure exponential backoff for recurring jobs scheduled via `TaskManager.ScheduleRecurring`.
 
+## Source Mapping
+
+- `src/Nalix.Abstractions/Concurrency/IRecurringOptions.cs`
 - `src/Nalix.Framework/Options/RecurringOptions.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.PrivateMethods.cs`
 
-## What it controls
+## Properties
 
-- diagnostic tag
-- non-reentrant execution
-- startup jitter
-- per-run execution timeout
-- failure threshold before backoff
-- maximum backoff duration
+| Property | Type | Access | Default | Description |
+| :--- | :--- | :---: | :---: | :--- |
+| `Tag` | `string?` | `get; set;` | `null` | Optional diagnostic tag identifying the recurring job in logs and reports. |
+| `NonReentrant` | `bool` | `get; set;` | `true` | When `true`, prevents overlapping runs of the same recurring job if a previous run is still executing when the next tick fires. |
+| `Jitter` | `TimeSpan?` | `get; set;` | `TimeSpan.FromMilliseconds(250)` | Optional random startup delay (`<= TimeSpan.Zero` or `null` disables jitter) sampled via `Csprng` to prevent thundering-herd wakeups. |
+| `ExecutionTimeout` | `TimeSpan?` | `get; set;` | `null` | Optional maximum duration for a single invocation; cancels the run's linked `CancellationToken` if exceeded. |
+| `FailuresBeforeBackoff` | `int` | `get; set;` | `1` | Number of consecutive unhandled exceptions before exponential backoff begins. |
+| `BackoffCap` | `TimeSpan` | `get; set;` | `TimeSpan.FromSeconds(15)` | Upper bound on the exponential backoff delay applied after consecutive failures. |
 
-## Key Members
+## Failure Backoff & Jitter Mechanics
 
-| Property | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `Tag` | `string?` | `null` | Optional tag for identifying the recurring task. |
-| `NonReentrant` | `bool` | `true` | If `true`, prevents overlapping executions of the same recurring job. |
-| `Jitter` | `TimeSpan?` | `250 ms` | Optional jitter to randomize the start time. |
-| `ExecutionTimeout` | `TimeSpan?` | `null` | Optional timeout for a single run; the run is cancelled if exceeded. |
-| `FailuresBeforeBackoff` | `int` | `1` | Number of consecutive failures before exponential backoff is applied. |
-| `BackoffCap` | `TimeSpan` | `15 s` | Maximum backoff duration after consecutive failures. |
+When a recurring job throws an unhandled exception (`ConsecutiveFailures >= FailuresBeforeBackoff`), `TaskManager` computes the retry delay as:
 
-## Basic usage
+1. **Exponential Growth**: Multiplies `TaskManagerOptions.BackoffBaseInterval` (default `1s`) by $2^{\min(\text{ConsecutiveFailures} - \text{FailuresBeforeBackoff},\; \text{BackoffMaxPower})}$ (where `BackoffMaxPower` defaults to `5`, i.e., up to $32\times$).
+2. **Cap Enforcement**: Clamps the computed delay to `RecurringOptions.BackoffCap` (default `15s`).
+3. **Full CSPRNG Jitter**: Samples the actual sleep duration uniformly between `0` and the capped delay using `Csprng.GetInt32(0, maxDelayMs + 1)`.
+
+## Usage Example
 
 ```csharp
-RecurringOptions options = new()
-{
-    NonReentrant = true,
-    Jitter = TimeSpan.FromMilliseconds(250),
-    ExecutionTimeout = TimeSpan.FromSeconds(30),
-    FailuresBeforeBackoff = 3,
-    BackoffCap = TimeSpan.FromSeconds(15)
-};
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Nalix.Abstractions.Concurrency;
+using Nalix.Framework.Injection;
+using Nalix.Framework.Options;
+
+ITaskManager taskManager = InstanceManager.Instance.GetOrCreateInstance<ITaskManager>();
+
+IRecurringHandle handle = taskManager.ScheduleRecurring(
+    name: "session.cleanup",
+    interval: TimeSpan.FromSeconds(30),
+    work: async ct =>
+    {
+        await Task.Delay(10, ct);
+    },
+    options: new RecurringOptions
+    {
+        Tag = "maintenance",
+        NonReentrant = true,
+        Jitter = TimeSpan.FromMilliseconds(250),
+        ExecutionTimeout = TimeSpan.FromSeconds(10),
+        FailuresBeforeBackoff = 2,
+        BackoffCap = TimeSpan.FromSeconds(30)
+    });
 ```
 
 ## Related APIs
 
 - [Task Manager](../task-manager.md)
 - [WorkerOptions](./worker-options.md)
+- [Concurrency Contracts (IRecurringOptions, IRecurringHandle)](../../abstractions/concurrency-contracts.md)

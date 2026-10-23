@@ -1,81 +1,113 @@
 ---
 title: Session Diagnostics
-description: Nalix SDK does not currently expose a dedicated diagnostics snapshot API (for example, no GetDiagnostics() extension and no TcpSessionDiagnostics model in src/Nalix.SDK). Operat...
+description: Client-side observability patterns for Nalix.SDK — monitoring connection lifecycle events, inbound frames, RequestOutcome diagnostics, and clock/RTT health.
 section: API Reference
 package: Nalix.SDK
 ---
 
-Nalix SDK does not currently expose a dedicated diagnostics snapshot API (for example, no `GetDiagnostics()` extension and no `TcpSessionDiagnostics` model in `src/Nalix.SDK`).
-Operational diagnostics come from transport state and lifecycle events on `TransportSession`, `TcpSession`, and `UdpSession`.
+**Namespaces:** `Nalix.SDK.Transport`, `Nalix.SDK.Transport.Extensions`, `Nalix.SDK.Options`  
+**Assembly:** `Nalix.SDK`
 
-## Audit Summary
-
-- Previous page referenced non-existent APIs.
-- Required rewrite to match the implemented SDK surface exactly.
-
-## Missing Content Identified
-
-- No explicit snapshot/metrics DTO in SDK transport APIs.
-- No dedicated diagnostics extension file in `Nalix.SDK`.
-
-## Improvement Rationale
-
-Documenting real observability surfaces avoids integration code built on unavailable APIs.
+`Nalix.SDK` surfaces transport lifecycle changes, frame errors, request outcomes, and latency metrics through `TransportSession` events (`OnConnected`, `OnReady`, `OnDisconnected`, `OnMessageReceived`, `OnError`), `NLogix` structured logging, and non-throwing `RequestOutcome<TResponse>` results.
 
 ## Source Mapping
 
 - `src/Nalix.SDK/Transport/TransportSession.cs`
 - `src/Nalix.SDK/Transport/TcpSession.cs`
 - `src/Nalix.SDK/Transport/UdpSession.cs`
-- `src/Nalix.SDK/Transport/Extensions/TransportSessionSubscriptions.cs`
+- `src/Nalix.SDK/Transport/WebSocketSession.cs`
+- `src/Nalix.SDK/Options/RequestOutcome.cs`
+- `src/Nalix.SDK/TimeSyncCalculator.cs`
 
-## Available Diagnostics Signals
-
-## 1. Session health and lifecycle
-
-From `TransportSession` and concrete implementations:
-
-- `IsConnected`
-- `OnConnected`
-- `OnDisconnected`
-- `OnError`
-
-These are the primary signals for connection state transitions and transport failures.
-
-## 2. Message-flow observation
-
-- `OnMessageReceived` (raw frame lease/event surface)
-- `TcpSession.OnMessageAsync` (async callback for received frame payloads)
-
-Use these to instrument receive volume, handler latency, and packet decode outcomes in your application layer.
-
-## 3. Subscription-level error tracing
-
-`TransportSessionSubscriptions` catches handler exceptions and writes diagnostics via `System.Diagnostics.Trace` (`TraceWarning` / `TraceError`), instead of propagating exceptions to the receive loop.
-
-## Practical Pattern
+## 1. Subscribing to Session Lifecycle & Error Events
 
 ```csharp
-client.OnConnected += (_, _) => metrics.ConnectionOpened();
-client.OnDisconnected += (_, ex) => metrics.ConnectionClosed(ex.Message);
-client.OnError += (_, ex) => metrics.TransportError(ex);
-client.OnMessageReceived += (_, lease) =>
+using System;
+using System.Buffers.Binary;
+using Nalix.Abstractions.Memory;
+using Nalix.SDK.Transport;
+
+public static void AttachDiagnostics(TransportSession session, string name)
 {
-    metrics.BytesIn(lease.Length);
-    lease.Dispose();
+    session.OnConnected += (_, _) =>
+        Console.WriteLine($"[{name}] Socket connected (LocalPort={session.State.LocalPort}).");
+
+    session.OnReady += (_, _) =>
+        Console.WriteLine($"[{name}] Session ready (Encrypted={session.State.EncryptionEnabled}, Token=0x{session.State.SessionToken:X16}).");
+
+    session.OnDisconnected += (_, ex) =>
+        Console.WriteLine($"[{name}] Disconnected: {ex?.Message ?? "Clean close"}");
+
+    session.OnError += (_, ex) =>
+        Console.Error.WriteLine($"[{name}] Transport error: {ex.GetType().Name}: {ex.Message}");
+
+    session.OnMessageReceived += (_, lease) =>
+    {
+        // IMPORTANT: Do NOT call lease.Dispose() here!
+        // TransportSession owns the borrowed IBufferLease and disposes it after OnMessageReceived returns.
+        if (lease.Length >= 6)
+        {
+            ushort opCode = BinaryPrimitives.ReadUInt16LittleEndian(lease.Span.Slice(2, 2));
+            Console.WriteLine($"[{name}] Inbound frame: {lease.Length} bytes, OpCode=0x{opCode:X4}");
+        }
+    };
+}
+```
+
+:::warning[Never Dispose `IBufferLease` Inside `OnMessageReceived`]
+`TransportSession` passes a borrowed `IBufferLease` to `OnMessageReceived` and disposes it automatically in a `finally` block as soon as the event handlers return. Disposing `lease` inside `OnMessageReceived` causes a double-return bug if multiple handlers are subscribed. Only call `lease.Retain()` (and later `lease.Dispose()`) if you pass the lease to another thread.
+:::
+
+## 2. Reconnect Lifecycle Hooks (`OnResumedAsync` & `OnReauthenticateAsync`)
+
+When `TransportOptions.AutoReconnectEnabled = true`, `ReconnectSupervisor` recovers dropped connections in the background and invokes your hooks before signaling `OnReady`:
+
+```csharp
+session.OnResumedAsync = async ct =>
+{
+    Console.WriteLine("0-RTT session resumed! Server state and attributes are still intact.");
+    await Task.CompletedTask;
+};
+
+session.OnReauthenticateAsync = async ct =>
+{
+    Console.WriteLine("Previous session expired; fresh X25519 handshake completed. Re-sending login...");
+    await session.RequestAsync<LoginResponse>(new LoginPacket { Token = savedJwt }, ct: ct);
 };
 ```
 
-## Best Practices
+## 3. Structured Request Diagnostics (`TryRequestAsync`)
 
-- Centralize event subscription and telemetry wiring when a session is created.
-- Always handle `OnError` and `OnDisconnected` separately; they represent different runtime states.
-- For UI/main-thread apps, marshal callbacks before touching thread-affine components.
+Use `TryRequestAsync<TResponse>` to inspect `RequestOutcome<TResponse>` (`Kind`: `Ok`, `NotConnected`, `TimedOut`, `Failed`) without catching exceptions on hot paths:
+
+```csharp
+using Nalix.SDK.Options;
+using Nalix.SDK.Transport.Extensions;
+
+RequestOutcome<MatchmakeResponse> outcome = await session.TryRequestAsync<MatchmakeResponse>(
+    new MatchmakeRequest { Mode = "Ranked" },
+    RequestOptions.Default.WithTimeout(3_000).WithRetry(1));
+
+switch (outcome.Kind)
+{
+    case RequestOutcomeKind.Ok:
+        Console.WriteLine($"Matched into lobby {outcome.Value.LobbyId}");
+        break;
+    case RequestOutcomeKind.NotConnected:
+        Console.WriteLine("Cannot send request: session is offline.");
+        break;
+    case RequestOutcomeKind.TimedOut:
+        Console.WriteLine("Server did not respond within timeout budget.");
+        break;
+    case RequestOutcomeKind.Failed:
+        Console.WriteLine($"Protocol or serialization failure: {outcome.Error?.Message}");
+        break;
+}
+```
 
 ## Related APIs
 
 - [Transport Session](./transport-session.md)
-- [TCP Session](./tcp-session.md)
-- [UDP Session](./udp-session.md)
-- [Session Subscriptions](./subscriptions.md)
-- [Thread Dispatching](./thread-dispatching.md)
+- [Session Extensions](./tcp-session-extensions.md)
+- [Control Utilities (PingAsync, TimeSyncCalculator)](./control-utilities.md)
+- [Request Options & RequestOutcome&lt;T&gt;](../options/sdk/request-options.md)

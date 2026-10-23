@@ -1,145 +1,81 @@
 ---
 title: Concurrency Contracts
-description: This page covers the shared background-work contracts in Nalix.Abstractions.Concurrency.
+description: Background worker and recurring task contracts in Nalix.Abstractions.Concurrency including ITaskManager, IWorker, WorkerAttribute, IWorkerHandle, IWorkerContext, and IRecurringHandle.
 section: API Reference
 package: Nalix.Abstractions
 ---
 
-**Namespace:** `Nalix.Abstractions.Concurrency`
+**Namespace:** `Nalix.Abstractions.Concurrency`  
 **Assembly:** `Nalix.Abstractions`
 
-This page covers the shared background-work contracts in `Nalix.Abstractions.Concurrency`.
+`Nalix.Abstractions.Concurrency` defines the contracts for scheduling, monitoring, and cancelling long-running workers and recurring jobs managed by `TaskManager` in `Nalix.Framework.Tasks`.
 
-## Source mapping
+## Source Mapping
 
 - `src/Nalix.Abstractions/Concurrency/ITaskManager.cs`
+- `src/Nalix.Abstractions/Concurrency/IWorker.cs`
+- `src/Nalix.Abstractions/Concurrency/WorkerAttribute.cs`
 - `src/Nalix.Abstractions/Concurrency/IWorkerHandle.cs`
 - `src/Nalix.Abstractions/Concurrency/IWorkerContext.cs`
 - `src/Nalix.Abstractions/Concurrency/IRecurringHandle.cs`
 - `src/Nalix.Abstractions/Concurrency/IWorkerOptions.cs`
 - `src/Nalix.Abstractions/Concurrency/IRecurringOptions.cs`
 
-## Main types
+## Public Members at a Glance
 
-- `ITaskManager`
-- `IWorkerHandle`
-- `IWorkerContext`
-- `IRecurringHandle`
-- `IWorkerOptions`
-- `IRecurringOptions`
-
-## Public members at a glance
-
-| Type | Public members |
+| Type | Public Members |
 | --- | --- |
-| `ITaskManager` | `Title`, `ScheduleRecurring(...)`, `RunOnceAsync(...)`, `ScheduleWorker(...)`, `CancelAllWorkers()`, `CancelWorker(...)`, `CancelGroup(...)`, `CancelRecurring(...)`, `GetWorkers(...)`, `TryGetWorker(...)`, `GetRecurring()`, `TryGetRecurring(...)`, `WaitGroupAsync(...)`, `ScheduleWorker<TState>(...)` |
-| `IWorkerContext` | `Beat()`, `Advance(...)`, and worker progress/heartbeat reporting members used by the current runtime |
-| `IWorkerHandle` | `Id`, `Name`, `Group`, `TotalRuns`, `Progress`, `LastNote`, `Options`, `IsRunning`, `StartedUtc`, `LastHeartbeatUtc` |
-| `IRecurringHandle` | `Name`, `TotalRuns`, `IsRunning`, `IsPaused`, `Interval`, `Options`, `ConsecutiveFailures`, `LastRunUtc`, `NextRunUtc` |
-| `IWorkerOptions` | `Tag`, `MachineId`, `IdType`, `Priority`, `OnCompleted`, `OnFailed`, `ExecutionTimeout`, `RetainFor`, `GroupConcurrencyLimit`, `TryAcquireSlotImmediately`, `CancellationToken`, `OSPriority` |
+| `ITaskManager` | `Title`, `ConcurrencyLimitRatio`, `ScheduleWorker(...)`, `ScheduleWorker<TState>(...)`, `ScheduleWorker(IWorker)`, `ScheduleRecurring(...)`, `RunOnceAsync(...)`, `CancelAllWorkers()`, `CancelWorker(ISnowflake)`, `CancelGroup(string)`, `CancelRecurring(string)`, `GetWorkers(...)`, `TryGetWorker(...)`, `GetRecurring()`, `TryGetRecurring(...)`, `WaitGroupAsync(...)` |
+| `IWorker` | `ValueTask ExecuteAsync(IWorkerContext context, CancellationToken cancellationToken = default)` |
+| `WorkerAttribute` | `WorkerAttribute(string name, string group)`, `Name`, `Group`, `Tag`, `int Priority`, `IdType`, `RetainForMs`, `GroupConcurrencyLimit`, `Enabled`, `ProcessorAffinity` |
+| `IWorkerContext` | `ISnowflake Id`, `string Name`, `string Group`, `bool IsCancellationRequested`, `void Beat()`, `void Advance(long delta, string? note = null)` |
+| `IWorkerHandle : IDisposable` | `ISnowflake Id`, `string Name`, `string Group`, `long TotalRuns`, `long Progress`, `string? LastNote`, `IWorkerOptions Options`, `bool IsRunning`, `DateTimeOffset StartedUtc`, `DateTimeOffset? LastHeartbeatUtc` |
+| `IRecurringHandle : IDisposable` | `string Name`, `long TotalRuns`, `bool IsRunning`, `bool IsPaused`, `TimeSpan Interval`, `IRecurringOptions Options`, `int ConsecutiveFailures`, `DateTimeOffset? LastRunUtc`, `DateTimeOffset? NextRunUtc` |
+| `IWorkerOptions` | `Tag`, `MachineId`, `IdType`, `Priority`, `OnCompleted`, `OnFailed`, `ExecutionTimeout`, `RetainFor`, `GroupConcurrencyLimit`, `TryAcquireSlotImmediately`, `CancellationToken`, `OSPriority`, `ProcessorAffinity` |
 | `IRecurringOptions` | `Tag`, `Jitter`, `BackoffCap`, `ExecutionTimeout`, `NonReentrant`, `FailuresBeforeBackoff` |
 
-## ITaskManager
+## `ITaskManager` & `IWorker`
 
-`ITaskManager` is the shared contract behind long-running workers and recurring jobs.
-
-Typical flow:
-
-1. schedule a worker or recurring job
-2. keep the handle for cancellation or reporting
-3. query active work through the manager
-
-## Basic usage
+You can schedule background work either with a delegate or by implementing `IWorker` and decorating the class with `[Worker(name, group)]`:
 
 ```csharp
-IWorkerHandle worker = taskManager.ScheduleWorker(
-    "cleanup",
-    "maintenance",
-    async (ctx, ct) =>
+using System.Threading;
+using System.Threading.Tasks;
+using Nalix.Abstractions.Concurrency;
+
+[Worker("session.cleanup", "maintenance", Priority = (int)WorkerPriority.LOW, GroupConcurrencyLimit = 1)]
+public sealed class SessionCleanupWorker : IWorker
+{
+    public async ValueTask ExecuteAsync(IWorkerContext context, CancellationToken cancellationToken = default)
     {
-        ctx.Beat();
-        ctx.Advance(1, "started");
-        await CleanupAsync(ct);
-    });
-
-IRecurringHandle recurring = taskManager.ScheduleRecurring(
-    "heartbeat",
-    TimeSpan.FromSeconds(10),
-    async ct => await SendHeartbeatAsync(ct));
+        context.Beat();
+        context.Advance(100, "Cleanup completed");
+        await ValueTask.CompletedTask;
+    }
+}
 ```
 
-### Public methods that matter
-
-- `ScheduleRecurring(...)`
-- `RunOnceAsync(...)`
-- `ScheduleWorker(...)`
-- `CancelAllWorkers()`
-- `CancelWorker(id)`
-- `CancelGroup(group)`
-- `CancelRecurring(name)`
-- `GetWorkers(...)`
-- `TryGetWorker(id, out handle)`
-- `GetRecurring()`
-- `TryGetRecurring(name, out handle)`
-- `WaitGroupAsync(group, ct)`
-- `ScheduleWorker<TState>(name, work, state)`
-
-### 1. Common pitfalls
-
-- scheduling recurring work and then dropping the handle immediately
-- using worker names without a consistent naming convention
-- forgetting to cancel or dispose long-lived work during shutdown
-
-## IWorkerContext
-
-`IWorkerContext` is passed into worker delegates so they can report heartbeat and progress.
-
-## Example
+Scheduling and cancelling via `ITaskManager`:
 
 ```csharp
-ctx.Beat();
-ctx.Advance(5, "batch completed");
+IWorkerHandle handle = taskManager.ScheduleWorker(new SessionCleanupWorker());
+// Cancel by worker Snowflake ID:
+taskManager.CancelWorker(handle.Id);
 ```
 
-### 2. Common pitfalls
+## `IWorkerContext`
 
-- assuming the worker will update progress automatically
-- forgetting to call `Beat()` inside long-running loops
-- treating progress messages as optional if you want useful diagnostics
+Passed into every worker execution so the task can report liveness (`Beat()`) and progress (`Advance(delta, note)`):
 
-## Handle contracts
-
-`IWorkerHandle` and `IRecurringHandle` expose status snapshots for running jobs.
-
-You typically read:
-
-- `Id`
-- `Name`
-- `Group`
-- `IsRunning`
-- `Progress`
-- `StartedUtc`
-- `LastHeartbeatUtc`
-
-### 3. Common pitfalls
-
-- reading handle state after the manager has already disposed it
-- assuming a recurring job is still active just because the handle exists
-- ignoring `Group` when you use group concurrency limits
-
-## Options contracts
-
-`IWorkerOptions` and `IRecurringOptions` describe the knobs the task manager uses to shape execution.
-
-### 4. Common pitfalls
-
-- leaving `Tag` empty when you rely on it for diagnostics or grouping
-- setting `ExecutionTimeout` too low for a job that does real work
-- assuming `NonReentrant` is optional if overlapping work would be harmful
-- forgetting `BackoffCap` and `FailuresBeforeBackoff` are part of the retry shape for recurring jobs
+- `ISnowflake Id { get; }` — Unique Snowflake identifier of the worker run.
+- `string Name { get; }` — Worker name.
+- `string Group { get; }` — Worker group name.
+- `bool IsCancellationRequested { get; }` — Reflects cancellation from `CancelWorker`, `CancelGroup`, or `ExecutionTimeout`.
+- `void Beat()` — Updates `LastHeartbeatUtc`.
+- `void Advance(long delta, string? note = null)` — Increments `Progress` (`long`) and updates `LastNote`.
 
 ## Related APIs
 
-- [Task Manager](../framework/task-manager.md)
+- [Task Manager (Nalix.Framework.Tasks)](../framework/task-manager.md)
 - [Worker Options](../framework/options/worker-options.md)
 - [Recurring Options](../framework/options/recurring-options.md)

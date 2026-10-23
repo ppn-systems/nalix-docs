@@ -46,8 +46,7 @@ public sealed class SessionAuthorizationMiddleware : IPacketMiddleware<IPacket>
 
         // 2) Session establishment gate: verify that the connection has successfully
         // completed its handshake or resumption.
-        if (!context.Connection.Attributes.TryGetValue(ConnectionAttributes.HandshakeEstablished, out object? established) ||
-            established is not true)
+        if (!context.Connection.GetRuntimeState().HandshakeEstablished)
         {
             context.Connection.Disconnect("Session not established.");
             return;
@@ -70,7 +69,7 @@ using NetworkApplication app = NetworkApplication.CreateBuilder()
     {
         _ = options.WithMiddleware(new SessionAuthorizationMiddleware());
     })
-    .ListenTcp<MyProtocol>().Bind()
+    .MapTcp<MyProtocol>().Bind()
     .Build();
 ```
 
@@ -79,7 +78,7 @@ using NetworkApplication app = NetworkApplication.CreateBuilder()
 The middleware will now automatically enforce permissions based on the attributes applied to your handler methods.
 
 ```csharp
-[PacketHandler("SecureHandlers")]
+[PacketController("SecureHandlers")]
 public sealed class SecureHandlers
 {
     [PacketOpcode(0x1201)]
@@ -93,6 +92,11 @@ public sealed class SecureHandlers
 ```
 
 ## Flow summary
+
+1. Inbound frame is decrypted/decompressed and deserialized into an `IPacketContext<IPacket>`.
+2. `SessionAuthorizationMiddleware` runs at `[MiddlewareOrder(-60)]` on `MiddlewareStage.Inbound`.
+3. If the connection's `Level` is below `[PacketPermission]` or `GetRuntimeState().HandshakeEstablished` is `false`, the connection is disconnected before reaching the controller.
+4. Otherwise, `await next(context.CancellationToken)` invokes the remaining pipeline and the `[PacketController]` handler.
 
 ## Related pages
 

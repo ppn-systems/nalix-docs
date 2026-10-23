@@ -1,26 +1,26 @@
 ---
 title: Buffer Pooling Configuration
-description: Buffer pooling is the cornerstone of Nalix's zero-allocation architecture. By reusing pinned byte arrays from the Pinned Object Heap (POH), Nalix eliminates Gen 0 GC churn and m...
+description: Buffer pooling is the cornerstone of Nalix's zero-allocation architecture. BufferPoolManager wraps ArrayPool<byte>.Shared with configurable leak detection and stack-trace tracking via BufferOptions.
 section: Concepts
 ---
 
-Buffer pooling is the cornerstone of Nalix's zero-allocation architecture. By reusing pinned byte arrays from the Pinned Object Heap (POH), Nalix eliminates Gen 0 GC churn and memory fragmentation during high-frequency network operations.
+Buffer pooling is the cornerstone of Nalix's zero-allocation architecture. By reusing pooled `byte[]` arrays through `BufferPoolManager` and `BufferLease`, Nalix eliminates Gen 0 GC churn and provides optional leak detection during development and staging.
 
 ---
 
 ## 1. How it Works
 
-Nalix uses a **Slab Pooling** strategy. Instead of allocating arbitrary buffers, it maintains "buckets" of pre-allocated, pinned arrays of fixed sizes.
+Nalix combines .NET's `ArrayPool<byte>.Shared` with a pooled reference-counted wrapper (`BufferLease`) and an optional leak tracker (`BufferPoolManager`):
 
-- **BufferPoolManager**: The orchestrator that manages all buckets.
-- **BufferLease**: The lightweight "shell" that you rent to access a buffer.
-- **Pinned Object Heap (POH)**: Arrays are allocated using `GC.AllocateArray(pinned: true)`, ensuring they never move and don't require pinning/unpinning overhead during I/O.
+- **`BufferPoolManager`**: Implements `IBufferPoolManager` over `ArrayPool<byte>.Shared`, recording rent/return counters and tracking unreturned buffers when `BufferOptions.EnableBufferLeakDetection` is enabled.
+- **`BufferLease`**: The lightweight reference-counted shell (`IBufferLease`) rented from `ObjectPoolManager` to slice, retain, and deterministically return a `byte[]` buffer on `Dispose()`.
+- **`BufferOptions`**: Controls leak detection (`EnableBufferLeakDetection`), stack-trace capture (`EnableBufferLeakStackTrace`), and the overdue threshold (`SuspiciousThresholdSeconds`, default `30` seconds).
 
 ---
 
 ## 2. Configuration via Hosting Builder
 
-To use buffer pooling, you must register a `BufferPoolManager` with the application builder.
+You can configure `BufferOptions` (`[Buffer]` INI section) or register a custom `BufferPoolManager` on `NetworkApplicationBuilder`:
 
 ### Basic Setup
 
@@ -30,39 +30,26 @@ using Nalix.Framework.Memory.Buffers;
 using Nalix.Framework.Options;
 
 var app = NetworkApplication.CreateBuilder()
-    // 1. Initialize and configure the pool manager
-    .UseBufferPoolManager(new BufferPoolManager(new BufferOptions
+    .Configure<BufferOptions>(options =>
     {
-        // Optional: Tuning parameters
-        TotalBuffers = 10000
-    }))
+        options.EnableBufferLeakDetection = true;
+        options.EnableBufferLeakStackTrace = false;
+        options.SuspiciousThresholdSeconds = 30;
+    })
     .Build();
-```
-
-### Advanced Tuning (Manual Allocation Profiles)
-
-You can precisely control how many buffers of each size are pre-allocated using the `BufferAllocations` format: `size,ratio; size,ratio`.
-
-```csharp
-builder.UseBufferPoolManager(new BufferPoolManager(new BufferOptions
-{
-    // Define a custom profile:
-    // 256 bytes (15%), 1KB (15%), 4KB (30%), 16KB (30%), 32KB (10%)
-    BufferAllocations = "256,0.15; 1024,0.15; 4096,0.30; 16384,0.30; 32768,0.10"
-}));
 ```
 
 ---
 
-## 3. Configuration via .ini Files
+## 3. Configuration via `.ini` Files
 
-In production, it is often better to tune these values without recompiling. Nalix automatically binds `buffer.ini` settings if available.
+In production or staging, tune `BufferOptions` in `assets/config.ini` under the `[Buffer]` section:
 
-### `buffer.ini`
 ```ini
-[BufferOptions]
-TotalBuffers = 50000
-BufferAllocations = 512,0.20; 2048,0.40; 8192,0.40
+[Buffer]
+EnableBufferLeakDetection = false
+EnableBufferLeakStackTrace = false
+SuspiciousThresholdSeconds = 30
 ```
 
 ---
@@ -90,10 +77,10 @@ public async ValueTask HandleLargeData(IPacketContext<MyPacket> context)
 
 ## 5. Monitoring Pool Health
 
-To ensure your pool is sized correctly, monitor the **Miss Rate**. A high miss rate means the pool is too small or the requested sizes don't match your `BufferAllocations`.
+To ensure your buffers are returned deterministically without leaks, inspect `BufferPoolManager.GenerateReport()`:
 
 ```csharp
-// Get a diagnostic report
+// Get a diagnostic report of rented/returned buffers and any overdue leaks
 string report = manager.GenerateReport();
 Console.WriteLine(report);
 ```
@@ -101,9 +88,9 @@ Console.WriteLine(report);
 ### Key Metrics to Watch:
 | Metric | Description |
 | :--- | :--- |
-| **Hit Rate** | % of requests satisfied by the pool. Aim for > 99%. |
-| **Miss Rate** | % of requests that forced a new POH allocation. |
-| **Usage Ratio** | How much of the total pool is currently in use. |
+| **Total Rents / Returns** | Cumulative `ArrayPool<byte>.Shared` rent and return operations tracked by `BufferPoolManager`. |
+| **Outstanding Buffers** | Number of currently rented buffers that have not yet been returned. |
+| **Suspicious Leaks** | Buffers held longer than `BufferOptions.SuspiciousThresholdSeconds` (when `EnableBufferLeakDetection = true`). |
 
 ---
 

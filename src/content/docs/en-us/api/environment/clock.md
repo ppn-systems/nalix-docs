@@ -45,6 +45,7 @@ double ms = Clock.MonoTicksToMilliseconds(mono);
 | `UnixTicksNow()` | `long` | Current Unix timestamp in ticks |
 | `UnixTime()` | `TimeSpan` | Current Unix time as TimeSpan |
 | `EpochMillisecondsNow()` | `long` | Milliseconds since the custom 2025-01-01 epoch |
+| `ClampUnixMilliseconds(long, long, long)` | `long` | Clamps a Unix millisecond timestamp `value` into `[min, max]` |
 | `MonoTicksNow()` | `long` | Current monotonic tick count (for latency/RTT measurement) |
 | `MonoTicksToMilliseconds(long)` | `double` | Converts a monotonic tick delta into milliseconds |
 

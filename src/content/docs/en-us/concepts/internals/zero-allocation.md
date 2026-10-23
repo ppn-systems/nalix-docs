@@ -46,17 +46,15 @@ High performance starts with how you define your data. Use `SerializeLayout.Expl
 using Nalix.Codec.DataFrames;
 using Nalix.Abstractions.Serialization;
 
-[Packet]
+[GenerateFormatter]
 [SerializePackable(SerializeLayout.Explicit)]
-public sealed class HighFreqUpdate : PacketBase<HighFreqUpdate>
+public sealed partial class HighFreqUpdate : PacketBase<HighFreqUpdate>, IFixedSizeSerializable, IPacketStaticOpcode
 {
-    public const ushort OpCodeValue = 0x5001;
+    public static ushort StaticOpCode => 0x5001;
 
     [SerializeOrder(0)] public int EntityId { get; set; }
     [SerializeOrder(1)] public float PositionX { get; set; }
     [SerializeOrder(2)] public float PositionY { get; set; }
-
-    public HighFreqUpdate() => OpCode = OpCodeValue;
 }
 ```
 
@@ -68,7 +66,7 @@ Using `struct` for small, high-frequency packets ensures they live on the stack 
 
 Nalix "bakes" your handlers and packet lookups during startup, handled automatically by `NetworkApplicationBuilder`:
 
-1. **Frozen Registry Creation** — `PacketRegistry` uses source-generated metadata to build an immutable `FrozenDictionary` for O(1), branch-prediction-friendly lookups.
+1. **Direct-Indexed Registry** — `PacketRegistry` uses source-generated metadata (`PacketRegistryGenerator`) to populate a direct-indexed `PacketDeserializer?[65536]` table (`s_table[opcode]`) and composed fast-dispatch delegates for O(1), zero-allocation lookups.
 2. **Source-Generated Dispatch** — `PacketHandlerGenerator` emits zero-allocation invoker delegates at compile time, eliminating reflection overhead.
 
 ```csharp
@@ -101,7 +99,7 @@ This delegate is cached in a `FrozenDictionary`, giving O(1) lookup with lower o
 
 ### Buffer leasing
 
-Incoming data is stored in a `BufferLease` backed by pooled pinned `byte[]` arrays managed by the framework's slab buckets. `BufferLease` shells are themselves pooled via a lock-free free-list with an O(1) atomic counter.
+Incoming data is stored in a `BufferLease` backed by `ArrayPool<byte>.Shared` through `BufferPoolManager` with power-of-two bucket alignment and a 1-byte diagnostic sentinel (`0xA5`) to detect buffer overruns when leases are returned. `BufferLease` shells are themselves pooled via a lock-free free-list with an O(1) atomic counter.
 
 ```csharp
 using BufferLease lease = BufferLease.Rent(1024);
@@ -159,23 +157,27 @@ When writing asynchronous handlers (`async ValueTask`), you **must** pass `conte
 **Why?** Nalix uses aggressive `ObjectPool` caching for every packet. If a connection drops, the dispatcher instantly cancels the pending pipeline and returns the packet to the pool. If your `SendAsync` call doesn't accept the cancellation token, it becomes an orphaned task that keeps reading from a pooled packet that's already been cleared or reassigned to a new connection — this causes `ArgumentException` (e.g. "Buffer too small") or memory corruption.
 :::
 
-### Pattern: the ultra hot path (zero deserialization)
+### Pattern: the ultra hot path (custom `IProtocol` raw memory bypass)
 
-For packets where even bit-blitting deserialization is too costly (streaming media, encrypted proxy traffic), bypass the `PacketRegistry` entirely by accepting raw memory:
+For packets where even bit-blitting deserialization is too costly (streaming media, encrypted proxy traffic), bypass `PacketDispatchChannel` and `PacketRegistry` inside your `Protocol.ProcessMessage(...)` implementation and operate directly on `args.Lease.Span`:
 
 ```csharp
-[PacketOpcode(0x7001)]
-public ValueTask HandleRawData(ReadOnlyMemory<byte> memory, IConnection connection)
+public override void ProcessMessage(object? sender, IConnectionEventArgs args)
 {
-    // 'memory' points directly to the pooled IBufferLease.Span.
-    // No deserialization, no allocation, no OpCode validation check.
-    Process(memory.Span);
-    return ValueTask.CompletedTask;
+    ReadOnlySpan<byte> raw = args.Lease.Span;
+    if (raw.AsHeaderRef().OpCode == 0x7001)
+    {
+        // Points directly to the pooled IBufferLease.Span with zero deserialization.
+        ProcessRawStream(raw, args.Connection);
+        return;
+    }
+
+    _dispatch.HandlePacket(args.Lease, args.Connection);
 }
 ```
 
 :::important[Security vs performance]
-Bypassing deserialization also bypasses the framework's built-in OpCode and checksum validation. Use this only for internal or already-authenticated streams.
+Bypassing `PacketDispatchChannel` also bypasses middleware enforcement (`[PacketPermission]`, `[PacketRateLimit]`, `[PacketEncryption]`). Use this only for already-authenticated streams.
 :::
 
 ## 4. Fair Concurrency & Priority Management
@@ -193,27 +195,29 @@ builder.ConfigureDispatchOptions(options => {
 });
 ```
 
-Nalix also implements **Deficit Round Robin (DRR)** scheduling: if a client floods the server with low-priority packets, high-priority packets (like chat or items) still get processed within their guaranteed quota.
+Nalix also implements **Priority-Weighted** per-connection scheduling across 5 priority queues (`URGENT`, `HIGH`, `MEDIUM`, `LOW`, `NONE`): if a client floods the server with low-priority packets, high-priority packets still get processed first.
 
 ```csharp
-[Packet]
-public sealed class UrgentAlert : PacketBase<UrgentAlert>
+[GenerateFormatter]
+[SerializePackable(SerializeLayout.Explicit)]
+public sealed partial class UrgentAlert : PacketBase<UrgentAlert>, IPacketStaticOpcode
 {
+    public static ushort StaticOpCode => 0x9001;
+
     public UrgentAlert()
     {
-        OpCode = 0x9001;
         Priority = PacketPriority.URGENT;
     }
 }
 ```
 
-Tune the relative budget per priority level via `dispatch.ini`:
+Configure per-connection backpressure and drop policy via `DispatchOptions` (`[Dispatch]` section in `assets/config.ini`):
 
 ```ini
-[DispatchOptions]
-# Weights for [NONE, LOW, MEDIUM, HIGH, URGENT]
-# Default "1,2,4,8,16" means URGENT is 16x more likely to be served than NONE.
-PriorityWeights = 1,1,2,5,20
+[Dispatch]
+MaxPerConnectionQueue = 1024
+DropPolicy = DropNewest
+BlockTimeout = 00:00:01
 ```
 
 ## 5. Zero-Allocation Error Handling
@@ -308,7 +312,7 @@ public class ProtocolBenchmarks
 
 ## Advanced Monitoring
 
-- **Buffer Pool Health** (`BufferPoolManager`) — `MissRate` > 5% means your `BufferAllocations` are too small for traffic spikes; `UsageRatio` consistently at 90%+ means you're near capacity.
+- **Buffer Pool Health** (`BufferPoolManager`) — Enable `BufferOptions.EnableBufferLeakDetection` in staging to catch any unreturned `BufferLease` instances exceeding `SuspiciousThresholdSeconds`.
 - **Dispatch Health** (`PacketDispatchChannel`) — high `WakeSignals` relative to processed packets suggests efficient batching; a growing `Ready Connections` count means handlers are too slow or `DispatchLoopCount` is too low.
 - **CLI monitoring** — `dotnet-counters monitor -p <PID> --counters Nalix.Framework,System.Runtime[alloc-rate,gen-0-gc-count]`.
 
@@ -316,8 +320,7 @@ public class ProtocolBenchmarks
 
 - [x] Use `struct` or pooled `class` for packets.
 - [x] Use `IPacketContext<T>` to leverage frame-level pooling.
-- [x] Use `ReadOnlyMemory<byte>` handlers for zero-deserialization bypass.
-- [x] Annotate controllers with `[PacketHandler]`.
+- [x] Annotate controllers with `[PacketController]`.
 - [x] Use `[PacketOpcode]` for zero-reflection routing.
 - [x] Use SIMD primitives (`Bytes32`) for security checks.
 - [x] Return `ValueTask` from handlers.

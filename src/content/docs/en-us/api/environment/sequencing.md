@@ -1,70 +1,49 @@
 ---
 title: Sequencing
-description: This page covers the monotonic sequence number generator in Nalix.Environment.Sequencing.
+description: Thread-safe monotonic sequence counter and sliding-window replay validator in Nalix.Environment.Sequencing.SequenceCounter.
 section: API Reference
 package: Nalix.Environment
 ---
 
-This page covers the monotonic sequence number generator in `Nalix.Environment.Sequencing`.
- 
-## Source mapping
- 
+**Namespace:** `Nalix.Environment.Sequencing`  
+**Assembly:** `Nalix.Environment`
+
+`SequenceCounter` (`src/Nalix.Environment/Sequencing/SequenceCounter.cs`) is a thread-safe, lock-free 32-bit sequence counter implementing `ISequenceCounter` (`Nalix.Abstractions.Networking.ISequenceCounter`), used for packet ordering, nonce uniqueness, and 32-bit bitmap sliding-window replay validation.
+
+## Source Mapping
+
+- `src/Nalix.Abstractions/Networking/ISequenceCounter.cs`
 - `src/Nalix.Environment/Sequencing/SequenceCounter.cs`
- 
-## Main types
- 
-- `SequenceCounter`
- 
-## SequenceCounter
- 
-`SequenceCounter` provides a thread-safe, monotonically increasing sequence number generator. It is critical for security when using stream ciphers (such as ChaCha20 or Salsa20) to prevent nonce reuse attacks.
- 
-### Key Features
- 
-- **Thread-Safe**: Uses `Interlocked` operations for atomic increments.
-- **Monotonic**: Guaranteed to never repeat values during the lifetime of the instance.
-- **Security-First**: Designed to be used separately for each communication direction (send and receive).
- 
-### Public Members
- 
-| Member | Description |
-| --- | --- |
-| `Next()` | Returns the next sequence number and increments the counter atomically. |
-| `Current()` | Returns the current sequence number without incrementing it. |
-| `IsValid(receivedSeq, window)` | Validates whether a received sequence number is valid (helps prevent replay attacks). |
-| `UpdateTo(receivedSeq)` | Updates the internal counter to the received sequence number if it is higher. |
-| `ResumeFrom(lastKnownSeq, safetyGap)` | Resumes the counter from a previously saved value with an optional safety gap. |
-| `Reset(newValue)` | Resets the counter to a new value (use only during key rotation). |
- 
-### Usage Example
- 
+
+## Public Constructors & Methods
+
+| Member | Signature | Description |
+| --- | --- | --- |
+| `SequenceCounter` | `public SequenceCounter(uint initialValue = 0)` | Initializes the counter starting at `initialValue`. |
+| `Next()` | `public uint Next()` | Atomically increments and returns the next `uint` sequence number (`Interlocked.Increment`). |
+| `Current()` | `public uint Current()` | Atomically reads the current sequence number (`Volatile.Read`). |
+| `IsValid` | `public bool IsValid(uint? receivedSeq, uint window = 0)` | Returns `true` if `receivedSeq` is ahead of `Current()` or within the allowed trailing `window` (up to `MaxBitmapWindow = 32` using a 32-bit replay bitmap). |
+| `UpdateTo` | `public void UpdateTo(uint receivedSeq)` | Atomically updates the counter and sliding-window replay bitmap with `receivedSeq`. |
+| `ResumeFrom` | `public void ResumeFrom(uint lastKnownSeq, uint safetyGap = 1000)` | Restores the counter after session resumption to `lastKnownSeq + safetyGap` to prevent nonce reuse across disconnects. |
+| `IsApproachingOverflow` | `public bool IsApproachingOverflow(uint margin = 1_000_000)` | Returns `true` when `Current() >= uint.MaxValue - margin`, signaling that session key rotation (`SESSION_REKEY`) should be triggered. |
+| `Reset` | `public void Reset(uint newValue = 0)` | Resets the counter and replay bitmap to `newValue` (must only be called alongside a cryptographic key rotation). |
+
+## Usage Example
+
 ```csharp
 using Nalix.Environment.Sequencing;
- 
-// Initialize a counter (starts at 0)
-var counter = new SequenceCounter();
- 
-// Get the next sequence number for an outbound packet
-uint seq = counter.Next(); // returns 1
- 
-// Validate a received sequence number
-bool isValid = counter.IsValid(receivedSeq, window: 32);
-if (isValid)
+
+SequenceCounter outbound = new(initialValue: 0);
+uint seq = outbound.Next(); // 1
+
+if (outbound.IsApproachingOverflow(margin: 1_000_000))
 {
-    // Update counter after successful processing
-    counter.UpdateTo(receivedSeq);
+    // Trigger mid-session key rotation (SESSION_REKEY) before 32-bit wrap-around
 }
 ```
- 
-### Security Considerations
- 
-- **Directional Isolation**: Always use separate `SequenceCounter` instances for sending and receiving. Sharing a counter across directions will lead to nonce reuse, compromising the encryption.
-- **Key Rotation**: When resetting a counter, you **must** perform a full cryptographic key rotation. Reusing a key with a reset counter allows for replay attacks and plaintext recovery.
-- **Replay Protection**: The `IsValid` method combined with `UpdateTo` provides a basic mechanism to reject old or duplicate packets.
- 
+
 ## Related APIs
 
-- `ITransportSequencer` — the connection-level interface that exposes `SendSequence` / `ReceiveSequence` counters and convenience methods `NextSendSequence()` / `NextReceiveSequence()` / `CurrentSendSequence` / `CurrentReceiveSequence`
-- [AEAD and Envelope](../security/aead-and-envelope.md)
-- [Handshake Protocol](../security/handshake.md)
-- [Frame Model](../codec/packets/frame-model.md)
+- [AEAD & Envelope Encryption](../security/aead-and-envelope.md)
+- [Session Resumption Protocol](../security/session-resume.md)
+- [Connection Contracts (ITransportSequencer)](../abstractions/connection-contracts.md)

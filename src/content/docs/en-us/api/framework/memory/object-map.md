@@ -1,91 +1,85 @@
 ---
 title: Object Map
-description: ObjectMap<TKey, TValue> is a high-performance, thread-safe pooled dictionary built on top of ConcurrentDictionary. It is designed for scenarios where you need temporary lookup t...
+description: Reference for Nalix.Framework.Memory.Objects.ObjectMap<TKey, TValue> — pooled thread-safe dictionary backed by ConcurrentDictionary and ObjectPoolManager.Shared.
 section: API Reference
 package: Nalix.Framework
 ---
 
-`ObjectMap<TKey, TValue>` is a high-performance, thread-safe pooled dictionary built on top of `ConcurrentDictionary`. It is designed for scenarios where you need temporary lookup tables without the overhead of repeated allocations and garbage collection.
+**Namespace:** `Nalix.Framework.Memory.Objects`  
+**Assembly:** `Nalix.Framework`
 
-## ObjectMap Rent/Release Flow
+`ObjectMap<TKey, TValue>` (`public sealed class ObjectMap<TKey, TValue> : IObjectMap<TKey, TValue> where TKey : notnull`) is a pooled, thread-safe key-value map backed by `ConcurrentDictionary<TKey, TValue>` and recycled via `ObjectPoolManager.Shared`. It is used for per-connection `IConnection.Attributes` (`IObjectMap<AttributeKey, object>`) and temporary concurrent lookup tables.
 
-The following diagram illustrates how an `ObjectMap` is retrieved from the global pool, used, and safely returned.
+## Rent & Return Lifecycle
 
 ```mermaid
 flowchart LR
-    Start[Need Map] --> Rent[ObjectMap Rent]
-    Rent --> State["Fresh ConcurrentDictionary<br/>(Cleared and Ready)"]
-    
-    State --> Use["Business Logic:<br/>Add and Remove and Lookup"]
-    
-    Use --> Return[map Return]
-    Return --> Reset["ResetForPool:<br/>Clear ConcurrentDictionary"]
-    Reset --> Pool[Returned to ObjectPool]
+    Start(["Need Thread-Safe Map"]) --> Rent["ObjectMap<TKey, TValue>.Rent()"]
+    Rent --> Pool["ObjectPoolManager.Shared.Get<ObjectMap<TKey, TValue>>()"]
+    Pool --> Use["Use Indexer / Add / TryGetValue / Remove"]
+    Use --> Return["map.Return()"]
+    Return --> Reset["ResetForPool() -> _dict.Clear()"]
+    Reset --> PoolStore["Returned to ObjectPoolManager.Shared"]
 ```
 
 ## Source Mapping
 
+- `src/Nalix.Abstractions/IObjectMap.cs`
 - `src/Nalix.Framework/Memory/Objects/ObjectMap.cs`
 
-## Core Features
+## Public Static & Instance Members
 
-- **Concurrent Access**: Thread-safe operations inherited from `ConcurrentDictionary`.
-- **Pooled Architecture**: Instances are recycled through the `ObjectPoolManager`.
-- **Zero-Allocation Utility**: Avoids `new Dictionary<K,V>` or `new ConcurrentDictionary<K,V>` on hot paths.
-- **Snapshot Support**: Efficient enumeration using the underlying concurrent implementation.
+| Member | Signature | Description |
+| :--- | :--- | :--- |
+| `Rent()` | `public static ObjectMap<TKey, TValue> Rent()` | Retrieves a cleared `ObjectMap<TKey, TValue>` instance from `ObjectPoolManager.Shared` (requires `ObjectPoolManager.Shared` to be configured). |
+| `Return()` | `public void Return()` | Clears the map (`ResetForPool()`) and returns it to `ObjectPoolManager.Shared`. |
+| `ResetForPool()` | `public void ResetForPool()` | Clears all entries from the underlying `ConcurrentDictionary<TKey, TValue>` while preserving internal bucket capacity. |
+| `this[TKey key]` | `public TValue this[TKey key] { get; set; }` | Gets or sets the value for `key` (setting inserts or overwrites; getting throws `KeyNotFoundException` if missing). |
+| `Add(TKey, TValue)` | `public void Add(TKey key, TValue value)` | Adds `(key, value)` to the map; throws `ArgumentException` if `key` already exists. |
+| `Add(KeyValuePair)` | `public void Add(KeyValuePair<TKey, TValue> item)` | Adds `item` to the map; throws `ArgumentException` if `item.Key` already exists. |
+| `TryGetValue` | `public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)` | Attempts to retrieve the value associated with `key`. |
+| `ContainsKey` | `public bool ContainsKey(TKey key)` | Returns `true` if `key` exists in the map. |
+| `Contains(KeyValuePair)` | `public bool Contains(KeyValuePair<TKey, TValue> item)` | Returns `true` if `item.Key` exists and its value equals `item.Value`. |
+| `Remove(TKey)` | `public bool Remove(TKey key)` | Removes `key` from the map; returns `true` if removed. |
+| `Remove(KeyValuePair)` | `public bool Remove(KeyValuePair<TKey, TValue> item)` | Removes `item` only if both key and value match. |
+| `CopyTo` | `public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)` | Copies the map's key-value pairs to `array` starting at `arrayIndex`. |
+| `GetEnumerator()` | `public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()` | Returns a thread-safe enumerator over the map's key-value pairs. |
+| `Clear()` | `public void Clear()` | Removes all entries from the map. |
+| `Count` | `public int Count { get; }` | Number of elements currently in the map. |
+| `Keys` / `Values` | `ICollection<TKey>` / `ICollection<TValue>` | Snapshot collections of keys and values. |
+| `IsReadOnly` | `public bool IsReadOnly => false;` | Always returns `false`. |
 
-## Key Members
-
-### Static
-
-| Member | Description |
-| :--- | :--- |
-| `Rent()` | Static method to retrieve a fresh, cleared map from the pool. |
-
-### Instance
-
-| Member | Description |
-| :--- | :--- |
-| `Return()` | Returns the map to the pool. **Must** be called to prevent memory leaks. |
-| `Add(key, value)` | Adds an entry (silently ignores duplicates). |
-| `TryGetValue(key, out val)` | Safely retrieves a value if the key exists. |
-| `ContainsKey(key)` | Determines whether the map contains the specified key. |
-| `Remove(key)` | Removes the entry with the specified key. Returns `true` if removed. |
-| `Clear()` | Removes all elements from the map. |
-| `this[key]` | Gets or sets the value associated with the specified key. Throws `KeyNotFoundException` on get if missing. |
-| `Keys` | Gets a collection containing the keys in the map. |
-| `Values` | Gets a collection containing the values in the map. |
-| `Count` | Gets the number of elements in the map. |
-| `IsReadOnly` | Gets a value indicating whether the map is read-only (always `false`). |
-| `Contains(item)` | Determines whether the map contains a specific key/value pair. |
-| `CopyTo(array, index)` | Copies elements to an array starting at the specified index. |
-| `Remove(KeyValuePair)` | Removes a specific key/value pair. Returns `true` if removed. |
-| `GetEnumerator()` | Returns an enumerator (snapshot of the collection). |
-| `ResetForPool()` | Resets internal state before returning to the pool. |
-
-## Basic Usage
-
-Always use the `try-finally` pattern to ensure the map is returned to the pool even if an exception occurs.
+## Usage Example
 
 ```csharp
-var users = ObjectMap<string, UserSession>.Rent();
+using Nalix.Framework.Memory.Objects;
+
+ObjectMap<string, ulong> activeRooms = ObjectMap<string, ulong>.Rent();
 try
 {
-    users.Add("user_1", session);
-    // ... process users ...
+    // Use indexer to insert or overwrite safely
+    activeRooms["lobby"] = 1001UL;
+
+    // Or Add (throws ArgumentException on duplicate key)
+    activeRooms.Add("match-1", 2002UL);
+
+    if (activeRooms.TryGetValue("lobby", out ulong roomId))
+    {
+        // Use roomId
+    }
 }
 finally
 {
-    users.Return();
+    activeRooms.Return();
 }
 ```
 
-:::danger[Usage Guard]
-Never store a reference to an `ObjectMap` after `Return()` has been called. The instance will be cleared and potentially handed to another thread immediately.
+:::caution[Do Not Access After `Return()`]
+Never read or mutate an `ObjectMap<TKey, TValue>` after calling `Return()`. The instance is immediately cleared and can be rented by another thread.
 :::
 
 ## Related APIs
 
-- [Object Pooling](./object-pooling.md)
+- [Object Pooling (ObjectPoolManager)](./object-pooling.md)
 - [Typed Object Pools](./typed-object-pools.md)
-- [Buffer Management](../../environment/memory/buffer-management.md)
+- [Connection Contracts (IConnection.Attributes)](../../abstractions/connection-contracts.md)

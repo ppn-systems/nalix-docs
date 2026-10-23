@@ -1,94 +1,90 @@
 ---
 title: Packet Handler Generator
-description: The PacketHandlerGenerator is a Roslyn incremental source generator that produces zero-allocation dispatch compilers for classes annotated with [PacketHandler]. It replaces the...
+description: Incremental Roslyn source generator (PacketHandlerGenerator) that compiles [PacketHandler] controllers into zero-reflection dispatch delegates and injects [Inject] and [FromScope] dependencies.
 section: API Reference
 package: Nalix.Analyzers
 ---
 
-The `PacketHandlerGenerator` is a Roslyn incremental source generator that produces zero-allocation dispatch compilers for classes annotated with `[PacketHandler]`. It replaces the runtime reflection-based handler compilation model with compile-time code generation.
+`PacketHandlerGenerator` (`analyzers/Nalix.Analyzers.Generators/PacketHandlerGenerator.cs`) is an incremental Roslyn source generator that compiles classes annotated with `[PacketHandler]` into zero-reflection `IPacketHandlerCompiler` implementations registered via `[ModuleInitializer]`.
 
 ## Source Mapping
 
 - `analyzers/Nalix.Analyzers.Generators/PacketHandlerGenerator.cs`
+- `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`
 
-## What It Does
+## What It Does at Compile Time
 
-At compile time, the generator:
+1. **Controller Discovery**: Finds all concrete classes decorated with `[PacketHandler]` and inspects their `[PacketOpcode]` methods.
+2. **Constructor & `[Inject]` Wiring**:
+   - Selects the accessible (`public` or `internal`) constructor with the most parameters to instantiate the controller, resolving `ConfigurationLoader` parameters via `ConfigurationManager.Instance.Get<TParam>()` and service parameters via `InstanceManager.Instance.GetExistingInstance<TParam>()` (falling back to the parameter's default value or throwing `InvalidOperationException` if required).
+   - If the controller declares fields or properties marked with `[Inject]` (which requires the controller class to be declared `partial`), emits `<Controller>_Inject.g.cs` containing `private void InitializeDependencies()` and invokes it inside the generated factory.
+3. **Metadata Compilation**: Reads `[PacketOpcode]`, `[PacketTimeout]`, `[PacketPermission]`, `[PacketEncryption]`, `[PacketRateLimit]`, and `[PacketConcurrencyLimit]` on each handler method (with controller-level fallback) and constructs a `PacketMetadata` descriptor via `PacketMetadataBuilder`.
+4. **Delegate Compilation**: Emits a strongly-typed invoker lambda that casts `IPacketContext<TPacket>` to `IPacketContext<TConcretePacket>`, resolves any `[FromScope]` parameters via `ctx.Scope.GetRequiredService<TParam>()` (or `ctx.Scope.GetService<TParam>()` when the parameter type is nullable `TParam?`), and invokes the handler without reflection or boxing.
+5. **Module Initializer Registration**: Emits `PacketHandlersGenerated.Initialize()` (`[ModuleInitializer]`) calling `PacketHandlerRegistry.Register(typeof(TController), new TController_PacketHandlerCompiler())`.
 
-1. Scans all classes annotated with `[PacketHandler]` across the compilation.
-2. For each controller, inspects methods annotated with `[PacketOpcode]`.
-3. Emits an `IPacketHandlerCompiler` implementation that registers each handler via `IPacketHandlerBuilder<TPacket>.RegisterHandler(...)`.
-4. Emits a `[ModuleInitializer]` that registers the compiler with `PacketHandlerRegistry.Register(...)` at assembly load time.
+## Supported Handler Signatures
 
-## Generated Output
+Every `[PacketOpcode]` handler method must follow this parameter contract:
 
-For a controller like:
+| Parameter Position | Required Type / Attribute | How It Is Supplied |
+| --- | --- | --- |
+| **Parameter `0`** (Required) | `IPacketContext<TPacket>` (where `TPacket : IPacket`) | Passed directly from the pooled runtime dispatch context (`context.Packet`, `context.Connection`, `context.Sender`, `context.Scope`, `context.CancellationToken`). |
+| **Parameters `1..N`** (Optional) | Reference type `TService` (or `TService?`) annotated with `[FromScope]` | Non-nullable `TService` is resolved via `context.Scope.GetRequiredService<TService>()`; nullable `TService?` is resolved via `context.Scope.GetService<TService>()`. |
+
+:::warning[Legacy `(TPacket packet, IConnection connection)` Signatures Removed]
+Handler methods must always take `IPacketContext<TPacket>` as their first parameter. Methods with legacy signatures emit **`NALIX003`**, and extra parameters that are missing `[FromScope]` or are value types emit **`NALIX067`** and are dropped from the generated dispatch table.
+:::
+
+### Supported Return Types
+
+- `void`
+- `Task`
+- `ValueTask`
+- `TResult` (for example, returning a response `IPacket`, `string`, or `byte[]`)
+- `Task<TResult>`
+- `ValueTask<TResult>`
+- `IAsyncEnumerable<TElement>` (server-to-client streaming responses)
+
+## Example
 
 ```csharp
-[PacketHandler("SampleHandlers")]
-public sealed class SampleHandlers
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Nalix.Abstractions.Injection;
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Abstractions.Security;
+
+[PacketHandler("AuthController")]
+public sealed partial class AuthController
 {
+    [Inject]
+    private ILogger? _logger;
+
     [PacketOpcode(0x1001)]
-    public ValueTask<LoginResponse> HandleLogin(IPacketContext<LoginRequest> context)
-        => ValueTask.FromResult(new LoginResponse());
-}
-```
-
-The generator produces (conceptually):
-
-```csharp
-[ModuleInitializer]
-internal static void __RegisterSampleHandlers()
-{
-    PacketHandlerRegistry.Register(
-        typeof(SampleHandlers),
-        new SampleHandlers_Compiler());
-}
-
-internal sealed class SampleHandlers_Compiler : IPacketHandlerCompiler
-{
-    public void InitializeDependencies() { }
-
-    public void Build<TPacket>(IPacketHandlerBuilder<TPacket> builder, Func<object> factory)
-        where TPacket : IPacket
+    [PacketPermission(PermissionLevel.NONE)]
+    [PacketEncryption(true)]
+    public ValueTask HandleLoginAsync(
+        IPacketContext<LoginRequest> context,
+        [FromScope] IUserSessionTracker tracker)
     {
-        var instance = (SampleHandlers)factory();
-        builder.RegisterHandler(
-            opCode: 0x1001,
-            metadata: new PacketMetadata(/* attributes */),
-            methodName: "HandleLogin",
-            instance: instance,
-            returnType: typeof(ValueTask<LoginResponse>),
-            expectedPacketType: typeof(LoginRequest),
-            invoker: (inst, ctx) => /* compiled delegate */);
+        _logger?.LogInformation("Login from {Id}", context.Connection.ConnectionId);
+        tracker.Track(context.Connection.ConnectionId);
+        return context.Sender.ReplyAsync(new LoginResponse { Success = true });
     }
 }
 ```
 
-## Runtime Integration
+## Diagnostics Emitted
 
-At runtime, `PacketDispatchOptions.WithHandler<TController>()` calls `PacketHandlerRegistry.TryBuildHandlers(...)`, which finds the generated compiler and invokes `Build(...)` to register all handlers.
-
-## Supported Handler Signatures
-
-The generator supports the following method signature patterns:
-
-| Style | Signature |
-| --- | --- |
-| Context | `(IPacketContext<T> context)` |
-| Context + Token | `(IPacketContext<T> context, CancellationToken ct)` |
-| Legacy | `(T packet, IConnection connection)` |
-| Legacy + Token | `(T packet, IConnection connection, CancellationToken ct)` |
-| Raw Memory | `(ReadOnlyMemory<byte> raw, IConnection connection)` |
-
-Return types: `void`, `Task`, `ValueTask`, `T`, `Task<T>`, `ValueTask<T>`.
-
-## Diagnostic
-
-If a handler method has an unsupported signature, the generator emits `NALIX003`.
+| ID | Title | Severity | Cause |
+| --- | --- | :---: | --- |
+| `NALIX003` | Packet controller handler has unsupported signature | Warning | Parameter `0` is missing or is not `IPacketContext<TPacket>`. |
+| `NALIX067` | Handler method dropped from dispatch table | Error | A parameter at index `>= 1` is missing `[FromScope]` or is not a reference type. |
+| `NALIX104` | `[Inject]` field cannot be `readonly` | Error | A field marked `[Inject]` is declared `readonly`. |
 
 ## Related APIs
 
-- [Auto Generation Overview](./index.md)
+- [Source Generators Overview](./index.md)
 - [Diagnostic Codes](../diagnostic-codes.md)
 - [Packet Attributes](../../abstractions/packet-attributes.md)
+- [Dependency Injection Contracts](../../abstractions/injection.md)

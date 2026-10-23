@@ -18,7 +18,6 @@ Unlike HelloWorld's fixed-size packet, this one carries variable-length strings.
 
 ```csharp
 // samples/ChatRoom/ChatRoom.Contracts/ChatMessagePacket.cs
-[Packet]
 [GenerateFormatter]
 [SerializePackable(SerializeLayout.Explicit)]
 public sealed partial class ChatMessagePacket : PacketBase<ChatMessagePacket>, IPacketStaticOpcode
@@ -41,7 +40,7 @@ Full source: `samples/ChatRoom/ChatRoom.Contracts/ChatMessagePacket.cs`
 
 ```csharp
 // samples/ChatRoom/ChatRoom.Server/ChatHandlers.cs
-[PacketHandler("ChatRoom.Chat")]
+[PacketController("ChatRoom.Chat")]
 public static class ChatHandlers
 {
     [PacketOpcode(0x7101)]

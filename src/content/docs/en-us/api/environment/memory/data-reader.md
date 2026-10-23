@@ -18,10 +18,12 @@ It provides a unified reading abstraction over managed arrays, unmanaged memory 
 - `ReadOnlyMemory<byte>`: Read-only memory chunks.
 - `byte*`: Unmanaged raw pointers.
 
-## Key Properties
+## Key Properties & Lifecycle
 
-- `BytesRead`: The number of bytes that have been consumed/advanced from the buffer.
-- `BytesRemaining`: The number of bytes still available to be read.
+- `BytesRead` (`int`): The number of bytes that have been consumed/advanced from the buffer.
+- `BytesRemaining` (`int`): The number of bytes still available to be read.
+- `IsFailed` (`bool`): Gets or sets whether a non-throwing read operation encountered a bounds or format error.
+- `Dispose()` (`void`): Resets the reader state and releases any pinned memory handle.
 
 ## Reading Data
 
@@ -64,3 +66,32 @@ public bool ReadBoolean(ref DataReader reader)
 :::tip[Struct Nature]
 Because `DataReader` is a `ref struct`, it must be passed by `ref` to methods that need to consume data and advance the cursor. It cannot be stored on the heap or boxed.
 :::
+
+---
+
+## LEB128 VarInt Encoding (`Nalix.Environment.Memory.Leb128`)
+
+`Leb128` (`src/Nalix.Environment/Memory/Leb128.cs`) provides branch-free, pointer-accelerated Little-Endian Base 128 (`LEB128`) variable-length integer encoding and decoding (`MaxByteCount = 5`) used by `TransportFraming.VarInt` and protocol headers:
+
+```csharp
+namespace Nalix.Environment.Memory;
+
+public static class Leb128
+{
+    public const int MaxByteCount = 5;
+
+    public static int GetByteCount(uint value);
+    public static int GetByteCount(int value);
+
+    public static int Write(Span<byte> buffer, uint value);
+    public static int Write(Span<byte> buffer, int value);
+    public static int WriteUnrolled(Span<byte> buffer, uint value);
+
+    public static bool TryRead(ReadOnlySpan<byte> buffer, out uint value, out int bytesRead);
+    public static bool TryRead(ReadOnlySpan<byte> buffer, out int value, out int bytesRead);
+}
+```
+
+- `GetByteCount` computes the exact encoded byte length (`1..5`) in $O(1)$ using `BitOperations.LeadingZeroCount`.
+- `Write` and `WriteUnrolled` encode `value` into `buffer` and throw `ArgumentException` if `buffer.Length < GetByteCount(value)`.
+- `TryRead` returns `false` when `buffer` ends mid-sequence (allowing stream framing readers to wait for more socket bytes) and throws `FormatException` if a sequence exceeds 5 bytes (`OverlongLeb128`).

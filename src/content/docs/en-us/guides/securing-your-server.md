@@ -21,9 +21,9 @@ await using NetworkApplication app = NetworkApplication.CreateBuilder()
     .UseSecureConnections()
     .UseSystemControl()
     .MapHandlers(typeof(HelloHandlers))
-    .ListenTcp<DefaultProtocol>().OnPort(TcpPort).Bind()
-    .ListenUdp<DefaultProtocol>().OnPort(UdpPort).Bind()
-    .ListenWebSocket<DefaultProtocol>().OnPort(WebSocketPort).WithPath("/ws").Bind()
+    .MapTcp<DefaultProtocol>().OnPort(TcpPort).Bind()
+    .MapUdp<DefaultProtocol>().OnPort(UdpPort).Bind()
+    .MapWebSocket<DefaultProtocol>().OnPort(WebSocketPort).WithPath("/ws").Bind()
     .Build();
 
 await app.RunAsync(cts.Token);
@@ -143,11 +143,11 @@ UDP replied: Hello from Nalix!
 TCP connection is still alive: True
 
 Connecting WebSocket...
-WebSocket test skipped: WebSocket Connection failed: Unable to connect to the remote server
+WebSocket replied: Hello from Nalix!
 ```
 
-:::note[WebSocket needs elevated privileges on Windows]
-The server's WebSocket listener uses `HttpListener`, which requires administrator rights on Windows. The sample client catches this and reports "skipped" instead of crashing. On Linux, no special privileges are needed.
+:::note[Raw TCP WebSocket Listener]
+`WebSocketListenerBase` inherits directly from `TcpListenerBase` and performs the RFC 6455 HTTP/1.1 Upgrade handshake over raw TCP sockets (`SocketUpgradeHelper`), so it does **not** use `HttpListener` and requires no administrator privileges on Windows or Linux.
 :::
 
 ## Next steps

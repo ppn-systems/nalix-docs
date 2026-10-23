@@ -1,86 +1,68 @@
 ---
 title: Typed Object Pools
-description: Typed Object Pools provide a high-performance, type-safe facade for interacting with object pools. They eliminate generic dispatch overhead and provide direct access to specific...
+description: Reference for Nalix.Framework.Memory.Objects.TypedObjectPool<T> — type-specific object pool adapter for hot-path renting and batch operations.
 section: API Reference
 package: Nalix.Framework
 ---
 
-Typed Object Pools provide a high-performance, type-safe facade for interacting with object pools. They eliminate generic dispatch overhead and provide direct access to specific object buckets.
+**Namespace:** `Nalix.Framework.Memory.Objects`  
+**Assembly:** `Nalix.Framework`
 
-## Architecture
-
-The `TypedObjectPool<T>` sits between your application and either a central `ObjectPoolManager` or a standalone `ObjectPool`. By delegating directly to `ObjectPool`, it leverages the lock-free `ThreadLocalCache<T>` and the type-indexed array fast-path lookups.
-
-```mermaid
-graph TD
-    App[Application Code] -- Direct Call --> TypedPool[TypedObjectPool T]
-    TypedPool -- Fast-path Thread-Local --> TLC[ThreadLocalCache T]
-    TypedPool -- Fast-path Type-Indexed --> ArrayLookup[Flat Type-Indexed Array]
-    ArrayLookup --> Pool[TypePool Bucket]
-    TypedPool -- Optional Metrics --> Manager[ObjectPoolManager Global]
-```
+`TypedObjectPool<T>` (`public sealed class TypedObjectPool<T> where T : IPoolable, new()`) is a type-specific adapter created via `ObjectPoolManager.GetTypedPool<T>()`. Caching a `TypedObjectPool<T>` reference in a `readonly` field provides a clean, strongly-typed API for single and batch rent/return operations while preserving all `ObjectPoolManager` metrics and leak diagnostics.
 
 ## Source Mapping
 
 - `src/Nalix.Framework/Memory/Objects/TypedObjectPool.cs`
+- `src/Nalix.Framework/Memory/Objects/ObjectPoolManager.cs`
 
-## Main Types
+## Public Methods
 
-### TypedObjectPool<`T`>
+| Method | Signature | Description |
+| :--- | :--- | :--- |
+| `Get()` | `public T Get()` | Rents or creates an instance of `T` from the underlying `ObjectPoolManager` (or standalone `ObjectPool`). |
+| `Return(T)` | `public void Return(T obj)` | Resets `obj` (`ResetForPool()`) and returns it to the pool. |
+| `GetMultiple(int)` | `public List<T> GetMultiple(int count)` | Rents `count` instances into a `List<T>` (automatically returns already-rented items if an exception occurs mid-batch). |
+| `ReturnMultiple` | `public int ReturnMultiple(IEnumerable<T> objects)` | Returns all items in `objects` to the pool and returns the count of returned instances. |
+| `Prealloc(int)` | `public int Prealloc(int count)` | Preallocates `count` instances in the pool and returns the number of instances created. |
+| `Clear()` | `public int Clear()` | Removes all currently pooled instances of `T` and returns the number of objects removed. |
+| `GetInfo()` | `public Dictionary<string, object> GetInfo()` | Returns the diagnostic metrics dictionary for `T`'s pool (`ObjectPoolManager.GetTypeInfo<T>()`). |
+| `SetMaxCapacity(int)` | `public void SetMaxCapacity(int maxCapacity)` | Updates the maximum retained capacity for `T`'s pool. |
+| `Trim(int)` | `public int Trim(int percentage = 50)` | Trims the pool to keep `percentage` (`1..99`) of `MaxCapacity` (`0` performs no trim as a safety floor; `>= 100` keeps 100%) and returns the number of removed objects. |
 
-The primary high-performance wrapper for pools. It can operate in two modes:
-
-1. **Managed**: Connected to `ObjectPoolManager` (Preferred). Provides full metrics and global management.
-2. **Standalone**: Connected directly to an `ObjectPool`. Best for local, isolated pooling.
-
-## Key API Members
-
-| Member | Description |
-| :--- | :--- |
-| `Get()` | Retrieves a fresh instance of `T`. |
-| `Return(obj)` | Resets and returns an instance to the pool. |
-| `Prealloc(count)` | Warm up the pool by pre-creating instances. |
-| `GetMultiple(count)` | Batch retrieval of objects into a list. |
-| `ReturnMultiple(objs)` | Batch return of objects to the pool. |
-| `Clear()` | Clears this type's pool. Returns the number of objects removed. |
-| `GetInfo()` | Gets information about this type's pool as a dictionary. |
-| `SetMaxCapacity(int)` | Sets the maximum capacity for this type's pool. |
-| `Trim(percentage = 50)` | Releases a percentage of idle objects to the GC. |
-
-## Recommended Performance Pattern
-
-For maximum throughput, store the pool in a `static readonly` or `private readonly` field to avoid repeated manager lookups.
+## Usage Pattern
 
 ```csharp
-private static readonly TypedObjectPool<DataPacket> _packetPool = 
-    InstanceManager.Instance.GetExistingInstance<ObjectPoolManager>()!
-        .GetTypedPool<DataPacket>();
+using Nalix.Abstractions;
+using Nalix.Framework.Memory.Objects;
 
-public void SendData()
+public sealed class MyPacket : IPoolable
 {
-    var packet = _packetPool.Get();
-    try 
-    { 
-        // Use packet...
-    }
-    finally 
-    { 
-        _packetPool.Return(packet); 
+    public int Sequence { get; set; }
+    public void ResetForPool() => this.Sequence = 0;
+}
+
+public sealed class PacketBatchProcessor
+{
+    private readonly TypedObjectPool<MyPacket> _packetPool =
+        ObjectPoolManager.Shared.GetTypedPool<MyPacket>();
+
+    public void ProcessSingle()
+    {
+        MyPacket packet = _packetPool.Get();
+        try
+        {
+            packet.Sequence = 1;
+        }
+        finally
+        {
+            _packetPool.Return(packet);
+        }
     }
 }
 ```
 
-## Metrics and Diagnostics
-
-When a `TypedObjectPool<T>` is created via `ObjectPoolManager`, it automatically inherits the manager's diagnostic capabilities:
-
-- **Outstanding Tracking**: Tracks objects rented but not yet returned (requires `EnableDiagnostics`).
-- **Cache Statistics**: Tracks hits, misses, and throughput.
-- **Leak Detection**: Integrated with `PoolSentinel` for GC-based leak reporting.
-- **Optimization Bypass**: When diagnostics are disabled, `Get()` and `Return()` execute through the optimized fast paths (`ThreadLocalCache<T>` and index-based `_typePoolsArray` lookup) without any lock overhead or generic dispatch lookups.
-
 ## Related APIs
 
-- [Object Pooling](./object-pooling.md)
-- [Object Map](./object-map.md)
+- [Object Pooling (ObjectPoolManager)](./object-pooling.md)
+- [Object Map (ObjectMap<TKey, TValue>)](./object-map.md)
 - [Buffer Management](../../environment/memory/buffer-management.md)

@@ -1,88 +1,69 @@
 ---
 title: Hosting Options
-description: HostingOptions configures the server-side environment, including console behavior, thread-pool tuning, and production stability features.
+description: Configuration reference for HostingOptions and Bootstrap initialization in Nalix.Hosting — startup diagnostics, ThreadPool minimums, global exception handling, and 1ms Windows timer precision.
 section: API Reference
-package: Nalix.Network / Nalix.Runtime
+package: Nalix.Hosting
 ---
 
-`HostingOptions` configures the server-side environment, including console behavior, thread-pool tuning, and production stability features.
+**Namespace:** `Nalix.Hosting.Options`  
+**Assembly:** `Nalix.Hosting`
+
+`HostingOptions` configures server bootstrap behavior (`Bootstrap.Initialize()`), console startup diagnostics, .NET `ThreadPool` minimum thread floors, global unhandled exception logging, and Windows 1ms timer resolution (`timeBeginPeriod(1)`).
 
 ## Source Mapping
 
 - `src/Nalix.Hosting/Options/HostingOptions.cs`
+- `src/Nalix.Hosting/Bootstrap.cs`
+- `src/Nalix.Hosting/Internal/DiagnosticChannel.cs`
 
-## Bootstrap lifecycle
+## Bootstrap Lifecycle (`Bootstrap.Initialize()`)
 
-The Hosting assembly calls `Bootstrap.Initialize()` from a module initializer, so server defaults are applied automatically when the assembly is loaded. The method can also be called manually when explicit startup ordering is required.
+`Nalix.Hosting` invokes `Bootstrap.Initialize()` automatically via a `[ModuleInitializer]` when the assembly is loaded:
 
-Initialization performs the following source-defined actions:
+1. **Dedicated Server Config Path**: Calls `ConfigurationManager.Instance.SetConfigFilePath(Path.Combine(Directories.ConfigurationDirectory, "server.ini"))` so server settings are isolated in `server.ini` (avoiding collisions with client `default.ini`).
+2. **Option Materialization**: Touches all framework, codec, network, runtime, and hosting option classes via `ConfigurationManager.Instance.Get<TOptions>()` and calls `ConfigurationManager.Instance.Flush()` so a complete `server.ini` template is written to disk.
+3. **ThreadPool Tuning**: Applies `MinWorkerThreads` and/or `MinCompletionPortThreads` via `ThreadPool.SetMinThreads(...)` when either property is `> 0`.
+4. **Global Exception Handlers**: When `EnableGlobalExceptionHandling` is `true`, subscribes to `AppDomain.CurrentDomain.UnhandledException` (logging critical failures and flushing `ConfigurationManager` if terminating) and `TaskScheduler.UnobservedTaskException` (logging and calling `e.SetObserved()`).
+5. **High-Precision Windows Timer**: When `EnableHighPrecisionTimer` is `true` on Windows, calls `winmm.dll` `timeBeginPeriod(1)` to raise OS timer resolution to `1 ms`.
+6. **Interactive Startup Banner**: When `Environment.UserInteractive && !DisableStartupBanner`, prints the Nalix startup banner, runtime metadata (`Version`, `PID`, `OS`, `Arch`, `Runtime`, `Config`, `GC Mode`, `Timer`, `Processors`, `Local IP`, `Public IP` from `NALIX_PUBLIC_IP`), and emits a warning if Workstation GC is active instead of Server GC.
 
-1. initializes hosting-side bootstrap logic
-2. loads framework, network, runtime, and hosting options
-3. applies configured ThreadPool minimums when either value is greater than `0`
-4. registers global exception handlers when enabled
-5. enables `timeBeginPeriod(1)` on Windows when high-precision timers are enabled
-6. flushes configuration to disk
-7. prints startup diagnostics only when `Environment.UserInteractive` is `true` and the banner is not disabled
+## Properties and Defaults
 
-## Properties
+| Property | Type | Default | Validation | Description |
+| :--- | :--- | ---: | :--- | :--- |
+| `DisableConsoleClear` | `bool` | `false` | None | If `true`, prevents `Console.Clear()` before printing the startup banner (also skipped automatically when console output is redirected). |
+| `DisableStartupBanner` | `bool` | `false` | None | If `true`, suppresses the ASCII banner and `[INIT]` diagnostic table on startup. |
+| `MinWorkerThreads` | `int` | `0` | `[ValueRange(0, int.MaxValue)]` | Minimum `ThreadPool` worker threads (`0` keeps the OS/.NET default; recommended: `ProcessorCount * 2`). |
+| `MinCompletionPortThreads` | `int` | `0` | `[ValueRange(0, int.MaxValue)]` | Minimum `ThreadPool` I/O completion port (IOCP) threads (`0` keeps the OS/.NET default). |
+| `EnableGlobalExceptionHandling` | `bool` | `true` | None | Registers `UnhandledException` and `UnobservedTaskException` handlers during bootstrap. |
+| `EnableHighPrecisionTimer` | `bool` | `true` | None | Calls `timeBeginPeriod(1)` on Windows for 1ms timer resolution (automatically paired with `timeEndPeriod(1)` on process exit). |
 
-| Property | Type | Default | Purpose |
-| --- | --- | ---: | --- |
-| `DisableConsoleClear` | `bool` | `false` | If `true`, prevents the console from being cleared before the startup banner. Console clearing is also skipped when output is redirected. |
-| `DisableStartupBanner` | `bool` | `false` | If `true`, hides the Nalix banner and diagnostic info. |
-| `MinWorkerThreads` | `int` | `0` | Min worker threads (0 = system default). Recommended by the source comment: `processor count * 2`. |
-| `MinCompletionPortThreads` | `int` | `0` | Min IOCP threads (0 = system default). |
-| `EnableGlobalExceptionHandling` | `bool` | `true` | Catch and log unhandled exceptions before process exit. |
-| `EnableHighPrecisionTimer` | `bool` | `true` | On Windows, call `timeBeginPeriod(1)` for improved timer resolution. |
-| `DiagnosticsMinLogLevel` | `LogLevel` | `Warning` | Minimum log level for internal diagnostic events. Events below this threshold are silently dropped. |
+`Validate()` executes `this.ValidateDataAnnotations()`.
 
-## Production Stability
+## Process Exit Cleanup (`Bootstrap.OnProcessExit`)
 
-### Global Exception Handling
+`Bootstrap` subscribes to `Console.CancelKeyPress` and `AppDomain.CurrentDomain.ProcessExit`. On process shutdown it:
+1. Cancels all running background workers via `InstanceManager.Instance.GetExistingInstance<TaskManager>()?.CancelAllWorkers()`.
+2. Flushes pending configuration changes via `ConfigurationManager.Instance.Flush()`.
+3. Disposes `InstanceManager.Instance` (which disposes registered services such as `ConnectionGuard`, flushing the progressive ban database to disk).
+4. Calls `timeEndPeriod(1)` on Windows if `timeBeginPeriod(1)` was enabled.
+5. Disposes the `DiagnosticChannel`.
 
-When `EnableGlobalExceptionHandling` is true, Nalix registers handlers for:
+## INI Configuration (`server.ini`)
 
-- `AppDomain.CurrentDomain.UnhandledException`: Logs critical failures and flushes configuration when the process is terminating.
-- `TaskScheduler.UnobservedTaskException`: Logs and marks the exception observed to prevent unobserved task escalation.
-
-### ThreadPool Tuning
-
-For high-concurrency servers, setting `MinWorkerThreads` ensures that the .NET ThreadPool can respond immediately to burst traffic without waiting for its injection algorithm to scale up.
-
-`Bootstrap.Initialize()` preserves existing ThreadPool minimums for any value left at `0`. For example, setting only `MinWorkerThreads` keeps the current IOCP minimum.
-
-### High-Precision Timer (Windows)
-
-Enabling `EnableHighPrecisionTimer` calls the Windows `timeBeginPeriod` API. This improves the resolution of `Task.Delay` and other timer-based operations, which is useful for low-latency network heartbeat and timeout logic.
-
-Nalix calls `timeEndPeriod(1)` during process exit only if high-precision timing was successfully enabled.
-
-## Startup Diagnostics
-
-On startup, Nalix prints an initialization report including:
-
-- **Version**: Hosting assembly version.
-- **PID**: Process identifier.
-- **OS**: Operating system version string.
-- **Arch**: Process architecture (for example, X64 or Arm64).
-- **Runtime**: .NET runtime description.
-- **Config**: The active configuration file path.
-- **GC Mode**: Server GC or Workstation GC.
-- **Processors**: `Environment.ProcessorCount`.
-
-A warning is printed when Server GC is not enabled.
-
-## Shutdown behavior
-
-Bootstrap subscribes to `Console.CancelKeyPress` and `AppDomain.CurrentDomain.ProcessExit`. On exit it:
-
-- unregisters the process-exit handlers
-- cancels all workers from the registered `TaskManager`, when present
-- flushes pending configuration changes to disk
-- disables the high-precision Windows timer when it was enabled
+```ini
+[Hosting]
+; Hosting configuration — controls startup diagnostics, console behavior, and lifecycle settings
+DisableConsoleClear = false
+DisableStartupBanner = false
+MinWorkerThreads = 0
+MinCompletionPortThreads = 0
+EnableGlobalExceptionHandling = true
+EnableHighPrecisionTimer = true
+```
 
 ## Related APIs
 
 - [Network Application](../../hosting/network-application.md)
-- [Configuration System](../../../concepts/configuration.md)
+- [Configuration System](../../environment/configuration.md)
+- [Task Manager](../../framework/task-manager.md)

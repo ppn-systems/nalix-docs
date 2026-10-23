@@ -1,124 +1,105 @@
 ---
 title: Connection
-description: Connection is the core high-level abstraction in Nalix. It acts as the owner and orchestrator for transport logic, security state (secrets/cipher suites), and the event processi...
+description: Reference for Nalix.Network.Connections.Connection — server-side IConnection implementation owning socket transports, session identity, cryptographic secrets, attributes, and event bridges.
 section: API Reference
 package: Nalix.Network
 ---
 
-`Connection` is the core high-level abstraction in Nalix. It acts as the owner and orchestrator for transport logic, security state (secrets/cipher suites), and the event processing pipeline.
+**Namespace:** `Nalix.Network.Connections`  
+**Assembly:** `Nalix.Network`
+
+`Connection` (`public sealed partial class Connection : IConnection, IConnectionErrorTracked, IConnectionTrafficMetrics, IPooledConnectContextPool, TimingWheel.ITimeoutTrackedConnection`) is the server-side representation of a connected client session. It owns the underlying `SocketConnection`, TCP and optional UDP transports, cryptographic state (`Secret`, `Algorithm`, `Level`), pooled `Attributes`, and dual-lane `AsyncCallback` event bridges.
 
 ## Source Mapping
 
 - `src/Nalix.Abstractions/Networking/IConnection.cs`
-- `src/Nalix.Abstractions/Networking/IConnection.Transmission.cs`
-- `src/Nalix.Abstractions/Networking/IConnection.RateLimit.cs`
+- `src/Nalix.Abstractions/Networking/IConnection.Transport.cs`
 - `src/Nalix.Abstractions/Networking/IConnection.ErrorTracked.cs`
+- `src/Nalix.Abstractions/Networking/IConnection.TrafficMetrics.cs`
 - `src/Nalix.Network/Connections/Connection.cs`
-
-## Why This Type Exists
-
-The `Connection` type provides a unified interface for specialized transport protocols (TCP/UDP) while centralizing:
-
-- **Identity**: Every connection is assigned a unique `ulong` ID (derived from Snowflake).
-- **Security Context**: Stores the `Secret` and active `Algorithm` derived during handshake.
-- **Event Orchestration**: Bridges low-level socket-read events into structured `OnProcess` and `OnPostProcess` hooks using `AsyncCallback`.
-- **Resource Lifecycle**: Manages pooled event args, attribute state, transport sockets, and teardown sequencing through an internal pooled backing store.
-- **Timing Wheel Integration**: Implements `TimingWheel.ITimeoutTrackedConnection` to support low-overhead connection timeout tracking and lazy removal.
+- `src/Nalix.Network/Internal/Connections/ConnectionBacking.cs`
 
 ## Architectural Pipeline
 
-The following diagram illustrates how `Connection` bridges the raw `SocketConnection` events into the application-facing event system via internal bridge methods dispatched through `AsyncCallback`.
-
 ```mermaid
 flowchart TD
-    subgraph Transport[Transport Layer - SocketConnection]
-        RawData[Incoming Raw Data]
-        RawClose[Native Disconnect Signal]
+    subgraph Transport["Transport Layer (SocketConnection)"]
+        RawData["Inbound Framed Lease (OnFrameReceived)"]
+        FrameSent["Outbound Frame Sent (OnFrameSent)"]
+        RawClose["Socket Disconnect / Dispose"]
     end
 
-    subgraph Bridge[Connection Internal Bridge Methods]
-        ProcessBridge[OnProcessEventBridge]
-        PostBridge[OnPostProcessEventBridge]
-        CloseBridge[OnCloseEventBridge]
+    subgraph Bridge["Connection Internal Bridges"]
+        ProcessBridge["MessageProcessingBridge (CallbackLane.Process / Inline)"]
+        PostBridge["MessageProcessedBridge (CallbackLane.Post)"]
+        CloseBridge["ConnectionClosedBridge (High-Priority Lane)"]
     end
 
-    subgraph App[Application Layer - Events]
-        OnProcess[OnProcessEvent Handler]
-        OnPost[OnPostProcessEvent Handler]
-        OnClose[OnCloseEvent Handler]
+    subgraph App["IConnection Events"]
+        OnProcess["MessageProcessing"]
+        OnPost["MessageProcessed"]
+        OnClose["ConnectionClosed"]
     end
 
-    RawData -->|AsyncCallback.Invoke| ProcessBridge
+    RawData -->|"AsyncCallback.Invoke / InvokeInline"| ProcessBridge
     ProcessBridge --> OnProcess
-    OnProcess --> PostBridge
+    FrameSent -->|"AsyncCallback.Invoke(..., CallbackLane.Post)"| PostBridge
     PostBridge --> OnPost
 
-    RawClose -->|AsyncCallback.InvokeHighPriority| CloseBridge
+    RawClose -->|"AsyncCallback.InvokeHighPriority"| CloseBridge
     CloseBridge --> OnClose
-
-    style Bridge stroke-dasharray: 5 5
 ```
 
-## Internal Responsibilities (Source-Verified)
+## Public Constructors
 
-### 1. Event Bridging via AsyncCallback
+| Constructor | Signature | Description |
+| :--- | :--- | :--- |
+| Standard | `public Connection(Socket socket, IOpCodeExtractor packetClassifier)` | Creates a connection using `socket.RemoteEndPoint` as `NetworkEndpoint` and assigns a new `SnowflakeType.Session` `ConnectionId`. |
+| Proxy Protocol | `public Connection(Socket socket, IOpCodeExtractor packetClassifier, EndPoint realEndPoint)` | Creates a connection overriding `NetworkEndpoint` with `realEndPoint` extracted from a PROXY v1/v2 header. |
 
-`Connection` routes low-level transport frame callbacks into connection-level events using internal bridge methods dispatched through `AsyncCallback`.
+## Public Properties & Events
 
-- **High-priority close lane**: `OnCloseEventBridge` uses `AsyncCallback.InvokeHighPriority(...)` so close/disconnect callbacks bypass the normal queue and run immediately to ensure prompt resource teardown.
-- **Normal packet lane**: `OnProcessEvent` and `OnPostProcessEvent` are queued and run asynchronously on the ThreadPool. The bridge methods dispose of the pooled `ConnectionEventArgs` in a `finally` block.
+| Member | Type | Description |
+| :--- | :--- | :--- |
+| `ConnectionId` | `ulong` | Unique 64-bit session identifier (`Snowflake.NewId(SnowflakeType.Session).ToUInt64()`). |
+| `UserId` | `string?` | Optional application user identifier (populated by `ConnectionUserExtensions.MapToUserAsync`). |
+| `NetworkEndpoint` | `INetworkEndpoint` | Remote client endpoint (`SocketEndpoint` snapshot; preserves real client IP when behind PROXY Protocol). |
+| `PacketClassifier` | `IOpCodeExtractor` | Opcode extractor bound by the listener's `IProtocol`. |
+| `TCP` | `IConnection.ITransport` | Primary reliable transport (`SocketTcpTransport`). Throws `ObjectDisposedException` if disposed. |
+| `UDP` | `IConnection.ITransport?` | Companion UDP transport (`SocketUdpTransport`), or `null` when UDP has not been established for this connection. |
+| `IsUdpCreated` | `bool` | `true` when `UDP` is non-null. |
+| `Attributes` | `IObjectMap<AttributeKey, object>` | Lazily rented, pooled attribute map (`ObjectMap<AttributeKey, object>`) for per-connection state. |
+| `RateLimitCache` | `ConcurrentDictionary<ushort, object>` | Per-connection `ScopedEndpoint` cache used by `PolicyRateLimiter`. |
+| `Level` | `PermissionLevel` | Current authorization level (defaults to `PermissionLevel.NONE`). |
+| `Algorithm` | `CipherSuiteType` | Negotiated symmetric cipher suite (defaults to `CipherSuiteType.Chacha20Poly1305`). |
+| `Secret` | `Bytes32` | 32-byte session key derived during the X25519 handshake (zeroed on disposal). |
+| `UpTime` | `long` | Elapsed connection lifetime in milliseconds. |
+| `LastPingTime` | `long` | Monotonic Unix timestamp (ms) of the last received frame/ping. |
+| `IdleTimeoutMs` | `int` | Per-connection idle timeout threshold in milliseconds (defaults to `TimingWheelOptions.IdleTimeoutMs`). |
+| `ExcludeFromIdleTimeout` | `bool` | When `true`, exempts this connection from `TimingWheel` idle reaping. |
+| `PendingPackets` | `int` | Number of packets currently pending in `CallbackLane.Process`. |
+| `ErrorCount` | `int` | Cumulative protocol/transport errors recorded via `IncrementErrorCount()`. |
+| `BytesSent` / `BytesReceived` | `long` | Combined wire bytes transmitted across TCP and UDP. |
+| `PacketsDropped` | `long` | Total packets dropped for this connection due to backpressure or validation failures. |
+| `IsDisposed` | `bool` | `true` once the connection backing has been disposed and returned to the pool. |
+| `MessageProcessing` | `event EventHandler<IConnectionEventArgs>` | Raised via `OnFrameReceived` (`CallbackLane.Process` or `InvokeInline`) when an inbound frame arrives. |
+| `MessageProcessed` | `event EventHandler<IConnectionEventArgs>` | Raised via `OnFrameSent` on `CallbackLane.Post` when `SocketConnection` finishes sending an outbound frame. |
+| `ConnectionClosed` | `event EventHandler<IConnectionEventArgs>` | Raised once during connection teardown before `Attributes` are returned to the pool. |
 
-### 2. Error Tracking (SEC-54)
+## Public Methods
 
-The connection implements `IConnectionErrorTracked` and maintains an internal `ErrorCount`.
+| Method | Signature | Behavior |
+| :--- | :--- | :--- |
+| `Disconnect` | `public void Disconnect(string? reason = null)` | Logs the optional disconnect reason and initiates idempotent connection disposal (`Dispose()`). |
+| `UpdateIdleTimeout` | `public void UpdateIdleTimeout(int newTimeoutMs)` | Updates `IdleTimeoutMs` (`> 0`, otherwise throws `ArgumentOutOfRangeException`) and re-registers the connection in `TimingWheel`. |
+| `IncrementErrorCount` | `public void IncrementErrorCount()` | Atomically increments `ErrorCount`; automatically calls `Disconnect("Exceeded maximum error threshold.")` when `ErrorCount >= ConnectionGuardOptions.MaxErrorThreshold` (`50`). |
+| `IncrementBytesSent` / `IncrementBytesReceived` | `public void IncrementBytesSent(int bytes)` / `IncrementBytesReceived(int bytes)` | Atomically adds to connection traffic counters. |
+| `IncrementPacketsDropped` | `public void IncrementPacketsDropped()` | Atomically increments `PacketsDropped`. |
+| `Dispose` | `public void Dispose()` | Fires `ConnectionClosed` while `Attributes` are still readable, zeroes `Secret`, returns `backing.Attributes?.Return()` to its pool, breaks the `TimingWheel.TimeoutTask` reference for instant GC, disposes sockets, and returns `ConnectionBacking` to `ObjectPoolManager.Shared`. |
 
-- **Threshold Enforcement**: If the count exceeds `MaxErrorThreshold` (configured in `ConnectionGuardOptions`), the connection is automatically disconnected with the reason `"Exceeded maximum error threshold."`
-- **Noise Mitigation**: This protects the server from malformed-packet-flood attacks or buggy/malicious clients.
-
-### 3. UDP Replay Protection
-
-The connection exposes a `UdpReplayWindow` (an instance of `SlidingWindow` sized using `DatagramGuardOptions.UdpReplayWindowSize`) to track sequence numbers on incoming UDP datagrams. This allows the UDP transport pipeline to reject stale or replayed datagrams.
-
-### 4. Timing Wheel Tracking
-
-`Connection` implements `TimingWheel.ITimeoutTrackedConnection`.
-
-- It tracks `IsRegisteredInWheel` and `TimeoutVersion` to manage connection inactivity timeouts.
-- During destruction, it breaks the timing wheel reference immediately to prevent the wheel from holding onto the connection object, allowing instant garbage collection.
-
-## Public APIs
-
-- `ID`: The unique `ulong` identifier for the connection (derived from Snowflake).
-- `Secret`: Zero-allocation `Bytes32` secret derived during the handshake.
-- `Algorithm`: Active cipher suite (`CipherSuiteType`).
-- `Level`: The permission level of the connection (`PermissionLevel`).
-- `TCP`: Accessor to the TCP transport interface (`IConnection.ITransport`).
-- `UDP`: Accessor to the UDP transport interface (`IConnection.ITransport`). Throws `UdpTransportNotCreated` if UDP transport has not been established.
-- `IsUdpCreated`: Boolean indicating whether UDP transport is active and safe to query.
-- `NetworkEndpoint`: Remote client endpoint (`INetworkEndpoint`).
-- `Attributes`: A thread-safe, pooled `IObjectMap<string, object>` for attaching custom metadata to the connection.
-- `RateLimitCache`: A thread-safe cache (`ConcurrentDictionary<ushort, object>`) used for connection-level rate limiting.
-- `BytesSent` / `BytesReceived`: Total raw wire bytes transmitted.
-- `UpTime`: Total connection duration in milliseconds.
-- `LastPingTime`: Timestamp (ms) of the last received ping from the client.
-- `IsDisposed`: Returns whether the connection has been fully disposed.
-- `ErrorCount`: Current cumulative error count.
-- `IncrementErrorCount()`: Increments the error counter and disconnects the client if the configured limit is reached.
-- `Disconnect(reason)`: Safely terminates the connection with an optional reason.
-
-## Best Practices
-
-:::tip[Zero-Allocation Custom Data]
-Use `connection.Attributes` to store per-client state (e.g., UserId). These attributes use a pooled object map, meaning you can store and clear data without generating GC garbage.
-:::
-
-:::warning[Avoid Blocking Handlers]
-`OnProcessEvent` and `OnPostProcessEvent` are queued through `AsyncCallback` onto the `ThreadPool`, not invoked inline on the socket receive loop. Blocking handlers still hold onto callback capacity and pooled resources longer than necessary, so keep handlers short and offload heavyweight work when needed.
-:::
-
-## Related Information Paths
+## Related APIs
 
 - [Socket Connection](../socket-connection.md)
-- [Snowflake Identifiers](../../framework/snowflake.md)
-- [Session Store](../session-store.md)
-- [Security Architecture](../../../concepts/internals/security-architecture.md)
+- [Connection Hub](./connection-hub.md)
+- [Connection Events](./connection-events.md)
+- [Connection Extensions](./connection-extensions.md)

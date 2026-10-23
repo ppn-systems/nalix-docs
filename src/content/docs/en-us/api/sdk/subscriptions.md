@@ -1,113 +1,142 @@
 ---
-title: SDK Subscriptions
-description: The subscription system in Nalix.SDK provides a high-level, packet-oriented event model. It abstracts away the complexities of IBufferLease management, ensuring that memory is s...
+title: Subscriptions
+description: Reference for TransportSessionSubscriptions, SubscriptionExtensions, and CompositeSubscription in Nalix.SDK — strongly-typed packet listeners, UI thread marshalling, and grouped disposal.
 section: API Reference
 package: Nalix.SDK
 ---
 
-The subscription system in `Nalix.SDK` provides a high-level, packet-oriented event model. It abstracts away the complexities of `IBufferLease` management, ensuring that memory is safely returned to the pool once your handler completes.
+**Namespaces:** `Nalix.SDK.Transport.Extensions`, `Nalix.SDK.Extensions`  
+**Assembly:** `Nalix.SDK`
 
-:::important[Client-side helper]
-SDK subscriptions are client-side helpers for `TransportSession` instances. Server-side packet dispatch should use runtime handlers and middleware, not SDK subscription extensions.
-:::
+`TransportSessionSubscriptions` and `SubscriptionExtensions` provide strongly-typed `IDisposable` subscriptions (`On<TPacket>`, `OnExact<TPacket>`, `On(predicate, handler)`, `SubscribeTemp`) over `ITransportSession.OnMessageReceived`, along with `CompositeSubscription` for lifecycle grouping.
 
-## Subscription Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Subscribed: client.On<T>(...)
-    Subscribed --> Processing: Packet Received
-    state Processing {
-        [*] --> Deserialize
-        Deserialize --> Handler: Invoke(TPacket)
-        Handler --> DisposeLease: finally
-    }
-    Processing --> Subscribed: Loop
-    Subscribed --> [*]: sub.Dispose()
-```
-
-## Source mapping
+## Source Mapping
 
 - `src/Nalix.SDK/Transport/Extensions/TransportSessionSubscriptions.cs`
 - `src/Nalix.SDK/Extensions/SubscriptionExtensions.cs`
 
-## Role and Design
+## Public API Reference
 
-While `TransportSession.OnMessageReceived` provides raw access to byte buffers, application logic usually prefers working with strongly-typed `IPacket` instances.
-
-The subscription helpers provide:
-
-- **Type Safety**: `On<TPacket>()` ignores packets of other types and only invokes your handler when the payload matches.
-- **Strict Debugging**: `OnExact<TPacket>()` reports unexpected packets without crashing the receive loop.
-- **Lease Ownership**: The helper owns the `IBufferLease`. It ensures the lease is disposed even if your handler throws an exception.
-- **Predicated Filtering**: Filter messages before they even reach your handler (e.g., only `PONG` controls with a specific sequence ID).
-
-## API Reference
-
-| Method | Description |
-| --- | --- |
-| `On<TPacket>` | Subscribes to a packet type and ignores non-matching packets. |
-| `On(Func<IPacket, bool>, Action<IPacket>)` | Subscribes to packets matching a predicate filter. |
-| `OnExact<TPacket>` | Strict subscription that logs unexpected packet types without stopping the receive loop. |
-| `OnOnce<TPacket>` | Fires exactly once for the first matching packet, then auto-unsubscribes. |
-| `SubscribeTemp<TPacket>` | Combines a typed message handler with an `OnDisconnected` hook—ideal for transient flows. |
-| `SubscribeTemp<TPacket>(predicate)` | Predicate overload for filtered transient subscriptions. |
-| `Subscribe(TransportSession, params IDisposable[])` | Groups multiple subscriptions into a `CompositeSubscription`. |
-| `CompositeSubscription` | A container to group and dispose multiple subscriptions at once. Supports `Add(IDisposable)`. |
-
-## Basic usage
-
-### Strongly-Typed Handler
+### 1. `TransportSessionSubscriptions` & `CompositeSubscription` (`Nalix.SDK.Transport.Extensions`)
 
 ```csharp
-using var sub = client.On<ChatPacket>(chat => 
+namespace Nalix.SDK.Transport.Extensions;
+
+public static class TransportSessionSubscriptions
 {
-    Console.WriteLine($"[{chat.Sender}]: {chat.Message}");
-});
+    public static IDisposable On<TPacket>(
+        this ITransportSession client,
+        Action<TPacket> handler,
+        bool disposeAfter = true)
+        where TPacket : class, IPacket, IPacketStaticOpcode;
+
+    public static IDisposable OnExact<TPacket>(
+        this ITransportSession client,
+        Action<TPacket> handler)
+        where TPacket : class, IPacket, IPacketStaticOpcode;
+
+    public static IDisposable On(
+        this ITransportSession client,
+        Func<IPacket, bool> predicate,
+        Action<IPacket> handler);
+
+    [Obsolete("Use PacketAwaiter instead for single-use packet awaiting.")]
+    public static IDisposable OnOnce<TPacket>(
+        this ITransportSession client,
+        Func<TPacket, bool> predicate,
+        Action<TPacket> handler,
+        bool disposeAfter = true)
+        where TPacket : class, IPacket, IPacketStaticOpcode;
+
+    [Obsolete("Use On<TPacket> instead.")]
+    public static IDisposable SubscribeTemp<TPacket>(
+        this ITransportSession client,
+        Action<TPacket> onMessage,
+        Action<Exception>? onDisconnected = null)
+        where TPacket : class, IPacket, IPacketStaticOpcode;
+
+    [Obsolete("Use On<TPacket> instead.")]
+    public static IDisposable SubscribeTemp<TPacket>(
+        this ITransportSession client,
+        Func<TPacket, bool> predicate,
+        Action<TPacket> onMessage,
+        Action<Exception>? onDisconnected = null)
+        where TPacket : class, IPacket, IPacketStaticOpcode;
+
+    public static CompositeSubscription Subscribe(
+        this ITransportSession _,
+        params IDisposable[] subs);
+}
+
+public sealed class CompositeSubscription : IDisposable
+{
+    public CompositeSubscription(params IDisposable[] subs);
+
+    public void Add(IDisposable sub);
+    public void Dispose();
+}
 ```
 
-### Strict Typed Handler
+### 2. `SubscriptionExtensions` (`Nalix.SDK.Extensions`)
 
 ```csharp
-using var sub = client.OnExact<ChatPacket>(chat =>
+namespace Nalix.SDK.Extensions;
+
+public static class SubscriptionExtensions
 {
-    Console.WriteLine($"[{chat.Sender}]: {chat.Message}");
-});
+    public static IDisposable SubscribeTemp(
+        this TransportSession @this,
+        EventHandler<IBufferLease> onMessageReceived,
+        EventHandler<Exception> onDisconnected);
+}
 ```
 
-### One-Shot with Predicate
+## How Subscription Dispatch Works
+
+```mermaid
+flowchart LR
+    Lease["OnMessageReceived(IBufferLease)"] --> OpCheck{"lease.Span.AsHeaderRef().OpCode == TPacket.StaticOpCode?"}
+    OpCheck -->|No| Ignore["Ignore (Zero Allocation)"]
+    OpCheck -->|Yes| Deser["PacketRegistry.Deserialize(lease.Span)"]
+    Deser --> Match{"packet is TPacket typed?"}
+    Match -->|No| Ignore
+    Match -->|Yes| Handler["handler(typed)"]
+    Handler --> ReturnPool{"disposeAfter && IPoolable?"}
+    ReturnPool -->|Yes| Pool["ObjectPoolManager.Return(typed)"]
+```
+
+- **Fast Static OpCode Pre-Filter**: `On<TPacket>` and `OnExact<TPacket>` check `lease.Span.AsHeaderRef().OpCode == TPacket.StaticOpCode` before calling `PacketRegistry.Deserialize(lease.Span)`, avoiding deserialization allocations for unrelated packets.
+- **Automatic Pool Return (`disposeAfter`)**: When `disposeAfter == true` (the default on `On<TPacket>`), if `TPacket` implements `IPoolable`, the deserialized packet is automatically returned to `ObjectPoolManager` inside a `finally` block after `handler(typed)` completes.
+- **Grouped Disposal (`CompositeSubscription`)**: Collects multiple `IDisposable` handles returned by `On<TPacket>`, `OnExact<TPacket>`, `On(predicate, handler)`, or `AsObservable` and unsubscribes all of them atomically when a screen, scene, or view model is destroyed.
+
+## Usage Example
 
 ```csharp
-using var once = client.OnOnce<Control>(
-    predicate: c => c.Type == ControlType.PONG,
-    handler: pong => Console.WriteLine("Received PONG!")
+using System;
+using Nalix.SDK.Transport;
+using Nalix.SDK.Transport.Extensions;
+
+// 1. Group multiple subscriptions using session.Subscribe(...)
+using CompositeSubscription subscriptions = session.Subscribe(
+    session.On<ChatBroadcastPacket>(pkt =>
+        Console.WriteLine($"[{pkt.Channel}] {pkt.Sender}: {pkt.Text}")),
+
+    session.OnExact<PlayerSpawnPacket>(pkt =>
+        SpawnTeammateAvatar(pkt))
 );
+
+// 2. Or add another subscription dynamically
+subscriptions.Add(
+    session.On(
+        predicate: pkt => pkt is WorldEventPacket,
+        handler: pkt => HandleWorldEvent((WorldEventPacket)pkt)));
+
+// 3. Unsubscribe all handlers at once on scene teardown
+subscriptions.Dispose();
 ```
-
-### Composite Subscriptions
-
-Use `CompositeSubscription` when you have multiple related event listeners that should be torn down together (e.g., when a UI view is closed).
-
-```csharp
-var group = new CompositeSubscription();
-
-group.Add(client.On<PlayerPos>(p => UpdatePos(p)));
-group.Add(client.On<PlayerStats>(s => UpdateStats(s)));
-
-// Later, or in Dispose():
-group.Dispose(); // Unsubscribes all
-```
-
-## Important notes
-
-- **Thread Safety**: Handlers are invoked on the background receive thread. Use a [Thread Dispatcher](./thread-dispatching.md) before updating UI state.
-- **Async Handlers**: If your handler is `async`, the lease is disposed as soon as the synchronous part of the handler finishes. Ensure you copy any data you need before the first `await`.
-- **Unexpected Packets**: `On<TPacket>()` silently skips non-matching packets by design. Use `OnExact<TPacket>()` when you want protocol violations to be logged explicitly without tearing down the session.
-- **Error Handling**: Any exception thrown by a subscription callback is isolated from the transport receive loop.
 
 ## Related APIs
 
-- [Session Extensions](./tcp-session-extensions.md)
-- [Handshake Extensions](./handshake-extensions.md)
-- [Thread Dispatching](./thread-dispatching.md)
-- [TCP Session](./tcp-session.md)
+- [Thread Dispatching (IThreadDispatcher)](./thread-dispatching.md)
+- [Session Extensions (SubscribeChannel, AsObservable)](./tcp-session-extensions.md)
+- [Transport Session](./transport-session.md)

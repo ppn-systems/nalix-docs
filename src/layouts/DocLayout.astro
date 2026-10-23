@@ -60,6 +60,8 @@ const readTimeText = `${t('doc.readTime')} ${readMinutes} ${readMinutes === 1 ? 
 const pageTitle = isLanding ? `${t('site.title')}` : `${title} | ${t('site.title')}`;
 const canonicalUrl = new URL(localizePath(slug, locale), Astro.site || 'https://ppn.io.vn').toString();
 const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/main/src/content/docs/${sourceLocale}/${relFile}`;
+const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const hasMobileToc = tocHeadings.length > 1;
 ---
 
 <!doctype html>
@@ -160,7 +162,40 @@ const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/main/src/content
                   <span>{t('doc.packageLabel')}: <span class="nlx-pkg-pill">{pkg}</span></span>
                 </>
               )}
+              <span class="nlx-doc-submeta__sep" role="separator"></span>
+              <button
+                type="button"
+                class="nlx-copy-md-btn"
+                id="nlx-copy-page-md"
+                data-copy-label={t('doc.copyMarkdown')}
+                data-copied-label={t('doc.copiedMarkdown')}
+                data-raw-md={`# ${title}\n\n${rawBody}`}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                <span>{t('doc.copyMarkdown')}</span>
+              </button>
             </div>
+
+            {hasMobileToc && (
+              <details class="nlx-mobile-toc">
+                <summary class="nlx-mobile-toc__summary">
+                  <span>{t('doc.onThisPage')}</span>
+                  <svg class="nlx-nav-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="m7.5 5 5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </summary>
+                <ul class="nlx-mobile-toc__list">
+                  {tocHeadings.map((h) => (
+                    <li class:list={['nlx-mobile-toc__item', { 'nlx-mobile-toc__item--depth-3': h.depth === 3 }]}>
+                      <a href={`#${h.slug}`}>{h.text.split('`').join('')}</a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
 
             <hr class="nlx-doc-header-divider" />
 
@@ -214,6 +249,18 @@ const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/main/src/content
 
     <SearchModal locale={locale} />
 
+    <button
+      type="button"
+      id="nlx-floating-top"
+      class="nlx-floating-top"
+      aria-label={t('doc.backToTop')}
+      title={t('doc.backToTop')}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="m18 15-6-6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
     <script>
       import mermaid from 'mermaid';
 
@@ -242,6 +289,55 @@ const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/main/src/content
         const mobileBtn = document.getElementById('nlx-mobile-menu-toggle');
         mobileBtn?.addEventListener('click', () => {
           document.body.classList.toggle('is-sidebar-open');
+        });
+
+        // Copy Page Markdown button
+        const copyMdBtn = document.getElementById('nlx-copy-page-md');
+        copyMdBtn?.addEventListener('click', async () => {
+          const mdText = copyMdBtn.getAttribute('data-raw-md');
+          if (!mdText) return;
+          try {
+            await navigator.clipboard.writeText(mdText);
+            const span = copyMdBtn.querySelector('span');
+            const defaultLabel = copyMdBtn.getAttribute('data-copy-label') || 'Copy Markdown';
+            const copiedLabel = copyMdBtn.getAttribute('data-copied-label') || 'Copied Markdown';
+            if (span) span.textContent = copiedLabel;
+            copyMdBtn.classList.add('is-copied');
+            setTimeout(() => {
+              if (span) span.textContent = defaultLabel;
+              copyMdBtn.classList.remove('is-copied');
+            }, 1600);
+          } catch {}
+        });
+
+        // Floating scroll-to-top button
+        const floatingTop = document.getElementById('nlx-floating-top');
+        if (floatingTop) {
+          window.addEventListener(
+            'scroll',
+            () => {
+              floatingTop.classList.toggle('is-visible', window.scrollY > 420);
+            },
+            { passive: true }
+          );
+          floatingTop.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+        }
+
+        // Heading anchor click-to-copy URL
+        document.querySelectorAll<HTMLAnchorElement>('.nlx-heading-anchor').forEach((anchor) => {
+          anchor.addEventListener('click', async (e) => {
+            const href = anchor.getAttribute('href');
+            if (!href) return;
+            e.preventDefault();
+            history.replaceState(null, '', href);
+            const target = document.getElementById(href.slice(1));
+            target?.scrollIntoView({ behavior: 'smooth' });
+            try {
+              await navigator.clipboard.writeText(window.location.href);
+            } catch {}
+          });
         });
       }
 

@@ -49,7 +49,7 @@ If you need to perform actions on raw bytes (like custom decryption or transform
 
 - Putting too many unrelated policies in one middleware.
 - Adding custom metadata before proving you need it.
-- Forgetting that middleware order changes behavior (Inbound: registration order; Outbound: reverse order).
+- Forgetting that middleware execution order is sorted by `[MiddlewareOrder(int)]` ascending (default `0`, preserving registration order on ties), and reversed on outbound when `ExecuteOnOutbound` is enabled.
 
 ## Good default patterns
 

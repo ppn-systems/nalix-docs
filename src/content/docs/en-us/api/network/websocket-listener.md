@@ -1,131 +1,171 @@
 ---
 title: WebSocket Listener
-description: The WebSocketListenerBase provides a high-performance HTTP-based listener that accepts incoming WebSocket connection requests, performs preliminary security checks, and initiali...
+description: Reference for WebSocketListenerBase, HttpRequestView, HttpResponseWriter, HttpRouteHandler, and HttpMethodType in Nalix.Network.Listeners.Web — raw socket RFC 6455 WebSocket upgrade and zero-allocation HTTP control-plane endpoints.
 section: API Reference
 package: Nalix.Network
 ---
 
-The `WebSocketListenerBase` provides a high-performance HTTP-based listener that accepts incoming WebSocket connection requests, performs preliminary security checks, and initializes active WebSocket sessions. It uses `System.Net.HttpListener` under the hood.
+**Namespace:** `Nalix.Network.Listeners.Web`  
+**Assembly:** `Nalix.Network`
 
-## Overview
+`WebSocketListenerBase` (`public abstract partial class WebSocketListenerBase : TcpListenerBase`) provides a zero-allocation, raw-socket RFC 6455 WebSocket and HTTP/1.1 control-plane listener built directly on top of [TcpListenerBase](./tcp-listener.md) (it does **not** use `System.Net.HttpListener` and does **not** require Windows URL ACLs or administrator privileges).
 
-Unlike raw TCP or UDP listeners, a WebSocket listener operates on top of HTTP. It listens for incoming HTTP requests, verifies if they are WebSocket upgrade requests, checks connection limits via the `ConnectionGuard`, and upgrades accepted requests to full duplex `WebSocketConnection` channels.
+## Source Mapping
 
-### Architecture Flow
+- `src/Nalix.Network/Listeners/WebListener/WebSocketListener.Core.cs`
+- `src/Nalix.Network/Listeners/WebListener/WebSocketListener.Handle.cs`
+- `src/Nalix.Network/Listeners/WebListener/WebSocketListener.Headers.cs`
+- `src/Nalix.Network/Listeners/WebListener/WebSocketListener.Http.cs`
+- `src/Nalix.Network/Listeners/WebListener/WebSocketListener.HttpResponses.cs`
+- `src/Nalix.Network/Listeners/WebListener/HttpRequestView.cs`
+- `src/Nalix.Network/Options/NetworkWebSocketOptions.cs`
+- `src/Nalix.Network/Options/ForwardedHeadersOptions.cs`
+
+## 1. Upgrade & HTTP Request Pipeline
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant HttpListener
-    participant ConnectionGuard
-    participant WebSocketListenerBase
-    participant WebSocketConnection
+    participant Socket as TcpListenerBase (Raw Socket)
+    participant Guard as ConnectionGuard
+    participant WS as WebSocketListenerBase
+    participant Conn as WebSocketConnection
 
-    Client->>HttpListener: HTTP GET / (Upgrade: websocket)
-    HttpListener->>WebSocketListenerBase: Request accepted
-    WebSocketListenerBase->>ConnectionGuard: TryAccept(IPAddress)
-    alt Connection Guard Throttles
-        ConnectionGuard-->>WebSocketListenerBase: Reject (HTTP 429)
-        WebSocketListenerBase-->>Client: HTTP Status 429 Too Many Requests
-    else Connection Guard Accepts
-        ConnectionGuard-->>WebSocketListenerBase: Accept
-        WebSocketListenerBase->>HttpListener: AcceptWebSocketAsync()
-        HttpListener-->>WebSocketListenerBase: WebSocket object
-        WebSocketListenerBase->>WebSocketConnection: Instantiate
-        WebSocketListenerBase->>WebSocketConnection: Subscribe to events (Process, Close)
-        WebSocketListenerBase-->>Client: HTTP Status 101 Switching Protocols
+    Client->>Socket: TCP Connect (or PROXY Protocol v1/v2)
+    Socket->>Guard: Limiter.TryAccept(ip)
+    Guard-->>Socket: Accepted
+    Socket->>WS: BeginWebSocketHandshake(socket)
+    Client->>WS: HTTP/1.1 GET /ws/ (Upgrade: websocket) or GET /healthz
+    alt Matches HTTP Route (/healthz, /version, /metrics, MapGet, MapPost)
+        WS-->>Client: HTTP/1.1 200 OK + Body (Connection: close)
+        WS->>Guard: Release accept-time limiter slot
+    else WebSocket Upgrade Request
+        WS->>WS: Validate Path, AllowedOrigins (CSWSH), SubProtocol & ForwardedHeaders
+        WS-->>Client: HTTP/1.1 101 Switching Protocols (Sec-WebSocket-Accept)
+        WS->>Conn: WebSocket.CreateFromStream(NetworkStream) -> new WebSocketConnection
+        WS->>Conn: Register in TimingWheel + ConnectionHub & Start Receive Loop
     end
 ```
 
-## Configuration
+### Key Architectural Behaviors
 
-`WebSocketListenerBase` is configured via `NetworkWebSocketOptions`. Key configuration parameters include:
+1. **Handshake Timeout Sweeper**: When `Activate()` is called, `WebSocketListenerBase` schedules a 1-second recurring task (`TaskManager.ScheduleRecurring`) that sweeps stalled HTTP upgrade contexts exceeding `NetworkWebSocketOptions.HandshakeTimeoutMs` (`5000` ms default), closing their sockets outside the lock and releasing their `ConnectionGuard` slots.
+2. **Built-In DevOps HTTP Endpoints**: When `NetworkWebSocketOptions.EnableDevOpsEndpoints = true` (default), the listener registers zero-allocation HTTP `GET` handlers on the same port:
+   - `/healthz`, `/health`, `/livez`, `/readyz`, `/startupz`, `/ping` $\rightarrow$ `200 OK` (`OK`)
+   - `/version` $\rightarrow$ `200 OK` JSON (`{"name":"Nalix","version":"1.0.0","status":"running"}`)
+   - `/metrics` $\rightarrow$ `200 OK` Prometheus text format (`nalix_active_connections`)
+3. **CSWSH Origin Enforcement**: Validates the `Origin` header via `NetworkWebSocketOptions.IsOriginAllowed(origin)` before sending `101 Switching Protocols`. Rejected requests receive `HTTP/1.1 403 Forbidden` and close immediately.
+4. **L7 Forwarded Headers (`ForwardedHeadersOptions`)**: When `ForwardedHeadersOptions.Enabled = true`, extracts the real client IP from `CF-Connecting-IP` or `X-Forwarded-For` (enforcing `TrustedProxyOptions` when `RequireTrustedProxy = true`) and transfers the `ConnectionGuard` slot from the proxy IP to the real client IP.
 
-* **Port**: The listening port (default: standard WebSocket ports).
-* **Path**: The request path suffix (e.g. `/` or `/ws`).
-* **SubProtocol**: Optional sub-protocol used in WebSocket handshakes.
-* **ProcessChannelCapacity**: Bounded channel size for accepting connections concurrently.
-* **ProcessChannelDrainTimeout**: Time allowed to drain accepted connection queue before hard stopping.
+---
 
-See [WebSocket Options](../options/network/websocket-options.md) for a complete list of settings.
-
-## API Reference
-
-### WebSocketListenerBase Class
+## 2. `WebSocketListenerBase` API Reference
 
 ```csharp
 namespace Nalix.Network.Listeners.Web;
 
-public abstract class WebSocketListenerBase : IListener, IDisposable
-```
-
-#### Constructors
-
-* `protected WebSocketListenerBase(ushort port, string path, IProtocol protocol, IConnectionHub hub)`  
-  Initializes a new instance bound to the specified port and HTTP path.
-
-* `protected WebSocketListenerBase(IProtocol protocol, IConnectionHub hub)`  
-  Initializes a new instance using defaults resolved from the configuration system.
-
-#### Public Methods
-
-* `public void Activate(CancellationToken cancellationToken = default)`  
-  Starts listening on the configured HTTP prefix. Spawns background workers to accept connections.
-
-* `public void Deactivate(CancellationToken cancellationToken = default)`  
-  Stops the listener, closes open sockets, and cancels background tasks.
-
-* `public abstract void ProcessFrame(object? sender, IConnectionEventArgs args)`  
-  Must be implemented by subclasses to process inbound connection events (e.g. framing, sequence verification).
-
-* `public string GenerateReport()`  
-  Generates a string diagnostics report of the listener state.
-
-* `public void WriteReportData(System.Text.Json.Utf8JsonWriter writer)`  
-  Writes structured JSON diagnostic information.
-
-#### Protected Methods
-
-* `protected virtual void Initialize()`  
-  Configures and starts the underlying `HttpListener` with appropriate prefixes.
-
-* `protected void ProcessConnection(IConnection connection)`  
-  Invokes protocol accept logic and registers the connection inside the connection hub.
-
-* `protected async Task AcceptConnectionsAsync(IWorkerContext ctx, CancellationToken cancellationToken)`  
-  Worker loop accepting incoming connection upgrades.
-
-* `protected void HandleConnectionClose(object? sender, IConnectionEventArgs args)`  
-  Cleans up connection event subscriptions on disconnect.
-
-## Usage Example
-
-The following example shows how to subclass `WebSocketListenerBase` inside a custom server implementation:
-
-```csharp
-using System;
-using Nalix.Abstractions.Networking;
-using Nalix.Network.Connections;
-using Nalix.Network.Listeners.Web;
-
-public sealed class CustomWebSocketListener : WebSocketListenerBase
+public abstract partial class WebSocketListenerBase : TcpListenerBase
 {
-    public CustomWebSocketListener(IProtocol protocol, IConnectionHub hub) 
-        : base(protocol, hub)
-    {
-    }
+    protected WebSocketListenerBase(
+        ushort port,
+        string path,
+        IProtocol protocol,
+        IConnectionHub hub,
+        IConnectionGuard guard);
 
-    public override void ProcessFrame(object? sender, IConnectionEventArgs args)
-    {
-        // Decode inbound data lease, perform protocol parsing, etc.
-        var lease = args.Lease;
-        Console.WriteLine($"Received {lease.Length} bytes via WebSocket");
-    }
+    protected WebSocketListenerBase(
+        IProtocol protocol,
+        IConnectionHub hub,
+        IConnectionGuard guard);
+
+    protected WebSocketListenerBase(
+        string path,
+        IProtocol protocol,
+        IConnectionHub hub,
+        IConnectionGuard guard);
+
+    // Minimal HTTP/1.1 control-plane routing on the WebSocket port
+    public void MapGet(string path, HttpRouteHandler handler);
+    public void MapPost(string path, HttpRouteHandler handler);
+
+    public override void Activate(CancellationToken cancellationToken = default);
+    public override void Deactivate(CancellationToken cancellationToken = default);
 }
 ```
 
-## See Also
+---
 
-* [WebSocket Connection](websocket-connection.md)
-* [Connection Hub](connection/connection-hub.md)
-* [WebSocket Options](../options/network/websocket-options.md)
+## 3. Minimal HTTP Routing Types (`HttpRequestView.cs`)
+
+`Nalix.Network.Listeners.Web` exposes zero-allocation `ref struct` types for handling custom HTTP `GET` and `POST` routes registered via `WebSocketListenerBase.MapGet` / `MapPost` or `IWebSocketBindingBuilder.MapGet` / `MapPost`:
+
+### `HttpMethodType` & `HttpRouteHandler`
+
+```csharp
+public enum HttpMethodType : byte
+{
+    Get = 1,
+    Post = 2,
+    Options = 3
+}
+
+public delegate void HttpRouteHandler(
+    in HttpRequestView request,
+    ref HttpResponseWriter response);
+```
+
+### `HttpRequestView` (`readonly ref struct`)
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Method` | `ReadOnlySpan<byte>` | Raw HTTP method bytes (e.g., `"GET"u8`, `"POST"u8`). |
+| `Path` | `ReadOnlySpan<byte>` | Request path without the query string (e.g., `"/metrics"u8`). |
+| `Query` | `ReadOnlySpan<byte>` | Raw query string without the leading `'?'`, or empty if absent. |
+| `Body` | `ReadOnlySpan<byte>` | Request payload body bytes (for `POST` requests, up to `MaxUpgradeRequestSize`), or empty. |
+| `ContentType` | `ReadOnlySpan<byte>` | `Content-Type` header value, or empty if absent. |
+| `Origin` | `ReadOnlySpan<byte>` | `Origin` header value, or empty if absent. |
+| `RemoteEndPoint` | `EndPoint?` | Resolved client endpoint (accounting for PROXY Protocol v1/v2 or trusted `ForwardedHeadersOptions`). |
+
+### `HttpResponseWriter` (`ref struct`)
+
+Rents buffers from `BufferLease.ByteArrayPool` (up to `1_048_576` bytes max body capacity) and returns them automatically after the response is sent.
+
+| Member | Signature | Description |
+| :--- | :--- | :--- |
+| `StatusCode` | `public int StatusCode { get; set; }` | HTTP status code (default `200`). |
+| `ContentType` | `public ReadOnlySpan<byte> ContentType { readonly get; set; }` | `Content-Type` header bytes (default `"text/plain; charset=utf-8"u8`). |
+| `WrittenCount` | `public int WrittenCount { get; }` | Number of body bytes written so far. |
+| `WrittenSpan` | `public readonly ReadOnlySpan<byte> WrittenSpan { get; }` | Written response body as a read-only byte span. |
+| `GetSpan(int)` | `public Span<byte> GetSpan(int sizeHint = 0)` | Returns a writable `Span<byte>` of at least `sizeHint` bytes. |
+| `Advance(int)` | `public void Advance(int count)` | Advances `WrittenCount` after writing into `GetSpan`. |
+| `Write(ReadOnlySpan<byte>)` | `public void Write(ReadOnlySpan<byte> bytes)` | Appends raw UTF-8 or binary bytes to the response body. |
+| `WriteUtf8(ReadOnlySpan<char>)` | `public void WriteUtf8(ReadOnlySpan<char> text)` | Encodes and appends a character span as UTF-8. |
+| `WriteJson(ReadOnlySpan<char>)` | `public void WriteJson(ReadOnlySpan<char> json)` | Sets `ContentType` to `"application/json; charset=utf-8"u8` and writes the UTF-8 JSON payload. |
+| `WriteInt32(int)` / `WriteInt64(long)` | `public void WriteInt32(int value)` / `WriteInt64(long value)` | Formats an integer as UTF-8 digits into the response body with zero allocations. |
+
+## Usage Example
+
+```csharp
+using Nalix.Hosting;
+using Nalix.Hosting.Protocols;
+using Nalix.Network.Listeners.Web;
+
+var app = NetworkApplication.CreateBuilder()
+    .MapWebSocket<DefaultProtocol>()
+        .OnPort(57207)
+        .WithPath("/ws/")
+        .MapGet("/status", (in HttpRequestView req, ref HttpResponseWriter res) =>
+        {
+            res.StatusCode = 200;
+            res.WriteJson("{\"ready\":true}");
+        })
+        .Bind()
+    .Build();
+```
+
+## Related APIs
+
+- [WebSocket Binding (IWebSocketBindingBuilder)](../hosting/websocket-binding.md)
+- [WebSocket Connection](./websocket-connection.md)
+- [WebSocket Options (NetworkWebSocketOptions)](../options/network/websocket-options.md)
+- [TCP Listener](./tcp-listener.md)

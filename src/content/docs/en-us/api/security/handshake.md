@@ -1,11 +1,11 @@
 ---
 title: Handshake
-description: Nalix implements an authenticated X25519-based handshake using session protocol frames (SessionInit, SessionChallenge, SessionProof, SessionEstablished), HandshakeHandlers on th...
+description: Authenticated X25519 handshake protocol using SessionInit, SessionChallenge, SessionProof, SessionEstablished, SessionTofu, and HandshakeX25519.
 section: API Reference
-package: Nalix.Codec / Nalix.Network
+package: Nalix.Codec / Nalix.Runtime / Nalix.SDK
 ---
 
-Nalix implements an authenticated X25519-based handshake using session protocol frames (`SessionInit`, `SessionChallenge`, `SessionProof`, `SessionEstablished`), `HandshakeHandlers` on the server, and `HandshakeExtensions` on the SDK side.
+Nalix implements an authenticated Noise-inspired X25519 handshake using built-in session protocol frames (`SessionInit`, `SessionChallenge`, `SessionProof`, `SessionEstablished`, `SessionTofu`), `HandshakeX25519` in `Nalix.Codec.Security`, `HandshakeHandlers` in `Nalix.Runtime.Handlers`, and `HandshakeExtensions` in `Nalix.SDK.Transport.Extensions`.
 
 ## Source Mapping
 
@@ -18,125 +18,100 @@ Nalix implements an authenticated X25519-based handshake using session protocol 
 - `src/Nalix.Runtime/Handlers/HandshakeHandlers.cs`
 - `src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs`
 
-## 1. Handshake Flow
+## 1. 4-Message Handshake Flow
 
-The handshake is a 4-message exchange using dedicated session protocol frames managed by `HandshakeHandlers`.
-
-| Step | Direction | Frame | Key Payload |
-| --- | --- | --- | --- |
-| 1 | Client → Server | `SessionInit` | `PublicKey` (ephemeral), `Nonce` |
-| 2 | Server → Client | `SessionChallenge` | `PublicKey` (ephemeral), `Nonce`, `Proof` |
-| 3 | Client → Server | `SessionProof` | `Proof` |
-| 4 | Server → Client | `SessionEstablished` | `Proof`, `SessionToken` |
+| Step | Direction | Frame (`OpCode`, Size) | Payload Fields |
+| :---: | --- | --- | --- |
+| **1** | Client $\rightarrow$ Server | `SessionInit` (`0x0000`, `70` B) | `PublicKey` (`Bytes32` ephemeral), `Nonce` (`Bytes32`) |
+| **2** | Server $\rightarrow$ Client | `SessionChallenge` (`0x0006`, `102` B) | `PublicKey` (`Bytes32` ephemeral), `Nonce` (`Bytes32`), `Proof` (`Bytes32`) |
+| **3** | Client $\rightarrow$ Server | `SessionProof` (`0x0003`, `38` B) | `Proof` (`Bytes32`) |
+| **4** | Server $\rightarrow$ Client | `SessionEstablished` (`0x0007`, `46` B) | `Proof` (`Bytes32`), `SessionToken` (`ulong`) |
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant S as Server
-    C->>S: SessionInit (PublicKey, Nonce)
-    S->>C: SessionChallenge (PublicKey, Nonce, Proof)
-    C->>S: SessionProof (Proof)
-    S->>C: SessionEstablished (Proof, SessionToken)
+    participant C as Client (Nalix.SDK)
+    participant S as Server (HandshakeHandlers)
+    opt ServerPublicKey is null and AllowTofu is true
+        C->>S: Control (PUBLIC_KEY_REQUEST, 0x0001)
+        S->>C: SessionTofu (Server Static PublicKey, 0x0005)
+    end
+    C->>S: SessionInit (Client Ephemeral PublicKey, Client Nonce, 0x0000)
+    S->>C: SessionChallenge (Server Ephemeral PublicKey, Server Nonce, Server Proof, 0x0006)
+    C->>S: SessionProof (Client Proof, 0x0003)
+    S->>C: SessionEstablished (Server Finish Proof, 8-byte SessionToken, 0x0007)
 ```
 
 ---
 
 ## 2. Trust on First Use (TOFU)
 
-If the client's `TransportOptions.ServerPublicKey` is empty or null, the client executes a TOFU flow before the X25519 handshake:
+If `TransportOptions.ServerPublicKey` is `null` or empty and `TransportOptions.AllowTofu` is `true` (default):
 
-1. The client sends a `SessionTofu` request to the server.
-2. The server replies with `SessionTofu` containing its static public key.
-3. The client validates and stores the server public key in `ConfigurationManager` for future connections.
-4. With the server public key available, the client proceeds with the standard handshake sequence.
-
----
-
-## 3. Cryptographic Construction
-
-`HandshakeX25519` derives the master secret, transcript hash, proofs, and final session key used by the transport after a successful handshake.
-
-### Hashing Strategy (`HandshakeX25519`)
-
-The protocol derives its master secret from:
-
-- ephemeral-ephemeral agreement
-- static-ephemeral agreement against the pinned server key
-
-| Purpose | Label | Components |
-| --- | --- | --- |
-| **Master Secret** | `nalix-handshake/master-secret` | `SharedSecret_EE`, `SharedSecret_SE` |
-| **Server Proof** | `nalix-handshake/server-proof` | `MasterSecret`, `TranscriptHash` |
-| **Client Proof** | `nalix-handshake/client-proof` | `MasterSecret`, `TranscriptHash` |
-| **Server Finish** | `nalix-handshake/server-finish` | `MasterSecret`, `TranscriptHash` |
-| **Session Key** | `nalix-handshake/session` | `MasterSecret`, `ClientNonce`, `ServerNonce`, `TranscriptHash` |
+1. The client sends a `Control` frame with `ControlType.PUBLIC_KEY_REQUEST` (`0x0001`).
+2. `SystemControlHandlers` responds with `SessionTofu` (`0x0005`, 38 bytes) containing `HandshakeHandlers.ServerPublicKey`.
+3. The client pins the received key on `options.ServerPublicKey` (and saves it to disk if `PersistTofuKey = true`), then proceeds with `SessionInit`.
 
 ---
 
-## 4. Server Implementation
+## 3. Cryptographic Construction (`HandshakeX25519`)
 
-The server-side state machine is implemented in `HandshakeHandlers`. It tracks negotiation state through `connection.Attributes`, specifically `ConnectionAttributes.HandshakeState` during the handshake and `ConnectionAttributes.HandshakeEstablished` once the handshake completes.
+`HandshakeX25519` combines **ephemeral-ephemeral** (`SharedSecret_EE`) and **static-ephemeral** (`SharedSecret_SE`, against the server's static X25519 identity key) agreements using HKDF-Keccak256:
 
-### Handler Methods
+| Step | Method | HKDF Construction | Inputs |
+| --- | --- | --- | --- |
+| **Transcript Hash** | `ComputeTranscriptHash` | `Keccak256.HashDataToFixed(144-byte length-prefixed transcript)` | `clientPublicKey`, `clientNonce`, `serverPublicKey`, `serverNonce` |
+| **Master Secret** | `ComputeMasterSecret` | `Hkdf.Extract(salt: Empty, ikm: sharedSecretEE \|\| sharedSecretSE)` | `sharedSecretEE`, `sharedSecretSE` (64 bytes total) |
+| **Server Proof** | `ComputeServerProof` | `Hkdf.Expand(masterSecret, "nalix-handshake/server-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
+| **Client Proof** | `ComputeClientProof` | `Hkdf.Expand(masterSecret, "nalix-handshake/client-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
+| **Server Finish Proof** | `ComputeServerFinishProof` | `Hkdf.Expand(masterSecret, "nalix-handshake/server-finish" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
+| **Session Key** | `DeriveSessionKey` | `Hkdf.Expand(masterSecret, "nalix-handshake/session" \|\| clientNonce \|\| serverNonce \|\| transcriptHash)` | `masterSecret`, `clientNonce`, `serverNonce`, `transcriptHash` |
+| **Rekey Secret** | `DeriveRekeySecret` | `Hkdf.Expand(currentSecret, "nalix-session/rekey")` | `currentSecret` |
 
-- `HandleSessionInitAsync(IPacketContext<SessionInit>)`: Processes `SessionInit`, generates server ephemeral keys, computes shared secret, replies with `SessionChallenge`.
-- `HandleSessionProofAsync(IPacketContext<SessionProof>)`: Verifies client proof, derives session key, sets `connection.Secret` and `connection.Algorithm`, persists session state, replies with `SessionEstablished`.
+### Public Methods on `HandshakeX25519`
 
-### Cryptographic Methods (`HandshakeX25519`)
-
-- `ComputeMasterSecret(Bytes32, Bytes32)`: Combines ephemeral-ephemeral and static-ephemeral shared secrets into the master secret.
-- `ComputeServerProof(Bytes32, Bytes32)`: Generates the proof for `SessionChallenge`.
-- `ComputeClientProof(Bytes32, Bytes32)`: Generates the proof for `SessionProof`.
-- `ComputeServerFinishProof(Bytes32, Bytes32)`: Generates the final acknowledgement proof for `SessionEstablished`.
-- `DeriveSessionKey(Bytes32, Bytes32, Bytes32, Bytes32)`: Derives the 32-byte session key from the shared secret, client nonce, server nonce, and transcript hash.
-- `ComposeTranscriptBuffer(Bytes32, Bytes32, Bytes32, Bytes32)`: Composes the raw transcript buffer from public keys and nonces. Callers should wipe the returned buffer after hashing.
-- `ComputeTranscriptHash(Bytes32, Bytes32, Bytes32, Bytes32)`: Computes the handshake transcript hash from public keys and nonces, securely clearing the temporary buffer.
-
-### Handling Logic
-
-Upon `SessionProof` verification, the handler:
-
-1. Derives the 32-byte session key.
-2. Sets `connection.Secret` and `connection.Algorithm` (ChaCha20Poly1305).
-3. Marks the connection as established through the built-in connection attribute key.
-4. Persists resumable session state through `IConnectionHub.SessionService.SaveSessionAsync(connection)` when a hub is available.
-5. Returns a `SessionToken` to the client in `SessionEstablished`.
+- `Bytes32 ComputeMasterSecret(Bytes32 sharedSecretEE, Bytes32 sharedSecretSE)`
+- `Bytes32 ComputeServerProof(Bytes32 masterSecret, Bytes32 transcriptHash)`
+- `Bytes32 ComputeClientProof(Bytes32 masterSecret, Bytes32 transcriptHash)`
+- `Bytes32 ComputeServerFinishProof(Bytes32 masterSecret, Bytes32 transcriptHash)`
+- `Bytes32 DeriveSessionKey(Bytes32 masterSecret, Bytes32 clientNonce, Bytes32 serverNonce, Bytes32 transcriptHash)`
+- `Bytes32 DeriveRekeySecret(Bytes32 currentSecret)`
+- `Bytes32 ComputeTranscriptHash(Bytes32 clientPublicKey, Bytes32 clientNonce, Bytes32 serverPublicKey, Bytes32 serverNonce)` — Zero-allocation stack path (`stackalloc byte[144]`).
+- `bool TryComposeTranscriptBuffer(Span<byte> destination, out int written, Bytes32 clientPublicKey, Bytes32 clientNonce, Bytes32 serverPublicKey, Bytes32 serverNonce)` — Writes the 144-byte transcript (`4 * (sizeof(int) + 32)`) into `destination` without heap allocation.
+- `byte[] ComposeTranscriptBuffer(Bytes32 clientPublicKey, Bytes32 clientNonce, Bytes32 serverPublicKey, Bytes32 serverNonce)`
 
 ---
 
-## 5. Client SDK Usage
+## 4. Server Implementation (`HandshakeHandlers`)
 
-The `Nalix.SDK` provides an automated extension to perform the handshake after connection.
+Enabled on the server via `builder.UseSecureConnections(string? certificatePath = null)`:
+
+- Stores per-connection negotiation state via `HandshakeState` / `HandshakeContext` on `connection.GetRuntimeState()`.
+- If `IProofOfWorkPolicy.IsUnderAttack` is `true` and `connection.Level < PermissionLevel.POW_VERIFIED`, `HandleSessionInitAsync` replies with `Control(ControlType.ERROR, reasonCode: ProtocolReason.POW_REQUIRED)` before allowing key agreement.
+- Upon verifying `SessionProof`:
+  1. Derives the 32-byte session secret via `HandshakeX25519.DeriveSessionKey` and assigns `connection.Secret`.
+  2. Sets `connection.Level = PermissionLevel.ESTABLISHED` (if `< ESTABLISHED`) and marks the handshake state as established.
+  3. Uses `connection.ConnectionId.ToUInt64()` as the 64-bit `SessionToken`, persists the session via `ISessionService.SaveSessionAsync(connection)` (when `.UseSessions()` is enabled), and sends `SessionEstablished`.
+
+## 5. Client SDK Usage (`HandshakeExtensions`)
 
 ```csharp
+using Nalix.SDK.Options;
 using Nalix.SDK.Transport;
 using Nalix.SDK.Transport.Extensions;
 
-await session.ConnectAsync("127.0.0.1", 5000);
+using TcpSession session = new(new TransportOptions { Address = "127.0.0.1", Port = 57206 });
+await session.ConnectAsync(ct);
 
-// Executes the X25519 handshake flow (performs TOFU if no public key is pinned)
-await session.HandshakeAsync(cancellationToken);
+// Executes TOFU (if needed), PoW (if challenged), and the 4-step X25519 handshake
+await session.HandshakeAsync(timeoutMs: 10_000, ct: ct);
 
-// Session is now transparently encrypted
-await session.SendAsync(new SecurePacket());
+// session.State.EncryptionEnabled is now true, and session.State.SessionToken is populated
 ```
-
----
-
-## 6. Security Notes
-
-- **Identity Authentication**: By configuring `ServerPublicKey` on the client and a server certificate path on the server, the handshake performs a key agreement that lets the client pin the server identity. **Anonymous handshakes are strictly forbidden** to prevent MitM attacks.
-- **Mandatory Identity**: The client must be configured with `TransportOptions.ServerPublicKey` to pin the server identity. On the server, the identity key is loaded from `certificate.private` in the configuration directory by default, or from a custom path supplied through hosting configuration.
-- **Structural Validation**: All session frames implement `IPacketValidatable` to prevent malformed packets or stage confusion attacks before any cryptography is performed.
-- **Pooled packets**: Server replies are created through `PacketBase<T>.Create()` (pooled) in `src/Nalix.Runtime/Handlers/HandshakeHandlers.cs`.
-- **Transcript Integrity**: Any modification to keys or nonces during transit will cause a `TranscriptHash` mismatch, resulting in an immediate `ProtocolReason.CHECKSUM_FAILED` rejection.
-- **Resume Token**: The handshake finish sets `SessionToken` in `SessionEstablished`. Treat the token as resumable session state, not as a cryptographic secret by itself.
-
----
 
 ## Related Topics
 
 - [AEAD & Envelope Encryption](./aead-and-envelope.md)
-- [X25519 Primitives](./cryptography.md)
-- [Snowflake Identifiers](../framework/snowflake.md)
-- [Session Resume](./session-resume.md)
+- [Proof-of-Work](./proof-of-work.md)
+- [Session Resumption](./session-resume.md)
+- [Session Rekey](./session-rekey.md)
+- [Handshake Extensions (SDK)](../sdk/handshake-extensions.md)

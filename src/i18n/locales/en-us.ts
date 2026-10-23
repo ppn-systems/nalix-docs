@@ -38,6 +38,8 @@ export const enUs = {
   'doc.next': 'Next',
   'doc.copyCode': 'Copy',
   'doc.copiedCode': 'Copied',
+  'doc.copyMarkdown': 'Copy Markdown',
+  'doc.copiedMarkdown': 'Copied Markdown',
   'doc.fallbackBannerTitle': 'Translation Pending',
   'doc.fallbackBannerBody':
     'This page has not been translated into your selected language yet. Showing the canonical English (en-US) documentation.',

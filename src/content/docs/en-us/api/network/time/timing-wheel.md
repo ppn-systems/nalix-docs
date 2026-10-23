@@ -1,124 +1,77 @@
 ---
 title: Timing Wheel
-description: TimingWheel is an ultra-lightweight, high-performance Hashed Wheel Timer specifically optimized for managing idle connection timeouts across tens of thousands of concurrent sess...
+description: Reference for Nalix.Network.Internal.Time.TimingWheel — hashed wheel timer with doubly-linked buckets and striped locks for O(1) idle connection timeout management.
 section: API Reference
 package: Nalix.Network
 ---
 
-`TimingWheel` is an ultra-lightweight, high-performance **Hashed Wheel Timer** specifically optimized for managing idle connection timeouts across tens of thousands of concurrent sessions with minimal CPU and GC overhead.
+**Namespace:** `Nalix.Network.Internal.Time`  
+**Assembly:** `Nalix.Network`
+
+`TimingWheel` (`[Injectable] internal sealed class TimingWheel : IActivatable`) is an ultra-lightweight **Hashed Wheel Timer** that monitors registered `IConnection` instances and disconnects connections whose idle duration (`Clock.UnixMillisecondsNow() - conn.LastPingTime`) reaches `conn.IdleTimeoutMs` (default `TimingWheelOptions.IdleTimeoutMs = 60,000` ms).
 
 ## Source Mapping
 
 - `src/Nalix.Network/Internal/Time/TimingWheel.cs`
-
-## Why This Type Exists
-
-In a large-scale server, using a separate `System.Timers.Timer` or `CancellationTokenSource` per connection is extremely expensive. `TimingWheel` addresses this by:
-
-- **Hashed Buckets**: Grouping thousands of connections into a fixed number of "buckets" based on their expiration time.
-- **Single Background Loop**: Using one dedicated worker to periodically "tick" and process only the connections in the current bucket.
-- **Zero-Allocation Execution**: Recycling `TimeoutTask` objects through an object pool and using version-based checks to handle rescheduling without complex queue removals.
+- `src/Nalix.Network/Internal/Time/TimingWheelMetrics.cs`
+- `src/Nalix.Network/Options/TimingWheelOptions.cs`
 
 ## Hashed Wheel Architecture
 
-The diagram below illustrates how connections are distributed across the wheel and how the background loop (Tick) processes them.
-
 ```mermaid
 flowchart TD
-    subgraph Wheel[Hashed Timing Wheel]
-        Bucket0[Bucket 0]
-        Bucket1[Bucket 1]
-        Bucket2[Bucket 2]
-        BucketN[Bucket N]
+    subgraph Wheel["TimingWheelBucket[] (BucketCount = 512)"]
+        B0["Bucket 0 (Doubly-Linked List + Lock)"]
+        B1["Bucket 1 (Doubly-Linked List + Lock)"]
+        BN["Bucket N - 1"]
     end
 
-    subgraph Loop[RUN_LOOP Loop]
-        Pointer((Current Tick))
-        Missed[Catch-up Logic]
-        Processor[Bucket Processor]
+    subgraph Worker["Background PeriodicTimer Loop (TickDuration = 1000ms)"]
+        Tick["Advance Tick & Catch-up Missed Ticks"]
+        Drain["Process Current Bucket"]
+        CheckVer{"task.Version == conn.TimeoutVersion?"}
+        CheckRounds{"task.Rounds > 0?"}
+        CheckIdle{"idleMs >= conn.IdleTimeoutMs?"}
+        Disc["conn.Disconnect() + Return TimeoutTask"]
+        Resched["Recompute Remaining Ticks & Re-enqueue"]
     end
 
-    subgraph Logic[Task Processing]
-        Stale{Version Match?}
-        RoundCheck{Rounds > 0?}
-        IdleCheck{Idle > Timeout?}
-        
-        Disconnect[Disconnect & Unregister]
-        Resched[Reschedule to future Bucket]
-        Pool[Return to ObjectPool]
-    end
-
-    Pointer --> Missed
-    Missed -->|Current Bucket| Processor
-    Processor -->|Dequeue Tasks| Stale
-    
-    Stale -->|No| Pool
-    Stale -->|Yes| RoundCheck
-    
-    RoundCheck -->|Yes| DecRound[Decrement Round] --> Resched
-    RoundCheck -->|No| IdleCheck
-    
-    IdleCheck -->|Yes| Disconnect
-    IdleCheck -->|No| Resched
-    
-    Resched -->|New Bucket| Wheel
+    Tick --> Drain --> CheckVer
+    CheckVer -->|No (Stale)| Pool["Return TimeoutTask to ObjectPool"]
+    CheckVer -->|Yes| CheckRounds
+    CheckRounds -->|Yes| Dec["task.Rounds-- (Stay in Bucket)"]
+    CheckRounds -->|No| CheckIdle
+    CheckIdle -->|Yes| Disc
+    CheckIdle -->|No| Resched --> Wheel
 ```
 
-## Key Mechanisms (Source-Verified)
+## Key Internal Mechanisms
 
-### 1. Version-Based Lazy Removal
+### 1. Doubly-Linked Buckets (`TimingWheelBucket`) & Striped Connection Locks
 
-Unlike traditional timers that require O(n) or O(log n) removal from a queue, Nalix uses a **Lazy Removal** strategy:
+- The wheel allocates `BucketCount` (`512`) `TimingWheelBucket` slots. When `BucketCount` is a power of two, bucket indices are computed via bitmask (`(int)(targetTick & _mask)`).
+- Each bucket maintains a doubly-linked list of pooled `TimeoutTask` nodes guarded by a per-bucket monitor lock (`lock (bucket)`), supporting $O(1)$ insertion and removal.
+- Connection registration and unregistration synchronize per connection using a power-of-two striped lock array (`_connectionLocks`) plus `ITimeoutTrackedConnection.TimeoutVersion` and `TimeoutTask` properties directly on `Connection` / `WebSocketConnection` / `PassthroughConnection`.
 
-- When a connection sends data, its "expected version" is incremented in a `ConcurrentDictionary`.
-- The old task remains in its original bucket.
-- When the `RUN_LOOP` eventually hits that bucket, it compares the task's version with the "live" version. If they don't match, the task is discarded and returned to the pool instantly.
+### 2. Instant Reference Breaking on Disposal
 
-### 2. Rounds Handling
+When a `Connection` is disposed, `PerformDestructiveCleanup()` immediately breaks the reference from `TimeoutTask.Conn` (`task.Conn = null`), allowing the garbage collector to reclaim the `Connection` immediately without waiting for the wheel pointer to rotate to that bucket.
 
-If a requested timeout exceeds the total duration of one full wheel rotation (`WheelSize * TickMs`), the task is assigned a `Rounds` count.
+### 3. Reference-Counted Activation (`Activate` / `Deactivate`)
 
-- The task sits in the calculated bucket.
-- Each time the pointer passes that bucket, `Rounds` is decremented.
-- The task only fires (or checks for idle state) when `Rounds == 0`.
+Multiple listeners (`TcpListenerBase`, `WebSocketListenerBase`, `UdpPassthroughListener`) share the singleton `TimingWheel`. `Activate` increments `_activeListeners` and starts the background `TaskManager` worker on the first listener; `Deactivate` decrements `_activeListeners` and stops/drains the wheel when the last listener shuts down (waiting up to `TimingWheelOptions.WheelDrainTimeoutMs = 5000` ms).
 
-### 3. Catch-up Logic
+## Configuration (`TimingWheelOptions`)
 
-Total system load can sometimes delay the background loop. `TimingWheel` uses `PeriodicTimer` combined with high-precision monotonic timestamps (`Clock.MonoTicksNow`) to detect slipped ticks and "catch up" by processing missed buckets in a tight loop, ensuring no timeouts are permanently delayed.
-
-## Public APIs
-
-- `Activate()`: Starts the background worker.
-- `Deactivate()`: Stops the worker and drains all remaining tasks back to the pool.
-- `Register(ITimeoutTrackedConnection)`: Enrolls a connection into the timing cycle.
-- `Unregister(ITimeoutTrackedConnection)`: Markedly removes a connection from monitoring (lazy).
-
-## Configuration
-
-The behavior of the wheel is controlled via `TimingWheelOptions`:
-
-| Option | Description | Typical Value |
-| :---: | :---: | :---: |
-| `TickDuration` | Frequency of wheel ticks in milliseconds (precision). | 1000 ms |
-| `BucketCount` | Total number of buckets in the wheel. | 512-4096 |
-| `IdleTimeoutMs` | The threshold for closing idle connections. | 60,000 ms |
-| `WheelDrainTimeoutMs` | Maximum time to wait for the wheel to drain gracefully during shutdown. | 5000 ms |
-
-:::note[Idle timeout versus session TTL]
-`IdleTimeoutMs` applies while a connection is still live and silent. It is not the session resume window. `SessionStoreOptions.SessionTtl` controls how long disconnected session state is retained for resume after the timing wheel, peer close, or another transport failure has removed the connection.
-:::
-
-## Best Practices
-
-- **Avoid Blocking**: The `TimingWheel` loop is a shared resource. If you implement custom cleanup logic, ensure any I/O is truly asynchronous.
-- **Fine-Tuning**: For servers with very short timeouts (e.g., fast handshake timeouts), reduce `TickDuration`. For long-lived idle sessions, increase `BucketCount` to reduce bucket density.
-- **Automatic Cleanup**: `TimingWheel` automatically unregisters connections when they close, so manual `Unregister` is usually only needed for specialized state transitions.
+| Property | Default | Validation | Description |
+| :--- | ---: | :--- | :--- |
+| `BucketCount` | `512` | `[ValueRange(1, int.MaxValue)]` | Number of wheel slots (power-of-two values enable bitmask indexing). |
+| `TickDuration` | `1000` | `[ValueRange(1, int.MaxValue)]` | Tick interval in milliseconds for the `PeriodicTimer` loop. |
+| `IdleTimeoutMs` | `60_000` | `[ValueRange(1, int.MaxValue)]` | Default connection idle timeout in milliseconds before auto-disconnect. |
+| `WheelDrainTimeoutMs` | `5000` | `[ValueRange(0, 60000)]` | Maximum graceful drain wait in milliseconds during shutdown. |
 
 ## Related APIs
 
-- [IConnection](../connection/connection.md)
-- [Clock Infrastructure](../../environment/clock.md)
-- [Object Pooling](../../framework/memory/object-pooling.md)
-- [Object Map](../../framework/memory/object-map.md)
-- [Typed Object Pools](../../framework/memory/typed-object-pools.md)
-- [Task Naming Conventions](../../framework/task-manager.md)
+- [Timing Wheel Options](../../options/network/timing-wheel-options.md)
+- [Connection](../connection/connection.md)
+- [TCP Listener](../tcp-listener.md)

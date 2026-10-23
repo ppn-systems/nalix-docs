@@ -1,57 +1,57 @@
 ---
 title: DispatchOptions
-description: DispatchOptions controls per-connection queue behavior inside the dispatch layer.
+description: Reference for Nalix.Runtime.Options.DispatchOptions — per-connection queue bounds, drop policy, weighted round-robin priority weights, and bucket sizing.
 section: API Reference
-package: Nalix.Network / Nalix.Runtime
+package: Nalix.Runtime
 ---
 
-`DispatchOptions` controls per-connection queue behavior inside the dispatch layer.
+**Namespace:** `Nalix.Runtime.Options`  
+**Assembly:** `Nalix.Runtime`
 
-## Source mapping
+`DispatchOptions` (`public sealed partial class DispatchOptions : ConfigurationLoader, IValidatableConfiguration`) controls per-connection mailbox capacities, overflow drop policy, priority weights, and sharded bucket sizing inside `DispatchChannel<TPacket>`.
+
+## Source Mapping
 
 - `src/Nalix.Runtime/Options/DispatchOptions.cs`
+- `src/Nalix.Runtime/Internal/Routing/DispatchChannel.cs`
 
 ## Properties
 
-| Property | Meaning | Default | Validation |
-| --- | --- | ---: | --- |
-| `MaxPerConnectionQueue` | Max queued items for one connection. `0` means unlimited and is not recommended for production. | `4096` | `0..1,048,576` |
-| `DropPolicy` | What to do when the queue is full. | `DropNewest` | Must be a valid `DropPolicy` enum value. |
-| `BlockTimeout` | Wait budget when `DropPolicy` is `Block`. | `1000 ms` | `TimeSpan` value; keep bounded in production. |
-| `PriorityWeights` | Weighted round-robin weights for `[NONE, LOW, MEDIUM, HIGH, URGENT]`. | `1,2,4,8,16` | Comma-separated weight list consumed by the dispatch channel. |
-| `BucketCountMultiplier` | Multiplier for internal bucket count based on CPU count. | `64` | `1..1024` |
-| `MinBucketCount` | Minimum internal bucket count. | `256` | `1..65,536` and must be `<= MaxBucketCount`. |
-| `MaxBucketCount` | Maximum internal bucket count. | `16384` | `1..1,048,576` and must be `>= MinBucketCount`. |
+Loaded from the `[Dispatch]` section of `default.ini` via `ConfigurationManager.Instance.Get<DispatchOptions>()`:
 
-## Validation contract
+| Property | Type | Default | Validation | Description |
+| :--- | :--- | :---: | :--- | :--- |
+| `MaxPerConnectionQueue` | `int` | `4096` | `[ValueRange(0, 1_048_576)]` | Maximum queued packets allowed for a single connection (`0` = unlimited, not recommended for production). |
+| `DropPolicy` | `DropPolicy` | `DropPolicy.DropNewest` | `[AllowedEnum]` | Overflow strategy when a connection's queue reaches `MaxPerConnectionQueue` (`DropNewest`, `DropOldest`, `Coalesce`, or `Block`). |
+| `BlockTimeout` | `TimeSpan` | `1000 ms` (`00:00:01`) | `>= TimeSpan.Zero` | Maximum wait duration for blocking `Push` calls when `DropPolicy == DropPolicy.Block` (`PacketDispatchChannel.HandlePacket` uses `noBlock: true`). |
+| `PriorityWeights` | `string` | `"1,2,4,8,16"` | Exactly 5 positive comma-separated `int` values | Weighted round-robin budgets for `[NONE, LOW, MEDIUM, HIGH, URGENT]`. |
+| `BucketCountMultiplier` | `int` | `64` | `[ValueRange(1, 1024)]` | Multiplier applied to `Environment.ProcessorCount` to size the internal connection-state hash bucket array. |
+| `MinBucketCount` | `int` | `256` | `[ValueRange(1, 65536)]`, `<= MaxBucketCount` | Lower bound on internal connection-state hash buckets (rounded up to a power of two). |
+| `MaxBucketCount` | `int` | `16384` | `[ValueRange(1, 1048576)]`, `>= MinBucketCount` | Upper bound on internal connection-state hash buckets (rounded up to a power of two). |
 
-`Validate()` runs data-annotation validation for the bounded numeric and enum fields, then enforces the cross-field rule that `MinBucketCount` cannot be greater than `MaxBucketCount`.
+## Validation Rules (`Validate()`)
 
-The default `MaxPerConnectionQueue` is intentionally bounded at `4096`. Setting it to `0` disables bounding and can expose the process to memory exhaustion if a client floods packets faster than handlers can process them.
+`Validate()` runs DataAnnotation attribute checks (`[ValueRange]`, `[AllowedEnum]`) and then enforces:
 
-## How to think about it
+1. `MinBucketCount <= MaxBucketCount`.
+2. `PriorityWeights` is non-empty and splits into **exactly 5** positive integers corresponding to `PacketPriority.NONE`, `LOW`, `MEDIUM`, `HIGH`, and `URGENT`.
+3. `BlockTimeout >= TimeSpan.Zero`.
 
-This is not the global dispatcher size. It is the bound applied to one connection's backlog.
-
-Use it to stop one noisy client from creating unbounded memory growth or unfair tail latency.
-
-`PriorityWeights` is the fairness knob. The default `1,2,4,8,16` makes urgent traffic much more likely to be served than `NONE` traffic without starving lower-priority queues.
-
-## Recommended starting point
-
-- interactive workloads: small bounded queue
-- test/dev: unlimited or relaxed queue
-- high-abuse environments: bounded queue + `DropNewest`
-
-## Example
+## Usage Example
 
 ```csharp
-var options = new DispatchOptions
+using System;
+using Nalix.Abstractions.Security;
+using Nalix.Runtime.Options;
+
+DispatchOptions options = new()
 {
-    MaxPerConnectionQueue = 128,
+    MaxPerConnectionQueue = 1024,
     DropPolicy = DropPolicy.DropNewest,
-    BlockTimeout = TimeSpan.FromMilliseconds(250),
-    PriorityWeights = "1,2,4,8,16"
+    BlockTimeout = TimeSpan.FromMilliseconds(500),
+    PriorityWeights = "1,2,4,8,16",
+    MinBucketCount = 256,
+    MaxBucketCount = 16384
 };
 
 options.Validate();
@@ -59,5 +59,6 @@ options.Validate();
 
 ## Related APIs
 
-- [Packet Dispatch](../../runtime/routing/packet-dispatch.md)
-- [Connection Limiter](../../network/connection/connection-limiter.md)
+- [Packet Dispatch (PacketDispatchChannel)](../../runtime/routing/packet-dispatch.md)
+- [Dispatch Channel and Router](../../runtime/routing/dispatch-channel-and-router.md)
+- [Packet Dispatch Options](./packet-dispatch-options.md)

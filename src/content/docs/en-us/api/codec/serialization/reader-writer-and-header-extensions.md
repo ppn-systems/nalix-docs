@@ -5,6 +5,9 @@ section: API Reference
 package: Nalix.Codec
 ---
 
+**Namespaces:** `Nalix.Codec.Extensions`, `Nalix.Environment.Extensions`  
+**Assemblies:** `Nalix.Codec`, `Nalix.Environment`
+
 This page covers the low-level helper APIs around `DataReader`, `DataWriter`, and packet header access.
 
 ## Source mapping
@@ -23,8 +26,8 @@ This page covers the low-level helper APIs around `DataReader`, `DataWriter`, an
 
 | Type | Public members |
 |---|---|
-| `DataReaderExtensions` | `ReadByte`, `ReadInt16`, `ReadUInt16`, `ReadInt32`, `ReadUInt32`, `ReadInt64`, `ReadUInt64`, `ReadSByte`, `ReadChar`, `ReadSingle`, `ReadDouble`, `ReadBoolean`, `ReadEnumByte`, `ReadEnumUInt16`, `ReadEnumUInt32`, `ReadBytes`, `ReadRemainingBytes`, `ReadUnmanaged`, `Remaining` |
-| `DataWriterExtensions` | `Write`, `WriteEnum`, `WriteUnmanaged` overloads for primitive, span, enum, and unmanaged values |
+| `DataReaderExtensions` | `ReadByte`, `ReadSByte`, `ReadInt16`, `ReadUInt16`, `ReadInt32`, `ReadUInt32`, `ReadInt64`, `ReadUInt64`, `ReadChar`, `ReadSingle`, `ReadDouble`, `ReadBoolean`, `ReadEnumByte`, `ReadEnumSByte`, `ReadEnumInt16`, `ReadEnumUInt16`, `ReadEnumInt32`, `ReadEnumUInt32`, `ReadBytes`, `ReadRemainingBytes`, `ReadUnmanaged`, `Remaining` |
+| `DataWriterExtensions` | `Write`, `WriteEnum`, `WriteUnmanaged` overloads for primitive, span, enum (1/2/4-byte), and unmanaged values |
 | `HeaderExtensions` | `AsHeaderRef` overloads for `Span<byte>` and `ReadOnlySpan<byte>` |
 
 ## When to use these helpers
@@ -56,7 +59,10 @@ Useful methods include:
 - `ReadDouble()`
 - `ReadBoolean()`
 - `ReadEnumByte<TEnum>()`
+- `ReadEnumSByte<TEnum>()`
+- `ReadEnumInt16<TEnum>()`
 - `ReadEnumUInt16<TEnum>()`
+- `ReadEnumInt32<TEnum>()`
 - `ReadEnumUInt32<TEnum>()`
 - `ReadBytes(count)`
 - `ReadRemainingBytes()`
@@ -70,15 +76,20 @@ Useful methods include:
 Useful methods include:
 
 - `Write(byte)`
+- `Write(sbyte)`
+- `Write(short)`
 - `Write(ushort)`
-- `Write(uint)`
 - `Write(int)`
+- `Write(uint)`
 - `Write(long)`
 - `Write(ulong)`
+- `Write(char)`
+- `Write(float)`
+- `Write(double)`
 - `Write(bool)`
 - `Write(byte[])`
 - `Write(ReadOnlySpan<byte>)`
-- `WriteEnum<TEnum>(value)`
+- `WriteEnum<TEnum>(value)` (supports 1-, 2-, and 4-byte underlying enum types; throws `NotSupportedException` for 8-byte enums)
 - `WriteUnmanaged<T>(value)`
 
 ## HeaderExtensions
@@ -91,10 +102,10 @@ Useful methods include:
 
 - `AsHeaderRef()` — returns a `ref PacketHeader` (or `ref readonly PacketHeader`) pointing directly into the span.
 
-Individual fields are accessed through the returned `PacketHeader` struct:
+Individual fields are accessed through the returned `PacketHeader` reference:
 
 ```csharp
-PacketHeader header = span.ReadHeaderLE();
+ref readonly PacketHeader header = ref span.AsHeaderRef();
 ushort opCode = header.OpCode;
 PacketFlags flags = header.Flags;
 PacketPriority priority = header.Priority;
@@ -113,7 +124,7 @@ DataReader reader = new(writer.WrittenSpan);
 ushort decodedOpcode = reader.ReadUInt16();
 PacketPriority decodedPriority = reader.ReadEnumByte<PacketPriority>();
 
-ref PacketHeader header = span.AsHeaderRef();
+ref PacketHeader header = ref span.AsHeaderRef();
 ushort headerOpcode = header.OpCode;
 header.SequenceId = 123; // Direct mutation
 ```

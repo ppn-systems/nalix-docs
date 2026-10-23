@@ -1,25 +1,14 @@
 ---
 title: Packet Attributes
-description: Nalix uses packet attributes to declare handler routing and execution policy.
+description: Declarative routing and policy attributes in Nalix.Abstractions.Networking.Packets and Nalix.Abstractions.Networking.Rpc used on packet controllers, handlers, and request packets.
 section: API Reference
 package: Nalix.Abstractions
 ---
 
-Nalix uses packet attributes to declare handler routing and execution policy.
+**Namespace:** `Nalix.Abstractions.Networking.Packets` (and `Nalix.Abstractions.Networking.Rpc`)  
+**Assembly:** `Nalix.Abstractions`
 
-## Audit Summary
-
-- Existing page used one incorrect attribute name (`PacketConcurrency`) and included behavior wording stronger than what attributes alone guarantee.
-- Needed direct mapping to actual attribute types and their constructor parameters.
-
-## Missing Content Identified
-
-- Accurate attribute list with exact names from `Nalix.Abstractions.Networking.Packets`.
-- Clear distinction between declaration (attribute) and enforcement (runtime/middleware).
-
-## Improvement Rationale
-
-Precise attribute docs reduce handler-registration errors and avoid policy misunderstandings.
+Nalix uses attributes to declare controller discovery, opcode routing, transport constraints, permission levels, encryption requirements, rate limits, and execution timeouts. These attributes are compiled into a zero-allocation `PacketMetadata` struct at build time by `PacketHandlerGenerator`.
 
 ## Source Mapping
 
@@ -30,23 +19,26 @@ Precise attribute docs reduce handler-registration errors and avoid policy misun
 - `src/Nalix.Abstractions/Networking/Packets/PacketEncryptionAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketTimeoutAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketTransportAttribute.cs`
-- `src/Nalix.Abstractions/Networking/NetworkTransport.cs`
+- `src/Nalix.Abstractions/Networking/Packets/PacketIdempotentAttribute.cs`
+- `src/Nalix.Abstractions/Networking/Rpc/RpcServiceAttribute.cs`
 
 ## Attribute Reference
 
-| Attribute | Scope | Purpose |
-| --- | --- | --- |
-| `PacketHandlerAttribute` | Class | Marks a controller class for packet handlers. Defaults: `Name = "None"`, `IsActive = true`, `Version = "1.0"`. |
-| `PacketOpcodeAttribute` | Method | Binds a handler to an opcode. |
-| `PacketPermissionAttribute` | Method | Declares the minimum `PermissionLevel` required to run. Defaults to `USER`. |
-| `PacketRateLimitAttribute` | Method | Declares requests-per-second and burst values. |
-| `PacketEncryptionAttribute` | Method | Declares whether encryption is required and which cipher suite to use. Defaults to `true` and `Chacha20Poly1305`. |
-| `PacketTimeoutAttribute` | Method | Declares a handler timeout budget in milliseconds. |
-| `PacketTransportAttribute` | Method | Declares the preferred transport protocol for the handler's outbound response. |
+| Attribute | Target | Constructors & Properties | Purpose |
+| --- | --- | --- | --- |
+| `[PacketHandler]` | Class | `PacketHandlerAttribute(string name = "None", bool isActive = true, string version = "1.0")`<br/>Properties: `Name`, `IsActive`, `Version` | Marks a class as a packet controller compiled by `PacketHandlerGenerator`. |
+| `[PacketOpcode]` | Method | `PacketOpcodeAttribute(ushort opCode)`<br/>`PacketOpcodeAttribute(object opcode)` (enum value)<br/>Property: `ushort OpCode { get; }` | Binds a handler method to a 16-bit packet opcode (`>= 0x0100` for application packets; `0x0000..0x00FF` are reserved for system protocols). |
+| `[PacketPermission]` | Method | `PacketPermissionAttribute(PermissionLevel level = PermissionLevel.USER)`<br/>`PacketPermissionAttribute(PermissionLevel level, PermissionEvaluation evaluation)`<br/>Properties: `PermissionLevel Level`, `PermissionEvaluation Evaluation` | Declares required `connection.Level` (`MinimumLevel` by default, or `StrictMatch`), enforced by `PermissionMiddleware`. |
+| `[PacketEncryption]` | Method | `PacketEncryptionAttribute(bool isEncrypted = true, CipherSuiteType algorithmType = CipherSuiteType.Chacha20Poly1305)`<br/>Properties: `bool IsEncrypted`, `CipherSuiteType AlgorithmType` | Requires `context.EncryptedOnWire == true` (enforced by `PacketEncryptionMiddleware`) and encrypts responses sent via `context.Sender`. |
+| `[PacketRateLimit]` | Method | `PacketRateLimitAttribute(int requestsPerSecond, double burst = 1.0)`<br/>Property: `int RequestsPerSecond`, `double Burst`<br/>Init properties: `string? PolicyId`, `int HardLockoutSeconds = -1`, `int MaxSoftViolations = -1` | Attaches a token-bucket rate limit to the handler, enforced by `RateLimitMiddleware`. |
+| `[PacketTimeout]` | Method | `PacketTimeoutAttribute(int timeoutMilliseconds)`<br/>Property: `int TimeoutMilliseconds { get; }` | Sets a linked `CancellationToken` timeout budget in milliseconds, enforced by `TimeoutMiddleware`. |
+| `[PacketTransport]` | Method | `PacketTransportAttribute(NetworkTransport transport)`<br/>Property: `NetworkTransport TransportType { get; }` | Restricts the handler to `NetworkTransport.TCP`, `UDP`, or `WEBSOCKET` (enforced by `TransportMiddleware`) and routes `context.Sender` replies over that transport. |
+| `[PacketIdempotent]` | Class | `PacketIdempotentAttribute()` | Documentation-only metadata marking a packet class as idempotent (safe for client-side retry policies). |
+| `[RpcService]` | Interface | `RpcServiceAttribute()` | Marks an interface for compile-time typed client extension generation by `RpcClientGenerator`. |
 
-## Why Attributes Exist
-
-Attributes provide declarative metadata at registration time so dispatch/runtime layers can apply policy without embedding those policies directly inside business handlers.
+:::important[Declaration vs. Middleware Enforcement]
+Attributes populate `context.Attributes` (`PacketMetadata`). When you register handlers via `NetworkApplicationBuilder.MapHandlers<T>()` (or `PacketDispatchOptions.WithHandler<T>()`), `PacketDispatchOptions` automatically wires `TransportMiddleware`, `PacketEncryptionMiddleware`, `PermissionMiddleware`, `RateLimitMiddleware`, and `TimeoutMiddleware` whenever any registered handler declares the corresponding attribute.
+:::
 
 ## Practical Example
 
@@ -54,34 +46,27 @@ Attributes provide declarative metadata at registration time so dispatch/runtime
 using System.Threading.Tasks;
 using Nalix.Abstractions.Networking;
 using Nalix.Abstractions.Networking.Packets;
+using Nalix.Abstractions.Security;
 
 [PacketHandler("SecureChat", version: "1.2")]
 public sealed class SecureChatController
 {
     [PacketOpcode(0x3001)]
-    [PacketPermission(PermissionLevel.USER)]
-    [PacketRateLimit(10, burst: 2)]
-    [PacketEncryption(true)]
+    [PacketPermission(PermissionLevel.USER, PermissionEvaluation.MinimumLevel)]
+    [PacketRateLimit(requestsPerSecond: 10, burst: 3, PolicyId = "chat-send", HardLockoutSeconds = 30, MaxSoftViolations = 5)]
+    [PacketEncryption(true, CipherSuiteType.Chacha20Poly1305)]
     [PacketTimeout(5000)]
-    [PacketTransport(NetworkTransport.UDP)]
-    public static ValueTask HandleAsync(IPacketContext<ChatPacket> context)
+    [PacketTransport(NetworkTransport.TCP)]
+    public ValueTask HandleChatMessageAsync(IPacketContext<ChatMessagePacket> context)
     {
-        // Application logic here
-        return ValueTask.CompletedTask;
+        return context.Sender.ReplyAsync(new ChatAckPacket { MessageId = context.Packet.MessageId });
     }
 }
 ```
 
-For a comprehensive walkthrough of handler implementation, including error handling and registration, see the [Implementing Packet Handlers](../../guides/application/packet-handlers.md) guide.
-
-## Best Practices
-
-- Treat attributes as policy declarations; verify enforcement in runtime middleware configuration.
-- Keep opcode values centrally managed to avoid collisions.
-- Use explicit permission and rate-limit attributes on public-facing handlers.
-
 ## Related APIs
 
 - [Packet Metadata](./packet-metadata.md)
+- [Packet Handler Generator](../analyzers/autogen/packet-handler-generator.md)
+- [Runtime Middleware Pipeline](../runtime/middleware/index.md)
 - [Packet Context](../runtime/routing/packet-context.md)
-- [Handler Return Types](../runtime/routing/handler-results.md)

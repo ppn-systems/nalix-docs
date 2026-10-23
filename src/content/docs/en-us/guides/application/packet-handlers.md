@@ -10,7 +10,7 @@ A packet handler is where your application logic lives — one method per opcode
 
 ```csharp
 // samples/HelloWorld/HelloWorld.Server/HelloHandlers.cs
-[PacketHandler("HelloWorld.Greetings")]
+[PacketController("HelloWorld.Greetings")]
 public static class HelloHandlers
 {
     [PacketOpcode(0x7001)]
@@ -25,7 +25,7 @@ public static class HelloHandlers
 }
 ```
 
-`[PacketHandler("...")]` marks the class; `[PacketOpcode(0x7001)]` maps one method to one opcode. `IPacketContext<TPacket>` gives you the deserialized packet and a `Sender` to reply on. Use `PacketFactory<T>.Acquire()` to get a pooled instance instead of allocating one — always wrap it in a `using` block so it's returned to the pool.
+`[PacketController("...")]` marks the class (`[PacketHandler]` is obsolete); `[PacketOpcode(0x7001)]` maps one method to one opcode. `IPacketContext<TPacket>` gives you the deserialized packet and a `Sender` to reply on. Use `PacketFactory<T>.Acquire()` to get a pooled instance instead of allocating one — always wrap it in a `using` block so it's returned to the pool.
 
 Full source: `samples/HelloWorld/HelloWorld.Server/HelloHandlers.cs`
 
@@ -33,7 +33,7 @@ Full source: `samples/HelloWorld/HelloWorld.Server/HelloHandlers.cs`
 
 ```csharp
 // samples/ChatRoom/ChatRoom.Server/ChatHandlers.cs
-[PacketHandler("ChatRoom.Chat")]
+[PacketController("ChatRoom.Chat")]
 public static class ChatHandlers
 {
     [PacketOpcode(0x7101)]

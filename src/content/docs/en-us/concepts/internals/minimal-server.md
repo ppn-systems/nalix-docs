@@ -31,7 +31,7 @@ InstanceManager.Instance.Register<ILogger>(logger);
 ### 2. Create handlers
 
 ```csharp
-[PacketHandler("SamplePingHandlers")]
+[PacketController("SamplePingHandlers")]
 public sealed class SamplePingHandlers
 {
     [PacketOpcode(0x1001)]
@@ -63,6 +63,9 @@ public sealed class SampleProtocol : Protocol
 
     public SampleProtocol(PacketDispatchChannel dispatch) => _dispatch = dispatch;
 
+    public override IFrameProcessor FrameProcessor => DefaultFrameProcessor.Instance;
+    public override IOpCodeExtractor OpCodeExtractor => DefaultOpCodeExtractor.Instance;
+
     public override void ProcessMessage(object? sender, IConnectionEventArgs args)
         => _dispatch.HandlePacket(args.Lease, args.Connection);
 }
@@ -73,22 +76,25 @@ public sealed class SampleProtocol : Protocol
 ```csharp
 public sealed class SampleTcpListener : TcpListenerBase
 {
-    public SampleTcpListener(ushort port, IProtocol protocol, IConnectionHub hub)
-        : base(port, protocol, hub) { }
+    public SampleTcpListener(
+        ushort port,
+        IProtocol protocol,
+        IConnectionHub hub,
+        IConnectionGuard guard)
+        : base(port, protocol, hub, guard) { }
 }
 
 IConnectionHub hub = new ConnectionHub();
-SampleTcpListener listener = new(57206, new SampleProtocol(dispatch), hub);
+IConnectionGuard guard = new ConnectionGuard();
+SampleTcpListener listener = new(57206, new SampleProtocol(dispatch), hub, guard);
 listener.Activate();
 ```
 
 `TcpListenerBase.Activate(...)` is synchronous. Use `NetworkApplication.RunAsync()` only when you want the hosting layer to own startup and shutdown for you.
 
-:::warning[Manual hub ownership]
+:::warning[Manual hub and guard ownership]
+Current `TcpListenerBase` constructors require an `IConnectionHub` and `IConnectionGuard`. The hosting builder creates and wires these dependencies for you. In manual mode, create the hub and guard explicitly and dispose them when your server shuts down.
 :::
-Current `TcpListenerBase` constructors require an `IConnectionHub`. The hosting
-    builder creates and wires this dependency for you. In manual mode, create the
-    hub explicitly and dispose it when your server shuts down.
 
 ## Client
 

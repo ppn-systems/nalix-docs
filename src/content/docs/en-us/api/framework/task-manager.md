@@ -1,130 +1,117 @@
 ---
 title: Task Manager
-description: TaskManager is the core background worker engine for Nalix. It provides prioritized task scheduling, concurrency gating, and comprehensive diagnostics for both transient workers...
+description: Reference for Nalix.Framework.Tasks.TaskManager and TaskManagerOptions — multi-gate background worker and recurring job scheduler with CPU-aware dynamic concurrency.
 section: API Reference
 package: Nalix.Framework
 ---
 
-`TaskManager` is the core background worker engine for Nalix. It provides prioritized task scheduling, concurrency gating, and comprehensive diagnostics for both transient workers and recurring jobs.
+**Namespace:** `Nalix.Framework.Tasks` (and `Nalix.Framework.Options`)  
+**Assembly:** `Nalix.Framework`
 
-## Task Scheduling & Concurrency Model
+`TaskManager` (`[Injectable(typeof(ITaskManager))] public sealed partial class TaskManager : ITaskManager, IDisposable`) coordinates one-off/long-running background workers and recurring jobs with global and per-group concurrency gating, priority queuing, CPU-load dynamic concurrency adjustment, and `IReportable` telemetry.
 
-Nalix uses a sophisticated multi-gate concurrency model to ensure that background tasks do not saturate the system while maintaining relative priorities.
+## Source Mapping
+
+- `src/Nalix.Abstractions/Concurrency/ITaskManager.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.PrivateMethods.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.Affinity.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.Cleanup.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.Report.cs`
+- `src/Nalix.Framework/Options/TaskManagerOptions.cs`
+
+## Scheduling & Concurrency Architecture
 
 ```mermaid
 flowchart TD
-    Start([ScheduleWorker]) --> Gates{Gates Open?}
-    
-    Gates -->|Yes| Fast[Fast Start: Task.Run]
-    Gates -->|No| Queue[Priority Queue]
-    
-    subgraph DispatchLoop[Internal Dispatcher]
-        Queue --> Wait[Wait for Concurrency Slot]
-        Wait --> Acquire[Acquire Global + Group Gates]
-        Acquire --> Run[Execute Worker]
+    Start(["ScheduleWorker(...)"]) --> FastGate{"Pending Queue Empty & Global Gate Available?"}
+    FastGate -->|Yes| Affinity{"OSPriority Set?"}
+    FastGate -->|No| Enqueue["Enqueue in PriorityQueue (WorkerPriority, FIFO Sequence)"]
+
+    subgraph Dispatcher["Background Dispatcher Loop"]
+        Enqueue --> Signal["Wait for Pending Worker Signal"]
+        Signal --> GlobalGate["Acquire Global Concurrency Gate"]
+        GlobalGate --> Affinity
     end
-    
-    Fast --> Execute
-    Run --> Execute[Worker Execution]
-    
-    Execute --> Release[Release Gates]
-    Release --> Cleanup[Dispose Context / Cleanup]
+
+    Affinity -->|Yes| DedicatedThread["Launch on Dedicated Thread (+ Optional ProcessorAffinity)"]
+    Affinity -->|No| ThreadPoolRun["Launch on ThreadPool"]
+
+    DedicatedThread --> GroupGate["Acquire Group Gate (if GroupConcurrencyLimit set)"]
+    ThreadPoolRun --> GroupGate
+    GroupGate --> Exec["Execute Worker (Linked CancellationToken + ExecutionTimeout)"]
+    Exec --> Release["Release Group & Global Gates"]
+    Release --> Retain["Retain Handle for WorkerOptions.RetainFor -> Periodic Cleanup"]
 ```
 
-## Concurrency Layer (Source-Verified)
+## Public Constructors & Properties
 
-The `TaskManager` manages three layers of execution control:
+| Member | Type / Signature | Description |
+| :--- | :--- | :--- |
+| `TaskManager()` | `public TaskManager()` | Initializes `TaskManager` using `ConfigurationManager.Instance.Get<TaskManagerOptions>()`. |
+| `TaskManager(TaskManagerOptions?)` | `public TaskManager(TaskManagerOptions? options = null)` | Initializes `TaskManager` with explicit `TaskManagerOptions` and validates it. |
+| `Title` | `string` | Compact status summary (`"Workers: X running / Y total \| Recurring: Z"`). |
+| `ConcurrencyLimitRatio` | `double` | Ratio (`0.0..1.0`) of the current dynamic concurrency limit relative to `TaskManagerOptions.MaxWorkers`. |
+| `AverageWorkerUptime` | `double` | Average execution duration of completed workers in milliseconds. |
+| `AverageRecurringExecutionTime` | `double` | Average execution duration of recurring job runs in milliseconds. |
+| `AverageWorkerWaitTime` | `double` | Average queue wait time before workers start executing, in milliseconds. |
+| `P95WorkerUptime` | `double` | Approximate 95th percentile worker execution time in milliseconds. |
+| `P99WorkerUptime` | `double` | Approximate 99th percentile worker execution time in milliseconds. |
+| `PeakRunningWorkerCount` | `int` | High-water mark of concurrently running workers. |
+| `WorkerErrorCount` | `int` | Total number of unhandled worker exceptions observed. |
+| `RecurringErrorCount` | `int` | Total number of unhandled recurring task exceptions observed. |
 
-### 1. Global Concurrency Gate
+## Public Methods
 
-Controlled by `TaskManagerOptions.MaxWorkers`. This is a global semaphore that limits the total number of parallel workers running across the entire application.
-
-### 2. Group-Level Gates
-
-Each worker can belong to a named `Group`. You can configure per-group capacity limits to ensure a specific workload (e.g., "database-sync") doesn't starve other critical tasks (e.g., "network-heartbeats").
-
-### 3. Priority Dispatching
-
-Workers with higher `WorkerPriority` values are automatically moved to the front of the queue by the internal `PriorityQueue`. This ensures that high-priority system maintenance tasks execute before low-priority analytical tasks.
-
-## Workers vs. Recurring Tasks
-
-| Feature | Worker Task | Recurring Task |
-|---|---|---|
-| **Lifecycle** | Runs once and completes. | Runs indefinitely at a set interval. |
-| **Scheduling** | Pushed into priority queue. | Dedicated timer-based loop. |
-| **Reentrancy** | Manual. | Configurable via `NonReentrant` option. |
-| **Common Use** | File I/O, Database Updates. | Health Checks, Cache Cleanup. |
-
-## Operational APIs
-
-### Scheduling
+### Scheduling & Execution
 
 | Method | Signature | Description |
 | :--- | :--- | :--- |
-| `ScheduleWorker` | `IWorkerHandle ScheduleWorker(string name, string group, Func<IWorkerContext, CancellationToken, ValueTask> work, IWorkerOptions? options = null)` | Adds a one-time task to the system. Returns an `IWorkerHandle` for tracking progress or cancellation. |
-| `ScheduleRecurring` | `IRecurringHandle ScheduleRecurring(string name, TimeSpan interval, Func<CancellationToken, ValueTask> work, IRecurringOptions? options = null)` | Starts a background loop. Returns an `IRecurringHandle` for monitoring. |
-| `RunOnceAsync` | `ValueTask RunOnceAsync(string name, Func<CancellationToken, ValueTask> work, CancellationToken ct = default)` | Executes a single inline work delegate without scheduling. |
+| `ScheduleWorker` (async delegate) | `public IWorkerHandle ScheduleWorker(string name, string group, Func<IWorkerContext, CancellationToken, ValueTask> work, IWorkerOptions? options = null)` | Schedules a managed worker with global/group gating, priority queueing, and progress tracking. |
+| `ScheduleWorker` (`IWorker`) | `public IWorkerHandle ScheduleWorker(IWorker worker)` | Schedules an `IWorker` instance, reading `[Worker(name, group, ...)]` metadata if present (returns `NoOpWorkerHandle.Instance` when `Enabled = false`). |
+| `ScheduleWorker<TState>` (fire-and-forget) | `public void ScheduleWorker<TState>(string name, Action<TState> work, TState state)` | Queues a lightweight state callback directly onto `ThreadPool.UnsafeQueueUserWorkItem` while tracking completion/error telemetry. |
+| `ScheduleRecurring` | `public IRecurringHandle ScheduleRecurring(string name, TimeSpan interval, Func<CancellationToken, ValueTask> work, IRecurringOptions? options = null)` | Starts a named recurring background loop (`interval > TimeSpan.Zero`; throws `InternalErrorException` on duplicate `name`). |
+| `RunOnceAsync` | `public ValueTask RunOnceAsync(string name, Func<CancellationToken, ValueTask> work, CancellationToken ct = default)` | Executes `work` inline once with diagnostic failure logging. |
 
-### Cancellation
-
-| Method | Signature | Description |
-| :--- | :--- | :--- |
-| `CancelAllWorkers` | `int CancelAllWorkers()` | Cancels all active workers. Returns the number of workers cancelled. |
-| `CancelWorker` | `void CancelWorker(ISnowflake id)` | Cancels a specific worker by its identifier. |
-| `CancelGroup` | `int CancelGroup(string group)` | Cancels all workers in a named group. Returns the count cancelled. |
-| `CancelRecurring` | `void CancelRecurring(string? name)` | Cancels and removes a recurring task by name. |
-
-### Queries
+### Runtime Control, Cancellation & Queries
 
 | Method | Signature | Description |
 | :--- | :--- | :--- |
-| `GetWorkers` | `IReadOnlyCollection<IWorkerHandle> GetWorkers(bool runningOnly = true, string? group = null)` | Returns workers, optionally filtered by running state and group. |
-| `GetRecurring` | `IReadOnlyCollection<IRecurringHandle> GetRecurring()` | Returns all recurring tasks. |
-| `TryGetWorker` | `bool TryGetWorker(ISnowflake id, out IWorkerHandle? handle)` | Attempts to retrieve a worker by ID. |
-| `TryGetRecurring` | `bool TryGetRecurring(string name, out IRecurringHandle? handle)` | Attempts to retrieve a recurring task by name. |
-| `WaitGroupAsync` | `Task WaitGroupAsync(string group, CancellationToken ct = default)` | Waits for all workers in a group to complete. Supports prefix matching with `*` suffix. |
+| `SetGroupConcurrencyLimit` | `public void SetGroupConcurrencyLimit(string group, int limit)` | Dynamically updates the maximum concurrent workers allowed for `group` at runtime. |
+| `PauseRecurring` | `public void PauseRecurring(string name)` | Pauses scheduled executions of the recurring job `name` until `ResumeRecurring` is called. |
+| `ResumeRecurring` | `public void ResumeRecurring(string name)` | Resumes a previously paused recurring job. |
+| `CancelWorker` | `public void CancelWorker(ISnowflake id)` | Cancels a specific worker by its `ISnowflake` identifier. |
+| `CancelGroup` | `public int CancelGroup(string group)` | Cancels all workers in `group` and returns the number of workers cancelled. |
+| `CancelAllWorkers` | `public int CancelAllWorkers()` | Cancels all active workers and returns the number of workers cancelled. |
+| `CancelRecurring` | `public void CancelRecurring(string? name)` | Cancels and removes a recurring job by `name`. |
+| `GetWorkers` | `public IReadOnlyCollection<IWorkerHandle> GetWorkers(bool runningOnly = true, string? group = null)` | Returns a snapshot of workers, optionally filtered by `runningOnly` and exact `group` match. |
+| `TryGetWorker` | `public bool TryGetWorker(ISnowflake id, [NotNullWhen(true)] out IWorkerHandle? handle)` | Looks up a worker handle by its `ISnowflake` ID. |
+| `GetRecurring` | `public IReadOnlyCollection<IRecurringHandle> GetRecurring()` | Returns a snapshot of all registered recurring jobs. |
+| `TryGetRecurring` | `public bool TryGetRecurring(string name, [NotNullWhen(true)] out IRecurringHandle? handle)` | Looks up a recurring job handle by `name`. |
+| `WaitGroupAsync` | `public Task WaitGroupAsync(string group, CancellationToken ct = default)` | Waits for all current workers in `group` to finish (supports prefix wildcard matching when `group` ends with `*`, e.g. `"net.*"`). |
+| `GenerateReport` / `WriteReportData` | `public string GenerateReport()` / `public void WriteReportData(Utf8JsonWriter writer)` | Emits human-readable text or structured JSON diagnostics. |
 
-### Properties
+## `TaskManagerOptions` (`Nalix.Framework.Options`)
 
-| Property | Type | Description |
-| :--- | :--- | :--- |
-| `Title` | `string` | Compact status line for consoles and diagnostics. |
-| `AverageWorkerUptime` | `double` | Average uptime (lifecycle duration) for workers in milliseconds. |
-| `AverageRecurringExecutionTime` | `double` | Average execution time for recurring tasks in milliseconds. |
-| `WorkerErrorCount` | `int` | Total worker errors observed. |
-| `RecurringErrorCount` | `int` | Total recurring task errors observed. |
-| `PeakRunningWorkerCount` | `int` | Peak number of concurrently running workers observed. |
-| `AverageWorkerWaitTime` | `double` | Average time workers spent in the queue before starting, in milliseconds. |
-| `P95WorkerUptime` | `double` | 95th percentile worker uptime in milliseconds (approximation). |
-| `P99WorkerUptime` | `double` | 99th percentile worker uptime in milliseconds (approximation). |
+Configured via `[TaskManager]` in `default.ini` or `builder.Configure<TaskManagerOptions>(...)`:
 
-### Diagnostics & Lifecycle
-
-| Method | Signature | Description |
-| :--- | :--- | :--- |
-| `GenerateReport` | `string GenerateReport()` | Produces a comprehensive diagnostic report (text-based). |
-| `WriteReportData` | `void WriteReportData(Utf8JsonWriter writer)` | Writes structured diagnostic data to a JSON writer for zero-allocation reporting. |
-| `Dispose` | `void Dispose()` | Disposes the manager, cancelling all workers and recurring tasks. |
-
-### `GenerateReport()`
-
-Produces a comprehensive diagnostic report (text-based) detailing:
-
-- **Throughput**: Workers and recurring tasks processed per second (TPS).
-- **Latency / Uptime**: Approximate P95 and P99 worker uptimes based on internal histogram buckets.
-- **Congestion**: `AverageWorkerWaitTime` and `PeakRunningWorkerCount` to identify queue pressure and resource saturation.
-- **Errors**: Real-time error counts and consecutive failure tracking.
-- **Top Activity**: Breakdown of the top-50 most active or aged workers.
-
-## Best Practices
-
-- **Always use Groups**: Grouping workers allows for fine-grained monitoring and group-level cancellation.
-- **Set Timeouts**: Use `WorkerOptions.ExecutionTimeout` to prevent "zombie" workers from holding onto concurrency slots indefinitely.
-- **Monitor Reports**: Regularly check `AverageWorkerUptime` to detect lifecycle regressions in your background logic.
+| Property | Type | Default | Validation | Description |
+| :--- | :--- | :---: | :--- | :--- |
+| `IsEnableLatency` | `bool` | `true` | — | Enables execution latency and wait-time histogram tracking. |
+| `DynamicAdjustmentEnabled` | `bool` | `true` | — | Starts the internal `task.monitor` worker to scale global concurrency based on CPU load. |
+| `MaxWorkers` | `int` | `100` | `> 0` | Global maximum number of concurrent workers. |
+| `ThresholdHighCpu` | `double` | `80.0` | `[ValueRange(0.0, 100.0)]` | CPU utilization percentage above which global concurrency is reduced (`>= ThresholdLowCpu`). |
+| `ThresholdLowCpu` | `double` | `40.0` | `[ValueRange(0.0, 100.0)]` | CPU utilization percentage below which global concurrency is increased back toward `MaxWorkers`. |
+| `ObservingInterval` | `TimeSpan` | `00:00:05` (`5s`) | `> TimeSpan.Zero` | Interval between CPU load observations. |
+| `CpuWarmupDuration` | `TimeSpan` | `00:01:00` (`60s`) | `>= TimeSpan.Zero` | Startup warm-up period before dynamic CPU concurrency adjustments begin. |
+| `AdjustmentStreakRequired` | `int` | `3` | `[ValueRange(1, 64)]` | Consecutive high/low CPU samples required before adjusting concurrency (hysteresis). |
+| `BusyWaitThreshold` | `TimeSpan` | `200 µs` (`2000` ticks) | `>= TimeSpan.Zero` | Maximum high-precision spin-wait threshold for recurring timers. |
+| `BackoffMaxPower` | `int` | `5` (`32x`) | `[ValueRange(0, 16)]` | Maximum exponent ($2^n$) for recurring task failure backoff. |
+| `BackoffBaseInterval` | `TimeSpan` | `00:00:01` (`1s`) | `>= 10 ms` | Base interval multiplied by $2^{\text{failures}}$ during recurring task backoff. |
+| `CleanupInterval` | `TimeSpan` | `00:00:30` (`30s`) | `>= 1 s` | Interval at which completed workers past their `RetainFor` window are purged. |
 
 ## Related APIs
 
-- [Worker Options](./options/worker-options.md)
-- [Recurring Options](./options/recurring-options.md)
-- [Concurrency Contracts](../abstractions/concurrency-contracts.md)
+- [WorkerOptions](./options/worker-options.md)
+- [RecurringOptions](./options/recurring-options.md)
+- [Concurrency Contracts (ITaskManager, IWorker)](../abstractions/concurrency-contracts.md)

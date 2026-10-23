@@ -1,215 +1,125 @@
 ---
 title: Object Pooling
-description: The Object Pooling system in Nalix.Framework provides a thread-safe, high-performance mechanism for recycling expensive class instances, reducing the frequency of garbage collec...
+description: Reference for Nalix.Framework.Memory.Objects.ObjectPoolManager and ObjectPoolOptions — type-indexed object pooling, health monitoring, background trimming, and leak detection.
 section: API Reference
 package: Nalix.Framework
 ---
 
-The Object Pooling system in `Nalix.Framework` provides a thread-safe, high-performance mechanism for recycling expensive class instances, reducing the frequency of garbage collection.
+**Namespace:** `Nalix.Framework.Memory.Objects` (and `Nalix.Framework.Options`)  
+**Assembly:** `Nalix.Framework`
 
-## Object Pool Interaction Flow
+`ObjectPoolManager` (`[Injectable(typeof(IObjectPoolManager))] public sealed partial class ObjectPoolManager : IObjectPoolManager, IDisposable`) manages reusable class instances implementing `IPoolable` across the Nalix stack (packets, `PacketContext<T>`, `PacketSender`, `ObjectMap<K,V>`, `BufferLease` shells, and socket event args).
 
-The following diagram illustrates the lifecycle of a poolable object from creation to reuse, featuring the optimized thread-local and type-indexed fast paths.
+## Object Pool Architecture
 
 ```mermaid
 flowchart TD
-    Start[Request Object] --> TLC{Available in ThreadLocalCache?}
-    TLC -- Yes --> PopTLC[Retrieve from ThreadLocalCache]
-    TLC -- No --> TypeIndex[Lookup type-indexed pool array]
-    TypeIndex --> TypeBucket{Available in TypePool?}
-    TypeBucket -- Yes --> PopTB[Retrieve from TypePool]
-    TypeBucket -- No --> Build[Create new Instance]
-    
-    PopTLC --> Use[Use Object]
-    PopTB --> Use
-    Build --> Use
-    
-    Use --> Return[Return to Pool]
-    Return --> Reset[Reset State IPoolable]
-    Reset --> PushTLC{ThreadLocalCache slot free?}
-    
-    PushTLC -- Yes --> StoreTLC[Store in ThreadLocalCache]
-    PushTLC -- No --> PushBucket{TypePool capacity full?}
-    PushBucket -- No --> StoreTB[Store in TypePool]
-    PushBucket -- Yes --> GC[Discard for GC]
+    Req(["ObjectPoolManager.Get<T>()"]) --> TypeId["Lookup PoolType<T>.Id (Flat Array _pools[id])"]
+    TypeId --> TLC{"ThreadCacheDepth > 0 & Slot Has Item?"}
+    TLC -->|Yes| HitTLC["Pop from ThreadLocalCache<T>"]
+    TLC -->|No| Bucket{"TypePool Stack Has Item?"}
+    Bucket -->|Yes| HitBucket["Pop from TypePool Stack"]
+    Bucket -->|No| Create["Create via new T() (Cache Miss)"]
+
+    HitTLC --> RentHook{"T is IPoolRentable?"}
+    HitBucket --> RentHook
+    Create --> RentHook
+    RentHook -->|Yes| CallOnRent["Call rentable.OnRent()"] --> Ret(["Return T"])
+    RentHook -->|No| Ret
+
+    RetCall(["ObjectPoolManager.Return<T>(obj)"]) --> Reset["obj.ResetForPool() inside TypePool/ThreadLocalCache"]
+    Reset --> Store["Store in ThreadLocalCache (if enabled) or TypePool up to MaxCapacity"]
 ```
 
 ## Source Mapping
 
 - `src/Nalix.Abstractions/IPoolable.cs`
-- `src/Nalix.Framework/Memory/Internal/PoolTypes/PoolType.cs`
-- `src/Nalix.Framework/Memory/Internal/PoolTypes/PoolTypeRegistry.cs`
-- `src/Nalix.Framework/Memory/Internal/PoolTypes/ThreadLocalCache.cs`
-- `src/Nalix.Framework/Memory/Internal/PoolTypes/TypePool.cs`
-- `src/Nalix.Framework/Memory/Pools/ObjectPool.cs`
+- `src/Nalix.Abstractions/IObjectPoolManager.cs`
 - `src/Nalix.Framework/Memory/Objects/ObjectPoolManager.cs`
+- `src/Nalix.Framework/Memory/Objects/ObjectPoolManager.Cleanup.cs`
+- `src/Nalix.Framework/Memory/Objects/ObjectPoolManager.Report.cs`
 - `src/Nalix.Framework/Memory/Objects/TypedObjectPool.cs`
+- `src/Nalix.Framework/Options/ObjectPoolOptions.cs`
 
-## IPoolable Interface
-
-Any class intended for pooling must implement `IPoolable`.
+## Core Contracts (`IPoolable` & `IPoolRentable`)
 
 ```csharp
+namespace Nalix.Abstractions;
+
 public interface IPoolable
 {
-    /// <summary>
-    /// Resets the object state to its default values before being returned to the pool.
-    /// </summary>
     void ResetForPool();
 }
-```
 
-### IPoolRentable Interface
-
-For objects that need to perform logic specifically when they are taken *out* of the pool (e.g., generating a unique ID or starting a stopwatch), implement `IPoolRentable`.
-
-```csharp
 public interface IPoolRentable
 {
-    /// <summary>
-    /// Invoked immediately after the object is retrieved from the pool.
-    /// </summary>
     void OnRent();
 }
 ```
 
-:::important[State Management]
-Correctly implementing `Reset()` is critical. Failure to clear collections or reset properties can lead to "polluted" objects being served in future requests.
-:::
+- **`IPoolable.ResetForPool()`**: Invoked automatically when an object is returned to the pool (`Return<T>(obj)`). Implementations must clear references and reset mutable fields.
+- **`IPoolRentable.OnRent()`**: Optional hook invoked by `ObjectPoolManager.Get<T>()` right before returning the rented instance to the caller.
+- **Double-Return Protection (`IPoolStateTracked`)**: Objects implementing `IPoolStateTracked` (`MarkRented()` / `TryMarkReturned()`) are checked on `Return<T>(obj)` so duplicate returns are safely rejected (`TotalRejectedReturnCount`).
 
-## ObjectPoolManager
+## `ObjectPoolManager` API Reference
 
-`ObjectPoolManager` is the central registry for all typed pools. It maintains statistics, performs health checks, and handles background trimming.
+### Static Configuration
 
-### Key Features
-
-- **Thread-Local Caching**: Integrates a lock-free, single-slot cache (`ThreadLocalCache<T>`) per poolable type on the active thread, delivering ultra-low-latency reuse on the thread hot path.
-- **Type-Indexed Buckets**: Allocates unique numeric identifiers for each pooled type (`PoolType<T>.Id`), routing lookups via a flat index-lookup array to avoid thread contention, lock acquisitions, and dictionary hashing during renting and returning.
-- **Dynamic Creation**: Pools are created lazily for each type as needed.
-- **Typed Pools**: Provides `TypedObjectPool<T>` for high-performance, type-safe access.
-- **Health Monitoring**: Tracks cache hits, misses, and **Peak Concurrent Usage**.
-- **Advanced Diagnostics**: Optional deep tracking for object lifetimes (avg/p95/max), outstanding counts, suspicious long-lived objects, and GC leak detection.
-- **Trimming**: Supports scheduled or manual trimming to release objects back to the GC during low-load periods.
-
-### Key API Members
-
-| Member | Description |
-| :--- | :--- |
-| `Get<T>()` | Retrieves an item from the pool for type `T`. Creates a new one if the pool is empty. |
-| `Return<T>(obj)` | Resets and returns an object to the pool. |
-| `GetTypedPool<T>()` | Gets or creates a type-specific `TypedObjectPool<T>` adapter. |
-| `Prealloc<T>(count)` | Force-fills the pool with a specific number of instances (useful at startup). |
-| `SetMaxCapacity<T>(maxCapacity)` | Sets the maximum capacity for a specific type's pool. |
-| `ResetMetrics()` | Resets all global and per-pool metrics to baseline (zero). |
-| `ClearPool<T>()` | Clears all objects from a specific type's pool. |
-| `ClearAllPools()` | Clears all objects from all pools. |
-| `PerformHealthCheck()` | Identifies "unhealthy" pools (those with consistently high miss rates). |
-| `ResetStatistics()` | Resets all statistics for the pool manager and all pools. |
-| `GetTypeInfo<T>()` | Gets detailed information about a specific type's pool. |
-| `GenerateReport()` | Produces a detailed text summary of all managed pools and their metrics. |
-| `WriteReportData(Utf8JsonWriter)` | Writes structured diagnostic data to a JSON writer for zero-allocation reporting. |
-
-### Properties
-
-| Property | Type | Description |
+| Member | Signature | Description |
 | :--- | :--- | :--- |
-| `PoolCount` | `int` | Total number of pools currently managed. |
-| `PeakPoolCount` | `int` | Peak number of pools at any time. |
-| `TotalGetOperations` | `long` | Total number of get operations performed. |
-| `TotalReturnOperations` | `long` | Total number of return operations performed. |
-| `TotalCacheHits` | `long` | Total number of cache hits. |
-| `TotalCacheMisses` | `long` | Total number of cache misses. |
-| `CacheHitRate` | `double` | Overall cache hit rate as a percentage (0-100). |
-| `Uptime` | `TimeSpan` | Uptime of the pool manager. |
-| `UnhealthyPoolCount` | `int` | Number of unhealthy pools. |
+| `Shared` | `public static ObjectPoolManager Shared { get; }` | Returns the globally configured `ObjectPoolManager` (throws `InvalidOperationException` if accessed before `Configure` is called). |
+| `Configure` | `public static void Configure(ObjectPoolManager manager)` | Sets the process-wide `ObjectPoolManager.Shared` instance (wired automatically by `NetworkApplicationBuilder`). |
 
-## Configuring for Server
+### Constructors, Properties & Methods
 
-To enable global object pooling for packets and internal components, register the `ObjectPoolManager` with the builder.
+| Member | Signature | Description |
+| :--- | :--- | :--- |
+| `ObjectPoolManager()` | `public ObjectPoolManager()` | Loads `ObjectPoolOptions` from `ConfigurationManager.Instance` and schedules the recurring `obj.trim` job if `EnableObjectTrimming` is `true`. |
+| `ObjectPoolManager(ObjectPoolOptions)` | `public ObjectPoolManager(ObjectPoolOptions config)` | Initializes the pool manager with explicit `ObjectPoolOptions`. |
+| `PoolCount` / `PeakPoolCount` | `int` | Current and peak number of distinct type pools managed. |
+| `TotalGetOperations` / `TotalReturnOperations` | `long` | Lifetime `Get<T>()` and `Return<T>(obj)` operation counters. |
+| `TotalCacheHits` / `TotalCacheMisses` | `long` | Total pool hits versus new allocations (`new T()`). |
+| `CacheHitRate` | `double` | Overall cache hit rate percentage (`0.0..100.0`). |
+| `Uptime` | `TimeSpan` | Elapsed time since the manager was created or `ResetStatistics()` was called. |
+| `UnhealthyPoolCount` | `int` | Number of pools flagged as unhealthy during the most recent `PerformHealthCheck()`. |
+| `Get<T>()` | `public T Get<T>() where T : IPoolable, new()` | Rents or creates an instance of `T` via `PoolType<T>.Id` flat-array lookup (preallocates `DefaultPreallocate` items on first access to a new type). |
+| `Return<T>(T)` | `public void Return<T>(T obj) where T : IPoolable` | Resets `obj` (`ResetForPool()`) and returns it to the pool (throws `ArgumentNullException` if `obj` is `null`). |
+| `GetTypedPool<T>()` | `public TypedObjectPool<T> GetTypedPool<T>() where T : IPoolable, new()` | Returns a `TypedObjectPool<T>` adapter bound to this manager. |
+| `Prealloc<T>(int)` | `public int Prealloc<T>(int count) where T : IPoolable, new()` | Preallocates `count` instances into `T`'s pool (`count > 0`) and returns the number of instances added. |
+| `SetMaxCapacity<T>(int)` | `public bool SetMaxCapacity<T>(int maxCapacity) where T : IPoolable` | Sets the maximum retained capacity for `T`'s pool (`maxCapacity >= 0`). |
+| `GetTypeInfo<T>()` | `public Dictionary<string, object> GetTypeInfo<T>() where T : IPoolable` | Returns a dictionary of metrics (`AvailableCount`, `MaxCapacity`, `TotalGets`, `TotalReturns`, `CacheHitRate`, `Outstanding`, `PeakOutstanding`, `Status`, and lifetime percentiles when `EnableDiagnostics = true`). |
+| `ClearPool<T>()` / `ClearAllPools()` | `public int ClearPool<T>()` / `public int ClearAllPools()` | Purges pooled instances and returns the number of removed objects. |
+| `PerformHealthCheck()` | `public int PerformHealthCheck()` | Evaluates window miss rates across active pools and returns the number of unhealthy pools. |
+| `ResetMetrics()` / `ResetStatistics()` | `public void ResetMetrics()` / `public void ResetStatistics()` | Resets global and per-pool counters. |
+| `GenerateReport()` / `WriteReportData` | `public string GenerateReport()` / `public void WriteReportData(Utf8JsonWriter writer)` | Produces human-readable text or structured JSON reports. |
 
-### Using the Hosting Builder
+## `ObjectPoolOptions` (`Nalix.Framework.Options`)
 
-```csharp
-using Nalix.Hosting;
-using Nalix.Framework.Memory.Objects;
-using Nalix.Framework.Options;
+Configured via `[ObjectPool]` in `default.ini` or `builder.Configure<ObjectPoolOptions>(...)`:
 
-var app = NetworkApplication.CreateBuilder()
-    // 1. Initialize the global object pool manager
-    .UseObjectPoolManager(new ObjectPoolManager())
-    .Build();
-```
-
-## TypedObjectPool<`T`>
-
-For performance-critical code, it is recommended to cache a `TypedObjectPool<T>` rather than calling the manager directly.
-
-```csharp
-// Recommended performance pattern
-// Resolve ObjectPoolManager from InstanceManager after registration
-private readonly TypedObjectPool<MyPacket> _pool = 
-    InstanceManager.Instance.GetExistingInstance<ObjectPoolManager>()!
-        .GetTypedPool<MyPacket>();
-
-public void Process()
-{
-    var item = _pool.Get();
-    try { /* ... */ }
-    finally { _pool.Return(item); }
-}
-```
-
-## Monitoring and Health
-
-The manager tracks several critical metrics to help tune pool capacities:
-
-- **Hit Rate**: The percentage of requests satisfied by the pool without creating a new object.
-- **Outstanding**: Number of objects currently held by application code (requires `EnableDiagnostics`).
-- **Peak Outstanding**: The high-water mark of concurrent objects active at any time (requires `EnableDiagnostics`).
-- **Consecutive Failures**: High number of cache misses in sequence, suggesting the pool capacity is too low for the current load.
-
-## Advanced Diagnostics
-
-Advanced diagnostics can be enabled via `ObjectPoolOptions` (usually in `server.ini` under `[ObjectPool]`). These features provide deep insight at a slight performance cost.
-
-### Statistics Collected
-
-- **Lifetime (Avg/p95/Max)**: How long objects stay rented. High values might indicate slow processing segments.
-- **Suspicious Objects**: Objects held longer than a configurable threshold (e.g., 30s) are listed in reports with their allocation stack trace.
-- **GC Leak Detection**: Uses sentinel finalizers to detect and report objects that were garbage collected without being returned to the pool.
-
-### Configuration Example
-
-```ini
-[ObjectPool]
-# Overall diagnostics toggle
-EnableDiagnostics = true
-
-# Capture stack traces on Get() for leak tracking (slow)
-CaptureStackTraces = true
-
-# Detect objects collected by GC without being returned
-EnableLeakDetection = true
-
-# Threshold for marking an object as "Suspiciously long-lived"
-SuspiciousThresholdSeconds = 30
-
-# Background trimming configuration
-EnableObjectTrimming = true
-TrimIntervalMinutes = 5
-```
-
-:::note[Performance Impact]
-While `EnableDiagnostics` provides invaluable insight during development and load testing, it is recommended to disable `CaptureStackTraces` in extreme production environments to save CPU cycles on every `Get<T>()` call.
-:::
-
-:::tip[Diagnostic Insight]
-Use `PerformHealthCheck()` to identify pools with consistently high miss rates, and configure `EnableObjectTrimming` in `ObjectPoolOptions` to keep memory usage balanced.
-:::
+| Property | Type | Default | Validation | Description |
+| :--- | :--- | :---: | :--- | :--- |
+| `EnableDiagnostics` | `bool` | `false` | — | Enables `PoolSentinel` tracking for object lifetimes (`Avg`/`p95`/`Max`) and suspicious long-lived rentals. |
+| `EnableMetrics` | `bool` | `true` | — | Enables lightweight atomic hit/miss and `Outstanding` counters (safe for production). |
+| `CaptureStackTraces` | `bool` | `false` | — | Captures allocation stack traces on `Get<T>()` when `EnableDiagnostics = true` (expensive; use only when debugging leaks). |
+| `SuspiciousThresholdSeconds` | `int` | `30` | `[ValueRange(0, 3600)]` | Threshold in seconds after which an unreturned object is flagged as suspicious. |
+| `EnableLeakDetection` | `bool` | `false` | — | Uses `PoolSentinel` finalizers to detect rented objects garbage-collected without `Return<T>()` (requires `EnableDiagnostics = true` so `PoolSentinel` instances are attached on `Get<T>()`). |
+| `LifetimeReservoirSize` | `int` | `64` | `[ValueRange(16, 1024)]` | Number of recent rental duration samples kept per pool for `p95LifetimeMs` calculation. |
+| `EnableObjectTrimming` | `bool` | `true` | — | Schedules a recurring `TaskManager` job (`obj.trim`) to release idle pooled objects. |
+| `TrimIntervalMinutes` | `int` | `5` | `[ValueRange(1, 60)]` | Interval in minutes between normal pool trim cycles. |
+| `DeepTrimIntervalMinutes` | `int` | `30` | `[ValueRange(5, 120)]` | Interval in minutes between deep/aggressive pool trim cycles. |
+| `BaseKeepPercentage` | `int` | `75` | `[ValueRange(50, 90)]` | Percentage of capacity retained during normal trim cycles. |
+| `DeepTrimPercentage` | `int` | `25` | `[ValueRange(10, 45)]` | Percentage of capacity retained during deep trim cycles. |
+| `TrimDecayFactor` | `double` | `0.5` | `[ValueRange(0.1, 1.0)]` | Fraction of excess objects removed per trim cycle (exponential decay). |
+| `HotHitRateThreshold` | `double` | `85.0` | `[ValueRange(75.0, 98.0)]` | Hit-rate percentage above which a pool is treated as "hot" and trimmed lightly. |
+| `MinimumKeepObjects` | `int` | `8` | `[ValueRange(4, 64)]` | Minimum floor of objects always kept in each pool during trimming. |
+| `DefaultMaxPoolSize` | `int` | `2048` | `[ValueRange(1024, 1_000_000)]` | Default maximum capacity for newly created type pools. |
+| `DefaultPreallocate` | `int` | `8` | `[ValueRange(0, 1_000_000)]` | Number of instances preallocated when a type pool is first created. |
+| `ThreadCacheDepth` | `int` | `0` | `[ValueRange(0, 4)]` | Per-thread `ThreadLocalCache<T>` depth (`0` = disabled by default so `async`/`await` continuations across ThreadPool threads do not strand pooled objects). |
 
 ## Related APIs
 
+- [Typed Object Pools (TypedObjectPool<T>)](./typed-object-pools.md)
+- [Object Map (ObjectMap<TKey, TValue>)](./object-map.md)
 - [Buffer Management](../../environment/memory/buffer-management.md)
-- [Object Map](./object-map.md)
-- [Typed Object Pools](./typed-object-pools.md)
 - [Zero-Allocation Path](../../../concepts/internals/zero-allocation.md)

@@ -1,131 +1,154 @@
 ---
-title: Ping, Disconnect, and Time Sync Extensions
-description: Nalix.SDK.Transport.Extensions includes small convenience APIs for the most common session-level control flows. These helpers are thin wrappers over Control packets and RequestA...
+title: Control Utilities
+description: Reference for PingExtensions, DisconnectExtensions, TimeSyncExtensions, ControlExtensions, and TimeSyncCalculator in Nalix.SDK.
 section: API Reference
 package: Nalix.SDK
 ---
 
-`Nalix.SDK.Transport.Extensions` includes small convenience APIs for the most common session-level control flows. These helpers are thin wrappers over `Control` packets and `RequestAsync<TResponse>` so callers do not need to manually manage sequence ids, predicates, and control-frame construction.
+**Namespaces:** `Nalix.SDK`, `Nalix.SDK.Transport.Extensions`  
+**Assembly:** `Nalix.SDK`
 
-This is a high-level convenience page for client application code. These helpers are not server APIs. For manual `Control` construction and matching, see [Session Extensions](./tcp-session-extensions.md); for frame I/O internals, see [Frame Reader and Sender](./frame-reader-and-sender.md).
+`Nalix.SDK` provides built-in control-plane extensions on `ITransportSession` for round-trip latency measurement (`PingAsync`), graceful disconnect notification (`DisconnectGracefullyAsync`), NTP-style clock synchronization (`SyncTimeAsync` + `TimeSyncCalculator`), and raw control packet transmission (`SendControlAsync`).
 
-## Source mapping
+## Source Mapping
 
 - `src/Nalix.SDK/Transport/Extensions/PingExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/DisconnectExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/TimeSyncExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs`
-- `src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs`
 - `src/Nalix.SDK/TimeSyncCalculator.cs`
+- `src/Nalix.Codec/ProtocolFrames/Control.cs`
+- `src/Nalix.Codec/ProtocolFrames/TimeSync.cs`
 
-## Capability summary
+## Public API Reference
 
-| Extension | Method | Control type | Main behavior |
-| --- | --- | --- | --- |
-| `PingExtensions` | `PingAsync` | `PING` -> `PONG` | Measures round-trip time using monotonic ticks. |
-| `DisconnectExtensions` | `DisconnectGracefullyAsync` | `DISCONNECT` | Best-effort graceful shutdown notification, then optional local close. |
-| `TimeSyncExtensions` | `SyncTimeAsync` | `TIMESYNCREQUEST` -> `TIMESYNCRESPONSE` | Measures RTT and optionally adjusts the local framework clock. |
-
-## PingAsync
+### 1. `PingExtensions` (`PingAsync`)
 
 ```csharp
-public static ValueTask<double> PingAsync(
-    this TransportSession session,
-    int timeoutMs = 5000,
-    CancellationToken ct = default)
-```
+namespace Nalix.SDK.Transport.Extensions;
 
-`PingAsync` sends a `SYSTEM_CONTROL` `PING` frame and waits for a matching `PONG` with the same sequence id.
-
-Important details:
-
-- The sequence id is generated from a process-local atomic counter and truncated to `ushort`.
-- The outgoing control packet is built through `NewControl(...)`, which stamps timestamp and monotonic tick fields.
-- The response wait is implemented with `RequestAsync<Control>` and a predicate matching:
-  - `ControlType.PONG`
-  - the generated sequence id
-- The returned value is RTT in milliseconds based on `Clock.MonoTicksNow()`.
-- The request packet is disposed in a `finally` block after the operation completes.
-
-```csharp
-double rttMs = await session.PingAsync(timeoutMs: 2500, ct);
-Console.WriteLine($"server RTT: {rttMs:n2} ms");
-```
-
-## DisconnectGracefullyAsync
-
-```csharp
-public static ValueTask DisconnectGracefullyAsync(
-    this TransportSession session,
-    ProtocolReason reason = ProtocolReason.NONE,
-    bool closeLocalConnection = true,
-    CancellationToken ct = default)
-```
-
-`DisconnectGracefullyAsync` is a best-effort control-frame notification before a local close.
-
-Runtime behavior:
-
-1. If `session.IsConnected` is true, it sends a `SYSTEM_CONTROL` `DISCONNECT` frame.
-2. The outgoing control packet stores the supplied `ProtocolReason`.
-3. Send failures caused by cancellation, disposal, invalid session state, or network shutdown are intentionally swallowed.
-4. If `closeLocalConnection` is true, `session.DisconnectAsync()` runs after the send attempt.
-
-This method is intentionally tolerant because disconnect paths often run while sockets are already closing.
-
-```csharp
-await session.DisconnectGracefullyAsync(
-    reason: ProtocolReason.CLIENT_CLOSING,
-    closeLocalConnection: true,
-    ct: shutdownToken);
-```
-
-## SyncTimeAsync
-
-```csharp
-public static ValueTask<(double RttMs, double AdjustedMs)> SyncTimeAsync(
-    this TransportSession session,
-    int timeoutMs = 5000,
-    CancellationToken ct = default)
-```
-
-`SyncTimeAsync` sends a `TIMESYNCREQUEST` control frame and waits for a matching `TIMESYNCRESPONSE`.
-
-The method returns:
-
-| Value | Meaning |
-| --- | --- |
-| `RttMs` | Measured round-trip time in milliseconds. |
-| `AdjustedMs` | Clock adjustment applied by `Clock.SynchronizeUnixMilliseconds`; `0` when session time sync is disabled. |
-
-Important details:
-
-- Request/response correlation uses the generated sequence id.
-- RTT is computed with the same monotonic clock as `PingAsync`.
-- Local clock synchronization only happens when `session.Options.TimeSyncEnabled` is true.
-- The offset is computed via `TimeSyncCalculator.CalculateOffsetMs` and applied using exponential moving average: `session.Options.TimeOffsetMs = (current * 0.9) + (offset * 0.1)`.
-
-```csharp
-var (rttMs, adjustedMs) = await session.SyncTimeAsync(timeoutMs: 5000, ct);
-
-if (adjustedMs != 0)
+public static class PingExtensions
 {
-    Console.WriteLine($"clock adjusted by {adjustedMs:n2} ms, RTT {rttMs:n2} ms");
+    public static ValueTask<double> PingAsync(
+        this ITransportSession session,
+        int timeoutMs = 5000,
+        CancellationToken ct = default);
 }
 ```
 
-## Error and timeout model
+- Sends a `TimeSync` packet (`session.NewTimeSync(ControlType.PING).WithSeq(seq).Build()`) and awaits a matching `TimeSync` (`Type == ControlType.PONG && SequenceId == seq`).
+- Computes the round-trip time (RTT) in milliseconds using `Stopwatch.GetElapsedTime(startTicks).TotalMilliseconds`.
+- Used automatically by `TransportSession` when `TransportOptions.KeepAliveIntervalMillis > 0`.
 
-These helpers use the same error model as the underlying session APIs:
+### 2. `DisconnectExtensions` (`DisconnectGracefullyAsync`)
 
-- `ArgumentNullException` is thrown for a null session.
-- `NetworkException` can be thrown when the session is not connected or the transport fails.
-- `TimeoutException` can be thrown by request/response helpers when no matching response arrives before `timeoutMs`.
-- `OperationCanceledException` can be observed when the supplied cancellation token is canceled, except in the best-effort graceful-disconnect send path where cancellation is swallowed.
+```csharp
+namespace Nalix.SDK.Transport.Extensions;
+
+public static class DisconnectExtensions
+{
+    public static ValueTask DisconnectGracefullyAsync(
+        this ITransportSession session,
+        ProtocolReason reason = ProtocolReason.NONE,
+        bool closeLocalConnection = true,
+        CancellationToken ct = default);
+}
+```
+
+- Sends a `Control` packet (`ControlType.DISCONNECT`, `Reason = reason`) using `session.NewControl(ControlType.DISCONNECT).WithReason(reason)`, swallowing send exceptions if the socket is already closed, and calls `await session.DisconnectAsync()` when `closeLocalConnection == true`.
+
+### 3. `TimeSyncExtensions` (`SyncTimeAsync`) & `TimeSyncCalculator`
+
+```csharp
+namespace Nalix.SDK.Transport.Extensions;
+
+public static class TimeSyncExtensions
+{
+    public static TimeSyncBuilder NewTimeSync(
+        this ITransportSession _,
+        ControlType type);
+
+    public static ValueTask<(double RttMs, double AdjustedMs)> SyncTimeAsync(
+        this ITransportSession session,
+        int timeoutMs = 5000,
+        CancellationToken ct = default);
+}
+```
+
+```csharp
+namespace Nalix.SDK;
+
+public static class TimeSyncCalculator
+{
+    public static double CalculateOffsetMs(
+        long serverUnixMs,
+        double rttMs = 0,
+        double maxAllowedDriftMs = 1_000.0,
+        double maxHardAdjustMs = 10_000.0);
+}
+```
+
+- **Clock Offset Formula**:
+  - `SyncTimeAsync` sends `TimeSync(ControlType.TIMESYNCREQUEST)` and awaits `TimeSync(ControlType.TIMESYNCRESPONSE)`.
+  - Calls `TimeSyncCalculator.CalculateOffsetMs(pong.Timestamp, rttMs)` to compute the clamped clock offset.
+  - When `session.Options.TimeSyncEnabled` is `true`, updates `session.Options.TimeOffsetMs` using an Exponential Moving Average (`(TimeOffsetMs * 0.9) + (offset * 0.1)`, or direct assignment on first sync) and returns `(RttMs, AdjustedMs: session.Options.TimeOffsetMs)`.
+
+### 4. `ControlExtensions` (`NewControl`, `SendControlAsync`, `AwaitControlAsync`)
+
+```csharp
+namespace Nalix.SDK.Transport.Extensions;
+
+public static class ControlExtensions
+{
+    public static ControlBuilder NewControl(
+        this ITransportSession _,
+        ControlType type);
+
+    public static ValueTask SendControlAsync(
+        this ITransportSession client,
+        ControlType type,
+        Action<Control>? configure = null,
+        CancellationToken ct = default);
+
+    public static ValueTask<TPkt> AwaitPacketAsync<TPkt>(
+        this ITransportSession client,
+        Func<TPkt, bool> predicate,
+        int timeoutMs,
+        CancellationToken ct = default)
+        where TPkt : class, IPacket, IPacketStaticOpcode;
+
+    public static ValueTask<Control> AwaitControlAsync(
+        this ITransportSession client,
+        ControlType expectedType,
+        uint expectedSequenceId = 0,
+        int timeoutMs = 5000,
+        CancellationToken ct = default);
+}
+```
+
+`SendControlAsync` rents a pooled `Control` packet from `ObjectPoolManager`, initializes it with `type` (and optional `configure` callback), sends it over `client`, and returns the `Control` packet to the pool in a `finally` block.
+
+## Usage Example
+
+```csharp
+using System;
+using Nalix.Abstractions.Networking.Protocols;
+using Nalix.SDK.Transport.Extensions;
+
+// 1. Measure round-trip latency
+double rttMs = await session.PingAsync();
+Console.WriteLine($"Ping RTT: {rttMs:F2} ms");
+
+// 2. Synchronize client clock with server using EMA filtering
+(double rtt, double adjustedOffsetMs) = await session.SyncTimeAsync();
+Console.WriteLine($"RTT: {rtt:F2} ms, Smoothed Offset: {adjustedOffsetMs:F2} ms");
+
+// 3. Notify server and close connection cleanly
+await session.DisconnectGracefullyAsync(ProtocolReason.NONE);
+```
 
 ## Related APIs
 
+- [Transport Session](./transport-session.md)
 - [Session Extensions](./tcp-session-extensions.md)
-- [Request Options](../options/sdk/request-options.md)
-- [Control Type Enum](../abstractions/protocols/control-type.md)
-- [TCP Session](./tcp-session.md)
+- [Protocol String Extensions](./protocol-string-extensions.md)

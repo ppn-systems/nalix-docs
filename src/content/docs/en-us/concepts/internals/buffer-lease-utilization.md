@@ -12,20 +12,16 @@ section: Concepts
 
 In high-performance networking, the Garbage Collector (GC) is your primary bottleneck. Allocating `new byte[]` for every outgoing packet creates "heap noise" that leads to GC pauses.
 
-Nalix solves this by using a **Pinned Slab Pool**. Instead of allocating new memory, you **rent** an existing buffer, use it, and **return** it to the pool. `BufferLease` automates this lifecycle.
+Nalix solves this by using a **Pooled Buffer Lease** (`BufferLease` backed by `BufferPoolManager` and `ArrayPool<byte>.Shared`). Instead of allocating new memory, you **rent** an existing buffer, use it, and **return** it to the pool. `BufferLease` automates this lifecycle with atomic reference counting and optional leak tracking (`BufferOptions`).
 
 ### The Buffer Hierarchy
 
 ```mermaid
 graph TD
-    A[BufferLease] -->|Rents Shell| B[Lease Shell Pool]
+    A[BufferLease] -->|Rents Shell| B[ObjectPoolManager]
     A -->|Rents Array| C[BufferPoolManager]
-    C -->|Manages| D[SlabBucket 256B]
-    C -->|Manages| E[SlabBucket 1KB]
-    C -->|Manages| F[SlabBucket 4KB]
-    D -->|Pinned| G[byte Array]
-    E -->|Pinned| H[byte Array]
-    F -->|Pinned| I[byte Array]
+    C -->|Delegates| D["ArrayPool&lt;byte&gt;.Shared"]
+    C -->|Optional Leak Tracking| E[BufferOptions Leak Tracker]
 ```
 
 ---

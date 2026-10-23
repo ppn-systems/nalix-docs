@@ -1,192 +1,164 @@
 ---
 title: Diagnostic Codes
-description: This page lists the diagnostic descriptors emitted by Nalix.Analyzers. The source of truth is analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs.
+description: Complete reference of all 75 compile-time diagnostic descriptors (NALIX001–NALIX107) emitted by Nalix.Analyzers and Nalix.Analyzers.Generators.
 section: API Reference
 package: Nalix.Analyzers
 ---
 
-This page lists the diagnostic descriptors emitted by `Nalix.Analyzers`.
-The source of truth is `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`.
+This page lists all **75 active diagnostic descriptors** emitted by `Nalix.Analyzers` (67 rules in `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`) and `Nalix.Analyzers.Generators` (8 rules in `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`).
 
-## Usage and Dispatch Codes
+:::note[Retired Diagnostic IDs]
+`NALIX007`, `NALIX019`, `NALIX029`, `NALIX031`, `NALIX049`, and `NALIX053` were retired when `INetworkBufferMiddleware` and legacy reflection dispatch paths were removed.
+:::
 
-| ID | Title | Severity | Category | Description |
-| --- | --- | ---: | --- | --- |
-| `NALIX001` | Packet controller contains duplicate PacketOpcode | Warning | Usage | Controller dispatch relies on unique opcodes per controller. |
-| `NALIX002` | Packet controller handler should declare PacketOpcode | Warning | Usage | Controller methods matching Nalix handler patterns should declare `[PacketOpcode(...)]`. |
-| `NALIX003` | Packet controller handler has unsupported signature | Warning | Usage | Only a single `IPacketContext<TPacket>` parameter is supported; use `context.Connection`/`context.CancellationToken` instead of separate parameters. Legacy multi-parameter handler shapes are no longer generated. |
-| `NALIX004` | PacketContext<`T`> does not match dispatch packet type | Warning | Usage | `PacketContext<T>` should use the dispatcher packet type. |
-| `NALIX005` | Registered controller handler packet type does not match dispatcher type | Warning | Usage | Registered controllers should contain handlers compatible with `PacketDispatchOptions<TPacket>`. |
-| `NALIX008` | Registered handler controller is missing PacketHandler | Warning | Usage | Types registered through `WithHandler` should declare `[PacketHandler]`. |
-| `NALIX009` | Registered packet type is missing static Deserialize | Warning | Usage | Packet registry binding expects `IPacketDeserializer<T>` / static deserialize support. |
-| `NALIX010` | PacketBase<`TSelf`> should use the containing packet type | Warning | Usage | `PacketBase<TSelf>` should use the packet's own type as `TSelf`. |
-| `NALIX011` | IPacketDeserializer<`T`> should use the containing packet type | Warning | Usage | Packet deserializer contracts should target the containing packet type. |
-| `NALIX012` | PacketBase packet should expose static Deserialize | Warning | Usage | `PacketBase<TSelf>` packet types should expose accessible `Deserialize(ReadOnlySpan<byte>)`. |
-| `NALIX017` | Packet Deserialize signature is invalid | Warning | Usage | `Deserialize` should be `public static new {Packet} Deserialize(ReadOnlySpan<byte>)`. |
-| `NALIX018` | Registered packet type must be concrete | Warning | Usage | Packet registry entries should be concrete, non-abstract, non-generic packet types. |
-| `NALIX047` | Dispatch loop count is out of supported range | Warning | Usage | `WithDispatchLoopCount` expects `1..64`. |
-| `NALIX048` | Packet controller handler return type is unsupported | Warning | Usage | Handler returns must be supported by Nalix return handlers. |
-| `NALIX050` | PacketOpcode is declared on a non-controller type | Info | Usage | `[PacketOpcode]` handlers are expected inside `[PacketHandler]` types. |
-| `NALIX052` | Packet Deserialize overload should include ReadOnlySpan<`byte`> | Warning | Usage | Packet discovery expects a `ReadOnlySpan<byte>` deserialize overload. |
-| `NALIX054` | PacketHandler name is duplicated | Info | Usage | Duplicate controller names reduce routing and diagnostic clarity. |
-| `NALIX055` | Redundant cast on PacketContext<`T`>.Packet | Info | Usage | `PacketContext<T>.Packet` is already strongly typed. |
-| `NALIX056` | Middleware registration uses null | Warning | Usage | Middleware registration methods require non-null middleware instances. |
-| `NALIX058` | Packet handler method should not be generic | Warning | Usage | Generic packet handler methods can lead to ambiguous or unsupported binding. |
+## 1. Controller Dispatch and Packet Registration (`NALIX001`–`NALIX018`, `NALIX047`–`NALIX058`)
 
-## Middleware, Routing, and Buffer Pipeline Codes
+| ID | Title | Severity | Category | Code Fix | Description |
+| --- | --- | :---: | --- | :---: | --- |
+| `NALIX001` | Packet controller contains duplicate PacketOpcode | Warning | Usage | No | Controller dispatch relies on unique opcodes per controller. |
+| `NALIX002` | Packet controller handler should declare PacketOpcode | Warning | Usage | Yes | Controller methods matching Nalix handler patterns should declare `[PacketOpcode(...)]`. |
+| `NALIX003` | Packet controller handler has unsupported signature | Warning | Usage | No | Parameter `0` must be `IPacketContext<TPacket>`. Any additional parameters (`1..N`) must be reference types annotated with `[FromScope]` (see `NALIX067`). |
+| `NALIX004` | `PacketContext<T>` does not match dispatch packet type | Warning | Usage | No | `PacketContext<T>` should use a packet type assignable to the dispatcher's `TPacket`. |
+| `NALIX005` | Registered controller handler packet type does not match dispatcher type | Warning | Usage | No | Controllers registered on `PacketDispatchOptions<TPacket>` must handle compatible packet types. |
+| `NALIX008` | Registered handler controller is missing PacketHandler | Warning | Usage | Yes | Types registered through `WithHandler` or `MapHandlers` must declare `[PacketHandler]`. |
+| `NALIX009` | Registered packet type is missing static Deserialize | Warning | Usage | Yes | Packet registry binding expects `IPacketDeserializer<T>` / static `Deserialize(ReadOnlySpan<byte>)` support. |
+| `NALIX010` | `PacketBase<TSelf>` should use the containing packet type | Warning | Usage | Yes | `PacketBase<TSelf>` must pass the containing packet class as `TSelf` (CRTP). |
+| `NALIX011` | `IPacketDeserializer<T>` should use the containing packet type | Warning | Usage | Yes | Packet deserializer contracts must target the containing packet type. |
+| `NALIX012` | PacketBase packet should expose static Deserialize | Warning | Usage | Yes | `PacketBase<TSelf>` packet types should expose an accessible `public static new TSelf Deserialize(ReadOnlySpan<byte>)`. |
+| `NALIX017` | Packet Deserialize signature is invalid | Warning | Usage | No | `Deserialize` must be `public static new {Packet} Deserialize(ReadOnlySpan<byte>)`. |
+| `NALIX018` | Registered packet type must be concrete | Warning | Usage | No | Packet registry entries must be concrete, non-abstract, non-generic packet types. |
+| `NALIX047` | Dispatch loop count is out of supported range | Warning | Usage | Yes | `WithDispatchLoopCount` expects a value in `1..64` (or `null` for automatic scaling). |
+| `NALIX048` | Packet controller handler return type is unsupported | Warning | Usage | No | Supported return types are `void`, `Task`, `ValueTask`, `TResult`, `Task<TResult>`, `ValueTask<TResult>`, and `IAsyncEnumerable<TElement>`. |
+| `NALIX050` | PacketOpcode is declared on a non-controller type | Info | Usage | No | `[PacketOpcode]` handlers must be declared inside `[PacketHandler]` controller classes. |
+| `NALIX052` | Packet Deserialize overload should include `ReadOnlySpan<byte>` | Warning | Usage | Yes | Packet discovery requires a `Deserialize(ReadOnlySpan<byte>)` overload. |
+| `NALIX054` | PacketHandler name is duplicated | Info | Usage | No | Duplicate `[PacketHandler("...")]` names reduce routing and diagnostic clarity. |
+| `NALIX055` | Redundant cast on `PacketContext<T>.Packet` | Info | Usage | Yes | `context.Packet` is already strongly typed as `T`. |
+| `NALIX056` | Middleware registration uses null | Warning | Usage | Yes | Middleware registration methods require non-null middleware instances. |
+| `NALIX058` | Packet handler method should not be generic | Warning | Usage | Yes | Generic packet handler methods cannot be bound to a concrete wire opcode. |
 
-| ID | Title | Severity | Category | Description |
-| --- | --- | ---: | --- | --- |
-| `NALIX006` | Registered middleware type does not match dispatcher packet type | Warning | Usage | Packet middleware should be compatible with the dispatcher packet type. |
-| `NALIX007` | ~~Network buffer middleware ignores MiddlewareStageAttribute~~ | ~~Info~~ | ~~Usage~~ | **Removed.** `INetworkBufferMiddleware` was intentionally dropped from Nalix. |
-| `NALIX019` | ~~Registered buffer middleware does not implement INetworkBufferMiddleware~~ | ~~Warning~~ | ~~Usage~~ | **Removed.** `INetworkBufferMiddleware` was intentionally dropped from Nalix. |
-| `NALIX025` | Packet metadata provider clears Opcode | Warning | Routing | Metadata providers should not clear `builder.Opcode`. |
-| `NALIX026` | Packet metadata provider overwrites Opcode without guard | Info | Routing | Metadata providers should usually augment rather than overwrite opcode metadata. |
-| `NALIX030` | Packet middleware should declare MiddlewareOrder | Info | Middleware | Explicit middleware order makes packet middleware chains predictable. |
-| `NALIX031` | ~~Buffer middleware should declare MiddlewareOrder~~ | ~~Info~~ | ~~Middleware~~ | **Removed.** `INetworkBufferMiddleware` was intentionally dropped from Nalix. |
-| `NALIX032` | Inbound middleware ignores AlwaysExecute | Info | Middleware | `AlwaysExecute` only affects outbound middleware execution. |
-| `NALIX033` | Registered middleware shares MiddlewareOrder with another middleware in the same chain | Info | Middleware | Duplicate order values in one builder chain reduce predictability. |
-| `NALIX035` | PacketOpcode is in reserved range | Warning | Usage | Application handlers should avoid reserved opcodes `0x0000..0x00FF`. |
-| `NALIX036` | PacketOpcode is already used in a different controller | Warning | Usage | Dispatch requires unique opcodes across registered controllers. |
-| `NALIX038` | OpCode in documentation does not match attribute | Info | Documentation | XML docs should stay synchronized with `[PacketOpcode]` values. |
+## 2. Middleware and Routing Metadata (`NALIX006`, `NALIX025`–`NALIX038`)
 
-## Serialization Codes
+| ID | Title | Severity | Category | Code Fix | Description |
+| --- | --- | :---: | --- | :---: | --- |
+| `NALIX006` | Registered middleware type does not match dispatcher packet type | Warning | Usage | No | `IPacketMiddleware<TPacket>` must match the dispatcher's packet type. |
+| `NALIX025` | Packet metadata provider clears Opcode | Warning | Routing | No | Custom `IPacketMetadataProvider` implementations must not set `builder.Opcode = null`. |
+| `NALIX026` | Packet metadata provider overwrites Opcode without guard | Info | Routing | No | Metadata providers should guard assignments with `builder.Opcode ??= ...` instead of overwriting unconditionally. |
+| `NALIX030` | Packet middleware should declare MiddlewareOrder | Info | Middleware | Yes | Explicit `[MiddlewareOrder(n)]` makes middleware execution order deterministic. |
+| `NALIX032` | Inbound middleware ignores AlwaysExecute | Info | Middleware | Yes | `MiddlewareStage.Inbound` ignores `AlwaysExecute = true` (`AlwaysExecute` only applies to `Outbound` and `Both`). |
+| `NALIX033` | Registered middleware shares MiddlewareOrder with another middleware in the same chain | Info | Middleware | No | Duplicate `[MiddlewareOrder]` values in one pipeline chain reduce ordering predictability. |
+| `NALIX035` | PacketOpcode is in reserved range | Warning | Usage | No | Opcodes `0x0000..0x00FF` (`0..255`) are reserved for Nalix system/protocol frames. Use `>= 0x0100` for application packets. |
+| `NALIX036` | PacketOpcode is already used in a different controller | Warning | Usage | No | Every handler registered on the same dispatcher must have a globally unique opcode. |
+| `NALIX038` | OpCode in documentation does not match attribute | Info | Documentation | No | XML doc comments mentioning an opcode should match the `[PacketOpcode]` attribute value. |
 
-| ID | Title | Severity | Category | Description |
-| --- | --- | ---: | --- | --- |
-| `NALIX013` | Explicit serialization member should declare SerializeOrder | Warning | Serialization | Explicit layouts should assign stable order metadata to every serialized member. |
-| `NALIX014` | SerializeOrder value is duplicated | Warning | Serialization | `SerializeOrder` values should be unique within a serializable type. |
-| `NALIX015` | SerializeIgnore conflicts with SerializeOrder | Warning | Serialization | A member cannot be both ignored and explicitly ordered. |
-| `NALIX016` | SerializeDynamicSize is unnecessary on fixed-size member | Info | Serialization | Dynamic-size metadata should be used only for variable-size members. |
-| `NALIX021` | SerializeOrder should not be negative | Warning | Serialization | Explicit serialization order values should be non-negative. |
-| `NALIX022` | SerializeHeader(0) is reserved on PacketBase types | Warning | Serialization | On `PacketBase<TSelf>`-derived types, `SerializeHeader(0)` is reserved by Nalix packet internals. Use a non-zero header order or `SerializeOrder` for user-defined members. |
-| `NALIX034` | SerializeHeader conflicts with SerializeOrder | Warning | Serialization | Do not combine `SerializeHeader` and `SerializeOrder` on one member. |
-| `NALIX046` | SerializeOrder gap is unusually large | Info | Serialization | `SerializeOrder` is ordering metadata, not a byte offset. |
-| `NALIX051` | IFixedSizeSerializable type contains dynamic serialization member | Warning | Serialization | Fixed-size serializable types should avoid dynamic-size members. |
+## 3. Serialization Layout (`NALIX013`–`NALIX022`, `NALIX034`, `NALIX046`, `NALIX051`)
 
-## Lifecycle, Configuration, SDK, and Hosting Codes
+| ID | Title | Severity | Category | Code Fix | Description |
+| --- | --- | :---: | --- | :---: | --- |
+| `NALIX013` | Explicit serialization member should declare SerializeOrder | Warning | Serialization | Yes | Types with `[SerializePackable(SerializeLayout.Explicit)]` should annotate serialized members with `[SerializeOrder(n)]` or `[SerializeIgnore]`. |
+| `NALIX014` | SerializeOrder value is duplicated | Warning | Serialization | Yes | `[SerializeOrder]` values must be unique across all serialized members of a type hierarchy. |
+| `NALIX015` | SerializeIgnore conflicts with SerializeOrder | Warning | Serialization | Yes | A member cannot have both `[SerializeIgnore]` and `[SerializeOrder]`. |
+| `NALIX016` | SerializeDynamicSize is unnecessary on fixed-size member | Info | Serialization | No | `[SerializeDynamicSize]` is only meaningful on variable-size members (`string`, arrays, collections). |
+| `NALIX021` | SerializeOrder should not be negative | Warning | Serialization | No | `[SerializeOrder]` indices must be `>= 0`. |
+| `NALIX022` | `SerializeHeader(0)` is reserved on PacketBase types | Warning | Serialization | No | On `PacketBase<TSelf>` subclasses, order `0` (`PacketHeaderOffset.Header`) is occupied by `PacketBase.Header`. Start user fields at order `0` via `[SerializeOrder(0)]` or non-zero header offsets. |
+| `NALIX034` | SerializeHeader conflicts with SerializeOrder | Warning | Serialization | No | Do not combine `[SerializeHeader]` and `[SerializeOrder]` on the same member. |
+| `NALIX046` | SerializeOrder gap is unusually large | Info | Serialization | No | `[SerializeOrder]` is sequential field ordering metadata, not a raw byte offset. Gaps `> 16` trigger this hint. |
+| `NALIX051` | `IFixedSizeSerializable` type contains dynamic serialization member | Warning | Serialization | No | Types implementing `IFixedSizeSerializable` cannot contain variable-length strings, arrays, or collections. |
 
-| ID | Title | Severity | Category | Description |
-| --- | --- | ---: | --- | --- |
-| `NALIX020` | Packet ResetForPool should call base.ResetForPool | Warning | Lifecycle | `PacketBase<TSelf>` overrides should restore base header/default metadata. |
-| `NALIX023` | Configuration property type is not supported | Warning | Configuration | `ConfigurationLoader` binds supported scalar, `Guid`, `TimeSpan`, `DateTime`, and enum properties. |
-| `NALIX024` | Configuration property is not bindable | Info | Configuration | Non-bindable config properties should expose a public setter or use `[ConfiguredIgnore]`. |
-| `NALIX027` | RequestOptions RetryCount should not be negative | Warning | SDK | `RequestOptions.RetryCount` must be `>= 0`. |
-| `NALIX028` | RequestOptions TimeoutMs should not be negative | Warning | SDK | `RequestOptions.TimeoutMs` must be `>= 0`; `0` waits indefinitely. |
-| `NALIX037` | Potential allocation in hot path | Info | Performance | High-frequency Nalix hot paths should avoid allocations where practical. |
-| `NALIX039` | Potential IBufferLease leak | Warning | Usage | `IBufferLease` must be disposed exactly once on all code paths. |
-| `NALIX040` | NetworkApplicationBuilder should configure BufferPoolManager | Info | Performance | Explicit buffer pool configuration can reduce allocation pressure. |
-| `NALIX041` | NetworkApplicationBuilder should configure ConnectionHub | Info | Usage | Explicit connection hub configuration makes host wiring clear. |
-| `NALIX042` | NetworkApplicationBuilder handler type is not constructible | Warning | Usage | Handler types should be concrete constructible classes. |
-| `NALIX043` | NetworkApplicationBuilder metadata provider type is not constructible | Warning | Usage | Metadata provider types should be concrete constructible classes. |
-| `NALIX044` | NetworkApplicationBuilder should configure a TCP binding | Info | Usage | Hosts usually need at least one TCP binding. |
-| `NALIX045` | NetworkApplicationBuilder should configure TCP before UDP | Info | Usage | UDP bindings are expected to be paired with TCP bindings in this host setup. |
-| `NALIX057` | RequestOptions uses infinite timeout with retries | Info | SDK | `TimeoutMs=0` can make retries ineffective because each attempt may wait indefinitely. |
+## 4. Lifecycle, Configuration, SDK, and Hosting (`NALIX020`, `NALIX023`–`NALIX028`, `NALIX037`, `NALIX039`–`NALIX045`, `NALIX057`)
 
-## Correctness, Security, Pooling, and AOT Codes
+| ID | Title | Severity | Category | Code Fix | Description |
+| --- | --- | :---: | --- | :---: | --- |
+| `NALIX020` | Packet `ResetForPool` should call `base.ResetForPool` | Warning | Lifecycle | Yes | Custom `ResetForPool()` overrides on `PacketBase<TSelf>` must call `base.ResetForPool()` so the base header and priority are reset. |
+| `NALIX023` | Configuration property type is not supported | Warning | Configuration | Yes | `ConfigurationLoader` supports primitives, `decimal`, `string`, `Guid`, `TimeSpan`, `DateTime`, and `enum` properties. |
+| `NALIX024` | Configuration property is not bindable | Info | Configuration | Yes | Public `ConfigurationLoader` properties without a public setter cannot be bound from `.ini` files and should declare `[ConfiguredIgnore]`. |
+| `NALIX027` | `RequestOptions.RetryCount` should not be negative | Warning | SDK | No | `RequestOptions.RetryCount` must be `>= 0`. |
+| `NALIX028` | `RequestOptions.TimeoutMs` should not be negative | Warning | SDK | No | `RequestOptions.TimeoutMs` must be `>= 0` (`0` disables the per-attempt timeout). |
+| `NALIX037` | Potential allocation in hot path | Info | Performance | No | Warns on `new byte[...]`, `.ToArray()`, or LINQ allocations inside packet handlers, middleware, and serializer methods. |
+| `NALIX039` | Potential `IBufferLease` leak | Warning | Usage | No | Every rented `IBufferLease` must be disposed via `using`, returned, or transferred across all control paths. |
+| `NALIX040` | `NetworkApplicationBuilder` should configure `BufferPoolManager` | Info | Performance | No | Suggests calling `.UseBufferPoolManager(...)` when building a custom host pipeline. |
+| `NALIX041` | `NetworkApplicationBuilder` should configure `ConnectionHub` | Info | Usage | No | Suggests calling `.UseConnectionHub(...)` when building a custom host pipeline. |
+| `NALIX042` | `NetworkApplicationBuilder` handler type is not constructible | Warning | Usage | No | Controller types passed to `MapHandlers` must be concrete, constructible classes. |
+| `NALIX043` | `NetworkApplicationBuilder` metadata provider type is not constructible | Warning | Usage | No | Metadata provider types must be concrete, constructible classes. |
+| `NALIX044` | `NetworkApplicationBuilder` should configure a TCP binding | Info | Usage | No | Warns when `.Build()` is called without any transport listener binding. |
+| `NALIX045` | `NetworkApplicationBuilder` should configure TCP before UDP | Info | Usage | No | Authenticated UDP listeners rely on sessions established over TCP (`MapTcp` should accompany `MapUdp`). |
+| `NALIX057` | `RequestOptions` uses infinite timeout with retries | Info | SDK | Yes | Setting `TimeoutMs = 0` with `RetryCount > 0` makes retries unreachable because the first attempt waits indefinitely. |
+
+## 5. Source Generator Diagnostics (`NALIX059`–`NALIX068`)
+
+Emitted by `Nalix.Analyzers.Generators` (`analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`):
+
+| ID | Title | Severity | Category | Generator | Description |
+| --- | --- | :---: | --- | --- | --- |
+| `NALIX059` | Missing static `Create()` method | Error | `Nalix.Codec.Serialization` | `SerializeFormatterGenerator` | Reference type marked `[GenerateFormatter]` must declare a static `Create()` method returning an instance for pooling/deserialization (inherited automatically by `PacketBase<TSelf>` subclasses). |
+| `NALIX060` | Packet class must be partial | Error | `Nalix.Codec.Serialization` | `PacketSchemaGenerator` | Classes inheriting from `PacketBase<TSelf>` must be declared `partial` so `PacketSchemaGenerator` can emit `Length`, `ResetForPool()`, and `Size`. |
+| `NALIX063` | No accessible constructor found | Error | `Nalix.Framework.Injection` | `InstanceGenerator` | `[Injectable]` class has no `public` or `internal` constructor that the source generator can invoke. |
+| `NALIX064` | Ambiguous constructors in injectable class | Error | `Nalix.Framework.Injection` | `InstanceGenerator` | `[Injectable]` class has multiple `public`/`internal` constructors with the same non-config parameter count (`args.Length`) and non-disjoint parameter types. |
+| `NALIX065` | `SingletonBase` subclass missing accessible parameterless constructor | Warning | `Nalix.Framework.Injection` | `InstanceGenerator` | `SingletonBase<T>` subclass has no `public` or `internal` parameterless constructor (`protected` alone is not accessible to the generated initializer). |
+| `NALIX066` | Unsupported `[RpcService]` method return type | Error | `Nalix.SDK.Transport` | `RpcClientGenerator` | `[RpcService]` interface methods must return `ValueTask`, `ValueTask<T>`, `RpcCall<T>`, or `RpcStream<T>`. |
+| `NALIX067` | Handler method dropped from dispatch table | Error | `Nalix.Runtime.Dispatching` | `PacketHandlerGenerator` | Parameter `0` of a `[PacketOpcode]` handler is `IPacketContext<TPacket>`; any additional parameter (`1..N`) must be a reference type annotated with `[FromScope]`. |
+| `NALIX068` | Duplicate packet `StaticOpCode` | Error | `Nalix.Codec.DataFrames` | `PacketRegistryGenerator` | Two or more packet classes in the compilation define the same `StaticOpCode`. |
+
+## 6. Security, Pooling, RPC, Injection, and Lifecycle Diagnostics (`NALIX071`–`NALIX107`)
 
 | ID | Title | Severity | Category | Scope | Description |
-| --- | --- | ---: | --- | --- | --- |
-| `NALIX071` | Use Nalix crypto abstractions instead of System.Security.Cryptography | Warning | Security | Core-only | Direct BCL crypto usage in Nalix Core assemblies bypasses security review. Platform fallback shims (e.g. `OsCsprng`) and `FixedTimeEquals` are allowlisted. |
-| `NALIX072` | Use zero-allocation endpoint formatting in hot paths | Info | Performance | Core-only | `IPAddress.ToString()`, `INetworkEndpoint.Address`, and `SocketEndpoint.Address` allocate strings. Use `TryFormatAddress` or Span-based formatting. |
-| `NALIX073` | Unguarded catch(Exception) | Warning | Correctness | Core-only | Catch clauses should filter through `ExceptionClassifier.IsNonFatal()` to avoid swallowing fatal exceptions. |
-| `NALIX074` | Avoid eager string formatting in diagnostic logging | Info | Performance | Core-only | Interpolated strings, `string.Format`, or concatenation inside `new DiagnosticLog(...)` allocate even when diagnostics are disabled. Guard behind `IsEnabled(...)`. |
-| `NALIX075` | PacketScope<T> must be disposed | Error | Pooling | All assemblies | `PacketScope<T>` wraps a pooled packet and must be disposed via `using` to return it to the pool. |
-| `NALIX076` | Packet context escapes handler scope | Error | Correctness | Core-only | `IPacketContext<T>` and its `Packet` are pooled and must not escape the handler scope. Capturing in a field, long-lived delegate, offloaded task, or collection causes use-after-return bugs, including cross-packet/tenant data leaks. Extract needed data into locals before offloading. See [NALIX076 Examples](#nalix076-examples). |
-| `NALIX078` | Avoid unbounded reflection in AOT-sensitive Nalix Core code | Warning | AOT | Core-only | `Assembly.GetTypes()`, `Expression.Compile()`, `MakeGenericType()`, `MethodInfo.Invoke()`, `Type.GetType(string)`, and other unbounded reflection. Use source-generated or compile-time alternatives. **Note:** `Activator.CreateInstance` detection is intentionally deferred. |
+| --- | --- | :---: | --- | --- | --- |
+| `NALIX071` | Use Nalix crypto abstractions instead of `System.Security.Cryptography` | Warning | Security | Core-only | Direct BCL crypto usage in Nalix Core assemblies bypasses security review (`OsCsprng` and `CryptographicOperations.FixedTimeEquals` are allowlisted). |
+| `NALIX072` | Use zero-allocation endpoint formatting in hot paths | Info | Performance | Core-only | `IPAddress.ToString()`, `INetworkEndpoint.Address`, and `SocketEndpoint.Address` allocate strings. Prefer `TryFormatAddress` on hot paths. |
+| `NALIX073` | Unguarded `catch(Exception)` | Warning | Correctness | Core-only | Bare `catch` or `catch (Exception)` clauses in Core assemblies must either filter via `when (...)` or rethrow so fatal runtime exceptions are not swallowed. |
+| `NALIX074` | Avoid eager string formatting in diagnostic logging | Info | Performance | Core-only | Interpolated strings, `string.Format`, or concatenation inside `new DiagnosticLog(...)` allocate even when diagnostics are disabled. Guard with `DiagnosticsEvents.Source.IsEnabled(...)`. |
+| `NALIX075` | `PacketScope<T>` must be disposed | Error | Pooling | All assemblies | `PacketScope<T>` wraps a pooled packet and must be declared with `using` (`using PacketScope<T> scope = ...`) or explicitly disposed. |
+| `NALIX076` | Packet context escapes handler scope | Error | Correctness | All assemblies | `IPacketContext<T>` and `context.Packet` are pooled and returned immediately when the handler finishes. Capturing them in fields, properties, arrays/collections, events, or `Task.Run` / `ThreadPool` delegates causes use-after-return corruption. |
+| `NALIX078` | Avoid unbounded reflection in AOT-sensitive Nalix Core code | Warning | AOT | Core-only | Flags `Assembly.GetTypes()`, `Expression.Compile()`, `MakeGenericType()`, `MethodInfo.Invoke()`, and `Type.GetType(string)` in Core assemblies. |
+| `NALIX100` | `RpcService` method has invalid return type | Error | Usage | All assemblies | Methods in `[RpcService]` interfaces must return `ValueTask`, `ValueTask<T>`, `RpcCall<T>`, or `RpcStream<T>` (`Task` and `Task<T>` are not supported). |
+| `NALIX101` | `RpcService` method has invalid parameters | Error | Usage | All assemblies | Parameter `0` of an `[RpcService]` method must implement `IPacket`; subsequent parameters may only be `RequestOptions`, `Func<TResponse, bool>?`, `bool?`, or `CancellationToken`. |
+| `NALIX102` | `RpcService` interface contains non-method members | Error | Usage | All assemblies | `[RpcService]` interfaces can only declare methods (properties, events, and indexers are forbidden). |
+| `NALIX103` | `RpcService` interface is missing attribute | Info | Usage | All assemblies | Interfaces containing `[PacketOpcode]` methods must be decorated with `[RpcService]` so `RpcClientGenerator` discovers them. |
+| `NALIX104` | `[Inject]` field cannot be `readonly` | Error | Usage | All assemblies | Fields annotated with `[Inject]` are populated inside the generated `InitializeDependencies()` method and cannot be `readonly`. |
+| `NALIX105` | Nalix analyzer disabled: required symbol could not be resolved | Warning | Usage | All assemblies | Emitted at compilation start if a required core Nalix symbol cannot be resolved from referenced assemblies. |
+| `NALIX106` | Packet `StaticOpCode` is already used by another packet | Error | Usage | All assemblies | Two packet types in the compilation declare the same `StaticOpCode` value. |
+| `NALIX107` | Packet `ResetForPool` does not reset mutable member | Warning | Lifecycle | All assemblies | A manual `ResetForPool()` override on a packet class omits resetting a mutable field or property that is not marked `[SkipClean]`. |
 
 ---
 
-## NALIX076 Examples
+## `NALIX076` Examples (`PacketContextEscapeAnalyzer`)
 
-`IPacketContext<T>` and its `Packet` are pooled objects returned to the pool after the handler completes. Capturing them beyond the handler scope causes use-after-return bugs.
+`IPacketContext<TPacket>` and `context.Packet` are rented from `ObjectPoolManager` and automatically returned when the handler's `ValueTask` completes.
 
-### Allowed patterns
-
-**Extracting data into locals and sending responses:**
+### Safe Patterns
 
 ```csharp
-public static async ValueTask HandleAsync(IPacketContext<MyPacket> context)
+[PacketOpcode(0x1001)]
+public async ValueTask HandleEchoAsync(IPacketContext<EchoPacket> context)
 {
-    MyPacket packet = context.Packet;
-    IConnection connection = context.Connection;
+    // Copy value-type or immutable fields into local variables if needed later
+    string message = context.Packet.Message;
+    uint seq = context.Packet.SequenceId;
 
-    await context.Sender.SendAsync(packet).ConfigureAwait(false);
+    // Directly awaiting a helper or Sender method within the handler lifetime is safe
+    await context.Sender.ReplyAsync(new EchoPacket
+    {
+        SequenceId = seq,
+        Message = message
+    }).ConfigureAwait(false);
 }
 ```
 
-**Passing context to a private helper that is awaited directly:**
+### Unsafe Patterns Caught by `NALIX076`
 
 ```csharp
-public static async ValueTask HandleAsync(IPacketContext<MyPacket> context)
+private static IPacketContext<EchoPacket>? s_leakedContext;
+
+[PacketOpcode(0x1001)]
+public void HandleUnsafe(IPacketContext<EchoPacket> context)
 {
-    await ProcessAsync(context).ConfigureAwait(false);
-}
+    // ERROR NALIX076: Storing context or packet in a field/property
+    s_leakedContext = context;
 
-private static async ValueTask ProcessAsync(IPacketContext<MyPacket> context)
-{
-    await context.Sender.SendAsync(context.Packet).ConfigureAwait(false);
-}
-```
+    // ERROR NALIX076: Capturing context or a local packet alias in Task.Run
+    EchoPacket alias = context.Packet;
+    _ = Task.Run(() => ProcessInBackground(alias));
 
-### Disallowed patterns
-
-**Assigning context to a field:**
-
-```csharp
-// NALIX076: Pooled PacketContext must not escape the handler scope
-private static IPacketContext<MyPacket>? s_saved;
-
-public static void Handle(IPacketContext<MyPacket> context)
-{
-    s_saved = context;
+    // ERROR NALIX076: Capturing context in an event handler
+    context.Connection.ConnectionClosed += (_, _) => Log(context.Packet);
 }
 ```
-
-**Offloading context to Task.Run:**
-
-```csharp
-// NALIX076: Offloading to 'Task.Run' with a delegate that captures a pooled context or packet
-public static void Handle(IPacketContext<MyPacket> context)
-{
-    _ = Task.Run(() => Process(context.Packet));
-}
-```
-
-**Event subscription capturing context:**
-
-```csharp
-// NALIX076: Event subscription with a delegate that captures a pooled context or packet
-public static void Handle(IPacketContext<MyPacket> context)
-{
-    SomeEvent += () => Process(context.Connection);
-}
-```
-
-### Known limitation (not detected by design)
-
-Pre-extracting a packet alias before offloading bypasses detection because NALIX076 does not perform full data-flow/alias analysis:
-
-```csharp
-// NOT detected — pre-extracted alias escapes via Task.Run
-public static void Handle(IPacketContext<MyPacket> context)
-{
-    MyPacket packet = context.Packet;
-    _ = Task.Run(() => Process(packet));
-}
-```
-
-This is an intentional trade-off in the first release. Extracting into a local is the recommended pattern regardless, and the analyzer focuses on the most direct escape paths.
-
-## Source Generator Codes
-
-| ID | Title | Severity | Category | Description |
-| --- | --- | ---: | --- | --- |
-| `NALIX066` | Unsupported `[RpcService]` method return type | Error | Nalix.SDK.Transport | `RpcClientGenerator` can only emit a body for void-equivalent `ValueTask`/`Task`, `ValueTask<T>`/`Task<T>`, `RpcCall<T>`, and `RpcStream<T>` return types. Other return types report this diagnostic and throw `NotSupportedException` at runtime instead of emitting an empty method body. |
-
-## Source Mapping
-
-- `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`
-- `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.cs`
-- `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.InvocationAnalysis.cs`
-- `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.SymbolSet.cs`

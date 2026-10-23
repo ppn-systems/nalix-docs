@@ -1,141 +1,94 @@
 ---
 title: Permission Middleware
-description: PermissionMiddleware is the first built-in inbound security gate in the Nalix network pipeline. It enforces handler permission metadata before packet handlers run and denies pac...
+description: Reference for Nalix.Runtime.Middleware.Standard.PermissionMiddleware — fail-closed inbound authorization guard enforcing [PacketPermission].
 section: API Reference
 package: Nalix.Runtime
 ---
 
-`PermissionMiddleware` is the first built-in inbound security gate in the Nalix network
-pipeline. It enforces handler permission metadata before packet handlers run and denies
-packets fail-closed when permission metadata is missing or insufficient.
+**Namespace:** `Nalix.Runtime.Middleware.Standard`  
+**Assembly:** `Nalix.Runtime`
+
+`PermissionMiddleware` (`[MiddlewareOrder(-50)] [MiddlewareStage(MiddlewareStage.Inbound)] public class PermissionMiddleware : IPacketMiddleware<IPacket>`) is the built-in fail-closed authorization gate in `Nalix.Runtime`. It runs at order `-50` before rate-limiting and timeout middleware.
 
 ## Source Mapping
 
-| Source | Responsibility |
-| --- | --- |
-| `src/Nalix.Runtime/Middleware/Standard/PermissionMiddleware.cs` | Runtime permission enforcement and unauthorized directive emission. |
-| `src/Nalix.Abstractions/Middleware/MiddlewareOrderAttribute.cs` | Declares middleware order metadata. |
-| `src/Nalix.Abstractions/Middleware/MiddlewareStageAttribute.cs` | Declares middleware stage metadata. |
-| `src/Nalix.Abstractions/Networking/ConnectionAttributes.cs` | Stores per-connection directive throttle timestamps. |
-| `src/Nalix.Runtime/Internal/RateLimiting/DirectiveGuard.cs` | Rate-gates repeated directive responses. |
-| `src/Nalix.Codec/ProtocolFrames/Directive.cs` | Rejection signal frame sent to the client. |
+- `src/Nalix.Runtime/Middleware/Standard/PermissionMiddleware.cs`
+- `src/Nalix.Abstractions/Networking/Packets/PacketPermissionAttribute.cs`
+- `src/Nalix.Abstractions/Security/PermissionLevel.cs`
+- `src/Nalix.Runtime/Internal/RateLimiting/DirectiveGuard.cs`
+- `src/Nalix.Codec/ProtocolFrames/Directive.cs`
 
-## Runtime Metadata
+## Authorization Rule (`IsAuthorized`)
 
-| Metadata | Value |
-| --- | ---: |
-| Stage | `MiddlewareStage.Inbound` |
-| Order | `-50` |
-| Packet type | `IPacket` |
+`PermissionMiddleware` uses a **fail-closed** security posture (`SEC-37`):
 
-The low order makes the permission guard run before the built-in throttling and timeout
-middleware in the current inbound stack.
+1. If `context.Attributes.Permission` is `null` (the handler method is missing `[PacketPermission]`), the request is **denied**.
+2. Otherwise, it evaluates `context.Attributes.Permission.Evaluation`:
+   - **`PermissionEvaluation.MinimumLevel` (default)**: Allowed when `context.Connection.Level >= policy.Level`.
+   - **`PermissionEvaluation.StrictMatch`**: Allowed when `context.Connection.Level == policy.Level`.
 
-## Enforcement Rule
-
-The middleware allows a packet only when both conditions are true:
-
-```csharp
-context.Attributes.Permission is not null &&
-context.Attributes.Permission.Level <= context.Connection.Level
-```
-
-Everything else is denied:
-
-- missing `[PacketPermission]` metadata;
-- a required permission level higher than the connection's current level.
-
-:::important[Fail-closed behavior]
-This is fail-closed behavior. A handler without permission metadata is not treated as
-public by this middleware; it is rejected as unauthorized.
+:::important[Note on Terminal Handler Policy Enforcement]
+In addition to `PermissionMiddleware`, `PacketDispatchOptions<TPacket>.ExecuteTerminalHandler` also checks `descriptor.CanExecute(context, out denyReason)` (which validates `[PacketEncryption]` and `[PacketPermission]` when the attribute is present). Using `PermissionMiddleware` at `Order = -50` adds **fail-closed** enforcement when `[PacketPermission]` is omitted and rejects unauthorized traffic before downstream middleware runs.
 :::
 
-## Permission Flow
+## Execution Flow
 
 ```mermaid
 flowchart TD
-    A["InvokeAsync(context, next)"] --> B{"Permission attribute exists?"}
-    B -- no --> D["deny"]
-    B -- yes --> C{"required <= connection level?"}
-    C -- yes --> N["await next(context.CancellationToken)"]
-    C -- no --> D
-    D --> G{"DirectiveGuard.TryAcquire unauthorized slot"}
-    G -- no --> S["return without sending duplicate directive"]
-    G -- yes --> R["acquire Directive via PacketFactory"]
-    R --> I["Initialize FAIL / UNAUTHORIZED"]
-    I --> X["SendAsync(directive)"]
-    X --> Z["return without next"]
+    A["InvokeAsync(context, next)"] --> B{"context.Attributes.Permission is not null && IsAuthorized(...)?"}
+    B -->|Yes| C["Forward to next(context.CancellationToken) (Zero-Alloc Sync Fast Path)"]
+    B -->|No| D["context.Connection.IncrementErrorCount()"]
+    D --> E{"DirectiveGuard.TryAcquire(InboundDirectiveUnauthorizedLastSentAtMs)?"}
+    E -->|No (Suppressed)| F["Return without sending duplicate Directive"]
+    E -->|Yes| G["Rent Directive via PacketFactory<Directive>.Acquire()"]
+    G --> H["Initialize(FAIL, UNAUTHORIZED, NONE, seqId, NONE, 0, 0, arg2: OpCode)"]
+    H --> I["await context.Sender.SendAsync(directive)"]
 ```
 
-## Rejection Directive
+## Denial Directive Format
 
-On denial, the middleware acquires a `Directive` via `PacketFactory<Directive>.Acquire()` through a
-`PacketScope<Directive>` and initializes it as:
+When a packet is denied and `DirectiveGuard` permits sending (based on `RuntimeConnectionState.InboundDirectiveUnauthorizedLastSentAtMs` and `DirectiveGuardOptions.DefaultCooldownMs`), `PermissionMiddleware` rents a pooled `Directive` (`0x0008`, 21 bytes) with:
 
-| Field | Runtime value |
-| --- | --- |
-| `ControlType` | `FAIL` |
-| `ProtocolReason` | `UNAUTHORIZED` |
-| `ProtocolAdvice` | `NONE` |
-| `sequenceId` | `context.Packet.SequenceId` |
-| `controlFlags` | `ControlFlags.NONE` |
-| `arg0` | `0` |
-| `arg1` | `0` |
-| `arg2` | `context.Attributes.PacketOpcode.OpCode` |
+| Field | Value |
+| :--- | :--- |
+| `Type` | `ControlType.FAIL` |
+| `Reason` | `ProtocolReason.UNAUTHORIZED` |
+| `Action` | `ProtocolAdvice.NONE` |
+| `SequenceId` | `context.Packet.Header.SequenceId` |
+| `Control` | `ControlFlags.NONE` |
+| `Arg0` / `Arg1` | `0` |
+| `Arg2` | `context.Packet.Header.OpCode` |
 
-`arg2` carries the denied opcode so the peer can correlate the authorization failure
-with the attempted operation.
-
-## Directive Rate Gate
-
-Before sending the directive, the middleware calls:
+## Usage Example
 
 ```csharp
-DirectiveGuard.TryAcquire(
-    context.Connection,
-    ConnectionAttributes.InboundDirectiveUnauthorizedLastSentAtMs)
-```
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Abstractions.Security;
+using Nalix.Runtime.Middleware.Standard;
 
-If the guard rejects, the middleware returns without sending another directive. This
-prevents unauthorized packet floods from producing unbounded failure responses.
-
-## Error Handling
-
-`SendAsync` is wrapped in a non-fatal exception filter. If directive sending fails, the
-middleware emits a throttled diagnostic via `connection.ThrottledDiagnosticError(...)` with key
-`middleware.permission.send_error` (20-second suppression window). The original request
-remains denied and the pipeline is not continued.
-
-## Registration
-
-```csharp
-builder.ConfigureDispatchOptions(options =>
+// 1. Register PermissionMiddleware in PacketDispatchOptions
+builder.ConfigureDispatch(options =>
 {
     options.WithMiddleware(new PermissionMiddleware());
 });
-```
 
-The parameterless constructor resolves an optional `ILogger` from `InstanceManager`. The
-explicit constructor requires a non-null `ILogger`.
-
-## Securing a Packet
-
-```csharp
-[PacketOpcode(0x2001)]
-[PacketPermission(PermissionLevel.SYSTEM_ADMINISTRATOR)]
-public sealed class AdminCommandPacket : IPacket
+// 2. Annotate handlers with [PacketPermission]
+[PacketHandler]
+public sealed class AdminController
 {
-    // packet members
+    [PacketOpcode(0x3001)]
+    [PacketEncryption(true)]
+    [PacketPermission(PermissionLevel.SYSTEM_ADMINISTRATOR, PermissionEvaluation.MinimumLevel)]
+    public void ReloadConfig(IPacketContext<AdminReloadPacket> context)
+    {
+        // Only connections with Level >= SYSTEM_ADMINISTRATOR reach here
+    }
 }
 ```
-
-Because the middleware fails closed, explicitly annotate every handler/packet that can
-enter a pipeline containing `PermissionMiddleware`.
 
 ## Related APIs
 
 - [Middleware Pipeline](./pipeline.md)
+- [Permission Levels](../../security/permission-level.md)
 - [Directive Guard Options](../../options/network/directive-guard-options.md)
-- [Directive Frame](../../codec/packets/built-in-frames.md)
-- [Timeout Middleware](./timeout-middleware.md)
-- [Packet Attributes](../../abstractions/packet-attributes.md)
+- [Built-in Frames (Directive)](../../codec/packets/built-in-frames.md)

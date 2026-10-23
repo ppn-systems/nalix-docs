@@ -10,7 +10,7 @@ A handler is the method that runs your application logic for one packet type. Mi
 
 ```csharp
 // samples/HelloWorld/HelloWorld.Server/HelloHandlers.cs
-[PacketHandler("HelloWorld.Greetings")]
+[PacketController("HelloWorld.Greetings")]
 public static class HelloHandlers
 {
     [PacketOpcode(0x7001)]
@@ -25,7 +25,7 @@ public static class HelloHandlers
 }
 ```
 
-`[PacketHandler("...")]` marks the class; `[PacketOpcode(0x7001)]` maps one method to one opcode. Register the class once on the server builder with `.MapHandlers(typeof(HelloHandlers))`.
+`[PacketController("...")]` marks the class (`[PacketHandler]` is obsolete); `[PacketOpcode(0x7001)]` maps one method to one opcode. Register the class once on the server builder with `.MapHandlers(typeof(HelloHandlers))`.
 
 Full source: `samples/HelloWorld/HelloWorld.Server/HelloHandlers.cs`
 

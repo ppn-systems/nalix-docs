@@ -1,85 +1,69 @@
 ---
 title: Nalix.Runtime.Dispatching
-description: Nalix.Runtime.Dispatching contains the execution APIs that bridge the gap between deserialized packets and application handlers. It manages opcode-to-handler resolution, context...
+description: Overview of the opcode resolution, actor-mailbox scheduling, context pooling, and handler execution architecture in Nalix.Runtime.Dispatching and Nalix.Runtime.Routing.
 section: API Reference
 package: Nalix.Runtime
 ---
 
-`Nalix.Runtime.Dispatching` contains the execution APIs that bridge the gap between deserialized packets and application handlers. It manages opcode-to-handler resolution, context pooling, and result transformation.
+**Namespaces:** `Nalix.Runtime.Dispatching`, `Nalix.Runtime.Routing`  
+**Assembly:** `Nalix.Runtime`
+
+`Nalix.Runtime.Dispatching` and `Nalix.Runtime.Routing` contain the execution APIs that transform retained `IBufferLease` frames into strongly-typed handler invocations with strict per-connection ordering and zero-allocation synchronous fast paths.
 
 ## OpCode Dispatch Pipeline
 
-The following diagram illustrates the internal resolution and execution path within the dispatch layer.
-
 ```mermaid
 flowchart TD
-    subgraph Ingress[Layer 1: Incoming]
-        P[Packet / OpCode]
-        C[Source Connection]
+    subgraph Ingress["1. Ingress & Actor Mailbox"]
+        Lease["IBufferLease + IConnection"] --> Retain["HandlePacket: lease.Retain() + PushCore"]
+        Retain --> Claim["Worker: TryClaim(out IDispatchSession)"]
     end
 
-    subgraph Resolution[Layer 2: Resolution]
-        Table[Handler Lookup Table]
-        Desc[Handler Descriptor]
-        Error[Protocol FAIL Response]
-
-        P -->|1. Lookup OpCode| Table
-        Table -->|Found| Desc
-        Table -->|Not Found| Error
+    subgraph Resolution["2. O(1) Resolution & Deserialization"]
+        Claim --> Extract["connection.PacketClassifier.Extract(lease.Span)"]
+        Extract --> Table["PacketDispatchOptions: _handlerTable[opCode]"]
+        Table -->|Found| Deser{"ExpectedPacketType == MemoryPacket?"}
+        Table -->|Not Found| Drop["Dispose lease + IncrementErrorCount"]
+        Deser -->|Yes| MemPkt["Wrap in MemoryPacket (zero-copy)"]
+        Deser -->|No| Reg["PacketRegistry.TryDeserialize(lease.Span)"]
     end
 
-    subgraph State[Layer 3: Context Management]
-        Pool[ObjectPool - PacketContext]
-        Init[Initialize Context]
-        Ctx[PacketContext Instance]
-
-        Desc -->|2. Rent| Pool
-        Pool --> Init
-        C & P -.-> Init
-        Init --> Ctx
+    subgraph Execution["3. Context, Validation & Pipeline"]
+        MemPkt --> RentCtx["ObjectPoolManager.Get<PacketContext<IPacket>>()"]
+        Reg --> RentCtx
+        RentCtx --> TypeCheck["Verify ExpectedPacketType & IPacketValidatable.Validate"]
+        TypeCheck --> Pipe["MiddlewarePipeline.ExecuteAsync -> ExecuteTerminalHandler"]
+        Pipe --> CanExec["descriptor.CanExecute (Permission & Encryption Gate)"]
+        CanExec --> Invoke["Source-Generated Invoker (PacketHandler<IPacket>)"]
+        Invoke --> Respond["SendHandlerResponseAsync (ReplyAsync / SendAsync / Stream)"]
     end
 
-    subgraph Execution[Layer 4: Logic Execution]
-        MP[Middleware Pipeline]
-        Inv[Source-Generated Invoker]
-
-        Ctx -->|3. Run| MP
-        MP -->|4. Call| Inv
-        Inv -->|5. Send Response| C
-    end
-
-    Ctx -.->|Finalize| Return[Return to Pool]
+    Respond --> Cleanup["Dispose PacketContext (releases Packet & Scope) + Dispose lease"]
 ```
 
 ## Internal Workflow (Source-Verified)
 
-1. **Resolution**: The `PacketDispatchOptions` uses a high-performance thread-safe dictionary to map `ushort` opcodes to pre-compiled `PacketHandler` descriptors.
-
-2. **Zero-Allocation Pooling**: For every request, a `PacketContext` is rented from the `ObjectPoolManager`. This context carries the connection state, metadata, and handles the `CancellationToken` linkage.
-
-3. **Type Safety Gate**: Before the handler runs, the dispatcher performs a runtime type check against the deserialized packet to ensure it matches the handler signature, preventing cast exceptions in the business logic.
-
-4. **Middleware Orchestration**: The `MiddlewarePipeline` executes in three stages (Inbound, OutboundAlways, Outbound), allowing for complex cross-cutting concerns like authentication or encryption updates.
-
-5. **Return Handling**: The source-generated invoker handles the handler's return type (e.g., `ValueTask<T>`, `T`, or `void`) and routes the result into the appropriate outbound transport call.
+1. **$O(1)$ Handler Resolution**: `PacketDispatchOptions<TPacket>` stores compiled `PacketHandler<TPacket>` descriptors in a flat 65,536-element array (`HandlerSlot?[ushort.MaxValue + 1]`). Resolving an opcode is a single `Volatile.Read` array index lookup.
+2. **Actor-Mailbox Session Claiming**: `DispatchChannel<IPacket>` groups queued frames by connection and priority (`URGENT` down to `NONE`). A worker claims exclusive ownership of a connection via `TryClaim(out IDispatchSession session)`, guaranteeing that packets from the same connection are processed sequentially in arrival/priority order without cross-worker races.
+3. **Pooled `PacketContext<TPacket>`**: Before invoking middleware or the handler, the runtime rents a `PacketContext<TPacket>` from `ObjectPoolManager.Shared` (preallocated to `128` instances) and initializes it with `ownsPacket: true`. When the context is disposed, it automatically disposes both the deserialized packet and any scoped `[FromScope]` services.
+4. **Built-in Type, Validation, Permission & Encryption Gates**:
+   - Runtime type verification (`expectedType.IsInstanceOfType(context.Packet)`) sends `Directive(FAIL, REQUEST_INVALID, FIX_AND_RETRY)` on mismatch.
+   - Structural validation (`IPacketValidatable.Validate(out string? failureReason)`) sends `Directive(FAIL, MALFORMED_PACKET, FIX_AND_RETRY)` on invalid payloads.
+   - Terminal policy check (`descriptor.CanExecute`) verifies `[PacketEncryption]` (`context.EncryptedOnWire`) and `[PacketPermission]` (`context.Connection.Level`) even when no middleware is registered.
+5. **Return-Value Dispatch**: Source-generated invokers support `void`, `Task`, `ValueTask`, `TPacket` / `IPacket`, `byte[]`, `Memory<byte>`, `ReadOnlyMemory<byte>`, and `IAsyncEnumerable<TPacket>` (streaming with automatic `IPacketStreamable.IsEndOfStream` marking on the final item).
 
 ## Public Surface
 
-### Contracts
-
-- [IDispatchChannel<`TPacket`>](./dispatch-channel-and-router.md): The queue contract for connection-aware packet routing.
-- [IPacketDispatch](./dispatch-contracts.md): The high-level entry point for dispatchers.
-
-### Core Implementations
-
-- [PacketDispatchChannel](./packet-dispatch.md): The standard runtime dispatcher using worker loops and wake signaling.
-- [PacketDispatchOptions<`TPacket`>](../../options/runtime/packet-dispatch-options.md): Fluent configuration for handlers and middleware.
-- [PacketContext<`TPacket`>](./packet-context.md): The pooled concrete runtime context behind `IPacketContext<TPacket>`.
-- [PacketSender](./packet-sender.md): An abstraction for responding to packets within a context.
+- [Dispatch Contracts (IPacketDispatch, IDispatchChannel<TPacket>, IDispatchSession)](./dispatch-contracts.md)
+- [Packet Dispatch (PacketDispatchChannel)](./packet-dispatch.md)
+- [Dispatch Channel and Router (DispatchChannel<TPacket>, PacketDispatcherBase<TPacket>)](./dispatch-channel-and-router.md)
+- [Packet Context (PacketContext<TPacket>)](./packet-context.md)
+- [Packet Sender (PacketSender)](./packet-sender.md)
+- [Handler Return Types](./handler-results.md)
 
 ## Related APIs
 
-- [Packet Attributes](../../abstractions/packet-attributes.md)
-- [Packet Metadata](../../abstractions/packet-metadata.md)
-- [Handler Result Types](./handler-results.md)
-- [Runtime Overview](../index.md)
+- [Packet Dispatch Options](../../options/runtime/packet-dispatch-options.md)
+- [Dispatch Options](../../options/runtime/dispatch-options.md)
+- [Packet Handler Generator](../../analyzers/autogen/packet-handler-generator.md)
+- [Middleware Pipeline](../middleware/pipeline.md)

@@ -1,15 +1,16 @@
 ---
 title: Serialization Attributes
-description: Nalix.Abstractions.Serialization contains the low-level attributes and helpers that shape how packets and models are serialized.
+description: Binary layout and formatter attributes in Nalix.Abstractions.Serialization including [Packet], [GenerateFormatter], [SerializePackable], [SerializeOrder], [SerializeIgnore], [SerializeHeader], [SerializeDynamicSize], IFixedSizeSerializable, and SerializerBounds.
 section: API Reference
 package: Nalix.Abstractions
 ---
 
-`Nalix.Abstractions.Serialization` contains the low-level attributes and helpers that shape how packets and models are serialized.
+**Namespace:** `Nalix.Abstractions.Serialization` (and `Nalix.Abstractions.Networking.Packets`)  
+**Assembly:** `Nalix.Abstractions`
 
-Use this page when you need to understand the attribute layer before you work with `PacketBase<TSelf>` or `LiteSerializer`.
+`Nalix.Abstractions.Serialization` defines the compile-time attributes, layout enums, size contracts, and boundary constants used by `SerializeFormatterGenerator`, `PacketSchemaGenerator`, and `LiteSerializer`.
 
-## Source mapping
+## Source Mapping
 
 - `src/Nalix.Abstractions/Serialization/GenerateFormatterAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketAttribute.cs`
@@ -22,80 +23,53 @@ Use this page when you need to understand the attribute layer before you work wi
 - `src/Nalix.Abstractions/Serialization/SerializerBounds.cs`
 - `src/Nalix.Abstractions/Serialization/IFixedSizeSerializable.cs`
 
-## Main types
+## Attributes & Contracts Reference
 
-- `PacketAttribute` (aliased as `[Packet]`)
-- `GenerateFormatterAttribute`
-- `SerializePackableAttribute`
-- `SerializeOrderAttribute`
-- `SerializeIgnoreAttribute`
-- `SerializeHeaderAttribute`
-- `SerializeDynamicSizeAttribute`
-- `SerializeLayout`
-- `SerializerBounds`
-- `IFixedSizeSerializable`
+| Type | Target | Constructors & Members | Purpose |
+| --- | --- | --- | --- |
+| `[Packet]` (`PacketAttribute`) | Class, Struct, Interface | `PacketAttribute()` | Marks a `PacketBase<TSelf>` class (implements `IPacketStaticOpcode`) for discovery by `PacketRegistryGenerator`. |
+| `[GenerateFormatter]` | Class, Struct | `GenerateFormatterAttribute()` | Instructs `SerializeFormatterGenerator` to emit an `IFormatter<T>` (and `IFillableFormatter<T>` for classes) at compile time. Target must be `partial` (`NALIX059`). |
+| `[SerializePackable]` | Class, Struct, Interface | `SerializePackableAttribute(SerializeLayout layout = SerializeLayout.Auto)`<br/>Property: `SerializeLayout SerializeLayout` | Declares the member ordering mode (`Auto`, `Sequential`, or `Explicit`). |
+| `[SerializeOrder]` | Field, Property | `SerializeOrderAttribute(int order)`<br/>`SerializeOrderAttribute(PacketHeaderOffset offset)`<br/>Property: `int Order` | Assigns the non-negative serialization sequence index (`0, 1, 2...`) when using `SerializeLayout.Explicit`. |
+| `[SerializeIgnore]` | Field, Property | `SerializeIgnoreAttribute()` | Excludes a field or property from binary serialization. Cannot be combined with `[SerializeOrder]` (`NALIX015`). |
+| `[SerializeHeader]` | Field, Property | `SerializeHeaderAttribute(int order)`<br/>`SerializeHeaderAttribute(PacketHeaderOffset offset)`<br/>Property: `int Order` | Marks a base header field (`PacketHeaderOffset.Region = 6` reserves bytes `0..5` on `PacketBase<TSelf>`, enforced by `NALIX022`). |
+| `[SerializeDynamicSize]` | Field, Property | `SerializeDynamicSizeAttribute(int size = 20)`<br/>Property: `int Size` | Provides a buffer-sizing hint for variable-length strings, arrays, or collections. |
+| `IFixedSizeSerializable` | Interface | `static abstract int Size { get; }` | Contract for fixed-size structs/packets whose wire size is known at compile time (cannot contain dynamic members per `NALIX051`). |
+| `SerializerBounds` | Static class | `Null = -1`<br/>`MaxArray = 1_048_576`<br/>`MaxString = 1_048_576`<br/>`NullArrayMarker => [255, 255, 255, 255]` (`ReadOnlySpan<byte>`)<br/>`EmptyArrayMarker => [0, 0, 0, 0]` (`ReadOnlySpan<byte>`) | Wire markers and hard safety caps for array and string deserialization. |
 
-## What this layer does
+## Example
 
-These types define how Nalix interprets a serializable model:
+```csharp
+using Nalix.Abstractions;
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Abstractions.Serialization;
+using Nalix.Codec.DataFrames;
 
-- whether the type is packable
-- which members are serialized and in what order
-- which members are ignored
-- which members belong in the packet header region
-- which members use dynamic sizing
-- which shapes are considered fixed-size
+[Packet]
+[GenerateFormatter]
+[SerializePackable(SerializeLayout.Explicit)]
+public sealed partial class TransformUpdatePacket : PacketBase<TransformUpdatePacket>, IPacketStaticOpcode
+{
+    public static ushort StaticOpCode => 0x2001;
 
-## Important behavior
+    [SerializeOrder(0)]
+    public ulong EntityId { get; set; }
 
-The attribute layer allows the core serialization attributes to be placed on either a field or a property.
+    [SerializeOrder(1)]
+    public float X { get; set; }
 
-For `LiteSerializer` automatic object and struct serialization, the effective runtime behavior is still field-based:
+    [SerializeOrder(2)]
+    public float Y { get; set; }
 
-- fields are serialized directly
-- properties mainly act as metadata carriers
-- auto-properties usually work because their attributes can be associated with the generated backing field
-- custom properties without a compiler-generated backing field are not serialized as independent members
-- static members are outside the automatic serialization model
-
-## Attributes
-
-### `PacketAttribute` (or `[Packet]`)
-
-Marks a class for automatic discovery and registration. It allows the **Source Generator** to detect the type and generate registration code, which is then finalized via `PacketRegistry.Build()` at runtime.
-
-### `GenerateFormatterAttribute`
-
-Marks a class or struct so that the source generator will automatically create a high-performance formatter at compile time. This avoids reflection and IL Emit overhead, making it ideal for AOT-compatible scenarios.
-
-### `SerializePackableAttribute`
-
-Marks a type as participating in Nalix serialization and selects the layout strategy (Auto, Explicit).
-
-Common use:
-
-- complex models that need structured field serialization
-- value objects that should serialize without a nullable wrapper path
-
-### `SerializeOrderAttribute`
-
-Controls the order of serialized members.
-
-Important: `SerializeOrder` is an ordering key, not a byte offset.  
-`[SerializeOrder(10)]` means "after 9", not "start at byte 10".
-
-It is useful when:
-Most packet types use these attributes together with `PacketBase<TSelf>`.
-
-The typical flow is:
-
-1. declare the packet model
-2. add serialization attributes
-3. let the framework build the serializer or formatter
-4. send the packet through the runtime
+    [SkipClean]
+    [SerializeIgnore]
+    public long LocalTimestampTicks { get; set; }
+}
+```
 
 ## Related APIs
 
-- [Serialization](../../benchmarks/serialization.md)
-- [Frame Model](../codec/packets/frame-model.md)
-- [Packet Contracts](./packet-contracts.md)
+- [Serialization Generator](../analyzers/autogen/serialization-generator.md)
+- [Packet Schema Generator](../analyzers/autogen/packet-schema-generator.md)
+- [Serialization Basics](../codec/serialization/serialization-basics.md)
+- [Diagnostic Codes (NALIX013–NALIX022, NALIX051, NALIX059)](../analyzers/diagnostic-codes.md)

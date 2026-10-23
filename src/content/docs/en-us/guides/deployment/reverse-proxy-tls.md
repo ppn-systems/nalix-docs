@@ -1,12 +1,12 @@
 ---
 title: Reverse Proxy TLS (nginx / Caddy / Cloudflare Tunnel)
-description: Nalix does not terminate TLS itself. The WebSocket listener binds an http:// prefix via HttpListener — there is no wss:// support in process, on any OS. Application data is alre...
+description: Nalix does not terminate TLS itself. WebSocketListenerBase binds a raw TCP socket and speaks HTTP/1.1 Upgrade directly — put nginx, Caddy, or Cloudflare Tunnel in front for wss:// and TLS termination.
 section: Guides
 ---
 
-Nalix does not terminate TLS itself. The WebSocket listener binds an
-`http://` prefix via `HttpListener` — there is no `wss://` support in
-process, on any OS. Application data is already protected in transit by the
+Nalix does not terminate TLS itself. `WebSocketListenerBase` binds a raw TCP
+socket via `TcpListenerBase` and parses the HTTP/1.1 WebSocket `Upgrade`
+directly — there is no `wss://` TLS termination in process, on any OS. Application data is already protected in transit by the
 built-in X25519 handshake + ChaCha20-Poly1305 session encryption (see
 [Handshake](../../api/security/handshake.md)), but that does not give you
 `wss://`, valid browser certificates, or SNI/cert rotation. For that, put a
@@ -149,7 +149,7 @@ RequireTrustedProxy = true
 
 `RequireTrustedProxy = true` means forwarded-IP headers are only honored
 from IPs listed in `trusted_proxies.txt` (`TrustedProxyOptions.StoreFileName`,
-loaded from the data directory) — add your nginx/Caddy box's IP (or
+loaded from `Directories.ConfigurationDirectory`) — add your nginx/Caddy box's IP (or
 `127.0.0.1` if it's local) to that file. Without this, any client could
 spoof `X-Forwarded-For` and bypass IP-based rate limiting.
 

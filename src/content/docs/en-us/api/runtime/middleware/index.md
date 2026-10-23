@@ -1,74 +1,63 @@
 ---
 title: Nalix.Runtime.Middleware
-description: Runtime middleware is the packet execution layer between dispatch metadata and handler invocation. It is used for fail-closed security checks, endpoint and opcode throttling, ti...
+description: Overview of the packet middleware pipeline, execution stages, and built-in security/throttling middleware in Nalix.Runtime.Middleware.
 section: API Reference
 package: Nalix.Runtime
 ---
 
-Runtime middleware is the packet execution layer between dispatch metadata and
-handler invocation. It is used for fail-closed security checks, endpoint and
-opcode throttling, timeouts, diagnostics, and outbound post-processing.
+**Namespaces:** `Nalix.Runtime.Middleware`, `Nalix.Runtime.Middleware.Standard`, `Nalix.Runtime.Throttling`  
+**Assembly:** `Nalix.Runtime`
 
-## Source mapping
+Runtime middleware forms the packet execution pipeline between `PacketContext<TPacket>` initialization and `[PacketHandler]` invocation. It enforces fail-closed permissions, per-policy and per-endpoint rate limiting, handler timeouts, and outbound post-processing.
 
-- `src/Nalix.Runtime/Middleware/MiddlewarePipeline.cs`
+## Source Mapping
+
 - `src/Nalix.Abstractions/Middleware/IPacketMiddleware.cs`
-- `src/Nalix.Runtime/Middleware/Standard/*Middleware.cs`
-- `src/Nalix.Runtime/Throttling/*`
+- `src/Nalix.Abstractions/Middleware/MiddlewareOrderAttribute.cs`
+- `src/Nalix.Abstractions/Middleware/MiddlewareStageAttribute.cs`
+- `src/Nalix.Runtime/Middleware/MiddlewarePipeline.cs`
+- `src/Nalix.Runtime/Middleware/Standard/PermissionMiddleware.cs`
+- `src/Nalix.Runtime/Middleware/Standard/RateLimitMiddleware.cs`
+- `src/Nalix.Runtime/Middleware/Standard/TimeoutMiddleware.cs`
+- `src/Nalix.Runtime/Throttling/PolicyRateLimiter.cs`
+- `src/Nalix.Runtime/Throttling/TokenBucketLimiter.cs`
 
-## Execution lifecycle
+## Execution Lifecycle
 
 ```mermaid
 flowchart TD
-    Start([Dispatch start]) --> Inbound[Inbound middleware]
-    Inbound -->|Allowed| Handler[Packet handler]
-    Inbound -->|Denied or failed| Error[Pipeline error or middleware return]
-    Handler --> Always[OutboundAlways middleware]
-    Always --> Decision{Run outbound?}
-    Decision -->|Handler success and not SkipOutbound| Outbound[Outbound middleware]
-    Decision -->|Failure or SkipOutbound| End([Dispatch end])
+    Start(["ExecuteAsync(context, dispatch, descriptor, ct)"]) --> Inbound["Inbound Middleware (Ascending Order)"]
+    Inbound -->|Calls next(ct)| Handler["ExecuteTerminalHandler (CanExecute + Invoker)"]
+    Inbound -->|Short-circuits (no next)| End(["Pipeline Returns"])
+    Handler --> Always["OutboundAlways Middleware (Descending Order)"]
+    Always --> Decision{"!context.SkipOutbound && !ct.IsCancellationRequested?"}
+    Decision -->|Yes| Outbound["Outbound Middleware (Descending Order)"]
+    Decision -->|No| End
     Outbound --> End
-    Error --> Always
 ```
 
-The pipeline executes immutable middleware snapshots. Metadata such as stage,
-order, `AlwaysExecute`, and `ContinueOnError` is cached per middleware type so
-runtime dispatch avoids repeated reflection.
+## Middleware Stages (`MiddlewareStage`)
 
-For the detailed runner lifecycle, ordering rules, and error semantics, see the
-[Pipeline](./pipeline.md) reference.
+| Stage | Attribute Declaration | Sort Order | Triggered When |
+| :--- | :--- | :---: | :--- |
+| `Inbound` | `[MiddlewareStage(MiddlewareStage.Inbound)]` (default) | Ascending `Order` | Before the packet handler runs. Short-circuiting skips the handler and all outbound stages. |
+| `OutboundAlways` | `[MiddlewareStage(MiddlewareStage.Outbound, AlwaysExecute = true)]` | Descending `Order` | Always runs after the handler returns or cancels via `OperationCanceledException`. |
+| `Outbound` | `[MiddlewareStage(MiddlewareStage.Outbound)]` | Descending `Order` | Runs after `OutboundAlways` only when `!context.SkipOutbound` and `!token.IsCancellationRequested`. |
+| `Both` | `[MiddlewareStage(MiddlewareStage.Both)]` | Ascending (`Inbound`) & Descending (`Outbound` / `OutboundAlways`) | Registers the same middleware instance in both inbound and outbound lists. |
 
-## Middleware stages
+## Built-in Standard Middleware (`Nalix.Runtime.Middleware.Standard`)
 
-| Stage | Triggered when | Common use cases |
-| --- | --- | --- |
-| `Inbound` | Before the handler runs. | Permission checks, rate limits, timeout wrappers. |
-| `OutboundAlways` | During the outbound-always pass, including failure cases. | Auditing, metrics, cleanup, transaction finalization. |
-| `Outbound` | After successful handler execution when outbound was not skipped. | Response transformation, compression, encryption updates. |
+| Middleware | Order | Stage | Runtime Behavior |
+| :--- | ---: | :--- | :--- |
+| [PermissionMiddleware](./permission-middleware.md) | `-50` | `Inbound` | Fail-closed `[PacketPermission]` check (`MinimumLevel` or `StrictMatch`). Emits `Directive(FAIL, UNAUTHORIZED)` gated by `DirectiveGuard`. |
+| `RateLimitMiddleware` | `50` | `Inbound` | Evaluates [PolicyRateLimiter](./policy-rate-limiter.md) when `[PacketRateLimit]` is present, or global [TokenBucketLimiter](./token-bucket-limiter.md) otherwise. Emits `Directive(FAIL, RATE_LIMITED, RETRY)`. |
+| [TimeoutMiddleware](./timeout-middleware.md) | `75` | `Inbound` | Enforces `[PacketTimeout(ms)]` using pooled `PooledCancellationTokenSource` instances. Emits `Directive(TIMEOUT, TIMEOUT, RETRY)`. |
 
-## Built-in runtime middleware
+## Related APIs
 
-| Middleware | Order | Stage | Runtime behavior |
-| --- | ---: | --- | --- |
-| [Permission Middleware](./permission-middleware.md) | `-50` | Inbound | Enforces `[PacketPermission]` and rejects unauthorized packets with fail-closed directives. |
-| [Policy Rate Limiter](./policy-rate-limiter.md) | `50` | Inbound | Enforces attribute-driven per-opcode/per-address policy limits and global endpoint fallback limits. |
-| [Timeout Middleware](./timeout-middleware.md) | `75` | Inbound | Applies method-level handler timeouts using a scoped cancellation token. |
-
-## Security posture
-
-Inbound security middleware follows a fail-closed model:
-
-- permission failures stop handler execution
-- limiter disposal during shutdown denies traffic rather than bypassing limits
-- rate-limit rejections emit transient `FAIL/RATE_LIMITED` directives when
-  `DirectiveGuard` permits
-
-- timeout responses are emitted only for middleware-owned timer cancellation
-- directive sends use pooled `Directive` packets to avoid hot-path allocation
-
-## Related information
-
-- [Middleware Usage Guide](../../../guides/application/middleware-usage.md)
-- [Packet Context](../routing/packet-context.md)
-- [Packet Attributes](../../abstractions/packet-attributes.md)
-- [Dispatch Options](../../options/runtime/dispatch-options.md)
+- [Middleware Pipeline](./pipeline.md)
+- [Permission Middleware](./permission-middleware.md)
+- [Policy Rate Limiter](./policy-rate-limiter.md)
+- [Token Bucket Limiter](./token-bucket-limiter.md)
+- [Timeout Middleware](./timeout-middleware.md)
+- [Packet Dispatch Options](../../options/runtime/packet-dispatch-options.md)

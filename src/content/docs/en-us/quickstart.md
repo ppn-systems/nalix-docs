@@ -14,12 +14,17 @@ Full source: `samples/HelloWorld`
 
 ## Fastest path — run it in 30 seconds
 
-Clone the repo and run the ready-made sample:
+Clone the repo and run the ready-made sample in two terminals:
 
 ```bash
 git clone https://github.com/ppn-systems/nalix.git
-cd nalix/samples/HelloWorld
-dotnet run
+cd nalix
+
+# Terminal 1 — start the server
+dotnet run --project samples/HelloWorld/HelloWorld.Server
+
+# Terminal 2 — run the client
+dotnet run --project samples/HelloWorld/HelloWorld.Client
 ```
 
 That's the whole HelloWorld sample — server and client, request and reply. The rest of this page explains what's inside it so you can build your own.
@@ -83,6 +88,12 @@ public sealed partial class HelloRequestPacket
 
 ```csharp
 // samples/HelloWorld/HelloWorld.Contracts/HelloResponsePacket.cs
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Abstractions.Serialization;
+using Nalix.Codec.DataFrames;
+
+namespace HelloWorld.Contracts;
+
 [Packet]
 [GenerateFormatter]
 [SerializePackable(SerializeLayout.Explicit)]
@@ -143,7 +154,7 @@ using Nalix.Hosting.Protocols;
 await using NetworkApplication app = NetworkApplication.CreateBuilder()
     .UseLogger(logger)
     .MapHandlers(typeof(HelloHandlers))
-    .ListenTcp<DefaultProtocol>().OnPort(57206).Bind()
+    .MapTcp<DefaultProtocol>().OnPort(57206).Bind()
     .Build();
 
 await app.RunAsync(cts.Token);
@@ -159,6 +170,7 @@ The client connects and sends a request, then waits for the typed response.
 
 ```csharp
 // samples/HelloWorld/HelloWorld.Client/Program.cs
+using HelloWorld.Contracts;
 using Nalix.SDK.Options;
 using Nalix.SDK.Transport;
 using Nalix.SDK.Transport.Extensions;
@@ -166,14 +178,20 @@ using Nalix.SDK.Transport.Extensions;
 TransportOptions options = new() { Address = "127.0.0.1", Port = 57206 };
 
 using TcpSession session = new(options);
-await session.ConnectAsync("127.0.0.1", 57206);
+await session.ConnectAsync();
 
 HelloRequestPacket request = new();
 HelloResponsePacket response = await session.RequestAsync<HelloResponsePacket>(
     request,
     RequestOptions.Default.WithTimeout(5_000));
 
-Console.WriteLine($"Server replied: {response.Message}");
+string message = response.Message switch
+{
+    1 => "Hello from Nalix!",
+    _ => $"Unknown (Message={response.Message})",
+};
+
+Console.WriteLine($"Server replied: {message}");
 
 await session.DisconnectAsync();
 ```

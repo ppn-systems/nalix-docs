@@ -61,7 +61,7 @@ Call `Validate()` on option types that actually expose it. Use the configuration
 
 ---
 
-## ðŸ”§ Runtime Registry
+## Runtime Registry
 
 ### InstanceManager (DI)
 
@@ -77,7 +77,7 @@ Once `NetworkApplication.ActivateAsync()` is called, the `InstanceManager` shoul
 
 ---
 
-## ðŸš€ The Transport Shell
+## The Transport Shell
 
 After configuration and shared services are ready, the dispatch and transport layers are initialized.
 

@@ -1,107 +1,88 @@
 ---
 title: Nalix.Network
-description: Nalix.Network is the core transport layer of the Nalix framework. It handles TCP and UDP listeners, connection lifecycle management, protocol bridge logic, session storage, and...
+description: Level 3 server transport package providing TCP, UDP, and WebSocket listeners, socket connections, ConnectionHub, ConnectionGuard, and timing-wheel idle management.
 section: Packages
 package: Nalix.Network
 ---
 
-`Nalix.Network` is the core transport layer of the Nalix framework. It handles TCP and UDP listeners, connection lifecycle management, protocol bridge logic, session storage, and socket-level infrastructure.
+`Nalix.Network` is the **Level 3** server transport layer. It provides high-performance TCP, UDP, and WebSocket listeners, framed socket receive/send loops, connection admission control (`ConnectionGuard`), active connection tracking (`ConnectionHub`), proxy-protocol/forwarded-header parsing, and timing-wheel idle eviction.
 
-:::note[For most projects, start with Nalix.Hosting]
-`Nalix.Hosting` wraps this package with a fluent builder that handles startup wiring automatically. Use `Nalix.Network` directly only when you need full control over listener and protocol construction.
+:::note[For most projects, start with `Nalix.Hosting`]
+`Nalix.Hosting` wraps `Nalix.Network` with a fluent builder (`MapTcp<TProtocol>()`, `MapUdp<TProtocol>()`, `MapWebSocket<TProtocol>()`) that manages listener and protocol lifecycles automatically. Use `Nalix.Network` directly when building a custom server host.
 :::
 
 ## Where It Fits
 
 ```mermaid
 flowchart LR
-    A["TcpListenerBase / UdpListenerBase"] --> B["Protocol"]
-    B --> C["IPacketDispatch"]
-    subgraph Runtime ["Nalix.Runtime"]
-        C --> D["Middleware + Handlers"]
-    end
+    A["TcpListenerBase / UdpListenerBase / WebSocketListenerBase"] --> B["ConnectionGuard & ConnectionHub"]
+    B --> C["Protocol (IProtocol)"]
+    C --> D["IPacketDispatch (Nalix.Runtime)"]
 ```
 
 ## Core Components
 
-### Listeners
+### 1. Transport Listeners (`Nalix.Network.Listeners`)
 
 | Listener | Transport | Description |
-|---|---|---|
-| `TcpListenerBase` | TCP | High-performance listener using `SocketAsyncEventArgs`. Handles socket acceptance, connection lifecycle, and framed receive loops. |
-| `UdpListenerBase` | UDP | Stateless datagram listener with session-authenticated endpoint mapping. |
+| :--- | :--- | :--- |
+| `TcpListenerBase` | TCP | High-throughput socket listener using pooled `SocketAsyncEventArgs`, framed length-prefix receive loops, and optional PROXY protocol / forwarded headers support. |
+| `UdpListenerBase` | UDP | Low-latency datagram listener with `DatagramGuard` source rate limiting and 8-byte session-token authentication. |
+| `WebSocketListenerBase` | WebSocket | RFC 6455 WebSocket listener supporting path routing, subprotocol negotiation, and binary frame streaming. |
 
-Both listeners support:
+All listeners implement `IListener`, `IActivatable`, and `IReportable`:
 
 - `Activate(CancellationToken)` / `Deactivate(CancellationToken)`
-- `GenerateReport()` for runtime diagnostics
-- Configurable backlog, timeout enforcement, and transport-specific limits
+- `GenerateReport()` / `WriteReportData(Utf8JsonWriter)` for live diagnostics
 
-### Protocol
+### 2. Protocol Bridge (`Protocol`)
 
-The `IProtocol` interface and `Protocol` base class define how raw network data is interpreted and forwarded to the dispatch layer.
+The `Protocol` abstract class (`Nalix.Network.Protocols.Protocol`) bridges raw transport connections to your packet dispatcher:
 
-Key responsibilities:
-
-- **Connection acceptance** - `ValidateConnection(IConnection)` controls whether new connections are accepted.
-- **Post-accept hook** - `OnAccept(IConnection, CancellationToken)` runs after a connection is admitted and registered.
-- **Frame forwarding** - `ProcessMessage(object? sender, IConnectionEventArgs args)` pushes validated frames into `PacketDispatchChannel`.
-- **Connection state** - `IsAccepting` controls whether the protocol accepts new connections (atomic property backed by `Interlocked`). `src/Nalix.Network/Protocols/Protocol.Core.cs` also exposes `SetConnectionAcceptance(bool)` as the public convenience API for toggling that state.
+- **Frame processor & opcode extractor** — Exposes `abstract IFrameProcessor FrameProcessor { get; }` and `abstract IOpCodeExtractor OpCodeExtractor { get; }` (implemented automatically by `ApplicationProtocol` / `DefaultProtocol` in `Nalix.Hosting`).
+- **Connection acceptance** — `ValidateConnection(IConnection)` gates newly accepted connections before registration.
+- **Post-accept lifecycle** — `OnAccept(IConnection, CancellationToken)` runs after admission and hub registration.
+- **Message processing** — `ProcessMessage(object? sender, IConnectionEventArgs args)` forwards framed `IBufferLease` payloads to `IPacketDispatch.HandlePacket(...)`.
+- **Dynamic acceptance toggle** — `IsAccepting` and `SetConnectionAcceptance(bool)` atomically enable or pause new connection acceptance without tearing down active sockets.
 
 ```csharp
-public sealed class MyProtocol : Protocol
+using Nalix.Abstractions.Networking;
+using Nalix.Hosting.Protocols;
+
+public sealed class GameProtocol : ApplicationProtocol
 {
-    private readonly IPacketDispatch _dispatch;
-
-    public MyProtocol(IPacketDispatch dispatch) => _dispatch = dispatch;
-
     public override void ProcessMessage(object? sender, IConnectionEventArgs args)
-        => _dispatch.HandlePacket(args.Lease, args.Connection);
+        => this.Dispatch.HandlePacket(args.Lease, args.Connection);
 
     protected override bool ValidateConnection(IConnection connection)
-    {
-        // Custom admission control
-        return true;
-    }
+        => true;
 }
 ```
 
-### Connections
+### 3. Connections, Hub & Admission Guard
 
-- **`IConnection`** â€” Abstract representation of a client connection with identity, transport adapters, permission level, and cipher state.
-- **`SocketConnection`** â€” Concrete socket-based implementation.
-- **`ConnectionHub`** - In-memory registry of active connections. Supports lookup by ID, forced disconnects, bulk broadcast, and `GenerateReport()`.
-- **`ConnectionGuard`** â€” Socket-level admission control that rejects endpoints before application resources are allocated.
+- **`SocketConnection` & `WebSocketConnection`** — Concrete `IConnection` implementations managing framed TCP/UDP/WebSocket transmission (`IConnectionTransmission`), sequence states, and pooled buffer leases.
+- **`ConnectionHub`** — Sharded in-memory registry of active connections supporting lookup by `ISnowflake` ID, broadcast helpers, and diagnostic snapshots.
+- **`ConnectionGuard`** — Multi-tier admission and abuse guard enforcing global connection ceilings, per-IP concurrent connection quotas, slowloris/error thresholds, and persistent bans (`FileBanStore`, `FileBlacklistStore`).
+- **`TimingWheel`** — Hierarchical O(1) timer wheel that evicts idle connections without per-connection timer allocations.
 
-## Options
+## Configuration Options (`Nalix.Network.Options`)
 
-Nalix.Network provides focused option types for each transport concern:
-
-| Options class | Controls |
-|---|---|
-| `NetworkSocketOptions` | Port, backlog, timeout enforcement |
-| `ConnectionQuotaOptions` | Per-IP concurrent connection and rate limits |
-| `ConnectionGuardOptions` | Global connection ceiling, error thresholds, packet rate, and progressive bans |
-| `ConnectionBanStoreOptions` | Ban persistence store policies |
-| `ConnectionBlacklistStoreOptions` | IP blacklist store policies |
-| `TrustedProxyOptions` | Remote IP resolution behavior when behind load balancers/proxies |
-| `NetworkWebSocketOptions` | WebSocket handshakes, frame sizes, and protocols |
-| `ConnectionHubOptions` | Hub behavior and capacity |
-| `TimingWheelOptions` | Idle timeout configuration |
-| `NetworkCallbackOptions` | Callback flood protection thresholds |
-| `DatagramGuardOptions` | UDP source rate limiting and cleanup |
-
-Several network option types support `Validate()` for startup-time verification, including `NetworkSocketOptions`, `ConnectionQuotaOptions`, `ConnectionGuardOptions`, and `DatagramGuardOptions`.
-
-## Relationship with Nalix.Runtime
-
-`Nalix.Network` focuses on **how** data moves between the network and the server. It delegates **what** to do with that data to `IPacketDispatch`, which is implemented in `Nalix.Runtime` via `PacketDispatchChannel`.
-
-## Related Packages
-
-- [Nalix.Runtime](./nalix-runtime.md) - Dispatch pipeline and middleware
-- [Nalix.Hosting](./nalix-hosting.md) - Fluent bootstrap
-- [Nalix.Abstractions](./nalix-abstractions.md) - Shared contracts and primitives
+| Options Class | Controls |
+| :--- | :--- |
+| `NetworkSocketOptions` | Port, IPv4/IPv6 dual-mode, backlog, `NoDelay`, buffer sizes, and socket tuning |
+| `NetworkWebSocketOptions` | WebSocket bind path, handshake timeout, max frame size, and subprotocols |
+| `ConnectionQuotaOptions` | Per-IP concurrent connection limits and connection accept rate limits |
+| `ConnectionGuardOptions` | Global connection ceiling, error score thresholds, and progressive ban durations |
+| `ConnectionBanStoreOptions` | File persistence and retention policies for dynamic IP bans |
+| `ConnectionBlacklistStoreOptions` | Static/dynamic IP and CIDR blacklist file policies |
+| `ConnectionHubOptions` | Sharding and capacity settings for `ConnectionHub` |
+| `DatagramGuardOptions` | UDP per-endpoint packet rate limiting and state table eviction |
+| `TimingWheelOptions` | Tick resolution, wheel slots, and idle connection timeout thresholds |
+| `NetworkCallbackOptions` | Concurrency and flood protection thresholds for connection event callbacks |
+| `TrustedProxyOptions` | Trusted proxy CIDR ranges for real client IP resolution |
+| `ForwardedHeadersOptions` | `X-Forwarded-For` parsing policies |
+| `ProxyProtocolOptions` | HAProxy PROXY protocol v1/v2 header parsing |
 
 ## Key API Pages
 

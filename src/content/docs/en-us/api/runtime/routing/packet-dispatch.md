@@ -1,137 +1,95 @@
 ---
 title: Packet Dispatch
-description: PacketDispatchChannel is the runtime bridge between retained transport buffers and application packet handlers. It owns the background worker loops, wakes workers when new packe...
+description: Reference for Nalix.Runtime.Dispatching.PacketDispatchChannel — actor-mailbox packet dispatcher with coalesced WorkerWakeSignal wake-ups and CPU core affinity support.
 section: API Reference
 package: Nalix.Runtime
 ---
 
-`PacketDispatchChannel` is the runtime bridge between retained transport buffers and
-application packet handlers. It owns the background worker loops, wakes workers when
-new packets are queued, deserializes packets through the registered packet registry,
-and disposes packet and buffer leases after dispatch completes.
+**Namespace:** `Nalix.Runtime.Dispatching`  
+**Assembly:** `Nalix.Runtime`
+
+`PacketDispatchChannel` (`public sealed class PacketDispatchChannel : PacketDispatcherBase<IPacket>, IPacketDispatch, IDisposable, IActivatable`) is the runtime bridge between transport buffers (`IBufferLease`) and `[PacketHandler]` methods. It manages background worker loops, coalesced wake signaling (`WorkerWakeSignal`), $O(1)$ opcode resolution, `PacketRegistry` deserialization, and deterministic lease/packet disposal.
 
 ## Source Mapping
 
 - `src/Nalix.Runtime/Dispatching/PacketDispatchChannel.cs`
 - `src/Nalix.Runtime/Internal/Routing/DispatchChannel.cs`
+- `src/Nalix.Runtime/Internal/Routing/WorkerWakeSignal.cs`
 - `src/Nalix.Runtime/Dispatching/Options/PacketDispatchOptions.cs`
-- `src/Nalix.Runtime/Dispatching/Options/PacketDispatchOptions.PublicMethods.cs`
+- `src/Nalix.Runtime/Options/PacketDrainOptions.cs`
 
 ## Runtime Flow
 
 ```mermaid
 flowchart LR
-    A["Transport IBufferLease"] --> B["HandlePacket"]
-    B --> C["Retain lease"]
-    C --> D["DispatchChannel.PushCore"]
-    D --> E["RequestWake: set one parked worker's signal"]
-    E --> F["Dispatch worker loop"]
-    F --> G["PacketRegistry.TryDeserialize"]
-    G --> H["MiddlewarePipeline + handler"]
-    H --> I["Dispose packet and lease"]
+    A["Transport IBufferLease"] --> B["HandlePacket(lease, connection)"]
+    B --> C["lease.Retain() + _dispatch.PushCore(...)"]
+    C -->|readyEmitted == true| D["RequestWake() -> WorkerWakeSignal.Set()"]
+    D --> E["DispatchWorkerLoopAsync: _dispatch.TryClaim(out session)"]
+    E --> F["Extract OpCode & Options.TryResolveHandler"]
+    F --> G["PacketRegistry.TryDeserialize / MemoryPacket"]
+    G --> H["ExecuteResolvedHandlerAsync (Middleware + Handler)"]
+    H --> I["Dispose PacketContext + Dispose lease"]
 ```
 
 ## `HandlePacket` Handoff Semantics
 
-`HandlePacket(IBufferLease packet, IConnection connection)` is intentionally small:
+`HandlePacket(IBufferLease lease, IConnection connection)` executes on the transport receive thread:
 
-1. Ignore `null` inputs and empty leases.
-2. Call `packet.Retain()` before asynchronous handoff.
-3. Enqueue with `_dispatch.PushCore(connection, packet, noBlock: true)`.
-4. Dispose the retained lease if enqueue fails.
-5. Request a worker wake if enqueue succeeds.
+1. Disposes `lease` and returns immediately if `lease` or `connection` is `null`.
+2. If `connection.TCP.Framing == TransportFraming.UInt16LengthPrefixed` and `lease.Length < PacketConstants.HeaderSize` (`6` bytes), disposes `lease`, calls `connection.IncrementErrorCount()`, and returns.
+3. Calls `lease.Retain()` to increment the buffer's reference count before asynchronous handoff.
+4. Enqueues via `_dispatch.PushCore(connection, lease, out bool readyEmitted, noBlock: true)`. If the queue rejects the packet (full or connection closed), disposes the retained `lease` and increments `_totalDropped`.
+5. If `readyEmitted` is `true` (the connection just became claimable), calls `RequestWake()` to wake one parked worker.
 
-This means the transport may dispose its own reference immediately after calling
-`HandlePacket`; the dispatch channel owns a retained reference until execution ends.
+## Worker Loop Sizing & CPU Affinity (`Activate`)
 
-## Worker Loop Selection
+`Activate(CancellationToken)` schedules worker loops through `TaskManager.ScheduleWorker` (`net.dispatch.process.{i}` in group `net/dispatch` with `WorkerPriority.HIGH`). The number of loops (`_dispatchLoops`) is resolved in priority order:
 
-`Activate()` starts worker loops through `TaskManager.ScheduleWorker`.
-The number of loops is resolved as follows:
+| Condition | Resolved `_dispatchLoops` | Execution Mode |
+| :--- | :--- | :--- |
+| `Options.Drain.DispatchProcessorAffinities` is non-empty (e.g. `"0,2,4,6"`) | Number of parsed core indices (`affinityCores.Length`) | Dedicated OS thread (`OSPriority = ThreadPriority.Normal`) pinned to `affinityCores[i]` |
+| `Options.Drain.Count > 0` (set via `WithDispatchLoopCount(n)` or INI) | `Options.Drain.Count` | Async `ThreadPool` worker |
+| Default (`Options.Drain.Count == 0` and no affinities) | `Math.Clamp(Environment.ProcessorCount, Options.Drain.MinDispatchLoops, Options.Drain.MaxDispatchLoops)` | Async `ThreadPool` worker |
 
-| Case | Source behavior |
-| --- | --- |
-| `Options.DispatchLoopCount` is set | Use the explicit value. |
-| `Options.DispatchLoopCount` is `null` | Use `Math.Clamp(Environment.ProcessorCount, MinDispatchLoops, MaxDispatchLoops)`. |
+## Coalesced Wake & Drain Mechanics
 
-The worker name format is `net.dispatch.process.{index}` through `TaskNaming` tags,
-and workers are scheduled with `WorkerPriority.HIGH`.
+Each worker owns an allocation-free `WorkerWakeSignal` (backed by `ManualResetValueTaskSourceCore<bool>`) and an atomic parked flag (`_parked[i]`):
 
-## Wake and Drain Behavior
+- **Drain Budget (`_maxDrainPerWake`)**: Calculated in the constructor as:
+  ```csharp
+  Math.Clamp(
+      Environment.ProcessorCount * Options.Drain.MaxDrainPerWakeMultiplier,
+      Options.Drain.MinDrainPerWake,
+      Options.Drain.MaxDrainPerWake)
+  ```
+- **Burst Fan-Out**: When a worker claims a connection (`_dispatch.TryClaim(out session)`) and observes `_dispatch.HasClaimableConnection == true`, it immediately calls `RequestWake()` so another parked worker wakes up in parallel.
+- **Lost-Wake Prevention**: Before parking, a worker sets `_parked[index] = 1` via `Interlocked.Exchange`, spins briefly (`16` iterations of `Thread.SpinWait(8)`), and re-checks `_dispatch.HasClaimableConnection` before awaiting `signal.WaitAsync()`.
 
-Each worker owns a reusable, allocation-free auto-reset signal (`WorkerWakeSignal`, backed by
-`ManualResetValueTaskSourceCore<bool>`) and a "parked" flag. There is no timer poll.
+## Execution and Disposal Guarantees (`ExecutePacketAsync`)
 
-- A worker that finds no claimable connection marks itself parked (interlocked), re-checks the ready
-  queues, and only then awaits its signal. A producer publishes the ready entry (interlocked) before
-  `RequestWake()` scans the parked flags, so either the worker sees the work or the producer sees the
-  worker parked: a wake cannot be lost.
-- `RequestWake()` wakes **one** parked worker per connection that becomes ready, starting at a rotating
-  index so wake-ups are spread across workers. A worker that claims a session while more connections
-  are still claimable wakes another parked worker, so bursts fan out.
-- Signals are sticky and coalesced: a `Set()` before the wait makes the next wait complete synchronously.
-- `Deactivate()` sets every worker's signal, and each worker registers its cancellation token once to set
-  its own signal, so shutdown and external cancellation are observed without polling.
+For each dequeued `IBufferLease`:
 
-Worker loops drain up to `_maxDrainPerWake` packets before waiting again. The drain
-budget is calculated in the constructor:
+1. **OpCode Extraction**: Calls `connection.PacketClassifier.Extract(lease.Span)` and reads `lease.IsReliable` and `lease.EncryptedOnWire`.
+2. **Early Handler Lookup**: Calls `Options.TryResolveHandler(opcode, out handler)` **before** deserializing. If no handler is registered for `opcode`, logs a throttled warning, disposes `lease`, increments `connection.IncrementErrorCount()`, and skips deserialization entirely.
+3. **Deserialization / `MemoryPacket` Fast Path**:
+   - If `handler.ExpectedPacketType == typeof(MemoryPacket)`, wraps `lease.Memory` directly in a `MemoryPacket` without calling `PacketRegistry`.
+   - Otherwise calls `PacketRegistry.TryDeserialize(lease.Span, out IPacket? deserialized)`. On failure, increments `_deserializationErrors`, disposes `lease`, and increments `connection.IncrementErrorCount()`.
+4. **Synchronous vs. Asynchronous Completion**:
+   - Calls `Options.ExecuteResolvedHandlerAsync(in handler, packet, connection, isReliable, encryptedOnWire, ct)`.
+   - If the `ValueTask` completes synchronously (`IsCompletedSuccessfully`), disposes `lease` immediately on the worker loop with zero continuation allocation.
+   - If the handler awaits asynchronous I/O, rents a pooled `DispatchContinuation` from `ObjectPoolManager.Shared` (`workItem.Initialize(connection, lease, pending.AsTask(), ct)`) so the worker loop is not blocked and `lease` is disposed when the task finishes.
 
-```csharp
-Math.Clamp(
-    Environment.ProcessorCount * Options.MaxDrainPerWakeMultiplier,
-    Options.MinDrainPerWake,
-    Options.MaxDrainPerWake)
-```
+## Diagnostics (`IReportable`)
 
-Default option values make this clamp resolve within a bounded range derived from
-`Environment.ProcessorCount` and the configured drain multipliers in `PacketDispatchOptions`.
+`GenerateReport()` and `WriteReportData(Utf8JsonWriter)` emit:
 
-## DispatchChannel Queue Behavior
-
-`DispatchChannel<TPacket>` is the internal queue behind `PacketDispatchChannel`.
-It maintains per-connection state and priority-ready queues.
-
-| Concern | Source behavior |
-| --- | --- |
-| Priority classification | Reads the priority byte at `PacketHeaderOffset.Priority`; invalid or short buffers use `PacketPriority.NONE`. |
-| Priority selection | Uses weighted round-robin budgets, scanning from `PacketPriority.URGENT` down to `PacketPriority.NONE`. |
-| Default priority weights | If `DispatchOptions.PriorityWeights` is absent or short, each missing weight uses `1 << priorityIndex`. |
-| Per-connection bounds | Enabled when `DispatchOptions.MaxPerConnectionQueue > 0`. |
-| Overflow handling | Uses `DropPolicy.DropNewest`, `DropOldest`, `Coalesce`, or `Block`; packet dispatch calls `PushCore(..., noBlock: true)`, so block-mode enqueue fails fast from `HandlePacket`. |
-| Cleanup | `src/Nalix.Runtime/Internal/Routing/DispatchChannel.cs` subscribes to `IConnectionHub.ConnectionUnregistered` and drains/disposes queued leases for removed connections. |
-
-## Execution and Disposal Guarantees
-
-When a worker pulls a lease:
-
-1. If the handler expects `ReadOnlyMemory<byte>`, a `MemoryPacket` is created directly from the lease, bypassing the registry.
-2. Otherwise, `PacketRegistry.TryDeserialize(lease.Span, out IPacket?)` is called.
-3. Deserialization failure increments the connection error count and disposes the lease.
-4. Successful packets are executed through `ExecutePacketHandlerAsync`.
-5. Synchronous completions dispose `IDisposable` packets and the lease immediately.
-6. Asynchronous completions are awaited by a helper that disposes both in `finally`.
-7. Non-fatal handler exceptions increment the connection error count and are logged.
-
-## Diagnostics
-
-`GenerateReport()` and `WriteReportData(Utf8JsonWriter writer)` expose the current runtime snapshot:
-
-| Field | Meaning |
-| --- | --- |
-| `Running` | Whether workers are currently active. |
-| `DispatchLoops` | Number of scheduled dispatch worker loops. |
-| `WakeSignals` | Number of calls that released wake signals. |
-| `WakeReads` | Number of times a parked worker resumed from its wake signal. |
-| `IdleWorkers` | Workers currently parked or about to park. |
-| `TotalPackets` | Total queued packets in `DispatchChannel`. |
-| `TotalConnections` | Active tracked connection states. |
-| `ReadyConnections` | Connections currently marked ready. |
-| `PendingPerPriority` | Ready-entry snapshot per priority level. |
-| `PendingByConnection` | Top pending connections in `WriteReportData()`. |
+- **Worker & Channel Metrics**: `Running`, `DispatchLoops`, `WakeSignals`, `WakeReads`, `IdleWorkers`, `TotalPackets`, `PeakPackets`, `TotalConnections`, `ReadyConnections`, and `PendingPerPriority` (`URGENT` down to `NONE`).
+- **Pipeline Metrics (`Options.Metrics`)**: `ActiveExecutions`, `TotalExecutions`, `TotalDropped` (`_totalDropped + _dispatch.TotalEvicted`), `TotalErrors`, `DeserializationErrors`, `AverageTimeMs`, `MaxTimeMs`, and per-middleware breakdowns (`MiddlewareMetrics`).
 
 ## Related APIs
 
 - [Dispatch Contracts](./dispatch-contracts.md)
 - [Packet Dispatch Options](../../options/runtime/packet-dispatch-options.md)
 - [Dispatch Channel and Router](./dispatch-channel-and-router.md)
-- [Middleware Pipeline](../../../concepts/internals/middleware-pipeline.md)
+- [Middleware Pipeline](../middleware/pipeline.md)

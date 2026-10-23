@@ -1,111 +1,105 @@
 ---
 title: Nalix.Codec
-description: Nalix.Codec handles the transformation of data between objects and wire formats. It includes serialization, compression, and security transforms.
+description: Level 2 wire codec package providing compile-time binary serialization, LZ4 compression, AEAD encryption, built-in protocol frames, and PacketRegistry.
 section: Packages
 package: Nalix.Codec
 ---
 
-`Nalix.Codec` handles the transformation of data between objects and wire formats. It includes serialization, compression, and security transforms.
+`Nalix.Codec` is the **Level 2** wire transformation package. It converts strongly-typed C# packet objects into framed binary payloads and back, integrating compile-time serialization (`LiteSerializer`), pooled LZ4 compression (`LZ4Codec`), AEAD encryption (`EnvelopeCipher`), fused frame pipelines (`FramePipeline`), and the process-wide `PacketRegistry`.
 
 ## Key Responsibilities
 
-- **Serialization**: Fast, low-allocation binary serialization for packets.
-- **Compression**: Integrated LZ4 compression for reducing network bandwidth.
-- **Security**: Framed packet encryption and hashing.
-- **Registry**: Process-wide catalog for packet discovery and deserialization.
+- **Serialization (`Nalix.Codec.Serialization`)**: Zero-reflection binary serialization via `LiteSerializer`, `FormatterProvider`, and `IFormatter<T>`.
+- **Packet Catalog (`Nalix.Codec.DataFrames`)**: Base packet classes (`FrameBase`, `PacketBase<TSelf>`) and the frozen `PacketRegistry` lookup table.
+- **Packet Pooling (`Nalix.Codec.Pooling`)**: `PacketFactory<TPacket>`, `PacketScope<TPacket>`, and `PacketBatchScope<TPacket>` for zero-allocation packet rental.
+- **Compression (`Nalix.Codec.LZ4`)**: Pooled, zero-allocation LZ4 block compression and decompression via `LZ4Codec`.
+- **Cryptography (`Nalix.Codec.Security`)**: `EnvelopeCipher` (`ChaCha20Poly1305`, `Salsa20Poly1305`, `ChaCha20`, `Salsa20`), `HandshakeX25519`, `ProofOfWork`, `Keccak256`, `HmacKeccak256`, and `Pbkdf2`.
+- **Frame Transforms (`Nalix.Codec.Transforms`)**: `FramePipeline`, `FrameCipher`, `FrameCompression`, and `FrameTransformer` for inbound/outbound frame processing.
 
-## Where it fits
+## Where It Fits
 
 ```mermaid
 flowchart TD
-    subgraph Core ["Nalix.Codec"]
-        Serialization["Serialization"]
-        Registry["PacketRegistry"]
-        Transforms["Transforms (LZ4/Cipher)"]
+    subgraph Core ["Nalix.Codec (Level 2)"]
+        Serialization["LiteSerializer & Formatters"]
+        Registry["PacketRegistry & PacketBase<T>"]
+        Transforms["FramePipeline (LZ4Codec + EnvelopeCipher)"]
+        ProtocolFrames["Built-in Protocol Frames"]
     end
 
-    subgraph Base ["Nalix.Environment"]
-        Memory["Memory (BufferLease/Reader/Writer)"]
+    subgraph Base ["Lower Layers"]
+        Env["Nalix.Environment (BufferLease / DataReader / DataWriter)"]
+        Abs["Nalix.Abstractions (IPacket / Attributes)"]
     end
 
-    Codec --> Env
-    Codec --> Abstractions
+    Core --> Env
+    Core --> Abs
+```
+
+## Packet Registry Flow
+
+At compile time, `PacketRegistryGenerator` discovers every class marked with `[Packet]` and emits a `[ModuleInitializer]` that registers its factory and deserializer into `PacketRegistry`. Calling `PacketRegistry.Build()` (done automatically by `NetworkApplicationBuilder`) freezes the catalog into a fast lookup table.
+
+```mermaid
+flowchart LR
+    A["PacketRegistryGenerator"] -- "RegisterPacket<T>()" --> B["PacketRegistry"]
+    B -- "Build()" --> C["Frozen Opcode Catalog"]
+    C --> D["Nalix.Runtime (Server Dispatch)"]
+    C --> E["Nalix.SDK (Client Receive)"]
 ```
 
 ## Core Components
 
-### `PacketRegistry`
+### `FrameBase` and `PacketBase<TSelf>`
 
-The process-wide catalog for packet discovery and deserialization.
+Base classes for all wire packets. `PacketBase<TSelf>` implements `IPacket`, `IPoolable`, header stamping, and pooled deserialization/serialization helpers.
 
-### `FrameCipher` and `FrameCompression`
+### `LiteSerializer` and `FormatterProvider`
 
-Helpers for applying encryption and compression to framed packets.
+The serialization engine. For packet classes annotated with `[GenerateFormatter]` and `[SerializePackable]`, `SerializeFormatterGenerator` emits a compile-time `IFormatter<T>` implementation and registers it with `FormatterProvider`, avoiding runtime reflection or IL generation.
 
-### `LZ4Codec`
+### `FramePipeline`, `FrameCipher`, and `FrameCompression`
 
-A pooled implementation of the LZ4 compression algorithm.
+- `FramePipeline.ProcessOutbound(...)` applies outbound transforms in canonical wire order (**compress first, then encrypt**). When both compression and encryption are active, it uses a **fused single-lease path** (`ProcessOutboundFused`) and skips compression automatically if the payload does not shrink by at least 12.5%.
+- `FramePipeline.TryProcessInbound(...)` applies inbound transforms in canonical wire order (**decrypt first, then decompress**), setting `EncryptedOnWire = true` and `ZeroOnDispose = true` on decrypted plaintext leases.
 
-## Registry flow
+### Built-in Protocol Frames (`Nalix.Codec.ProtocolFrames`)
 
-```mermaid
-flowchart LR
-    A["Source Generator"] -- "RegisterGenerated()" --> B["PacketRegistry"]
-    B -- "Build()" --> C["Frozen Catalog"]
-    C --> D["Nalix.Network"]
-    C --> E["Nalix.SDK"]
-```
+- **Control & Directives**: `Control` (`PING`, `PONG`, `DISCONNECT`, `PUBLIC_KEY_REQUEST`, etc.), `Directive` (throttling/error notices), `TimeSync`.
+- **X25519 Handshake**: `SessionTofu`, `SessionInit`, `SessionChallenge`, `SessionProof`, `SessionEstablished`.
+- **Session Resume**: `SessionResume` (unified frame using `SessionResumeStage` for `REQUEST` and `RESPONSE`).
+- **Proof-of-Work**: `ProofOfWorkChallenge`, `ProofOfWorkProof`.
 
-### Purpose
-
-- Define built-in frames.
-- Build an immutable packet registry.
-- Provide shared serialization helpers.
-- Provide pooled LZ4 compression primitives.
-- Provide shared framed packet transform helpers (`FrameCipher` and `FrameCompression`).
-
-### Key components
-
-- `FrameBase` / `PacketBase<TSelf>` — base abstractions for headers, static opcode, serialization, and pooling.
-- `SerializePackableAttribute` / `SerializeOrderAttribute` / `SerializeIgnoreAttribute` / `SerializeHeaderAttribute` / `SerializeDynamicSizeAttribute` — low-level serialization layout controls.
-- `LiteSerializer` / `FormatterProvider` / `IFormatter<T>` — serializer entry points and formatter resolution.
-- `PacketRegistry` — process-wide registry for packet discovery and deserialization.
-- `SessionInit` / `SessionChallenge` / `SessionProof` / `SessionEstablished` — session protocol frames for the X25519 handshake flow.
-- `SessionTofu` — Trust-On-First-Use frame for retrieving the server's static public key.
-- `SessionResume` — unified session signal packet for resume request/response flows (uses `SessionResumeStage` for stage disambiguation).
-- `Control` — built-in frame type.
-- `FragmentHeader` / `FragmentAssembler` / `FragmentOptions` — chunk large payloads and reassemble them safely.
-- `FrameCipher` / `FrameCompression` — framed packet encrypt/decrypt and compress/decompress helpers.
-- `LZ4Codec` — pooled block compression and decompression.
-
-:::note[Memory Primitives]
-While `Nalix.Codec` performs serialization, the low-level memory primitives (`BufferLease`, `DataReader`, `DataWriter`) reside in **`Nalix.Environment`**.
+:::note[Memory and Fragmentation Primitives]
+While `Nalix.Codec` performs serialization and frame transforms, the underlying memory primitives (`BufferLease`, `DataReader`, `DataWriter`) and fragmentation types (`FragmentHeader`, `FragmentAssembler`, `FragmentOptions`) reside in **[Nalix.Environment](./nalix-environment.md)**.
 :::
 
-### Quick example
+## Quick Example
 
 ```csharp
+using Nalix.Abstractions.Networking.Packets;
+using Nalix.Abstractions.Primitives;
 using Nalix.Codec.DataFrames;
 using Nalix.Codec.ProtocolFrames;
-using Nalix.Environment.Memory;
 
-// Initialize the registry (usually called by NetworkApplicationBuilder)
-PacketRegistry.Build(); // Freeze the registry
+// Freeze the packet catalog (called automatically when using Nalix.Hosting)
+PacketRegistry.Build();
 
-// Session init frame (first step of handshake)
-var init = SessionInit.Create();
+// Rent and initialize a built-in SessionInit handshake frame
+SessionInit init = SessionInit.Create();
 init.Initialize(
     new Bytes32(publicKeyBytes),
     new Bytes32(nonceBytes),
-    PacketFlags.SYSTEM | PacketFlags.RELIABLE);
-byte[] bytes = init.Serialize();
+    PacketFlags.SYSTEM);
+
+byte[] wireBytes = init.Serialize();
 ```
 
-## Key API pages
+## Key API Pages
 
-- [Serialization](../api/codec/serialization/serialization-basics.md)
-- [Buffer Management](../api/environment/memory/buffer-management.md)
-- [LZ4](../api/codec/lz4.md)
+- [Serialization Basics](../api/codec/serialization/serialization-basics.md)
+- [Packet Serialization](../api/codec/serialization/packet-serialization.md)
+- [LZ4 Compression](../api/codec/lz4.md)
 - [Frame Model](../api/codec/packets/frame-model.md)
 - [Packet Registry](../api/codec/packets/packet-registry.md)
 - [Built-in Frames](../api/codec/packets/built-in-frames.md)

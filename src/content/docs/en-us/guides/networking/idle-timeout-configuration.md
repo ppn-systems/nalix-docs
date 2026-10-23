@@ -23,27 +23,21 @@ This ensures that even with **100,000+ concurrent connections**, the CPU overhea
 
 ## 2. Configuration
 
-Idle timeout is managed via `NetworkSocketOptions` (to enable/disable) and `TimingWheelOptions` (to tune the timing).
+Idle timeout is managed via `TimingWheelOptions` (`[TimingWheel]` INI section). Individual connections can opt out of idle eviction at runtime by setting `connection.ExcludeFromIdleTimeout = true`.
 
 ### Method 1: Configuration Files (INI)
 
-The framework's internal `Bootstrap` automatically loads these settings from `.ini` files in your executable directory.
+`ConfigurationManager` loads `TimingWheelOptions` from the `[TimingWheel]` section in `assets/config.ini`:
 
-**`network.ini`**
 ```ini
-; Enable the idle timeout mechanism
-EnableTimeout = true
-```
-
-**`timing.ini`**
-```ini
-; The duration in milliseconds before an idle connection is closed
+[TimingWheel]
+; The duration in milliseconds before an idle connection is closed (minimum 1000)
 IdleTimeoutMs = 60000
 
-; The precision of the idle check (lower = more precise but higher CPU)
+; The precision of the idle check in milliseconds (10 to 60000)
 TickDuration = 1000
 
-; Number of buckets in the wheel (higher = fewer collisions)
+; Number of buckets in the wheel (16 to 1024; rounded up to power of two)
 BucketCount = 512
 ```
 
@@ -51,28 +45,28 @@ BucketCount = 512
 
 ## 3. Method 2: Fluent Builder (C#)
 
-If you prefer to configure the server in code, use the `Configure<T>` methods on the `NetworkApplicationBuilder`.
+If you prefer to configure the server in code, use `ConfigurationManager.Instance.Get<TimingWheelOptions>()` or configure your listener before `Build()`:
 
 ```csharp
+using Nalix.Environment.Configuration;
 using Nalix.Hosting;
 using Nalix.Network.Options;
 
+TimingWheelOptions wheelOptions = ConfigurationManager.Instance.Get<TimingWheelOptions>();
+wheelOptions.IdleTimeoutMs = 30_000; // Disconnect after 30 seconds of silence
+wheelOptions.TickDuration = 1000;    // Check once per second
+
 var host = NetworkApplication.CreateBuilder()
-    // Enable or disable the mechanism globally
-    .Configure<NetworkSocketOptions>(options => 
-    {
-        options.EnableTimeout = true;
-    })
-    // Fine-tune the timeout duration
-    .Configure<TimingWheelOptions>(options => 
-    {
-        options.IdleTimeoutMs = 30_000; // Disconnect after 30 seconds of silence
-        options.TickDuration = 1000;    // Check once per second
-    })
-    .ListenTcp<MyProtocol>().Bind()
+    .MapTcp<MyProtocol>().Bind()
     .Build();
 
 await host.RunAsync();
+```
+
+To exempt a specific long-lived connection (such as an internal health monitor or inter-server bridge) from idle timeout eviction:
+
+```csharp
+connection.ExcludeFromIdleTimeout = true;
 ```
 
 ---
