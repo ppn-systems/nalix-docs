@@ -45,7 +45,7 @@ const currentPath = localizePath(currentSlug, locale);
       )}
 
       <a href={localizePath('', locale)} class="nlx-brand" data-link-location="HeaderLogo" data-astro-prefetch>
-        <img src="/assets/nalix.png" alt="Nalix" class="nlx-brand__logo" width="22" height="22" decoding="async" />
+        <img src="/assets/nalix.svg" alt="Nalix" class="nlx-brand__logo" width="22" height="22" fetchpriority="high" />
         <span>{t('site.headerBrand')}</span>
       </a>
 
@@ -57,20 +57,19 @@ const currentPath = localizePath(currentSlug, locale);
           const panelId = `nlx-mega-${index}`;
           return (
             <div class="nlx-topnav__item" data-mega>
-              <a
-                href={tab.href}
+              <button
+                type="button"
                 class:list={['nlx-topnav__link', { 'is-active': isActive }]}
                 aria-haspopup="true"
                 aria-expanded="false"
                 aria-controls={panelId}
                 data-mega-trigger
-                data-astro-prefetch
               >
                 {tab.title}
-                <svg class="nlx-topnav__chevron" data-mega-toggle width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg class="nlx-topnav__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="m6 9 6 6 6-6" />
                 </svg>
-              </a>
+              </button>
               <div class="nlx-mega" id={panelId} role="region" aria-label={tab.title} style={`--mega-cols:${Math.min(Math.max(tab.columns.length, 1), 5)}`}>
                 <div class="nlx-mega__inner">
                   <div class="nlx-mega__grid">
@@ -289,7 +288,6 @@ const currentPath = localizePath(currentSlug, locale);
       window.clearTimeout(openTimer);
       closeTimer = window.setTimeout(() => close(item), CLOSE_DELAY_MS);
     });
-    item.addEventListener('focusin', () => open(item));
     item.addEventListener('focusout', (event) => {
       if (!item.contains((event as FocusEvent).relatedTarget as Node | null)) close(item);
     });
@@ -303,17 +301,17 @@ const currentPath = localizePath(currentSlug, locale);
         panelOf(item).querySelector<HTMLElement>('a')?.focus();
       }
     });
-    // The label always follows the link; the chevron opens or closes the panel (touch, or a mouse click).
-    const toggle = trigger.querySelector('[data-mega-toggle]');
-    let wasOpen = false; // focusing the link opens the panel before the click arrives
-    toggle?.addEventListener('pointerdown', () => {
-      wasOpen = item.classList.contains('is-open');
+    // The tab only opens its panel; the panel's last line leads to the whole section.
+    // A mouse already opened it on hover, so a click keeps it open; touch and keyboard toggle it.
+    let pointer = 'keyboard';
+    trigger.addEventListener('pointerdown', (event) => {
+      pointer = event.pointerType;
     });
-    toggle?.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (wasOpen) close(item);
+    trigger.addEventListener('click', () => {
+      if (pointer === 'mouse') open(item);
+      else if (item.classList.contains('is-open')) close(item);
       else open(item);
+      pointer = 'keyboard';
     });
   });
 

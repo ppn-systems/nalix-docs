@@ -395,6 +395,10 @@ html[data-intro] .nlx-brand > span {
 }
 
 .nlx-topnav__link {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   padding: 6px 11px;
