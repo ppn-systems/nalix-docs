@@ -757,13 +757,7 @@ a:hover {
   box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.35);
 }
 
-.nlx-home-hero__bg-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  color: var(--text-primary);
+.nlx-hero-bg {
   z-index: 0;
 }
 
@@ -1975,5 +1969,71 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
   .nlx-main {
     max-width: 100% !important;
     padding: 0 !important;
+  }
+}
+
+/* Page motion */
+@keyframes nlx-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.nlx-home-hero-card {
+  animation: nlx-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nlx-home-hero__title,
+.nlx-home-hero__subtitle,
+.nlx-home-search-bar {
+  animation: nlx-rise 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nlx-home-hero__title { animation-delay: 0.12s; }
+.nlx-home-hero__subtitle { animation-delay: 0.22s; }
+.nlx-home-search-bar { animation-delay: 0.32s; }
+
+.nlx-product-card {
+  animation: nlx-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nlx-product-card:nth-child(1) { animation-delay: 0.30s; }
+.nlx-product-card:nth-child(2) { animation-delay: 0.38s; }
+.nlx-product-card:nth-child(3) { animation-delay: 0.46s; }
+.nlx-product-card:nth-child(4) { animation-delay: 0.54s; }
+.nlx-product-card:nth-child(n + 5) { animation-delay: 0.62s; }
+
+.nlx-product-card,
+.nlx-btn-primary {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.nlx-product-card:hover {
+  transform: translateY(-3px);
+}
+
+.nlx-btn-primary:hover {
+  transform: translateY(-1px);
+}
+
+.nlx-home-search-input-wrap:focus-within {
+  box-shadow: 0 0 0 3px rgba(37, 132, 244, 0.25);
+}
+
+.nlx-mega__link,
+.nlx-topnav__link {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nlx-home-hero-card,
+  .nlx-home-hero__title,
+  .nlx-home-hero__subtitle,
+  .nlx-home-search-bar,
+  .nlx-product-card {
+    animation: none;
+  }
+  .nlx-product-card:hover,
+  .nlx-btn-primary:hover {
+    transform: none;
   }
 }

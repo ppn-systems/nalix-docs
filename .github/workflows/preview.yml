@@ -1,0 +1,81 @@
+name: "Preview (pull requests)"
+
+# Publishes a throwaway Cloudflare Pages preview for a pull request, only when
+# the PR changes something that ends up in the built site. Changes limited to
+# tools/, tests/, docs-about-the-repo, or the source-sync snapshot do not deploy.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "astro.config.*"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - ".github/workflows/preview.yml"
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: "Build & deploy preview"
+    # Fork PRs get no secrets, so they cannot deploy.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Check Cloudflare credentials
+        id: creds
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "::notice::CLOUDFLARE_API_TOKEN is not set; skipping the preview deploy."; fi
+
+      - name: Deploy preview
+        id: deploy
+        if: steps.creds.outputs.ok == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=nalix-docs --branch=pr-${{ github.event.pull_request.number }} --commit-dirty=true
+
+      - name: Comment preview URL
+        if: steps.deploy.outputs.deployment-url != ''
+        uses: actions/github-script@v7
+        env:
+          URL: ${{ steps.deploy.outputs.deployment-url }}
+        with:
+          script: |
+            const marker = '<!-- nalix-docs-preview -->';
+            const sha = context.payload.pull_request.head.sha.slice(0, 7);
+            const body = `${marker}\n**Preview:** ${process.env.URL}\n\nBuilt from \`${sha}\`. Updated on every push that changes the site.`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
