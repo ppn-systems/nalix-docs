@@ -1,6 +1,7 @@
 {
   "nalixCommit": "21ad820e210f561bccd016f7834968eafd2a49e0",
   "files": {
+    "analyzers/Directory.Build.props": "e4bdd03b804a03fb4357ceb24e4490f50231bdf5714d41ae460f176febaaee4d",
     "analyzers/Nalix.Analyzers.CodeFixes/ConfigurationIgnoreCodeFixProvider.cs": "43c4205e2b520dda210192844342e84dcfd6a246dd91c784d6225485efa2b495",
     "analyzers/Nalix.Analyzers.CodeFixes/DispatchLoopCountCodeFixProvider.cs": "8990191b6b7b168664360cfa7f658c4888e5a8987a057c6016a01140cc043087",
     "analyzers/Nalix.Analyzers.CodeFixes/DuplicateSerializeOrderCodeFixProvider.cs": "c0b6fd1697975c0731da8098ac93c745655bb31620871b6d0d68604891435314",
@@ -72,6 +73,7 @@
     "samples/SecureMultiTransportHelloWorld/SecureMultiTransportHelloWorld.Server/HelloHandlers.cs": "39e6502d09283c88452c92a1b79f3e1df37520df7e76fbf78c7f0dda498ff9ee",
     "samples/SecureMultiTransportHelloWorld/SecureMultiTransportHelloWorld.Server/Program.cs": "ef4adb6e1976d39d0879ced838f2b90e416db3624950750ffa59ce6db71eb88f",
     "samples/SecureMultiTransportHelloWorld/SecureMultiTransportHelloWorld.Server/SecureMultiTransportHelloWorld.Server.csproj": "fd83e9180a391caf975c68de9b529a4502f1f8c8c482c2044ef943379d78712b",
+    "src/Directory.Build.props": "c97a4242e55805af9b673a49cb24630c7104730864926c25899e11c31d90dcba",
     "src/Nalix.Abstractions/AttributeKey.cs": "13c357ae8388c24571b9025493a45051cafba390ce0afee4f0566e9f5e706ebf",
     "src/Nalix.Abstractions/BorrowedAttribute.cs": "d86d5b1030074e1129333f8b071da16f2f603d78c9c202acc769f6fe68fc2619",
     "src/Nalix.Abstractions/Concurrency/IRecurringHandle.cs": "3b4fb6b233bb7fe92f5b895631e9a0a58d2532fdd048f4a018766ac1af940e15",
@@ -205,6 +207,7 @@
     "src/Nalix.Abstractions/Validation/RequiredAttribute.cs": "67c9c6536f6c981c164bbcd9faf72635f4bd3b4a802e40fe54043d365b33198b",
     "src/Nalix.Abstractions/Validation/ReturnValidation.cs": "335af2e7d52fe6c1c56ea7d310e7d231fe38c2f19f6a48432b168f0f075280bf",
     "src/Nalix.Abstractions/Validation/ValueRangeAttribute.cs": "4726e58c892622f28b70c6c92fe26b6e48fce366c38f9873352839a9e912ce49",
+    "src/Nalix.Build.props": "38acd97fb1f8cfaec05a8c37a1d1fa556ad38f8f18803c14c44f871c8b8f9fc7",
     "src/Nalix.Codec/DataFrames/FrameBase.cs": "fcaa62d964cde73326c34a52b5a2a3695ca830212c0950e47a13e44e9f40e66a",
     "src/Nalix.Codec/DataFrames/PacketBase.cs": "0e4ff85cd1c0d5c6564025641a7f3521ce79c0d925ddb3c8275e595fbf2a4bba",
     "src/Nalix.Codec/DataFrames/PacketRegistry.cs": "3d1b0908425269e40212d73eb1a7c16bc17930cf6f9e1a13c49d404993e95587",
@@ -598,6 +601,8 @@
     "src/Nalix.SDK/Transport/TcpSession.cs": "b7684922e7a57ea93e02f296cabc206a0455e1cdd454a0318b055ce208794a8d",
     "src/Nalix.SDK/Transport/TransportSession.cs": "41eb986885ecf09cd4d62da154c869c5208249570d6cdf9137160c28d93567ae",
     "src/Nalix.SDK/Transport/UdpSession.cs": "45a73c005eb9ed1eb2810f7e7d1554a89d413e2d92cd8e82cdfdb18a20a4a496",
-    "src/Nalix.SDK/Transport/WebSocketSession.cs": "55d39bec67c732ab9ff8f635694e8d018b6e9d9a2df6d17524718357e32e1929"
+    "src/Nalix.SDK/Transport/WebSocketSession.cs": "55d39bec67c732ab9ff8f635694e8d018b6e9d9a2df6d17524718357e32e1929",
+    "src/Package.Build.props": "e5907c0d8df449e8007017890964520e31e8cab9460b5af7bf6e4381c4a56d77",
+    "src/Version.props": "f948f24778ff10186c8e5dec1d8c525477bc1d22ef750b86b642aa46c0b3dbda"
   }
 }

@@ -23,12 +23,20 @@ class ApiIndex:
         for t in self.types:
             by_name.setdefault(t["name"], []).append(t)
         self.types_by_name = by_name
+        self.diagnostics: dict[str, dict[str, Any]] = data.get("diagnostics", {})
+        self.projects: dict[str, dict[str, Any]] = data.get("projects", {})
+        self.version: str = data.get("version", "")
+        self.referenced_versions: list[str] = data.get("referencedVersions", [])
+        self.signatures: dict[str, list[dict[str, Any]]] = data.get("signatures", {})
 
     def is_type(self, name: str) -> bool:
         return name in self.types_by_name
 
     def has_path(self, path: str) -> bool:
         return path in self.files or path in self.dirs
+
+    def enum_value(self, enum: str, member: str) -> int | None:
+        return self.enums[enum].get("values", {}).get(member)
 
     def enum_has_member(self, enum: str, member: str) -> bool:
         return any(m.split("=")[0].strip() == member for m in self.enums[enum]["members"])

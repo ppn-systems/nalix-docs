@@ -39,7 +39,13 @@ Hashing ignores `//`, `/* */`, `///` and formatting; literals (`"//"`, `$"{x}"`,
 | A004 | error | Options default differs from the source literal (numbers, bools, `TimeSpan`) |
 | A005 | error/warn | Enum section lists a member the enum lacks (warn: omits one) |
 | A006 | error/warn | `Enum.Member` or `Type.Member` that does not exist in the source |
+| A007 | error | A numeric value listed for an enum member (opcodes, flags) differs from the source |
+| A008 | error/warn | `NALIXnnn` id unknown/missing from the catalogue, wrong severity or counts; warn: title differs |
+| A009 | error | Package diagram edge with no project reference behind it (or a missing one in a complete diagram); wrong "Level N" |
 | A010 | gap | Public type no page mentions |
+| A011 | error | A Nalix package version newer than any version the repository knows (`Version.props`, samples) |
+| A012 | error | `page.md#heading` link whose heading does not exist (the message suggests the closest heading) |
+| A013 | warn | A signature written in a C# fence or table is not an overload in the source (the message lists the real ones) |
 
 ### Code map
 ```text
@@ -48,6 +54,7 @@ tools/docsync/domain/             pure logic, no I/O
   normalize.py                    comment-free C#/XML views, content hash
   declarations.py, surface.py     type scan, member signatures, surface diff
   api_index.py, api_view.py       the API index (build / query)
+  enum_values.py, diagnostics.py, projects.py, signatures.py   facts the checks compare against
   checks/                         one module per audit rule, registered in checks/__init__.py
   classifier.py, report.py        change tiers and Markdown report
 tools/docsync/application/        use cases (CheckDrift, RecordSnapshot, AuditDocs) and their ports

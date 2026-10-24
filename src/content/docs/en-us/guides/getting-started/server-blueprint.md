@@ -158,7 +158,7 @@ See [Manual Wiring (No Hosting)](../../concepts/internals/minimal-server.md) for
 
 - Define shared packet contracts in their own project, referenced by both server and client.
 - Log through `ILogger`, not `Console.WriteLine`, once you leave the quickstart stage.
-- Validate every options type at startup (see [Configuration & Validation](#1-configuration-validation)).
+- Validate every options type at startup (see [Configuration & Validation](#1-configuration--validation)).
 - Keep custom protocols thin — forward to the dispatcher, don't embed application logic in them.
 
 ## Recommended Next Pages

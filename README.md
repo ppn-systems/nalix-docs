@@ -68,7 +68,7 @@ Technical statements must match the Nalix source. Read the code before documenti
 `tools/` contains Python tools (standard library only) that compare the docs with the Nalix source on GitHub:
 
 ```bash
-npm run audit         # docs vs the stored API snapshot: wrong paths, namespaces, option defaults, enum members, undocumented types
+npm run audit         # docs vs the stored API snapshot: paths, namespaces, option defaults, enum members and values, diagnostic codes, package graph and versions, heading links, signatures, undocumented types
 npm run sync:check    # what changed in Nalix since the docs were last synced, and which of it matters
 npm run sync:update   # record the current Nalix commit as synced (after fixing the docs)
 ```

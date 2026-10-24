@@ -18,7 +18,7 @@ If you're looking for the core interfaces and classes that drive Nalix:
 
 :::warning[Important]
 Most users should NOT start by reading the API reference.  
-If you are new, follow the [Recommended Path](../index.md#recommended-path)  
+If you are new, follow the [Recommended Path](../index.md#start-here)  
 or explore the [Guides](../guides/index.md) first.
 :::
 

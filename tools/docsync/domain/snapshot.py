@@ -11,11 +11,11 @@ _SKIPPED_SEGMENTS = frozenset({"bin", "obj", ".git", ".vs"})
 
 
 def is_tracked(path: str) -> bool:
-    """``.cs`` / ``.csproj`` files under ``analyzers/``, ``samples/`` or ``src/``, outside build output."""
+    """``.cs`` / ``.csproj`` / ``.props`` files under ``analyzers/``, ``samples/`` or ``src/``, outside build output."""
     segments = path.split("/")
     return (
         segments[0] in TRACKED_DIRS
-        and path.endswith((".cs", ".csproj"))
+        and path.endswith((".cs", ".csproj", ".props"))
         and not _SKIPPED_SEGMENTS.intersection(segments)
     )
 

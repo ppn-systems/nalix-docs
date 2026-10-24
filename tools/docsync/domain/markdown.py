@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass
 
@@ -59,6 +60,7 @@ _CODE_SPAN = re.compile(r"`([^`\n]+)`")
 _IDENTIFIER_CELL = re.compile(r"^`([A-Za-z_]\w*)(?:\(\))?`$", re.ASCII)
 
 
+@functools.lru_cache(maxsize=4096)
 def kebab(name: str) -> str:
     """``ConnectionGuardOptions`` -> ``connection-guard-options``."""
     name = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", name)

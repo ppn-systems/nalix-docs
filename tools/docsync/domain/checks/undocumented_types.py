@@ -15,7 +15,7 @@ class PublicTypesDocumented:
     code = "A010"
 
     def run(self, ctx: AuditContext) -> Iterable[Finding]:
-        corpus = "\n".join(page.full_text for page in ctx.pages)
+        words = set(re.findall(r"\w+", "\n".join(page.full_text for page in ctx.pages), re.ASCII))  # whole-word lookup
         seen: set[str] = set()
         for t in ctx.index.types:
             name = t["name"]
@@ -26,6 +26,6 @@ class PublicTypesDocumented:
             if t["file"].startswith("analyzers/") and name.endswith("Model"):
                 continue  # source-generator pipeline models
             seen.add(name)
-            if not re.search(rf"(?<!\w){re.escape(name)}(?!\w)", corpus, re.ASCII):
+            if name not in words:
                 yield Finding(self.code, Severity.GAP, "", 0,
                               f"Public {t['kind']} `{t['namespace']}.{name}` ({t['file']}) is not mentioned in any page", name)
