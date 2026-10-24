@@ -8,7 +8,7 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Internal.Transport`  
 **Assembly:** `Nalix.Network`
 
-`SocketConnection` (`internal sealed partial class SocketConnection : IDisposable, IPoolable`) là bộ máy transport TCP có khung nội bộ, làm nền cho `Connection.TCP` (`SocketTcpTransport`). Nó dùng các `PooledSocketReceiveContext` (`SocketAsyncEventArgs`) lấy từ pool, pool mảng byte `BufferLease`, và đóng khung đa chế độ để duy trì 10.000+ kết nối đồng thời mà không cấp phát heap cho mỗi gói tin.
+`SocketConnection` (`internal sealed partial class SocketConnection : IDisposable, IPoolable`) là bộ máy transport TCP có khung nội bộ, làm nền cho `Connection.TCP` (`SocketTcpTransport`). Nó dùng các `PooledSocketReceiveContext` (`SocketAsyncEventArgs`) lấy từ pool, pool mảng byte `BufferLease`, và đóng khung đa chế độ để duy trì 10,000+ kết nối đồng thời mà không cấp phát heap cho mỗi gói tin.
 
 :::warning[Kiểu triển khai nội bộ]
 `SocketConnection` là `internal sealed` và không được mã ứng dụng tham chiếu trực tiếp. Mã ứng dụng tương tác với socket TCP qua `IConnection` và `connection.TCP` (`IConnection.ITransport`).

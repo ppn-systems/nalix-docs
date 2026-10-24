@@ -124,6 +124,26 @@ class CompareTests(unittest.TestCase):
         self.assertFalse(looks_untranslated("Hãy dùng bộ xử lý này cho mỗi gói tin " * 10))
 
 
+class NumberTests(unittest.TestCase):
+    SRC = "---\ntitle: T\n---\n\nUp to 65,536 slots, 12.5 ms and 1 second.\n"
+
+    def codes(self, vi_body):
+        return codes(compare("p.md", extract_shape(self.SRC), extract_shape("---\ntitle: T\n---\n\n" + vi_body + "\n")))
+
+    def test_notation_must_match(self):
+        self.assertEqual(self.codes("Tối đa 65.536 ô, 12,5 ms và một giây."), ["L013"])
+        self.assertEqual(self.codes("Tối đa 65,536 ô, 12.5 ms và một giây."), [])
+
+    def test_restore_notation_rewrites_prose_only(self):
+        from l10n.domain.numbers import restore_notation
+
+        vi = "---\ntitle: T\n---\n\nTối đa 65.536 ô, 12,5 ms và `65.536` trong mã.\n\n```text\n65.536\n```\n"
+        fixed = restore_notation(vi, extract_shape(self.SRC + "`65.536`\n"), extract_shape(vi))
+        self.assertIn("Tối đa 65,536 ô, 12.5 ms", fixed)
+        self.assertIn("`65.536` trong mã", fixed)
+        self.assertIn("```text\n65.536\n```", fixed)
+
+
 class CodeTests(unittest.TestCase):
     def test_comments_do_not_count(self):
         self.assertEqual(comparable("csharp", "// a\nvar x = 1; // b"), comparable("csharp", "// khác\nvar x = 1; // c"))

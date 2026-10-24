@@ -43,7 +43,7 @@ flowchart TD
 
 ## Luồng thực thi nội bộ (đã đối chiếu với mã nguồn)
 
-1. **Phân giải handler $O(1)$**: `PacketDispatchOptions<TPacket>` lưu các descriptor `PacketHandler<TPacket>` đã biên dịch trong một mảng phẳng gồm 65.536 phần tử (`HandlerSlot?[ushort.MaxValue + 1]`). Phân giải một opcode chỉ là một lần đọc `Volatile.Read` theo chỉ số mảng.
+1. **Phân giải handler $O(1)$**: `PacketDispatchOptions<TPacket>` lưu các descriptor `PacketHandler<TPacket>` đã biên dịch trong một mảng phẳng gồm 65,536 phần tử (`HandlerSlot?[ushort.MaxValue + 1]`). Phân giải một opcode chỉ là một lần đọc `Volatile.Read` theo chỉ số mảng.
 2. **Giành quyền session trên actor-mailbox**: `DispatchChannel<IPacket>` nhóm các khung đang xếp hàng theo kết nối và theo mức ưu tiên (từ `URGENT` xuống `NONE`). Một worker giành quyền sở hữu độc quyền một kết nối qua `TryClaim(out IDispatchSession session)`, đảm bảo các gói tin của cùng một kết nối được xử lý tuần tự theo thứ tự đến/ưu tiên mà không có tranh chấp giữa các worker.
 3. **`PacketContext<TPacket>` có pool**: Trước khi gọi middleware hoặc handler, runtime thuê một `PacketContext<TPacket>` từ `ObjectPoolManager.Shared` (cấp phát sẵn `128` instance) và khởi tạo với `ownsPacket: true`. Khi context bị dispose, nó tự động dispose cả gói tin đã giải tuần tự lẫn các service `[FromScope]` có phạm vi.
 4. **Các cổng kiểu, xác thực, quyền và mã hóa tích hợp sẵn**:

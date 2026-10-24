@@ -23,7 +23,7 @@ package: Nalix.Codec
 2. **Cấu hình pool (`PacketRegistry.Configure`)**:
    - `Configure(IObjectPoolManager? manager)` gắn `IObjectPoolManager` dùng chung cho `PacketBase<TSelf>.Create()` và thiết lập sẵn sức chứa pool (`128` mỗi loại) cho cả 11 frame giao thức tích hợp.
 3. **Đóng băng bảng tra cứu (`PacketRegistry.Build`)**:
-   - `Build()` tạo bảng `PacketDeserializer?[]` gồm 65.536 phần tử và ghép các bộ dispatch nhanh `PacketDispatch` đã đăng ký (`RegisterGenerated` hoạt động cả trước và sau `Build()`). `NetworkApplicationBuilder.Build()` và `TransportSession` tự động gọi `PacketRegistry.Build()`.
+   - `Build()` tạo bảng `PacketDeserializer?[]` gồm 65,536 phần tử và ghép các bộ dispatch nhanh `PacketDispatch` đã đăng ký (`RegisterGenerated` hoạt động cả trước và sau `Build()`). `NetworkApplicationBuilder.Build()` và `TransportSession` tự động gọi `PacketRegistry.Build()`.
 
 ## Tham chiếu API công khai
 
@@ -32,7 +32,7 @@ package: Nalix.Codec
 | `IsBuilt` | `public static bool IsBuilt { get; }` | Trả về `true` sau khi `Build()` đã được gọi. |
 | `DeserializerCount` | `public static int DeserializerCount { get; }` | Số lượng deserializer gói tin đã đăng ký và được đóng băng trong `Build()`. |
 | `Configure` | `public static void Configure(IObjectPoolManager? manager)` | Đặt `IObjectPoolManager` dùng chung cho pooling `PacketBase<TSelf>` và cấu hình sức chứa pool cho các frame giao thức tích hợp. |
-| `Build` | `public static void Build()` | Xây dựng và đóng băng bảng tra cứu opcode 65.536 phần tử một cách idempotent. |
+| `Build` | `public static void Build()` | Xây dựng và đóng băng bảng tra cứu opcode 65,536 phần tử một cách idempotent. |
 | `RegisterGenerated` | `public static void RegisterGenerated(PacketDispatch dispatcher)` | Đăng ký một delegate `PacketDispatch` theo đường nhanh (`bool PacketDispatch(ushort opcode, ReadOnlySpan<byte> raw, out IPacket? packet)`). |
 | `RegisterGenerated<TPacket>` | `public static void RegisterGenerated<TPacket>(string name, PacketDeserializer deserializer) where TPacket : IPacket, IPacketStaticOpcode` | Đăng ký deserializer gói tin cho `TPacket.StaticOpCode`. Ném `InternalErrorException` nếu opcode đã được gán cho một tên gói tin khác. |
 | `IsKnownOpCode` | `public static bool IsKnownOpCode(ushort opcode)` | Trả về `true` nếu đã đăng ký deserializer cho `opcode` (yêu cầu đã gọi `Build()`). |

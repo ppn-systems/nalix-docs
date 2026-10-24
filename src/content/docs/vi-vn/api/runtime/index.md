@@ -45,7 +45,7 @@ flowchart TD
 | `IDispatchChannel<TPacket>` / `IDispatchSession` | Hợp đồng hàng đợi kiểu mailbox của actor, đảm bảo thứ tự nghiêm ngặt theo từng kết nối giữa nhiều vòng lặp worker đồng thời. | [Hợp đồng điều phối](./routing/dispatch-contracts.md) |
 | `PacketDispatchChannel` | Bộ điều phối cho production với đánh thức `WorkerWakeSignal` được gộp lại, xả theo ưu tiên round-robin có trọng số và đường dẫn đồng bộ không cấp phát bộ nhớ. | [Điều phối gói tin](./routing/packet-dispatch.md) |
 | `PacketDispatcherBase<TPacket>` | Lớp cơ sở trừu tượng giữ `PacketDispatchOptions<TPacket>`. | [Dispatch Channel và Router](./routing/dispatch-channel-and-router.md) |
-| `PacketDispatchOptions<TPacket>` | Builder fluent (`WithHandler`, `WithMiddleware`, `WithErrorHandling`, `WithDispatchLoopCount`) và bảng handler $O(1)$ gồm 65.536 slot. | [Tùy chọn Packet Dispatch](../options/runtime/packet-dispatch-options.md) |
+| `PacketDispatchOptions<TPacket>` | Builder fluent (`WithHandler`, `WithMiddleware`, `WithErrorHandling`, `WithDispatchLoopCount`) và bảng handler $O(1)$ gồm 65,536 slot. | [Tùy chọn Packet Dispatch](../options/runtime/packet-dispatch-options.md) |
 | `PacketContext<TPacket>` | Context thực thi lấy từ pool (`IPacketContext<TPacket>`), mang `Packet`, `Connection`, `Attributes`, `Sender`, `Scope`, `IsReliable` và `EncryptedOnWire`. | [Packet Context](./routing/packet-context.md) |
 | `PacketSender` | Sender gửi đi có nhận biết metadata (`SendAsync`, `ReplyAsync`), gắn với `PacketContext<TPacket>`. | [Packet Sender](./routing/packet-sender.md) |
 

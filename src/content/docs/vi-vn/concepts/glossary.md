@@ -95,7 +95,7 @@ Invoker do source generator sinh ra chuyển kiểu trả về của handler th�
 
 ## Snowflake
 
-Một định danh phân tán 64-bit được tùy chỉnh, dùng để theo dõi tác vụ nội bộ và liên kết gói tin. Sử dụng dấu thời gian Unix tính bằng giây 32-bit, sequence 14-bit (16.384 ID mỗi giây trên mỗi node) và machine ID 10-bit (1.024 node).
+Một định danh phân tán 64-bit được tùy chỉnh, dùng để theo dõi tác vụ nội bộ và liên kết gói tin. Sử dụng dấu thời gian Unix tính bằng giây 32-bit, sequence 14-bit (16,384 ID mỗi giây trên mỗi node) và machine ID 10-bit (1,024 node).
 
 ## TCP so với UDP
 

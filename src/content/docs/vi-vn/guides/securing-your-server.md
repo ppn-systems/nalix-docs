@@ -135,7 +135,7 @@ public ValueTask<TransferResponse> Transfer(IPacketContext<TransferRequest> cont
 | TCP thô không có TLS (như trong các mẫu) | Có thể với các handler không có `[PacketEncryption(true)]` |
 | UDP | Có thể: TLS không bao giờ bảo vệ UDP, nên hãy đánh dấu cả các handler UDP |
 
-Các datagram UDP plaintext chỉ được kiểm tra chống phát lại dựa trên `SequenceId` 16 bit trong header, nên một datagram plaintext bị bắt có thể được chấp nhận lại khi bộ đếm này quay vòng (khoảng 65.536 gói sau đó). Datagram đã mã hóa cũng mang số thứ tự 32 bit có xác thực và không bị ảnh hưởng. Hãy đánh dấu các handler UDP bằng `[PacketEncryption(true)]`, hoặc đảm bảo chúng vẫn an toàn khi chạy hai lần với cùng một đầu vào.
+Các datagram UDP plaintext chỉ được kiểm tra chống phát lại dựa trên `SequenceId` 16 bit trong header, nên một datagram plaintext bị bắt có thể được chấp nhận lại khi bộ đếm này quay vòng (khoảng 65,536 gói sau đó). Datagram đã mã hóa cũng mang số thứ tự 32 bit có xác thực và không bị ảnh hưởng. Hãy đánh dấu các handler UDP bằng `[PacketEncryption(true)]`, hoặc đảm bảo chúng vẫn an toàn khi chạy hai lần với cùng một đầu vào.
 
 Nếu bạn không kết thúc TLS trước Nalix, hãy coi `[PacketEncryption(true)]` là bắt buộc với mọi thứ nhạy cảm. Xem [Reverse Proxy và TLS](./deployment/reverse-proxy-tls.md).
 

@@ -9,6 +9,7 @@ from ..domain.anchors import rewrite_fragments, target_page, translated_fragment
 from ..domain.compare import compare
 from ..domain.findings import Issue, Severity
 from ..domain.fingerprint import fingerprint
+from ..domain.numbers import restore_notation
 from ..domain.shape import Shape, extract_shape
 from .ports import L10nError, LockStore, NavigationTitles, PageStore
 
@@ -153,6 +154,25 @@ class FixAnchors:
                 return fragment
 
             fixed = rewrite_fragments(path, text, translate)
+            if fixed != text:
+                self._pages.write(locale, path, fixed)
+                changed.append(path)
+        return changed
+
+
+class FixNumbers:
+    """Puts numbers of translated pages back into the notation of the English page."""
+
+    def __init__(self, pages: PageStore) -> None:
+        self._pages = pages
+
+    def __call__(self, locale: str) -> list[str]:
+        sources, targets = self._pages.source_pages(), self._pages.translated_pages(locale)
+        changed: list[str] = []
+        for path, text in targets.items():
+            if path not in sources:
+                continue
+            fixed = restore_notation(text, extract_shape(sources[path]), extract_shape(text))
             if fixed != text:
                 self._pages.write(locale, path, fixed)
                 changed.append(path)

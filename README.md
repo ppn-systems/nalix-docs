@@ -64,13 +64,14 @@ npm run l10n:status   # how much is translated, by section
 npm run l10n:check    # compare every translated page with its English source
 python3 tools/l10n.py plan --locale vi-vn --out plan.json   # batches of pages still to translate
 python3 tools/l10n.py fix-anchors --locale vi-vn            # make page.md#section links follow translated headings
+python3 tools/l10n.py fix-numbers --locale vi-vn            # write numbers as in the English page
 python3 tools/l10n.py stamp --locale vi-vn                  # record that pages match the current English text
 ```
 
 `check` fails (and so does `npm test`) when a translated page
 
 - changes the structure: front matter keys other than `title` and `description`, heading levels, tables, callouts or the number and targets of links;
-- changes code: code blocks and text in backticks must be identical (only comments in `csharp` blocks may be translated);
+- changes code: code blocks and text in backticks must be identical (only comments in `csharp` blocks may be translated); numbers keep the English notation (`65,536`);
 - still reads as English;
 - has a link fragment (`#section`) that matches no heading;
 - is out of date: the English page changed after it was translated (`translations/<locale>.lock.json` holds the stamp), or no English page exists.

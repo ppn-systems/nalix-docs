@@ -8,7 +8,7 @@ package: Nalix.Runtime
 **Không gian tên:** `Nalix.Runtime.Routing`, `Nalix.Runtime.Options`  
 **Assembly:** `Nalix.Runtime`
 
-`PacketDispatchOptions<TPacket>` (`public sealed partial class PacketDispatchOptions<TPacket> : IPacketHandlerBuilder<TPacket> where TPacket : IPacket`) cấu hình bảng tra cứu handler $O(1)$ gồm 65.536 slot, `MiddlewarePipeline<TPacket>`, các hook xử lý lỗi và `PacketDrainOptions` cho `PacketDispatchChannel`.
+`PacketDispatchOptions<TPacket>` (`public sealed partial class PacketDispatchOptions<TPacket> : IPacketHandlerBuilder<TPacket> where TPacket : IPacket`) cấu hình bảng tra cứu handler $O(1)$ gồm 65,536 slot, `MiddlewarePipeline<TPacket>`, các hook xử lý lỗi và `PacketDrainOptions` cho `PacketDispatchChannel`.
 
 ## Ánh xạ mã nguồn
 

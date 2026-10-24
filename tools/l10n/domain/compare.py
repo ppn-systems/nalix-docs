@@ -27,6 +27,7 @@ def compare(page: str, source: Shape, target: Shape) -> list[Issue]:
     _links(source, target, error)
     _admonitions(source, target, error)
     _code_spans(source, target, error)
+    _numbers(source, target, error)
     if looks_untranslated(target.prose):
         ratio, count = english_ratio(target.prose)
         error("L008", 0, f"still reads as English ({ratio:.0%} English function words in {count} words); translate the prose")
@@ -112,6 +113,14 @@ def _code_spans(source: Shape, target: Shape, error) -> None:
     if extra:
         parts.append("unexpected " + ", ".join(f"`{s}`" for s in _first(extra)))
     error("L007", 0, "text in backticks must be copied unchanged: " + "; ".join(parts))
+
+
+def _numbers(source: Shape, target: Shape, error) -> None:
+    """A number of the English page must appear as written. Extra numbers are fine (``zero`` -> ``0``) and so are
+    single digits, which a translation may write as words (``1-second`` -> ``một giây``)."""
+    missing = Counter({n: c for n, c in (source.numbers - target.numbers).items() if len(n) >= 2})
+    if missing:
+        error("L013", 0, f"numbers of the English page are missing or written differently (keep digits and separators, for example 65,536): {', '.join(_first(missing))}")
 
 
 def _first(counter: Counter) -> list[str]:

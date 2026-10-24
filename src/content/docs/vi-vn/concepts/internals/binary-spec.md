@@ -15,7 +15,7 @@ Tài liệu này định nghĩa định dạng wire được framework Nalix dù
 - **Giá trị sentinel**:
   - `Null` được biểu diễn bằng `-1` (0xFFFFFFFF) trong các tiền tố độ dài.
   - `Empty` được biểu diễn bằng `0` (0x00000000).
-- **Giới hạn**: Độ dài tối đa mặc định cho chuỗi/mảng là **1.048.576 byte (1 MB)**.
+- **Giới hạn**: Độ dài tối đa mặc định cho chuỗi/mảng là **1,048,576 byte (1 MB)**.
 
 ---
 

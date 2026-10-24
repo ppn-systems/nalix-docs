@@ -15,6 +15,7 @@ python3 tools/l10n.py status --locale vi-vn        # progress by section
 python3 tools/l10n.py plan --locale vi-vn --out plan.json   # batches of pages to translate, for workers
 python3 tools/l10n.py check --locale vi-vn <pages…> --skip-stamps   # structure check while translating
 python3 tools/l10n.py fix-anchors --locale vi-vn   # make page.md#section links follow translated headings
+python3 tools/l10n.py fix-numbers --locale vi-vn   # write numbers as in the English page (65,536, 12.5)
 python3 tools/l10n.py stamp --locale vi-vn         # record that pages match the current English text
 python3 tools/l10n.py check --locale vi-vn         # the full gate (also run by npm test)
 ```
@@ -31,8 +32,9 @@ The check enforces these; a page that breaks one is `invalid`.
 4. **Text in backticks** is never changed.
 5. **Links**: same number, same targets, same order; only the label is translated. Fragments (`#section`) are fixed afterwards by `fix-anchors`, do not guess them.
 6. **Tables**: same number of tables, rows and columns. **Callouts** (`:::note[Title]`): same types in the same order; only the title is translated.
-7. **No English left**: the prose must be in the target language (a page that reads as English fails).
-8. Do not add or remove content, and do not comment on the translation inside the page.
+7. **Numbers** of two or more digits keep the English notation (`65,536`, `12.5`): `65.536` or `12,5` read differently to developers. `fix-numbers` restores it.
+8. **No English left**: the prose must be in the target language (a page that reads as English fails).
+9. Do not add or remove content, and do not comment on the translation inside the page.
 
 Use the locale glossary (`translations/<locale>.glossary.md`) so a term has one rendering everywhere.
 
@@ -40,7 +42,7 @@ Use the locale glossary (`translations/<locale>.glossary.md`) so a term has one 
 
 1. `plan` → batches. Give each worker one batch, the rules above and the glossary.
 2. The worker writes `src/content/docs/<locale>/<path>` for each page and runs `check <pages> --skip-stamps` until it passes.
-3. When all batches are done: `fix-anchors`, then `check --skip-stamps`, then `stamp`, then the full `check`.
+3. When all batches are done: `fix-anchors`, `fix-numbers`, then `check --skip-stamps`, then `stamp`, then the full `check`.
 4. When an English page changes later, `check` reports its translation as `stale` (the stamp no longer matches). Redo that page, then `stamp` it.
 
 ## Checklist for a new language
@@ -48,7 +50,7 @@ Use the locale glossary (`translations/<locale>.glossary.md`) so a term has one 
 1. Add the locale to `src/i18n/config.ts` and a dictionary `src/i18n/locales/<locale>.ts` (the tests require every UI key).
 2. Add `titles` for the navigation items (`src/config/navigation.ts`).
 3. Create `translations/<locale>.glossary.md`.
-4. Translate with the workflow above, then set `enabled: true` for the locale.
+4. Translate with the workflow above, then set `enabled: true` for the locale. Navigation labels: `nav-missing` lists the English labels, give them to a translator as one JSON object and store the result with `nav-apply`.
 
 ## Gotchas
 

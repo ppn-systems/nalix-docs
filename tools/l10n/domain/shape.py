@@ -16,6 +16,7 @@ _ADMONITION = re.compile(r"^\s*:::(\w+)")
 _CODE_SPAN = re.compile(r"`([^`\n]+)`")
 _LINK = re.compile(r"(!?)\[([^\]]*)\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 _HTML_TAG = re.compile(r"<[^>]+>")
+NUMBER = re.compile(r"\d[\d.,]*\d|\d")
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ class Shape:
     code_spans: Counter = field(default_factory=Counter)
     prose: str = ""  # the words: no code, no link targets, no tags
     front_raw: dict[str, str] = field(default_factory=dict)  # front matter values as written (quotes kept)
+    numbers: Counter = field(default_factory=Counter)  # numbers in the prose, as written
 
 
 def split_front_matter(text: str) -> tuple[dict[str, str], dict[str, str], int]:
@@ -161,4 +163,5 @@ def extract_shape(text: str) -> Shape:
             words.append(_HTML_TAG.sub(" ", _LINK.sub(r"\2", bare)))
     close_table()
 
-    return Shape(front, tuple(headings), tuple(blocks), tuple(tables), tuple(links), tuple(admonitions), spans, "\n".join(words), raw_front)
+    prose = "\n".join(words)
+    return Shape(front, tuple(headings), tuple(blocks), tuple(tables), tuple(links), tuple(admonitions), spans, prose, raw_front, Counter(NUMBER.findall(prose)))

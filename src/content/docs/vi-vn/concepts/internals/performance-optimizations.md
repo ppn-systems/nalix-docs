@@ -63,7 +63,7 @@ Nalix dùng một định danh Snowflake 64-bit tùy chỉnh để theo dõi tá
 | Lựa chọn thiết kế | Lý do |
 | :--- | :--- |
 | Bố cục đóng gói 64-bit | `[Type: 8 bits \| Timestamp: 32 bits (Unix seconds since 2025-01-01) \| Sequence: 14 bits \| MachineId: 10 bits]` |
-| Timestamp 1 giây + sequence 14 bit | Cho phép **16.384 ID mỗi giây** trên mỗi node (`MaxSequence = 16383`), với tối đa **1.024 node** (`MaxMachineId = 1023`) và **256 loại thực thể**, sử dụng vòng lặp CAS `Interlocked` lock-free |
+| Timestamp 1 giây + sequence 14 bit | Cho phép **16,384 ID mỗi giây** trên mỗi node (`MaxSequence = 16383`), với tối đa **1,024 node** (`MaxMachineId = 1023`) và **256 loại thực thể**, sử dụng vòng lặp CAS `Interlocked` lock-free |
 | Thứ tự xác định | ID Snowflake có thể sắp xếp theo thời điểm tạo và được gắn kiểu bởi `SnowflakeType`, nhờ đó thứ tự tự nhiên trong log và chẩn đoán |
 
 ## 4. Tra cứu registry theo OpCode

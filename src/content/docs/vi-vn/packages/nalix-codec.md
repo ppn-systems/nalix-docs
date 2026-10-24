@@ -60,7 +60,7 @@ Bộ máy tuần tự hóa. Với các lớp gói tin có chú thích `[Generate
 
 ### `FramePipeline`, `FrameCipher` và `FrameCompression`
 
-- `FramePipeline.ProcessOutbound(...)` áp dụng các biến đổi đi ra theo thứ tự truyền chuẩn (**nén trước, mã hóa sau**). Khi cả nén và mã hóa đều bật, nó dùng một **đường lease đơn hợp nhất** (`ProcessOutboundFused`) và tự động bỏ qua nén nếu payload không giảm ít nhất 12,5%.
+- `FramePipeline.ProcessOutbound(...)` áp dụng các biến đổi đi ra theo thứ tự truyền chuẩn (**nén trước, mã hóa sau**). Khi cả nén và mã hóa đều bật, nó dùng một **đường lease đơn hợp nhất** (`ProcessOutboundFused`) và tự động bỏ qua nén nếu payload không giảm ít nhất 12.5%.
 - `FramePipeline.TryProcessInbound(...)` áp dụng các biến đổi đi vào theo thứ tự truyền chuẩn (**giải mã trước, giải nén sau**), đặt `EncryptedOnWire = true` và `ZeroOnDispose = true` trên các lease plaintext đã giải mã.
 
 ### Frame giao thức có sẵn (`Nalix.Codec.ProtocolFrames`)

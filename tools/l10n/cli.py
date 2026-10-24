@@ -1,4 +1,4 @@
-"""Command line: ``python3 tools/l10n.py <status|check|plan|stamp|fix-anchors|nav-missing|nav-apply> --locale <code>``."""
+"""Command line: ``python3 tools/l10n.py <status|check|plan|stamp|fix-anchors|fix-numbers|nav-missing|nav-apply> --locale <code>``."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from .application.ports import L10nError
-from .application.use_cases import ApplyNavTitles, CheckLocale, FixAnchors, ListMissingNavTitles, PlanLocale, StampLocale, State, Status
+from .application.use_cases import ApplyNavTitles, CheckLocale, FixAnchors, FixNumbers, ListMissingNavTitles, PlanLocale, StampLocale, State, Status
 from .domain.findings import Severity
 from .infrastructure.files import DocsFolders, JsonLocks
 from .infrastructure.navigation import NavigationFile
@@ -53,6 +53,9 @@ def _parser() -> argparse.ArgumentParser:
 
     fix = sub.add_parser("fix-anchors", help="point page.md#section links at the translated headings")
     locale_option(fix)
+
+    numbers = sub.add_parser("fix-numbers", help="write numbers as in the English page (65,536 not 65.536)")
+    locale_option(numbers)
     return parser
 
 
@@ -125,6 +128,13 @@ def _fix_anchors(args: argparse.Namespace) -> int:
     return 0
 
 
+def _fix_numbers(args: argparse.Namespace) -> int:
+    folders, _, _ = _wiring(args)
+    changed = FixNumbers(folders)(args.locale)
+    print(f"updated numbers in {len(changed)} pages")
+    return 0
+
+
 def _navigation() -> NavigationFile:
     return NavigationFile(ROOT / "src" / "config" / "navigation.ts")
 
@@ -154,7 +164,7 @@ def _nav_apply(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    handlers = {"status": _status, "check": _check, "plan": _plan, "stamp": _stamp, "fix-anchors": _fix_anchors, "nav-missing": _nav_missing, "nav-apply": _nav_apply}
+    handlers = {"status": _status, "check": _check, "plan": _plan, "stamp": _stamp, "fix-anchors": _fix_anchors, "fix-numbers": _fix_numbers, "nav-missing": _nav_missing, "nav-apply": _nav_apply}
     try:
         return handlers[args.command](args)
     except L10nError as error:

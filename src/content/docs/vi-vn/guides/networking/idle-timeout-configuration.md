@@ -17,7 +17,7 @@ Thay vì dùng một `Timer` riêng cho mỗi kết nối (tốn kém và gây �
 2. Một worker nền duy nhất "tick" qua các bucket này theo một khoảng thời gian cố định.
 3. Chỉ những kết nối trong bucket hiện tại mới được kiểm tra xem có nhàn rỗi không.
 
-Nhờ vậy, ngay cả với **hơn 100.000 kết nối đồng thời**, chi phí CPU vẫn ổn định và ở mức tối thiểu.
+Nhờ vậy, ngay cả với **hơn 100,000 kết nối đồng thời**, chi phí CPU vẫn ổn định và ở mức tối thiểu.
 
 ---
 

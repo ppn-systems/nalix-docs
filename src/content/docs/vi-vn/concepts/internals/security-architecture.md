@@ -126,7 +126,7 @@ Khi bật PoW thích ứng (`ConnectionQuotaOptions.EnableAdaptiveMode`), server
 
 ### Rekey phiên
 
-Các phiên sống lâu có thể đổi khóa đối xứng giữa chừng qua giao thức Session Rekey. Thao tác này đặt lại bộ đếm sequence 16-bit (tránh tràn sau 65.535 frame) và giới hạn cửa sổ phơi lộ mật mã. Cả client và server đều dẫn xuất khóa mới bằng HKDF-Expand với nhãn tĩnh `nalix-session/rekey` từ secret hiện tại, mà không truyền bất kỳ khóa nào qua đường truyền. Quá trình này được khởi tạo bằng gói điều khiển kiểu `SESSION_REKEY` và được xác nhận bằng `SESSION_REKEY_ACK`.
+Các phiên sống lâu có thể đổi khóa đối xứng giữa chừng qua giao thức Session Rekey. Thao tác này đặt lại bộ đếm sequence 16-bit (tránh tràn sau 65,535 frame) và giới hạn cửa sổ phơi lộ mật mã. Cả client và server đều dẫn xuất khóa mới bằng HKDF-Expand với nhãn tĩnh `nalix-session/rekey` từ secret hiện tại, mà không truyền bất kỳ khóa nào qua đường truyền. Quá trình này được khởi tạo bằng gói điều khiển kiểu `SESSION_REKEY` và được xác nhận bằng `SESSION_REKEY_ACK`.
 
 ## Session Resume
 
