@@ -1250,7 +1250,7 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
    ========================================================================== */
 
 .nlx-prose {
-  font-size: var(--prose-size, 0.96875rem);
+  font-size: 0.96875rem;
   line-height: var(--prose-leading, 1.75);
   letter-spacing: -0.004em;
   color: var(--text-body);
@@ -2084,15 +2084,21 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
   color: var(--text-secondary);
 }
 
-/* Text density (Aa menu in the header); "normal" is the default and sets nothing */
+/* Text density (Aa menu in the header); "normal" is the default and sets nothing.
+   Sizes are rem-based, so the root size scales headings, sidebar, TOC and code together. */
 html[data-density="dense"] {
-  --prose-size: 0.90625rem;
+  font-size: 90%;
   --prose-leading: 1.6;
 }
 
 html[data-density="comfortable"] {
-  --prose-size: 1.0625rem;
+  font-size: 112.5%;
   --prose-leading: 1.9;
+}
+
+/* Keep the tab bar at its normal size so it never collides with the search box */
+html[data-density="comfortable"] .nlx-topnav__link {
+  font-size: 0.75rem;
 }
 
 .nlx-density-option {
