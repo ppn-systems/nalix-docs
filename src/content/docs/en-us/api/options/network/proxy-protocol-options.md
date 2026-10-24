@@ -45,9 +45,14 @@ Common scenarios:
 
 ## Security Notes
 
-- When `RequireTrustedProxy` is `false`, any client can inject a PROXY header and spoof its IP. Always enable `RequireTrustedProxy` in production unless you control the network path.
 - `MaxPendingProxyConnections` prevents memory exhaustion from slow-loris attacks that hold connections open without sending a PROXY header.
 - The parser validates v2 header lengths and rejects malformed or oversized headers.
+
+:::caution[`RequireTrustedProxy` defaults to `false`]
+With `Enabled = true` and the default `RequireTrustedProxy = false`, any client that connects directly can send its own `PROXY TCP4 <any-ip> ...` header. The forged address then replaces the real one everywhere downstream: `ConnectionGuard` bans and per-IP limits, rate limiting, and connection tracking all count the fake IP, so a banned client can reconnect as someone else or frame another IP for a ban.
+
+Whenever you enable PROXY protocol, also set `RequireTrustedProxy = true` and list your load balancer's addresses in `TrustedProxyOptions`. Leave it `false` only if no client can reach the listener except through that load balancer (for example, a private subnet or a firewall that allows only the load balancer).
+:::
 
 ## Related APIs
 
