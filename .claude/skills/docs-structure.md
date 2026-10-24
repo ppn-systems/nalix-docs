@@ -17,7 +17,7 @@
 
 ### i18n
 - Locales are BCP-47 lowercase: `en-us` (default), `vi-vn` (aliases `vi`, `vn`).
-- `vi-vn` pages mirror an existing `en-us` path exactly; untranslated pages fall back to `en-us` automatically.
+- `vi-vn` pages mirror an existing `en-us` path exactly; untranslated pages fall back to `en-us` automatically. How to translate, check and stamp pages: see `docs-translation`.
 - UI strings live in `src/i18n/locales/*.ts`; every key must exist in all locales (parity test).
 - Enable a locale only via `LOCALE_REGISTRY[...].enabled` in `src/i18n/config.ts`.
 

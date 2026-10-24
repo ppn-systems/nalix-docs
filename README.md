@@ -57,11 +57,25 @@ Technical statements must match the Nalix source. Read the code before documenti
 
 ## Translations
 
-`vi-vn` is registered but switched off. To start translating:
+A translation is a folder `src/content/docs/<locale>/` that mirrors `en-us/` path for path (`vi-vn` is the first one). A page without a translation is shown in English with a notice, so a partial translation can be published.
 
-1. Add pages under `src/content/docs/vi-vn/` with exactly the same relative paths as in `en-us/`. Pages without a translation fall back to English with a notice.
-2. Set `enabled: true` for `vi-vn` in `src/i18n/config.ts`.
-3. Run `npm test`.
+```bash
+npm run l10n:status   # how much is translated, by section
+npm run l10n:check    # compare every translated page with its English source
+python3 tools/l10n.py plan --locale vi-vn --out plan.json   # batches of pages still to translate
+python3 tools/l10n.py fix-anchors --locale vi-vn            # make page.md#section links follow translated headings
+python3 tools/l10n.py stamp --locale vi-vn                  # record that pages match the current English text
+```
+
+`check` fails (and so does `npm test`) when a translated page
+
+- changes the structure: front matter keys other than `title` and `description`, heading levels, tables, callouts or the number and targets of links;
+- changes code: code blocks and text in backticks must be identical (only comments in `csharp` blocks may be translated);
+- still reads as English;
+- has a link fragment (`#section`) that matches no heading;
+- is out of date: the English page changed after it was translated (`translations/<locale>.lock.json` holds the stamp), or no English page exists.
+
+Adding a language: add it to `src/i18n/config.ts` with a UI dictionary in `src/i18n/locales/`, give the navigation items their `titles`, write `translations/<locale>.glossary.md`, translate with the commands above, then set `enabled: true`. The workflow for people and agents is in `.claude/skills/docs-translation.md`.
 
 ## Keeping the docs accurate
 
@@ -105,7 +119,8 @@ The repository setting **Allow GitHub Actions to create and approve pull request
 │   └── styles/nalix.css
 ├── public/                     # assets, benchmark data, robots.txt, CNAME
 ├── tests/                      # Vitest: content, navigation, i18n, links, plugin
-├── tools/                      # Python: audit and source-sync tools, with unittest tests
+├── tools/                      # Python: audit and source-sync tools (docsync), translation tools (l10n), unittest tests
+├── translations/               # per-language glossary and stamps of the English text each page was translated from
 ├── source-manifest.json        # hashes of the Nalix source the docs were last synced to
 ├── source-api-index.json       # public API snapshot of that Nalix commit
 └── .github/workflows/          # ci.yml, preview.yml, deploy.yml, source-sync.yml
