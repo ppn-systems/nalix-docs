@@ -58,10 +58,98 @@ const readMinutes = Math.max(1, Math.ceil(wordCount / 220));
 const readTimeText = `${t('doc.readTime')} ${readMinutes} ${readMinutes === 1 ? t('doc.minute') : t('doc.minutes')}`;
 
 const pageTitle = isLanding ? `${t('site.title')}` : `${title} | ${t('site.title')}`;
-const canonicalUrl = new URL(localizePath(slug, locale), Astro.site || 'https://ppn.io.vn').toString();
+const metaDescription = description || t('site.tagline');
+const siteOrigin = (Astro.site || new URL('https://ppn.io.vn')).toString().replace(/\/+$/, '');
+const canonicalUrl = new URL(localizePath(slug, locale), siteOrigin).toString();
+const ogImageUrl = `${siteOrigin}/assets/social-preview.svg`;
 const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/main/src/content/docs/${sourceLocale}/${relFile}`;
 const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
 const hasMobileToc = tocHeadings.length > 1;
+
+const jsonLdSchema = isLanding
+  ? {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'WebSite',
+          '@id': `${siteOrigin}/#website`,
+          url: `${siteOrigin}/en-us`,
+          name: 'Nalix Documentation',
+          description: metaDescription,
+          inLanguage: localeDef.htmlLang,
+          publisher: {
+            '@type': 'Organization',
+            name: 'PPN Systems',
+            url: 'https://github.com/ppn-systems',
+            logo: {
+              '@type': 'ImageObject',
+              url: `${siteOrigin}/assets/nalix.png`,
+            },
+          },
+        },
+        {
+          '@type': 'SoftwareSourceCode',
+          name: 'Nalix',
+          description: metaDescription,
+          programmingLanguage: 'C#',
+          runtimePlatform: '.NET 10',
+          codeRepository: 'https://github.com/ppn-systems/nalix',
+          license: 'https://opensource.org/licenses/Apache-2.0',
+        },
+      ],
+    }
+  : {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'TechArticle',
+          headline: title,
+          description: metaDescription,
+          url: canonicalUrl,
+          inLanguage: localeDef.htmlLang,
+          image: ogImageUrl,
+          author: {
+            '@type': 'Organization',
+            name: 'PPN Systems',
+            url: 'https://github.com/ppn-systems/nalix',
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'PPN Systems',
+            logo: {
+              '@type': 'ImageObject',
+              url: `${siteOrigin}/assets/nalix.png`,
+            },
+          },
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': canonicalUrl,
+          },
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Documentation',
+              item: `${siteOrigin}${localizePath('', locale)}`,
+            },
+            ...parentBreadcrumbs.map((crumb, idx) => ({
+              '@type': 'ListItem',
+              position: idx + 2,
+              name: crumb,
+            })),
+            {
+              '@type': 'ListItem',
+              position: parentBreadcrumbs.length + 2,
+              name: title,
+              item: canonicalUrl,
+            },
+          ],
+        },
+      ],
+    };
 ---
 
 <!doctype html>
@@ -70,16 +158,42 @@ const hasMobileToc = tocHeadings.length > 1;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{pageTitle}</title>
-    <meta name="description" content={description || t('site.tagline')} />
+    <meta name="description" content={metaDescription} />
+    <meta
+      name="robots"
+      content={
+        isFallback
+          ? 'noindex, follow'
+          : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+      }
+    />
+    <meta name="author" content="PPN Systems" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#101214" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+
     <link rel="canonical" href={canonicalUrl} />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/assets/nalix.svg" />
     <link rel="icon" type="image/png" href="/assets/nalix.png" />
     <link rel="apple-touch-icon" href="/assets/nalix.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Preload self-hosted critical fonts (zero external font dependencies) -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/assets/fonts/inter-regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/assets/fonts/inter-bold.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
 
     <!-- i18n hreflang alternates -->
@@ -87,22 +201,34 @@ const hasMobileToc = tocHeadings.length > 1;
       <link
         rel="alternate"
         hreflang={getLocaleDefinition(altLocale).htmlLang}
-        href={new URL(localizePath(slug, altLocale), Astro.site || 'https://ppn.io.vn').toString()}
+        href={new URL(localizePath(slug, altLocale), siteOrigin).toString()}
       />
     ))}
     <link
       rel="alternate"
       hreflang="x-default"
-      href={new URL(localizePath(slug, DEFAULT_LOCALE), Astro.site || 'https://ppn.io.vn').toString()}
+      href={new URL(localizePath(slug, DEFAULT_LOCALE), siteOrigin).toString()}
     />
 
     <!-- Open Graph -->
-    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Nalix Documentation" />
+    <meta property="og:type" content={isLanding ? 'website' : 'article'} />
     <meta property="og:title" content={pageTitle} />
-    <meta property="og:description" content={description || t('site.tagline')} />
+    <meta property="og:description" content={metaDescription} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:locale" content={localeDef.ogLocale} />
-    <meta property="og:image" content="https://ppn.io.vn/assets/social-preview.svg" />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:alt" content={pageTitle} />
+
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={metaDescription} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content={pageTitle} />
+
+    <!-- Structured Data (Schema.org JSON-LD) -->
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLdSchema)} />
 
     <!-- Flicker-free theme initialization -->
     <script is:inline>

@@ -1,24 +1,33 @@
-name: "Docs: Test, Build & Deploy (Cloudflare)"
+name: "Deploy to Cloudflare (Manual)"
 
 on:
-  push:
-    branches: ["main", "master"]
-  pull_request:
-    branches: ["main", "master"]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target Cloudflare environment to deploy"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
 
 concurrency:
-  group: cloudflare-docs-${{ github.ref }}
-  cancel-in-progress: true
+  group: cloudflare-manual-deploy
+  cancel-in-progress: false
 
 permissions:
   contents: read
-  deployments: write
 
 jobs:
-  test-and-build:
-    name: "Test (i18n & Integrity) & Build (Astro)"
+  test-build-and-deploy:
+    name: "Test, Build & Deploy to Cloudflare"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    environment:
+      name: ${{ inputs.environment || 'production' }}
+      url: ${{ steps.cf_deploy.outputs.deployment-url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,39 +41,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run i18n, navigation, and link integrity tests
+      - name: Run i18n, navigation, link, and source parity tests
         run: npm test
 
       - name: Build static site with Astro
         run: npm run build
 
-      - name: Upload built static assets
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-assets
-          path: ./dist
-          retention-days: 1
-
-  deploy:
-    name: "Deploy to Cloudflare"
-    needs: test-and-build
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    environment:
-      name: cloudflare
-      url: ${{ steps.cf_deploy.outputs.deployment-url }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download built static assets
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-assets
-          path: ./dist
-
-      - name: Deploy to Cloudflare Workers Static Assets
+      - name: Deploy static assets to Cloudflare
         id: cf_deploy
         uses: cloudflare/wrangler-action@v3
         with:
