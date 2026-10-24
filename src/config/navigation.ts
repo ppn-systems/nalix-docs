@@ -1,6 +1,6 @@
 // Auto-generated and synchronized with Nalix documentation structure (Rule R8)
 import type { LocaleCode } from '../i18n/config';
-import { localizePath } from '../i18n';
+import { localizePath, useTranslations } from '../i18n';
 
 export interface NavItem {
   title: string;
@@ -1424,4 +1424,78 @@ export function getTopLevelTabs(locale: LocaleCode) {
     { title: isVi ? 'Tài liệu API' : 'API Reference', sectionTitle: 'API', href: localizePath('api', locale) },
     { title: isVi ? 'Hiệu năng' : 'Benchmarks', sectionTitle: 'Benchmarks', href: localizePath('benchmarks', locale) },
   ];
+}
+
+export interface MegaLink {
+  title: string;
+  href: string;
+  external?: boolean;
+}
+
+export interface MegaColumn {
+  /** Column heading; empty for a continuation of the previous column. */
+  title: string;
+  href?: string;
+  links: MegaLink[];
+  /** Shown under the links when the group has more pages than fit. */
+  more?: MegaLink;
+}
+
+export interface MegaTab {
+  title: string;
+  sectionTitle: string;
+  href: string;
+  columns: MegaColumn[];
+}
+
+const MEGA_MAX_LINKS_PER_COLUMN = 5;
+
+function leafPages(items: NavItem[]): NavItem[] {
+  return items.flatMap((item) => (item.items ? leafPages(item.items) : item.slug !== undefined ? [item] : []));
+}
+
+/**
+ * Content of the drop-down panels of the primary navigation: one panel per top-level section,
+ * one column per group of that section (or per five pages when the section is a flat list).
+ */
+export function getMegaMenu(locale: LocaleCode): MegaTab[] {
+  const t = useTranslations(locale);
+  const link = (item: NavItem): MegaLink => ({ title: getNavTitle(item, locale), href: localizePath(item.slug ?? '', locale) });
+
+  return getTopLevelTabs(locale).map((tab) => {
+    const section = NAVIGATION_TREE.find((node) => node.title === tab.sectionTitle);
+    const children = section?.items ?? [];
+    const columns: MegaColumn[] = [];
+
+    const flat = children.filter((child) => !child.items);
+    for (let i = 0; i < flat.length; i += MEGA_MAX_LINKS_PER_COLUMN) {
+      columns.push({ title: i === 0 ? tab.title : '', links: flat.slice(i, i + MEGA_MAX_LINKS_PER_COLUMN).map(link) });
+    }
+
+    for (const group of children.filter((child) => child.items)) {
+      const pages = leafPages(group.items ?? []);
+      if (!pages.length) continue;
+      const first = link(pages[0]);
+      columns.push({
+        title: getNavTitle(group, locale),
+        href: first.href,
+        links: pages.slice(0, MEGA_MAX_LINKS_PER_COLUMN).map(link),
+        more:
+          pages.length > MEGA_MAX_LINKS_PER_COLUMN
+            ? { title: t('nav.allPages').replace('{count}', String(pages.length)), href: first.href }
+            : undefined,
+      });
+    }
+
+    if (tab.sectionTitle === 'Start Here') {
+      columns.push({
+        title: t('nav.resources'),
+        links: [
+          { title: t('nav.github'), href: 'https://github.com/ppn-systems/nalix', external: true },
+          { title: t('nav.nuget'), href: 'https://www.nuget.org/packages?q=Nalix', external: true },
+        ],
+      });
+    }
+    return { ...tab, columns };
+  });
 }

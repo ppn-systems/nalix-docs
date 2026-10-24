@@ -23,8 +23,13 @@ export const viVn: TranslationDictionary = {
   'nav.language': 'Chọn ngôn ngữ',
   'nav.comingSoon': 'Sắp có',
   'nav.themeToggle': 'Đổi giao diện Sáng / Tối',
+  'nav.primarySections': 'Các mục tài liệu chính',
+  'nav.allPages': 'Xem cả {count} trang',
+  'nav.resources': 'Tài nguyên',
+  'nav.langSoonHint': 'Bản dịch này sẽ sớm được bổ sung',
+  'nav.githubLabel': 'Nalix trên GitHub',
 
-  // Home Portal (Unity Docs Style)
+  // Home portal
   'hero.title': 'Tài liệu Nalix',
   'hero.subtitle': 'Framework mạng thời gian thực nhị phân độ trễ thấp cho .NET 10.',
   'home.exploreTopics': 'Khám phá chủ đề',

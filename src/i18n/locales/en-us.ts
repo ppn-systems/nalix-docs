@@ -21,8 +21,13 @@ export const enUs = {
   'nav.language': 'Select a language',
   'nav.comingSoon': 'Soon',
   'nav.themeToggle': 'Toggle the theme',
+  'nav.primarySections': 'Primary documentation sections',
+  'nav.allPages': 'All {count} pages',
+  'nav.resources': 'Resources',
+  'nav.langSoonHint': 'This translation will be added soon',
+  'nav.githubLabel': 'Nalix on GitHub',
 
-  // Home Portal (Unity Docs Style)
+  // Home portal
   'hero.title': 'Nalix Documentation',
   'hero.subtitle': 'Low-latency binary real-time networking for .NET 10.',
   'home.exploreTopics': 'Explore topics',
