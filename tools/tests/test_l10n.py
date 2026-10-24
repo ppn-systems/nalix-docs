@@ -110,6 +110,11 @@ class CompareTests(unittest.TestCase):
         self.assertEqual(codes(self.compare(VI.replace("section: Guides", "section: Hướng dẫn"))), ["L001"])
         self.assertEqual(codes(self.compare(VI.replace("package: Nalix.Runtime\n", ""))), ["L001"])
 
+    def test_unquoted_front_matter_that_is_not_valid_yaml_is_reported(self):
+        self.assertEqual(codes(self.compare(VI.replace("description: Cách bộ xử lý chạy.", "description: Cách bộ xử lý chạy: mạng, điều phối."))), ["L001"])
+        quoted = VI.replace("description: Cách bộ xử lý chạy.", 'description: "Cách bộ xử lý chạy: mạng, điều phối."')
+        self.assertEqual(self.compare(quoted), [])
+
     def test_english_left_in_the_prose_is_reported(self):
         long_english = " ".join(["This is the handler that runs for each packet and returns the result of the call."] * 6)
         source = extract_shape(EN + "\n" + long_english + "\n")

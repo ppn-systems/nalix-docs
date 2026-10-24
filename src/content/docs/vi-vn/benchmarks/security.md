@@ -56,7 +56,7 @@ Chỉ số hiệu năng cho giai đoạn handshake mật mã, thiết lập danh
 
 ### Đằng sau thiết kế
 
-- **Khóa không cấp phát**: Các phép tính khóa tốn kém, mỗi phép mất khoảng ~2–2,6 μs và chạy hoàn toàn không cấp phát (0 B), tách biệt các handshake mật mã khỏi tác động của garbage collection.
+- **Khóa không cấp phát**: Các phép tính khóa tốn kém, mỗi phép mất khoảng ~2–2.6 μs và chạy hoàn toàn không cấp phát (0 B), tách biệt các handshake mật mã khỏi tác động của garbage collection.
 
 ---
 
@@ -86,5 +86,5 @@ So sánh các thuật toán băm mật mã, cipher xác minh và dẫn xuất kh
 
 ### Đằng sau thiết kế
 
-- **Tối ưu Keccak**: Triển khai Keccak256 tự phát triển băm các cấu trúc nhỏ trong khoảng ~605 ns và cấu trúc 1 KB trong 4,86 μs mà không cấp phát bộ nhớ.
-- **Chi phí PBKDF2 và cách ly**: PBKDF2 là hàm dẫn xuất khóa an toàn, được thiết kế cố ý tốn kém về mặt tính toán (khoảng ~2,5 ms mỗi thao tác). Do tính chất phụ thuộc CPU, các kiểm tra PBKDF2 được tách khỏi hot path mạng để tránh làm đói thread pool của listener.
+- **Tối ưu Keccak**: Triển khai Keccak256 tự phát triển băm các cấu trúc nhỏ trong khoảng ~605 ns và cấu trúc 1 KB trong 4.86 μs mà không cấp phát bộ nhớ.
+- **Chi phí PBKDF2 và cách ly**: PBKDF2 là hàm dẫn xuất khóa an toàn, được thiết kế cố ý tốn kém về mặt tính toán (khoảng ~2.5 ms mỗi thao tác). Do tính chất phụ thuộc CPU, các kiểm tra PBKDF2 được tách khỏi hot path mạng để tránh làm đói thread pool của listener.

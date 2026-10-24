@@ -6,7 +6,7 @@ from collections import Counter
 
 from .code import comparable
 from .findings import Issue, Severity
-from .shape import Shape
+from .shape import Shape, is_plain_yaml_scalar
 from .untranslated import english_ratio, looks_untranslated
 
 #: Front-matter keys a translation is expected to translate; every other key must be copied as is.
@@ -44,6 +44,9 @@ def _front_matter(source: Shape, target: Shape, error) -> None:
     for key in TRANSLATED_KEYS & source.front.keys() & target.front.keys():
         if not target.front[key].strip():
             error("L001", 1, f"front matter `{key}` is empty")
+    for key, value in target.front_raw.items():
+        if not is_plain_yaml_scalar(value):
+            error("L001", 1, f"front matter `{key}` is not valid YAML as written; wrap the value in double quotes (it contains `: ` or starts with a special character)")
 
 
 def _headings(source: Shape, target: Shape, error) -> None:

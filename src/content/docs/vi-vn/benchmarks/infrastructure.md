@@ -22,7 +22,7 @@ Chỉ số hiệu năng chi tiết cho runtime lõi của Nalix, bao gồm quả
 ### Đằng sau thiết kế
 
 - **Lập chỉ mục không khóa**: Connection hub dựa vào các collection đồng thời hiệu năng cao và mảng chỉ mục để xử lý đăng ký đồng thời mà không cần khóa toàn cục.
-- **Đường tra cứu nhanh**: Tra cứu một phiên theo định danh dạng số dài mất dưới 4 nano giây (~3,9 ns), đảm bảo việc lấy phiên không trở thành nút thắt trong vòng lặp nhận tin đến.
+- **Đường tra cứu nhanh**: Tra cứu một phiên theo định danh dạng số dài mất dưới 4 nano giây (~3.9 ns), đảm bảo việc lấy phiên không trở thành nút thắt trong vòng lặp nhận tin đến.
 
 ---
 
@@ -86,7 +86,7 @@ Chỉ số hiệu năng chi tiết cho runtime lõi của Nalix, bao gồm quả
 | Kịch bản | Trước | Sau | Thay đổi |
 | :--- | ---: | ---: | ---: |
 | Một kết nối, không tranh chấp | 325.2 ns | **286.0 ns** | −12% |
-| 64 kết nối đẩy đồng thời, đã drain | 68.75 μs | **60.11 μs** | −12,6% |
+| 64 kết nối đẩy đồng thời, đã drain | 68.75 μs | **60.11 μs** | −12.6% |
 
 :::note
 Đây là một cải thiện thực sự cho mỗi tin nhắn ở tầng dispatch, nhưng dispatch channel chỉ là một trong nhiều bước của đường xử lý request đầy đủ (vòng đi về socket của hệ điều hành chiếm phần lớn CPU/op phía máy chủ đầu cuối). Khi chạy lại phép so sánh echo đầy đủ trong [network-comparison.md](network-comparison.md) chỉ với thay đổi này, không thấy khác biệt nào ngoài nhiễu thông thường giữa các lần chạy trên container dùng chung này. Cải thiện là có thật nhưng quá nhỏ so với tổng CPU/op để nhìn thấy ở quy mô đó.

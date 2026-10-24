@@ -1,6 +1,6 @@
 ---
 title: Các enumeration dùng chung
-description: Tham chiếu đầy đủ, đồng bộ với mã nguồn, cho mọi enumeration trong Nalix.Abstractions: mạng, điều khiển protocol, bảo mật, định danh, tuần tự hóa, middleware và đồng thời.
+description: "Tham chiếu đầy đủ, đồng bộ với mã nguồn, cho mọi enumeration trong Nalix.Abstractions: mạng, điều khiển protocol, bảo mật, định danh, tuần tự hóa, middleware và đồng thời."
 section: API Reference
 package: Nalix.Abstractions
 ---

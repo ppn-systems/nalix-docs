@@ -46,7 +46,7 @@ Pipeline khung xử lý toàn bộ quá trình tuần tự hóa đi ra (nén + m
 ### Đằng sau thiết kế
 
 - **Tỷ lệ tuyến tính**: Độ trễ tăng có thể dự đoán được theo kích thước payload.
-- **Pipeline xử lý liên tục**: Xử lý đi ra truyền dữ liệu trực tiếp, cho phép đóng khung từ dưới micro giây đến vài micro giây với các kích thước payload phổ biến (ví dụ 1,53 μs cho payload 512B).
+- **Pipeline xử lý liên tục**: Xử lý đi ra truyền dữ liệu trực tiếp, cho phép đóng khung từ dưới micro giây đến vài micro giây với các kích thước payload phổ biến (ví dụ 1.53 μs cho payload 512B).
 
 ---
 
@@ -87,5 +87,5 @@ Các transformer riêng lẻ trong pipeline xử lý việc nén/giải nén và
 ### Vì sao xử lý dữ liệu của Nalix?
 
 - **Biến đổi không cấp phát**: Thay vì tạo các mảng rác trung gian, mã hóa và nén hoạt động trực tiếp trên các bộ đệm thuê từ `BufferPoolManager` bằng `Span<byte>`, nên các thao tác transformer không tiêu tốn byte heap nào (0 B).
-- **Tốc độ thân thiện với phần cứng**: Mã hóa đối xứng 1 KB dữ liệu mất khoảng 900 ns với ChaCha20 và khoảng 2,0 μs với Salsa20.
+- **Tốc độ thân thiện với phần cứng**: Mã hóa đối xứng 1 KB dữ liệu mất khoảng 900 ns với ChaCha20 và khoảng 2.0 μs với Salsa20.
 - **Nén LZ4 nội tuyến**: Nén LZ4 tích hợp sẵn kết hợp liền mạch với pipeline bộ đệm, thực hiện nén 1 KB trong khoảng 608 ns và nén 64 B trong dưới 176 ns.

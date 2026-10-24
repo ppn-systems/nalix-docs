@@ -72,7 +72,7 @@ Xem [Tài liệu tham chiếu Code Fixes](./code-fixes.md) để biết chính x
 4. [**Packet Registry Generator** (PacketRegistryGenerator)](./autogen/packet-registry-generator.md) — Sinh `PacketRegistryGenerated.Initialize()` gọi `PacketRegistry.RegisterGenerated<TPacket>` cho các kiểu `IPacket` cụ thể.
 5. [**Packet Schema Generator** (PacketSchemaGenerator)](./autogen/packet-schema-generator.md) — Sinh `Length`, `ResetForPool()` và `Size` (khi implement `IFixedSizeSerializable`) cho các kiểu `PacketBase<TSelf>` là `partial`.
 6. [**Configuration Generator** (ConfigurationGenerator)](./autogen/configuration-generator.md) — Sinh `CopyPropertiesTo`, `BindProperties` và `ValidateDataAnnotations` cho các lớp con `ConfigurationLoader`.
-7. [**RPC Client Generator** (RpcClientGenerator)](./autogen/index.md#rpc-client-generator-rpcclientgenerator) — Sinh các implementation `<Service>_RpcClient` được đăng ký qua `RpcExtensions.RegisterFactory` cho interface `[RpcService]`.
+7. [**RPC Client Generator** (RpcClientGenerator)](./autogen/index.md#bộ-sinh-rpc-client-rpcclientgenerator) — Sinh các implementation `<Service>_RpcClient` được đăng ký qua `RpcExtensions.RegisterFactory` cho interface `[RpcService]`.
 
 ## API liên quan
 

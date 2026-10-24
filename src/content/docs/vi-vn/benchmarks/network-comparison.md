@@ -16,14 +16,14 @@ Các số liệu này được đo trên một container Linux đám mây 4 vCPU
 Cả 12 framework và baseline dưới đây được đo cùng nhau vào ngày 2026-10-02 trong một phiên liên tục duy nhất trên .NET 10.0.401 SDK, trên container Linux 4 vCPU. Mọi so sánh đều phản ánh kết quả đối đầu trực tiếp trong cùng điều kiện phần cứng và hệ điều hành.
 :::
 
-- **Độ trễ một client:** Nalix TCP có p50 thấp nhất trong số các framework đầy đủ. Ở 32 B, p50 là 52,2 µs với Nalix TCP, 55,5 µs với Nalix WebSocket và 57,6 µs với Nalix AEAD, so với 68,4 µs của gRPC duplex, 74,2 µs của MagicOnion hub, 76,3 µs của SignalR và 106,4 µs của gRPC unary. Ở 1 KB, Nalix TCP đạt 53,6 µs so với 69,2 µs của gRPC duplex, 79,4 µs của MagicOnion hub và 83,5 µs của SignalR. Baseline socket thô viết tay (30,9 µs / 24,0 µs) và echo WebSocket Kestrel thô (45,0 µs / 48,5 µs) nhanh hơn.
+- **Độ trễ một client:** Nalix TCP có p50 thấp nhất trong số các framework đầy đủ. Ở 32 B, p50 là 52.2 µs với Nalix TCP, 55.5 µs với Nalix WebSocket và 57.6 µs với Nalix AEAD, so với 68.4 µs của gRPC duplex, 74.2 µs của MagicOnion hub, 76.3 µs của SignalR và 106.4 µs của gRPC unary. Ở 1 KB, Nalix TCP đạt 53.6 µs so với 69.2 µs của gRPC duplex, 79.4 µs của MagicOnion hub và 83.5 µs của SignalR. Baseline socket thô viết tay (30.9 µs / 24.0 µs) và echo WebSocket Kestrel thô (45.0 µs / 48.5 µs) nhanh hơn.
 - **Thông lượng với 64 client:**
-  - Ở 32 B: gRPC duplex 77,6k ops/s, Nalix TCP 74,8k, SignalR 71,9k, Nalix WebSocket 69,1k, MagicOnion hub 67,5k, Nalix TCP AEAD 63,3k, gRPC unary 58,1k, MagicOnion unary 55,7k.
-  - Ở 1 KB: SignalR 70,7k ops/s, gRPC duplex 68,4k, Nalix WebSocket 61,4k, Nalix TCP 60,8k, MagicOnion hub 58,2k, gRPC unary 56,9k, MagicOnion unary 54,8k, Nalix TCP AEAD 53,3k. Trên máy 4 lõi này, mọi framework đều bị giới hạn bởi CPU và nằm trong khoảng khoảng 10–15% so với nhau ở mức đồng thời cao.
-- **Thông lượng với 1 và 16 client:** Nalix TCP đứng đầu với 1 client ở cả hai kích thước (18,1k ở 32 B, 16,1k ở 1 KB). Với 16 client và 32 B, Nalix WebSocket (64,5k) và Nalix TCP (62,9k) ngang với gRPC duplex (62,9k) và vượt SignalR (61,2k).
-- **CPU máy chủ trên mỗi tin nhắn:** Nalix TCP đo được 29,3 µs với 64 client và 32 B, so với 21,8 µs của SignalR và 21,9 µs của gRPC duplex, nên máy chủ của nó tốn CPU hơn; phía client lại rẻ hơn (19,2 µs CPU/op phía client so với 24,2 µs của SignalR).
-- **Cấp phát phía máy chủ:** 56 B mỗi tin nhắn ở 32 B với Nalix TCP và Nalix AEAD, thấp nhất trong số các framework đầy đủ (MagicOnion hub 200 B, gRPC duplex 264 B, SignalR 672 B). Chỉ baseline echo WebSocket Kestrel thô là cấp phát ít hơn (0 B). Ở 1 KB, Nalix TCP cấp phát 1.048 B so với 1.192 B của MagicOnion hub, 1.256 B của gRPC duplex và 1.664 B của SignalR.
-- **Mã hóa:** Nalix AEAD (X25519 + ChaCha20-Poly1305) thắng gRPC qua TLS về độ trễ một client (p50 32 B: 57,6 µs so với 100,4 µs của gRPC duplex TLS; ở 1 KB: 74,6 µs so với 103,8 µs), về thông lượng 64 client (63,3k so với 57,8k ops/s ở 32 B; 53,3k so với 49,5k ở 1 KB) và về cấp phát phía máy chủ (56 B so với 812 B ở 32 B; 1.048 B so với 1.801 B ở 1 KB).
+  - Ở 32 B: gRPC duplex 77.6k ops/s, Nalix TCP 74.8k, SignalR 71.9k, Nalix WebSocket 69.1k, MagicOnion hub 67.5k, Nalix TCP AEAD 63.3k, gRPC unary 58.1k, MagicOnion unary 55.7k.
+  - Ở 1 KB: SignalR 70.7k ops/s, gRPC duplex 68.4k, Nalix WebSocket 61.4k, Nalix TCP 60.8k, MagicOnion hub 58.2k, gRPC unary 56.9k, MagicOnion unary 54.8k, Nalix TCP AEAD 53.3k. Trên máy 4 lõi này, mọi framework đều bị giới hạn bởi CPU và nằm trong khoảng 10–15% so với nhau ở mức đồng thời cao.
+- **Thông lượng với 1 và 16 client:** Nalix TCP đứng đầu với 1 client ở cả hai kích thước (18.1k ở 32 B, 16.1k ở 1 KB). Với 16 client và 32 B, Nalix WebSocket (64.5k) và Nalix TCP (62.9k) ngang với gRPC duplex (62.9k) và vượt SignalR (61.2k).
+- **CPU máy chủ trên mỗi tin nhắn:** Nalix TCP đo được 29.3 µs với 64 client và 32 B, so với 21.8 µs của SignalR và 21.9 µs của gRPC duplex, nên máy chủ của nó tốn CPU hơn; phía client lại rẻ hơn (19.2 µs CPU/op phía client so với 24.2 µs của SignalR).
+- **Cấp phát phía máy chủ:** 56 B mỗi tin nhắn ở 32 B với Nalix TCP và Nalix AEAD, thấp nhất trong số các framework đầy đủ (MagicOnion hub 200 B, gRPC duplex 264 B, SignalR 672 B). Chỉ baseline echo WebSocket Kestrel thô là cấp phát ít hơn (0 B). Ở 1 KB, Nalix TCP cấp phát 1,048 B so với 1,192 B của MagicOnion hub, 1,256 B của gRPC duplex và 1,664 B của SignalR.
+- **Mã hóa:** Nalix AEAD (X25519 + ChaCha20-Poly1305) thắng gRPC qua TLS về độ trễ một client (p50 ở 32 B: 57.6 µs so với 100.4 µs của gRPC duplex TLS; ở 1 KB: 74.6 µs so với 103.8 µs), về thông lượng 64 client (63.3k so với 57.8k ops/s ở 32 B; 53.3k so với 49.5k ở 1 KB) và về cấp phát phía máy chủ (56 B so với 812 B ở 32 B; 1,048 B so với 1,801 B ở 1 KB).
 
 ## Môi trường
 
@@ -61,7 +61,7 @@ Harness: `benchmarks/Nalix.Comparison.Benchmarks` (runner `benchmarks/run-compar
 | `magiconion-unary` / `magiconion-hub` | `IService<T>` `UnaryResult<byte[]>`, hoặc một phương thức `StreamingHub` trả về `ValueTask<byte[]>`, qua h2c. |
 
 - **Mỗi client sở hữu kết nối riêng** (với gRPC và MagicOnion là `GrpcChannel` / `SocketsHttpHandler` riêng), nên "N client" nghĩa là N kết nối TCP với mọi thư viện.
-- **Độ trễ:** Một client, gọi tuần tự. 20.000 lần khởi động làm nóng, sau đó **100.000 lần gọi có đo thời gian**. Mỗi lần gọi được đo bằng `Stopwatch` và các mẫu được sắp xếp để đọc chính xác các phân vị.
+- **Độ trễ:** Một client, gọi tuần tự. 20 000 lần khởi động làm nóng, sau đó **100 000 lần gọi có đo thời gian**. Mỗi lần gọi được đo bằng `Stopwatch` và các mẫu được sắp xếp để đọc chính xác các phân vị.
 - **Thông lượng:** N ∈ {1, 16, 64} client theo **vòng lặp đóng** (mỗi client giữ một yêu cầu đang bay). Sau 2 s làm nóng, các yêu cầu được đếm trong cửa sổ 8 s.
 - **Lần chạy:** 3 lần chạy cho mỗi ô. Các bảng hiển thị **median** của các lần chạy, và `±x%` bằng một nửa độ trải (max − min)/median.
 - Máy chủ ASP.NET Core dùng `WebApplication.CreateBuilder`, xóa logging và đặt mức tối thiểu là Warning, Kestrel chỉ bind trên loopback. Không đối thủ nào được tinh chỉnh vượt quá cấu hình mặc định được tài liệu hóa. Với Nalix cũng vậy: không tinh chỉnh gì cả (loopback được miễn hạn mức kết nối mặc định theo IP kể từ #365).
@@ -185,17 +185,17 @@ benchmarks/run-comparison.sh        # Linux/macOS
 
 | Kịch bản | Framework tốt nhất (không tính baseline thô) | Vị trí của Nalix |
 |:--|:--|:--|
-| Độ trễ, 32 B, 1 client | **Nalix TCP** (p50 52,2 µs) | Thứ 1. Nalix WS 55,5 µs, Nalix AEAD 57,6 µs, gRPC duplex 68,4 µs, MagicOnion hub 74,2 µs, SignalR 76,3 µs |
-| Độ trễ, 1 KB, 1 client | **Nalix TCP** (p50 53,6 µs) | Thứ 1. Nalix WS 63,4 µs, gRPC duplex 69,2 µs, Nalix AEAD 74,6 µs, MagicOnion hub 79,4 µs, SignalR 83,5 µs |
-| Độ trễ, có mã hóa | **Nalix AEAD** ở cả hai kích thước (57,6 µs so với gRPC duplex TLS 100,4 µs ở 32 B; 74,6 µs so với 103,8 µs ở 1 KB) | Thứ 1 ở cả hai kích thước |
-| Thông lượng, 1 client, 32 B | **Nalix TCP** (18,1k) | Thứ 1 (Nalix WS 16,1k, Nalix AEAD 14,2k, gRPC duplex 13,7k) |
-| Thông lượng, 16 client, 32 B | **Nalix WS** 64,5k / **Nalix TCP** 62,9k / gRPC duplex 62,9k | Thứ 1 (trong nhiễu của lần chạy so với gRPC duplex; SignalR 61,2k) |
-| Thông lượng, 16 client, 1 KB | **gRPC duplex** 62,1k | Thứ 3 (SignalR 59,7k, Nalix TCP 55,1k) |
-| Thông lượng, 64 client, 32 B | **gRPC duplex** 77,6k | Thứ 2 (Nalix TCP 74,8k, SignalR 71,9k, Nalix WS 69,1k) |
-| Thông lượng, 64 client, 1 KB | **SignalR** 70,7k | Thứ 3–4 (gRPC duplex 68,4k, Nalix WS 61,4k, Nalix TCP 60,8k) |
-| Thông lượng, có mã hóa, 64 client | **Nalix AEAD** (63,3k ở 32 B, 53,3k ở 1 KB) | Thứ 1 (gRPC duplex TLS 57,8k / 49,5k) |
+| Độ trễ, 32 B, 1 client | **Nalix TCP** (p50 52.2 µs) | Thứ 1. Nalix WS 55.5 µs, Nalix AEAD 57.6 µs, gRPC duplex 68.4 µs, MagicOnion hub 74.2 µs, SignalR 76.3 µs |
+| Độ trễ, 1 KB, 1 client | **Nalix TCP** (p50 53.6 µs) | Thứ 1. Nalix WS 63.4 µs, gRPC duplex 69.2 µs, Nalix AEAD 74.6 µs, MagicOnion hub 79.4 µs, SignalR 83.5 µs |
+| Độ trễ, có mã hóa | **Nalix AEAD** ở cả hai kích thước (57.6 µs so với gRPC duplex TLS 100.4 µs ở 32 B; 74.6 µs so với 103.8 µs ở 1 KB) | Thứ 1 ở cả hai kích thước |
+| Thông lượng, 1 client, 32 B | **Nalix TCP** (18.1k) | Thứ 1 (Nalix WS 16.1k, Nalix AEAD 14.2k, gRPC duplex 13.7k) |
+| Thông lượng, 16 client, 32 B | **Nalix WS** 64.5k / **Nalix TCP** 62.9k / gRPC duplex 62.9k | Thứ 1 (trong nhiễu của lần chạy so với gRPC duplex; SignalR 61.2k) |
+| Thông lượng, 16 client, 1 KB | **gRPC duplex** 62.1k | Thứ 3 (SignalR 59.7k, Nalix TCP 55.1k) |
+| Thông lượng, 64 client, 32 B | **gRPC duplex** 77.6k | Thứ 2 (Nalix TCP 74.8k, SignalR 71.9k, Nalix WS 69.1k) |
+| Thông lượng, 64 client, 1 KB | **SignalR** 70.7k | Thứ 3–4 (gRPC duplex 68.4k, Nalix WS 61.4k, Nalix TCP 60.8k) |
+| Thông lượng, có mã hóa, 64 client | **Nalix AEAD** (63.3k ở 32 B, 53.3k ở 1 KB) | Thứ 1 (gRPC duplex TLS 57.8k / 49.5k) |
 | Cấp phát máy chủ/tin nhắn | **Nalix TCP / AEAD** 56 B ở 32 B | Thứ 1 trong các framework (chỉ echo WebSocket Kestrel thô, 0 B, thấp hơn) |
-| CPU máy chủ/tin nhắn, 64 client, 32 B | **SignalR** 21,8 µs / gRPC duplex 21,9 µs | Nalix TCP 29,3 µs, đứng sau cả hai và MagicOnion hub (26,3 µs) |
+| CPU máy chủ/tin nhắn, 64 client, 32 B | **SignalR** 21.8 µs / gRPC duplex 21.9 µs | Nalix TCP 29.3 µs, đứng sau cả hai và MagicOnion hub (26.3 µs) |
 
 ## Lưu ý
 

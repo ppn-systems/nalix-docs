@@ -31,7 +31,7 @@ sequenceDiagram
 
 ### Khi nào nên rekey
 
-- **Tràn bộ đếm sequence**: Bộ đếm sequence 16-bit sẽ quay vòng sau 65.535 khung. Rekey sẽ đặt lại chúng.
+- **Tràn bộ đếm sequence**: Bộ đếm sequence 16-bit sẽ quay vòng sau 65,535 khung. Rekey sẽ đặt lại chúng.
 - **Giảm khoảng thời gian bị lộ**: Xoay vòng khóa giới hạn lượng dữ liệu được mã hóa dưới một khóa duy nhất.
 - **Phiên tồn tại lâu dài**: Máy chủ game, kết nối IoT và bảng điều khiển liên tục nên rekey định kỳ.
 
@@ -42,7 +42,7 @@ SDK cung cấp `RekeyAsync()` trên `TransportSession`:
 ```csharp
 using Nalix.SDK.Transport;
 
-// Rekey sau mỗi 50.000 gói tin hoặc theo bộ hẹn giờ
+// Rekey sau mỗi 50,000 gói tin hoặc theo bộ hẹn giờ
 await session.RekeyAsync();
 ```
 

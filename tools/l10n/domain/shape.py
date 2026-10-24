@@ -59,21 +59,34 @@ class Shape:
     admonitions: tuple[tuple[str, int], ...] = ()
     code_spans: Counter = field(default_factory=Counter)
     prose: str = ""  # the words: no code, no link targets, no tags
+    front_raw: dict[str, str] = field(default_factory=dict)  # front matter values as written (quotes kept)
 
 
-def split_front_matter(text: str) -> tuple[dict[str, str], int]:
-    """Front matter as plain ``key: value`` pairs, and the number of lines it takes (0 when absent)."""
+def split_front_matter(text: str) -> tuple[dict[str, str], dict[str, str], int]:
+    """Front matter as plain ``key: value`` pairs (unquoted and as written), and the lines it takes (0 when absent)."""
     lines = text.replace("\r\n", "\n").split("\n")
     if not lines or lines[0].strip() != "---":
-        return {}, 0
+        return {}, {}, 0
     front: dict[str, str] = {}
+    raw: dict[str, str] = {}
     for index in range(1, len(lines)):
         if lines[index].strip() == "---":
-            return front, index + 1
+            return front, raw, index + 1
         key, sep, value = lines[index].partition(":")
         if sep:
+            raw[key.strip()] = value.strip()
             front[key.strip()] = value.strip().strip("\"'")
-    return {}, 0
+    return {}, {}, 0
+
+
+_YAML_INDICATORS = "[]{}!&*|>%@`,"
+
+
+def is_plain_yaml_scalar(value: str) -> bool:
+    """False when an unquoted front matter value would not parse as one YAML string (``a: b``, `` #``, leading ``[``…)."""
+    if not value or value[0] in "\"'":
+        return True
+    return not (": " in value or " #" in value or value[0] in _YAML_INDICATORS or value.endswith(":"))
 
 
 def heading_slugs(headings: tuple[Heading, ...]) -> list[str]:
@@ -81,7 +94,7 @@ def heading_slugs(headings: tuple[Heading, ...]) -> list[str]:
 
 
 def extract_shape(text: str) -> Shape:
-    front, offset = split_front_matter(text)
+    front, raw_front, offset = split_front_matter(text)
     lines = text.replace("\r\n", "\n").split("\n")
 
     headings: list[Heading] = []
@@ -148,4 +161,4 @@ def extract_shape(text: str) -> Shape:
             words.append(_HTML_TAG.sub(" ", _LINK.sub(r"\2", bare)))
     close_table()
 
-    return Shape(front, tuple(headings), tuple(blocks), tuple(tables), tuple(links), tuple(admonitions), spans, "\n".join(words))
+    return Shape(front, tuple(headings), tuple(blocks), tuple(tables), tuple(links), tuple(admonitions), spans, "\n".join(words), raw_front)
