@@ -1,5 +1,5 @@
 ---
-title: UDP Security Guide
+title: UDP Security
 description: This guide explains the actual UDP session shape used by UdpListenerBase today, in a client-friendly way.
 section: Guides
 ---

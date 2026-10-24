@@ -1,5 +1,5 @@
 ---
-title: Low-Level Transport Session APIs (Nalix.SDK)
+title: Low-Level Session APIs
 description: The primary Client Session Guide focuses on high-level workflows like strongly-typed packet subscriptions and reconnect helpers. This page covers the lower-level transport surfa...
 section: Concepts
 ---

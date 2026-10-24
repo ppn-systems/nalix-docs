@@ -25,18 +25,27 @@ export const NAVIGATION_TREE: NavItem[] = [
     "items": [
       {
         "title": "Quick Start",
+        "titleVi": "Bắt đầu nhanh",
         "slug": "quickstart",
         "file": "quickstart.md"
       },
       {
         "title": "Installation",
+        "titleVi": "Cài đặt",
         "slug": "installation",
         "file": "installation.md"
       },
       {
         "title": "Your First Server",
+        "titleVi": "Máy chủ đầu tiên",
         "slug": "guides/getting-started/your-first-server",
         "file": "guides/getting-started/your-first-server.md"
+      },
+      {
+        "title": "Server Blueprint",
+        "titleVi": "Kiến trúc máy chủ mẫu",
+        "slug": "guides/getting-started/server-blueprint",
+        "file": "guides/getting-started/server-blueprint.md"
       }
     ]
   },
@@ -51,30 +60,42 @@ export const NAVIGATION_TREE: NavItem[] = [
         "file": "guides/index.md"
       },
       {
-        "title": "Build a Chat Room",
-        "slug": "guides/build-a-chat-room",
-        "file": "guides/build-a-chat-room.md"
-      },
-      {
-        "title": "Blazor WebAssembly Client",
-        "slug": "guides/blazor-wasm",
-        "file": "guides/blazor-wasm.md"
-      },
-      {
-        "title": "Securing Your Server",
-        "slug": "guides/securing-your-server",
-        "file": "guides/securing-your-server.md"
+        "title": "Tutorials",
+        "titleVi": "Bài tập thực hành",
+        "items": [
+          {
+            "title": "Build a Chat Room",
+            "titleVi": "Xây dựng phòng Chat",
+            "slug": "guides/build-a-chat-room",
+            "file": "guides/build-a-chat-room.md"
+          },
+          {
+            "title": "Blazor WebAssembly",
+            "titleVi": "Blazor WebAssembly",
+            "slug": "guides/blazor-wasm",
+            "file": "guides/blazor-wasm.md"
+          },
+          {
+            "title": "Securing Your Server",
+            "titleVi": "Bảo mật máy chủ",
+            "slug": "guides/securing-your-server",
+            "file": "guides/securing-your-server.md"
+          }
+        ]
       },
       {
         "title": "Application Logic",
+        "titleVi": "Logic ứng dụng",
         "items": [
           {
-            "title": "Implementing Packet Handlers",
+            "title": "Packet Handlers",
+            "titleVi": "Xử lý gói tin",
             "slug": "guides/application/packet-handlers",
             "file": "guides/application/packet-handlers.md"
           },
           {
-            "title": "Middleware Usage Guide",
+            "title": "Middleware Usage",
+            "titleVi": "Sử dụng Middleware",
             "slug": "guides/application/middleware-usage",
             "file": "guides/application/middleware-usage.md"
           }
@@ -82,29 +103,35 @@ export const NAVIGATION_TREE: NavItem[] = [
       },
       {
         "title": "Networking",
+        "titleVi": "Mạng & Kết nối",
         "items": [
           {
-            "title": "Client Session Guide",
+            "title": "Client Sessions",
+            "titleVi": "Phiên kết nối Client",
             "slug": "guides/networking/connecting-clients",
             "file": "guides/networking/connecting-clients.md"
           },
           {
-            "title": "UDP Server Guide",
-            "slug": "guides/networking/udp-server",
-            "file": "guides/networking/udp-server.md"
-          },
-          {
-            "title": "TCP Patterns Guide",
+            "title": "TCP Patterns",
+            "titleVi": "Mẫu kết nối TCP",
             "slug": "guides/networking/tcp-patterns",
             "file": "guides/networking/tcp-patterns.md"
           },
           {
-            "title": "UDP Security Guide",
+            "title": "UDP Server",
+            "titleVi": "Máy chủ UDP",
+            "slug": "guides/networking/udp-server",
+            "file": "guides/networking/udp-server.md"
+          },
+          {
+            "title": "UDP Security",
+            "titleVi": "Bảo mật UDP",
             "slug": "guides/networking/udp-security",
             "file": "guides/networking/udp-security.md"
           },
           {
             "title": "Idle Connection Timeout",
+            "titleVi": "Thời gian chờ kết nối rỗi",
             "slug": "guides/networking/idle-timeout-configuration",
             "file": "guides/networking/idle-timeout-configuration.md"
           }
@@ -112,54 +139,53 @@ export const NAVIGATION_TREE: NavItem[] = [
       },
       {
         "title": "Extensibility",
+        "titleVi": "Mở rộng hệ thống",
         "items": [
           {
-            "title": "Custom Middleware Guide",
+            "title": "Custom Middleware",
+            "titleVi": "Tùy chỉnh Middleware",
             "slug": "guides/extensibility/custom-middleware",
             "file": "guides/extensibility/custom-middleware.md"
           },
           {
             "title": "Custom Packet Router",
+            "titleVi": "Tùy chỉnh bộ định tuyến",
             "slug": "guides/extensibility/custom-packet-router",
             "file": "guides/extensibility/custom-packet-router.md"
           },
           {
             "title": "Custom Metadata Providers",
+            "titleVi": "Tùy chỉnh Metadata Provider",
             "slug": "guides/extensibility/metadata-providers",
             "file": "guides/extensibility/metadata-providers.md"
           },
           {
-            "title": "Custom Serialization Provider",
+            "title": "Custom Serialization Providers",
+            "titleVi": "Tùy chỉnh tuần tự hóa",
             "slug": "guides/extensibility/serialization-providers",
             "file": "guides/extensibility/serialization-providers.md"
           }
         ]
       },
       {
-        "title": "Getting Started References",
-        "items": [
-          {
-            "title": "Server Blueprint",
-            "slug": "guides/getting-started/server-blueprint",
-            "file": "guides/getting-started/server-blueprint.md"
-          }
-        ]
-      },
-      {
         "title": "Deployment & Operations",
+        "titleVi": "Triển khai & Vận hành",
         "items": [
           {
             "title": "Production Checklist",
+            "titleVi": "Danh mục kiểm tra Production",
             "slug": "guides/deployment/production-checklist",
             "file": "guides/deployment/production-checklist.md"
           },
           {
-            "title": "Reverse Proxy TLS (nginx / Caddy)",
+            "title": "Reverse Proxy & TLS",
+            "titleVi": "Reverse Proxy & TLS",
             "slug": "guides/deployment/reverse-proxy-tls",
             "file": "guides/deployment/reverse-proxy-tls.md"
           },
           {
-            "title": "Troubleshooting Guide",
+            "title": "Troubleshooting",
+            "titleVi": "Xử lý sự cố",
             "slug": "guides/deployment/troubleshooting",
             "file": "guides/deployment/troubleshooting.md"
           }
@@ -178,32 +204,39 @@ export const NAVIGATION_TREE: NavItem[] = [
         "file": "concepts/index.md"
       },
       {
-        "title": "How Packets Work",
-        "slug": "concepts/how-packets-work",
-        "file": "concepts/how-packets-work.md"
+        "title": "Core Concepts",
+        "titleVi": "Khái niệm cốt lõi",
+        "items": [
+          {
+            "title": "How Packets Work",
+            "slug": "concepts/how-packets-work",
+            "file": "concepts/how-packets-work.md"
+          },
+          {
+            "title": "Handlers & Middleware",
+            "slug": "concepts/handlers-and-middleware",
+            "file": "concepts/handlers-and-middleware.md"
+          },
+          {
+            "title": "Configuration",
+            "slug": "concepts/configuration",
+            "file": "concepts/configuration.md"
+          },
+          {
+            "title": "Hosting Model",
+            "slug": "concepts/application/hosting-model",
+            "file": "concepts/application/hosting-model.md"
+          },
+          {
+            "title": "Glossary",
+            "slug": "concepts/glossary",
+            "file": "concepts/glossary.md"
+          }
+        ]
       },
       {
-        "title": "Handlers and Middleware",
-        "slug": "concepts/handlers-and-middleware",
-        "file": "concepts/handlers-and-middleware.md"
-      },
-      {
-        "title": "Configuration",
-        "slug": "concepts/configuration",
-        "file": "concepts/configuration.md"
-      },
-      {
-        "title": "Hosting Model",
-        "slug": "concepts/application/hosting-model",
-        "file": "concepts/application/hosting-model.md"
-      },
-      {
-        "title": "Glossary",
-        "slug": "concepts/glossary",
-        "file": "concepts/glossary.md"
-      },
-      {
-        "title": "Internals",
+        "title": "Architecture & Internals",
+        "titleVi": "Kiến trúc nội bộ",
         "items": [
           {
             "title": "Overview",
@@ -212,7 +245,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "file": "concepts/internals/index.md"
           },
           {
-            "title": "Architecture",
+            "title": "System Architecture",
             "slug": "concepts/internals/architecture",
             "file": "concepts/internals/architecture.md"
           },
@@ -222,17 +255,12 @@ export const NAVIGATION_TREE: NavItem[] = [
             "file": "concepts/internals/packet-lifecycle.md"
           },
           {
-            "title": "Errors and Diagnostics",
-            "slug": "concepts/internals/errors-and-diagnostics",
-            "file": "concepts/internals/errors-and-diagnostics.md"
-          },
-          {
             "title": "Binary Specification",
             "slug": "concepts/internals/binary-spec",
             "file": "concepts/internals/binary-spec.md"
           },
           {
-            "title": "Real-time Engine",
+            "title": "Real-Time Engine",
             "slug": "concepts/internals/real-time-engine",
             "file": "concepts/internals/real-time-engine.md"
           },
@@ -246,6 +274,42 @@ export const NAVIGATION_TREE: NavItem[] = [
             "slug": "concepts/internals/configuration",
             "file": "concepts/internals/configuration.md"
           },
+          {
+            "title": "Sharding & Concurrency",
+            "slug": "concepts/internals/sharding",
+            "file": "concepts/internals/sharding.md"
+          },
+          {
+            "title": "Zero-Allocation Path",
+            "slug": "concepts/internals/zero-allocation",
+            "file": "concepts/internals/zero-allocation.md"
+          },
+          {
+            "title": "Errors & Diagnostics",
+            "slug": "concepts/internals/errors-and-diagnostics",
+            "file": "concepts/internals/errors-and-diagnostics.md"
+          },
+          {
+            "title": "Guarantees & Failure Handling",
+            "slug": "concepts/internals/guarantees-and-failure-handling",
+            "file": "concepts/internals/guarantees-and-failure-handling.md"
+          },
+          {
+            "title": "Design Tradeoffs",
+            "slug": "concepts/internals/design-tradeoffs",
+            "file": "concepts/internals/design-tradeoffs.md"
+          },
+          {
+            "title": "Performance Optimizations",
+            "slug": "concepts/internals/performance-optimizations",
+            "file": "concepts/internals/performance-optimizations.md"
+          }
+        ]
+      },
+      {
+        "title": "Security Model",
+        "titleVi": "Mô hình bảo mật",
+        "items": [
           {
             "title": "Security Architecture",
             "slug": "concepts/internals/security-architecture",
@@ -265,56 +329,32 @@ export const NAVIGATION_TREE: NavItem[] = [
             "title": "Session Resumption",
             "slug": "concepts/internals/session-resumption",
             "file": "concepts/internals/session-resumption.md"
+          }
+        ]
+      },
+      {
+        "title": "Advanced Topics",
+        "titleVi": "Chủ đề nâng cao",
+        "items": [
+          {
+            "title": "Manual Server Wiring",
+            "slug": "concepts/internals/minimal-server",
+            "file": "concepts/internals/minimal-server.md"
           },
           {
-            "title": "Sharding & Concurrency",
-            "slug": "concepts/internals/sharding",
-            "file": "concepts/internals/sharding.md"
+            "title": "Low-Level Session APIs",
+            "slug": "concepts/internals/low-level-session-apis",
+            "file": "concepts/internals/low-level-session-apis.md"
           },
           {
-            "title": "Zero-Allocation Path",
-            "slug": "concepts/internals/zero-allocation",
-            "file": "concepts/internals/zero-allocation.md"
+            "title": "BufferLease Utilization",
+            "slug": "concepts/internals/buffer-lease-utilization",
+            "file": "concepts/internals/buffer-lease-utilization.md"
           },
           {
-            "title": "Guarantees and Failure Handling",
-            "slug": "concepts/internals/guarantees-and-failure-handling",
-            "file": "concepts/internals/guarantees-and-failure-handling.md"
-          },
-          {
-            "title": "Design Tradeoffs",
-            "slug": "concepts/internals/design-tradeoffs",
-            "file": "concepts/internals/design-tradeoffs.md"
-          },
-          {
-            "title": "Performance Optimizations",
-            "slug": "concepts/internals/performance-optimizations",
-            "file": "concepts/internals/performance-optimizations.md"
-          },
-          {
-            "title": "Advanced Guides",
-            "items": [
-              {
-                "title": "Manual Wiring (No Hosting)",
-                "slug": "concepts/internals/minimal-server",
-                "file": "concepts/internals/minimal-server.md"
-              },
-              {
-                "title": "Low-Level Session APIs",
-                "slug": "concepts/internals/low-level-session-apis",
-                "file": "concepts/internals/low-level-session-apis.md"
-              },
-              {
-                "title": "BufferLease Utilization",
-                "slug": "concepts/internals/buffer-lease-utilization",
-                "file": "concepts/internals/buffer-lease-utilization.md"
-              },
-              {
-                "title": "Buffer Pooling Configuration",
-                "slug": "concepts/internals/buffer-pooling-configuration",
-                "file": "concepts/internals/buffer-pooling-configuration.md"
-              }
-            ]
+            "title": "Buffer Pooling",
+            "slug": "concepts/internals/buffer-pooling-configuration",
+            "file": "concepts/internals/buffer-pooling-configuration.md"
           }
         ]
       }
@@ -599,7 +639,7 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/framework/singleton-base.md"
               },
               {
-                "title": "Instance Manager (DI)",
+                "title": "Instance Manager",
                 "slug": "api/framework/instance-manager",
                 "file": "api/framework/instance-manager.md"
               }
@@ -617,26 +657,6 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "title": "Recurring Options",
                 "slug": "api/framework/options/recurring-options",
                 "file": "api/framework/options/recurring-options.md"
-              }
-            ]
-          },
-          {
-            "title": "Memory",
-            "items": [
-              {
-                "title": "Object Pooling",
-                "slug": "api/framework/memory/object-pooling",
-                "file": "api/framework/memory/object-pooling.md"
-              },
-              {
-                "title": "Object Map",
-                "slug": "api/framework/memory/object-map",
-                "file": "api/framework/memory/object-map.md"
-              },
-              {
-                "title": "Typed Object Pools",
-                "slug": "api/framework/memory/typed-object-pools",
-                "file": "api/framework/memory/typed-object-pools.md"
               }
             ]
           },
@@ -698,12 +718,12 @@ export const NAVIGATION_TREE: NavItem[] = [
                     "file": "api/codec/serialization/packet-serialization.md"
                   },
                   {
-                    "title": "Attributes",
+                    "title": "Serialization Attributes",
                     "slug": "api/abstractions/serialization-attributes",
                     "file": "api/abstractions/serialization-attributes.md"
                   },
                   {
-                    "title": "IO & Headers",
+                    "title": "Reader & Writer Extensions",
                     "slug": "api/codec/serialization/reader-writer-and-header-extensions",
                     "file": "api/codec/serialization/reader-writer-and-header-extensions.md"
                   }
@@ -748,12 +768,12 @@ export const NAVIGATION_TREE: NavItem[] = [
             "file": "api/security/cryptography.md"
           },
           {
-            "title": "Hashing and MAC",
+            "title": "Hashing & MAC",
             "slug": "api/security/hashing-and-mac",
             "file": "api/security/hashing-and-mac.md"
           },
           {
-            "title": "AEAD and Envelope",
+            "title": "AEAD & Envelope",
             "slug": "api/security/aead-and-envelope",
             "file": "api/security/aead-and-envelope.md"
           },
@@ -768,7 +788,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "file": "api/security/handshake.md"
           },
           {
-            "title": "Session Resume",
+            "title": "Session Resumption",
             "slug": "api/security/session-resume",
             "file": "api/security/session-resume.md"
           },
@@ -813,7 +833,7 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/runtime/routing/index.md"
               },
               {
-                "title": "Context",
+                "title": "Packet Context",
                 "slug": "api/runtime/routing/packet-context",
                 "file": "api/runtime/routing/packet-context.md"
               },
@@ -828,12 +848,12 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/runtime/routing/dispatch-contracts.md"
               },
               {
-                "title": "Dispatch",
+                "title": "Packet Dispatch",
                 "slug": "api/runtime/routing/packet-dispatch",
                 "file": "api/runtime/routing/packet-dispatch.md"
               },
               {
-                "title": "Dispatch Channel and Router",
+                "title": "Dispatch Channel & Router",
                 "slug": "api/runtime/routing/dispatch-channel-and-router",
                 "file": "api/runtime/routing/dispatch-channel-and-router.md"
               },
@@ -854,7 +874,7 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/runtime/middleware/index.md"
               },
               {
-                "title": "Pipeline",
+                "title": "Middleware Pipeline",
                 "slug": "api/runtime/middleware/pipeline",
                 "file": "api/runtime/middleware/pipeline.md"
               },
@@ -936,27 +956,27 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/network/connection/connection.md"
               },
               {
-                "title": "Hub",
+                "title": "Connection Hub",
                 "slug": "api/network/connection/connection-hub",
                 "file": "api/network/connection/connection-hub.md"
               },
               {
-                "title": "Events",
+                "title": "Connection Events",
                 "slug": "api/network/connection/connection-events",
                 "file": "api/network/connection/connection-events.md"
               },
               {
-                "title": "Extensions",
+                "title": "Connection Extensions",
                 "slug": "api/network/connection/connection-extensions",
                 "file": "api/network/connection/connection-extensions.md"
               },
               {
-                "title": "Limiter",
+                "title": "Connection Limiter",
                 "slug": "api/network/connection/connection-limiter",
                 "file": "api/network/connection/connection-limiter.md"
               },
               {
-                "title": "Guard",
+                "title": "Connection Guard",
                 "slug": "api/network/connection/connection-guard",
                 "file": "api/network/connection/connection-guard.md"
               }
@@ -983,7 +1003,7 @@ export const NAVIGATION_TREE: NavItem[] = [
         "title": "Hosting",
         "items": [
           {
-            "title": "Application",
+            "title": "Network Application",
             "slug": "api/hosting/network-application",
             "file": "api/hosting/network-application.md"
           },
@@ -1004,7 +1024,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "file": "api/sdk/index.md"
           },
           {
-            "title": "High-level APIs",
+            "title": "High-Level APIs",
             "items": [
               {
                 "title": "TCP Session",
@@ -1037,7 +1057,7 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/sdk/tcp-session-extensions.md"
               },
               {
-                "title": "Cipher Updates",
+                "title": "Cipher Extensions",
                 "slug": "api/sdk/cipher-extensions",
                 "file": "api/sdk/cipher-extensions.md"
               },
@@ -1059,7 +1079,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             ]
           },
           {
-            "title": "Low-level Primitives",
+            "title": "Low-Level Primitives",
             "items": [
               {
                 "title": "Thread Dispatching",
@@ -1067,7 +1087,7 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/sdk/thread-dispatching.md"
               },
               {
-                "title": "Frame Reader and Sender",
+                "title": "Frame Reader & Sender",
                 "slug": "api/sdk/frame-reader-and-sender",
                 "file": "api/sdk/frame-reader-and-sender.md"
               },
@@ -1092,12 +1112,12 @@ export const NAVIGATION_TREE: NavItem[] = [
             "title": "Runtime",
             "items": [
               {
-                "title": "Packet Dispatch Options",
+                "title": "Packet Dispatch",
                 "slug": "api/options/runtime/packet-dispatch-options",
                 "file": "api/options/runtime/packet-dispatch-options.md"
               },
               {
-                "title": "Dispatch Options",
+                "title": "Dispatch",
                 "slug": "api/options/runtime/dispatch-options",
                 "file": "api/options/runtime/dispatch-options.md"
               }
@@ -1208,7 +1228,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "title": "SDK",
             "items": [
               {
-                "title": "Transport Options",
+                "title": "Transport",
                 "slug": "api/options/sdk/transport-options",
                 "file": "api/options/sdk/transport-options.md"
               },
@@ -1218,7 +1238,7 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/options/sdk/websocket-transport-options.md"
               },
               {
-                "title": "Request Options",
+                "title": "Request",
                 "slug": "api/options/sdk/request-options",
                 "file": "api/options/sdk/request-options.md"
               }
@@ -1264,12 +1284,12 @@ export const NAVIGATION_TREE: NavItem[] = [
         "file": "benchmarks/serialization.md"
       },
       {
-        "title": "Serialization Method Comparison",
+        "title": "Serialization Comparison",
         "slug": "benchmarks/serialization-method-compare",
         "file": "benchmarks/serialization-method-compare.md"
       },
       {
-        "title": "End-to-End Network Comparison",
+        "title": "Network Comparison",
         "slug": "benchmarks/network-comparison",
         "file": "benchmarks/network-comparison.md"
       }

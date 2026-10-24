@@ -1,5 +1,5 @@
 ---
-title: Middleware Usage Guide
+title: Middleware Usage
 description: Use this guide when you need to implement request policy, security enforcement, or observability in your Nalix application.
 section: Guides
 ---

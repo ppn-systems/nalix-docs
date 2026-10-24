@@ -1,5 +1,5 @@
 ---
-title: Client Session Guide
+title: Client Sessions
 description: "This guide walks through creating, configuring, and connecting a client session using Nalix.SDK. It focuses on the actual SDK surface in the current source tree: TransportOption..."
 section: Guides
 ---

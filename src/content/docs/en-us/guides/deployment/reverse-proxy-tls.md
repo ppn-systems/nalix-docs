@@ -1,5 +1,5 @@
 ---
-title: Reverse Proxy TLS (nginx / Caddy / Cloudflare Tunnel)
+title: Reverse Proxy & TLS
 description: Nalix does not terminate TLS itself. WebSocketListenerBase binds a raw TCP socket and speaks HTTP/1.1 Upgrade directly — put nginx, Caddy, or Cloudflare Tunnel in front for wss:// and TLS termination.
 section: Guides
 ---

@@ -1,5 +1,5 @@
 ---
-title: Custom Serialization Provider
+title: Custom Serialization Providers
 description: This guide shows how to register a custom serialization provider using Nalix.Codec.Serialization, IFormatter<T>, and LiteSerializer.Register(...).
 section: Guides
 ---

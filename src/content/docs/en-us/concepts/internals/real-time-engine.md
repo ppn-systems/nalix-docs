@@ -1,5 +1,5 @@
 ---
-title: Real-time Engine
+title: Real-Time Engine
 description: Nalix is designed around a real-time server model with long-lived sessions, predictable dispatch flow, and explicit throttling controls. This page explains the runtime mindset b...
 section: Concepts
 ---

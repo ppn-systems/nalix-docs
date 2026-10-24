@@ -34,7 +34,10 @@ const visibleChildren = hasOverviewIndexChild ? rawChildren.slice(1) : rawChildr
 const hasChildren = visibleChildren.length > 0;
 const isCurrent = folderIndexSlug === currentSlug;
 const isActiveBranch = containsActiveSlug(item, currentSlug);
-const shouldOpenByDefault = isActiveBranch || (depth === 0 && item.title === 'Getting Started');
+const shouldOpenByDefault =
+  isActiveBranch ||
+  (depth === 0 &&
+    (item.title === 'Getting Started' || item.title === 'Tutorials' || item.title === 'Core Concepts'));
 ---
 
 {hasChildren ? (

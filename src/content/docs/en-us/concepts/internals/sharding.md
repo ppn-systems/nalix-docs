@@ -1,5 +1,5 @@
 ---
-title: Shard-Aware Dispatch
+title: Sharding & Concurrency
 description: Nalix uses a shard-aware dispatch architecture to scale packet processing across multiple CPU cores while maintaining strict delivery order for individual connections.
 section: Concepts
 ---

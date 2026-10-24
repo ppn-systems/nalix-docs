@@ -1,5 +1,5 @@
 ---
-title: Errors and Diagnostics
+title: Errors & Diagnostics
 description: Nalix uses a structured signaling system to communicate runtime failures and protocol violations back to the client. Errors are reported using specialized signal packets (Direct...
 section: Concepts
 ---

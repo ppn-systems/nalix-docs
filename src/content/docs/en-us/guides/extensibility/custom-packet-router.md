@@ -1,5 +1,5 @@
 ---
-title: Custom Packet Routing & Shard Affinity
+title: Custom Packet Router
 description: This guide provides actionable instructions for implementing a custom packet router that leverages Nalix's shard-aware dispatch system to maintain strict sequential processing f...
 section: Guides
 ---

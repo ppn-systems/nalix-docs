@@ -21,24 +21,19 @@ const activeTopTitle = topSection?.title || 'Start Here';
 function getScopedSidebarItems(): { sectionLabel: string; items: NavItem[] } {
   const isVi = locale === 'vi-vn';
 
-  // When on "Start Here", show the "Start Here" items followed by "Guides" (deduplicating "Your First Server")
+  // When on "Start Here" or "Guides", show Overview first, then Getting Started, followed by Guides groups
   if (activeTopTitle === 'Start Here' || activeTopTitle === 'Guides') {
     const startHereNode = NAVIGATION_TREE.find((n) => n.title === 'Start Here');
     const guidesNode = NAVIGATION_TREE.find((n) => n.title === 'Guides');
 
     const startItems = startHereNode?.items ?? [];
     const startSlugs = new Set(startItems.map((i) => i.slug).filter(Boolean));
+    const rawGuides = guidesNode?.items ?? [];
 
-    // Filter out duplicate links (like 'your-first-server') and rename generic 'Overview'
-    const guideItems = (guidesNode?.items ?? [])
+    const overviewItem = rawGuides.find((item) => item.title === 'Overview' && item.slug === 'guides');
+    const guideGroups = rawGuides
+      .filter((item) => !(item.title === 'Overview' && item.slug === 'guides'))
       .map((item) => {
-        if (item.title === 'Overview' && item.slug === 'guides') {
-          return {
-            ...item,
-            title: 'Guides Introduction',
-            titleVi: 'Giới thiệu Hướng dẫn',
-          };
-        }
         if (item.items) {
           return {
             ...item,
@@ -52,12 +47,13 @@ function getScopedSidebarItems(): { sectionLabel: string; items: NavItem[] } {
     return {
       sectionLabel: isVi ? 'Bắt đầu & Hướng dẫn' : 'Guides & Tutorials',
       items: [
+        ...(overviewItem ? [overviewItem] : []),
         {
           title: 'Getting Started',
-          titleVi: 'Bắt đầu nhanh',
+          titleVi: 'Bắt đầu',
           items: startItems,
         },
-        ...guideItems,
+        ...guideGroups,
       ],
     };
   }
@@ -70,27 +66,6 @@ function getScopedSidebarItems(): { sectionLabel: string; items: NavItem[] } {
     };
   }
 
-  const sectionIntroLabels: Record<string, { en: string; vi: string }> = {
-    Concepts: { en: 'Concepts Introduction', vi: 'Giới thiệu Khái niệm' },
-    Packages: { en: 'Packages Matrix', vi: 'Danh mục Gói thư viện' },
-    API: { en: 'API Reference Index', vi: 'Danh mục API' },
-    Benchmarks: { en: 'Benchmarks Summary', vi: 'Tổng hợp Hiệu năng' },
-  };
-
-  const mappedItems = matchedSection.items.map((item, idx) => {
-    if (idx === 0 && item.title === 'Overview') {
-      const custom = sectionIntroLabels[activeTopTitle];
-      if (custom) {
-        return {
-          ...item,
-          title: custom.en,
-          titleVi: custom.vi,
-        };
-      }
-    }
-    return item;
-  });
-
   const displayHeader =
     activeTopTitle === 'API'
       ? isVi
@@ -102,7 +77,7 @@ function getScopedSidebarItems(): { sectionLabel: string; items: NavItem[] } {
 
   return {
     sectionLabel: displayHeader,
-    items: mappedItems,
+    items: matchedSection.items,
   };
 }
 

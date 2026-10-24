@@ -1,5 +1,5 @@
 ---
-title: Guarantees and Failure Handling
+title: Guarantees & Failure Handling
 description: When building high-concurrency networked systems, you need to know exactly what the platform guarantees, what happens when something goes wrong, and what is left to your applica...
 section: Concepts
 ---

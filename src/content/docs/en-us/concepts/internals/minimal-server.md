@@ -1,6 +1,6 @@
 ---
-title: Minimal Server Guide
-description: "The steps are:"
+title: Manual Server Wiring
+description: Manual wiring of Nalix listeners, protocol framing, and packet dispatch without the hosting builder.
 section: Concepts
 ---
 

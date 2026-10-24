@@ -1,5 +1,5 @@
 ---
-title: Handlers and Middleware
+title: Handlers & Middleware
 description: A handler is the method that runs your application logic for one packet type. Middleware runs before the handler, so you can apply the same policy (permissions, rate limits, log...
 section: Concepts
 ---

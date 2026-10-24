@@ -1,5 +1,5 @@
 ---
-title: UDP Server Guide
+title: UDP Server
 description: This guide shows when to use UdpListenerBase and what to implement first.
 section: Guides
 ---

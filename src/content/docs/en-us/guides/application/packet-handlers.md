@@ -1,5 +1,5 @@
 ---
-title: Implementing Packet Handlers
+title: Packet Handlers
 description: A packet handler is where your application logic lives — one method per opcode, invoked automatically when a matching packet arrives.
 section: Guides
 ---

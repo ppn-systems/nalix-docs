@@ -1,5 +1,5 @@
 ---
-title: Troubleshooting Guide
+title: Troubleshooting
 description: This page collects the most common Nalix setup failures and the fastest places to check first.
 section: Guides
 ---

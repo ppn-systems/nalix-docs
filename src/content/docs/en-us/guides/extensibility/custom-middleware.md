@@ -1,5 +1,5 @@
 ---
-title: Custom Middleware Guide
+title: Custom Middleware
 description: This guide shows how to implement custom authorization rules that validate session tokens across the Nalix inbound pipeline.
 section: Guides
 ---

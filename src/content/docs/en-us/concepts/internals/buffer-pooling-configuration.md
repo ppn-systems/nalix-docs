@@ -1,5 +1,5 @@
 ---
-title: Buffer Pooling Configuration
+title: Buffer Pooling
 description: Buffer pooling is the cornerstone of Nalix's zero-allocation architecture. BufferPoolManager wraps ArrayPool<byte>.Shared with configurable leak detection and stack-trace tracking via BufferOptions.
 section: Concepts
 ---

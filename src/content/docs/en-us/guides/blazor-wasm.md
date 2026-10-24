@@ -1,5 +1,5 @@
 ---
-title: Blazor WebAssembly Client
+title: Blazor WebAssembly
 description: This guide connects a Blazor WebAssembly app running in the browser to a Nalix server over WebSocket, with the full X25519 handshake. It covers request/response, server push, re...
 section: Guides
 ---

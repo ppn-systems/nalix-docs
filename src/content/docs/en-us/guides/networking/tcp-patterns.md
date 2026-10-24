@@ -1,6 +1,6 @@
 ---
-title: TCP Patterns Guide
-description: "This manual flow demonstrates:"
+title: TCP Patterns
+description: Manual instantiation of TcpListenerBase and Protocol for custom low-level TCP server architectures.
 section: Guides
 ---
 

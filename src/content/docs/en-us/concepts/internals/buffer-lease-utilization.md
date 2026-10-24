@@ -1,5 +1,5 @@
 ---
-title: BufferLease Utilization Guide
+title: BufferLease Utilization
 description: BufferLease is the cornerstone of memory management in Nalix. It provides a reference-counted, pooled abstraction over raw byte arrays, enabling zero-allocation networking pipel...
 section: Concepts
 ---
