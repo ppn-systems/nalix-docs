@@ -14,6 +14,7 @@ The source of truth for every technical claim is the sibling repository [`ppn-sy
 | `src/plugins/remark-nalix-docs.ts` | Admonitions, Mermaid, locale-aware link rewriting |
 | `tests/` | Integrity gates (frontmatter, links, navigation, i18n, C# parity) |
 | `scripts/` | Maintenance scripts (Node ESM, no extra deps) |
+| `.github/workflows/source-sync.yml` | Daily drift check; opens a draft PR on `bot/source-sync` with the report |
 | `source-manifest.json` | Hash snapshot of `nalix` source the docs were last synced to (`npm run sync:check` / `sync:update`) |
 
 ## Commands

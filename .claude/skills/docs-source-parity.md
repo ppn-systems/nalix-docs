@@ -30,6 +30,17 @@
 2. Read each change (`https://github.com/ppn-systems/nalix/compare/<manifest nalixCommit>...<new commit>`) and fix the listed pages; `grep` for renamed members the name match misses.
 3. `npm test`, then `npm run sync:update` to record the new hashes + commit, and commit `source-manifest.json` together with the doc fixes.
 
+## Checklist — automated drift PR (CI)
+`.github/workflows/source-sync.yml` runs daily (01:17 UTC), on demand (**Actions → Source Sync → Run workflow**, optional `ref`), and on a `repository_dispatch` of type `nalix-updated`.
+1. On drift it pushes the updated `source-manifest.json` to `bot/source-sync` and opens (or refreshes) **one** draft PR whose body is the report: compare link, changed files linked to GitHub, and a checklist of pages to review. The full report is also in the run summary and the `source-sync-report` artifact (PR bodies are truncated at 60k chars).
+2. `git fetch origin bot/source-sync && git switch bot/source-sync`, fix the pages, `npm test`, push, mark ready, merge. Merging = docs synced.
+3. While a person has commits on the branch, later runs never force-push: they only add a manifest-bump commit on top (none if nothing changed) and refresh the PR body. With no human commits the branch is rebuilt from the default branch.
+4. A PR closed without merging is recreated on the next drift.
+
+Failure handling: network errors, 5xx and secondary rate limits are retried with backoff; exhausted rate limit, unknown ref (404/422), a corrupt tarball, an empty tree or an invalid manifest fail the job with a clear message (exit `2`) instead of opening a bogus PR.
+
+Repo setup required once: **Settings → Actions → General → Workflow permissions → "Read and write" + "Allow GitHub Actions to create and approve pull requests"**. PRs opened with `GITHUB_TOKEN` do not trigger `ci.yml` until someone pushes to the branch.
+
 ---
 
 ## Gotchas

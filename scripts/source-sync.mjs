@@ -275,19 +275,47 @@ export function readTar(buffer) {
   return entries;
 }
 
-async function github(url) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** GitHub API call with retries for network errors, 5xx and secondary rate limits. */
+async function github(url, attempts = 4) {
   const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'nalix-docs-source-sync' };
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`https://api.github.com${url}`, { headers });
-  if (!res.ok) throw new Error(`GitHub ${url} -> HTTP ${res.status} ${await res.text()}`);
-  return res;
+  for (let attempt = 1; ; attempt++) {
+    let res;
+    try {
+      res = await fetch(`https://api.github.com${url}`, { headers });
+    } catch (err) {
+      if (attempt >= attempts) throw new Error(`GitHub ${url} -> network error: ${err.cause?.code ?? err.message}`);
+      await sleep(1000 * 2 ** attempt);
+      continue;
+    }
+    if (res.ok) return res;
+    const body = await res.text();
+    if (res.status === 404) throw new Error(`GitHub ${url} -> 404: repository or ref not found (private repo needs GITHUB_TOKEN).`);
+    if ((res.status === 403 || res.status === 429) && res.headers.get('x-ratelimit-remaining') === '0') {
+      const reset = new Date(Number(res.headers.get('x-ratelimit-reset')) * 1000).toISOString();
+      throw new Error(`GitHub API rate limit exhausted until ${reset}; set GITHUB_TOKEN.`);
+    }
+    const retryable = res.status >= 500 || res.status === 429 || res.headers.has('retry-after');
+    if (!retryable || attempt >= attempts) throw new Error(`GitHub ${url} -> HTTP ${res.status} ${body.slice(0, 300)}`);
+    await sleep(1000 * (Number(res.headers.get('retry-after')) || 2 ** attempt));
+  }
 }
 
 async function readGitHub(repo, ref) {
   const { sha: commit } = await (await github(`/repos/${repo}/commits/${encodeURIComponent(ref)}`)).json();
   const tarball = Buffer.from(await (await github(`/repos/${repo}/tarball/${commit}`)).arrayBuffer());
-  return { commit, files: toTree(readTar(zlib.gunzipSync(tarball))) };
+  let tar;
+  try {
+    tar = zlib.gunzipSync(tarball);
+  } catch (err) {
+    throw new Error(`Tarball for ${repo}@${commit} is corrupt (${err.message}).`);
+  }
+  const files = toTree(readTar(tar));
+  if (Object.keys(files).length === 0) throw new Error(`No tracked files found in ${repo}@${commit}; refusing to continue.`);
+  return { commit, files };
 }
 
 /** Reads the working tree of a local clone. */
@@ -352,6 +380,32 @@ export function pagesMentioning(name, docs) {
   return docs.filter((d) => re.test(d.text)).map((d) => d.file);
 }
 
+/** Markdown report for PR bodies / job summaries. */
+export function renderMarkdown({ repo, from, to, changes, docs }) {
+  const link = (file) => `[${file}](https://github.com/${repo}/blob/${to}/${file})`;
+  const compare = from ? `https://github.com/${repo}/compare/${from}...${to}` : `https://github.com/${repo}/tree/${to}`;
+  const total = changes.added.length + changes.removed.length + changes.modified.length;
+  const lines = [
+    `Nalix source changed: \`${from ? from.slice(0, 7) : 'none'}\` → \`${to.slice(0, 7)}\` ([compare](${compare}))`,
+    '',
+    `**${total}** file(s) with meaningful changes (comments and formatting ignored): ` +
+      `${changes.modified.length} modified, ${changes.added.length} added, ${changes.removed.length} removed.`,
+  ];
+  const pagesToReview = new Set();
+  for (const [label, list] of [['Modified', changes.modified], ['Added', changes.added], ['Removed', changes.removed]]) {
+    if (list.length === 0) continue;
+    lines.push('', `### ${label}`, '');
+    for (const file of list) {
+      const pages = pagesMentioning(typeNameOf(file), docs);
+      pages.forEach((p) => pagesToReview.add(p));
+      lines.push(`- ${label === 'Removed' ? `\`${file}\`` : link(file)}${pages.length ? ` → ${pages.map((p) => `\`${p}\``).join(', ')}` : ' → _no page mentions this type_'}`);
+    }
+  }
+  lines.push('', `### Pages to review (${pagesToReview.size})`, '');
+  for (const page of [...pagesToReview].sort()) lines.push(`- [ ] \`src/content/docs/en-us/${page}\``);
+  return lines.join('\n') + '\n';
+}
+
 async function main(argv) {
   const command = argv[0];
   const arg = (name) => {
@@ -361,24 +415,36 @@ async function main(argv) {
 
   if (command !== 'check' && command !== 'update') {
     console.error('Usage: node scripts/source-sync.mjs <check|update> [--ref <ref>] [--repo <owner/name>] [--source <local-clone>]');
+    console.error('       check options: --report <file.md> (write a Markdown report), --update (also rewrite the manifest on drift)');
     return 2;
   }
 
+  const repo = arg('--repo') ?? DEFAULT_REPO;
   const source = arg('--source') ?? process.env.NALIX_SOURCE;
   const { commit, files } = source
     ? readLocal(path.resolve(ROOT, source))
-    : await readGitHub(arg('--repo') ?? DEFAULT_REPO, arg('--ref') ?? 'HEAD');
+    : await readGitHub(repo, arg('--ref') ?? 'HEAD');
 
-  if (command === 'update') {
+  const writeManifest = () => {
     fs.writeFileSync(MANIFEST_PATH, JSON.stringify({ nalixCommit: commit, files }, null, 2) + '\n');
     console.log(`source-manifest.json updated: ${Object.keys(files).length} files @ ${commit}`);
+  };
+
+  if (command === 'update') {
+    writeManifest();
     return 0;
   }
 
-  const manifest = fs.existsSync(MANIFEST_PATH)
-    ? JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'))
-    : { nalixCommit: null, files: {} };
-  const { added, removed, modified } = diffTrees(manifest.files, files);
+  let manifest = { nalixCommit: null, files: {} };
+  if (fs.existsSync(MANIFEST_PATH)) {
+    try {
+      manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
+    } catch (err) {
+      throw new Error(`source-manifest.json is not valid JSON (${err.message}); fix or regenerate it with sync:update.`);
+    }
+  }
+  const changes = diffTrees(manifest.files ?? {}, files);
+  const { added, removed, modified } = changes;
   const total = added.length + removed.length + modified.length;
 
   console.log(`Manifest: ${manifest.nalixCommit ?? 'none'}  ->  Source: ${commit}`);
@@ -400,6 +466,12 @@ async function main(argv) {
   report('Added', added);
   report('Removed', removed);
   console.log(`\n${total} source file(s) changed. Update the listed pages, then run: npm run sync:update`);
+
+  const reportPath = arg('--report');
+  if (reportPath) {
+    fs.writeFileSync(reportPath, renderMarkdown({ repo, from: manifest.nalixCommit, to: commit, changes, docs }));
+  }
+  if (argv.includes('--update')) writeManifest();
   return 1;
 }
 

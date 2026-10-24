@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import zlib from 'node:zlib';
-import { diffTrees, hashContent, normalizeCSharp, normalizeXml, pagesMentioning, readTar, toTree, typeNameOf } from '../scripts/source-sync.mjs';
+import { diffTrees, renderMarkdown, hashContent, normalizeCSharp, normalizeXml, pagesMentioning, readTar, toTree, typeNameOf } from '../scripts/source-sync.mjs';
 
 const hash = (text: string) => hashContent('A.cs', text);
 
@@ -80,5 +80,19 @@ describe('Source sync — tree, diff and docs mapping', () => {
       { file: 'b.md', text: 'ConnectionHubOptions only.' },
     ];
     expect(pagesMentioning('ConnectionHub', docs)).toEqual(['a.md']);
+  });
+
+  it('renders a Markdown report with compare link, source links and a page checklist', () => {
+    const md = renderMarkdown({
+      repo: 'o/r',
+      from: 'a'.repeat(40),
+      to: 'b'.repeat(40),
+      changes: { modified: ['src/X/Hub.cs'], added: [], removed: ['src/X/Gone.cs'] },
+      docs: [{ file: 'api/hub.md', text: 'The Hub type.' }],
+    });
+    expect(md).toContain(`https://github.com/o/r/compare/${'a'.repeat(40)}...${'b'.repeat(40)}`);
+    expect(md).toContain(`[src/X/Hub.cs](https://github.com/o/r/blob/${'b'.repeat(40)}/src/X/Hub.cs) → \`api/hub.md\``);
+    expect(md).toContain('`src/X/Gone.cs` → _no page mentions this type_');
+    expect(md).toContain('- [ ] `src/content/docs/en-us/api/hub.md`');
   });
 });

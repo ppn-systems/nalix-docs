@@ -1,0 +1,127 @@
+name: "Source Sync: Nalix → Docs"
+
+# Hashes the Nalix source (comments/formatting ignored) and compares it with source-manifest.json.
+# On drift it opens — or refreshes — one draft PR on `bot/source-sync` that carries the updated
+# manifest and a report of the changed files and the pages to review. Check out that branch,
+# fix the pages, push, and merge: merging marks the docs as synced.
+on:
+  schedule:
+    - cron: "17 1 * * *" # daily, 01:17 UTC
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Nalix branch, tag or commit to compare against"
+        required: false
+        default: "HEAD"
+  repository_dispatch:
+    types: [nalix-updated]
+
+concurrency:
+  group: source-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: "Detect Nalix source drift"
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: bot/source-sync
+      BASE: ${{ github.event.repository.default_branch }}
+      BOT_NAME: github-actions[bot]
+      BOT_EMAIL: 41898729+github-actions[bot]@users.noreply.github.com
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      NALIX_REF: ${{ inputs.ref || github.event.client_payload.ref || 'HEAD' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Compare Nalix source with manifest
+        id: check
+        run: |
+          REPORT="$RUNNER_TEMP/source-sync-report.md"
+          set +e
+          node scripts/source-sync.mjs check --ref "$NALIX_REF" --report "$REPORT" --update
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          case "$code" in
+            0) echo "✅ Docs are in sync with Nalix source." >> "$GITHUB_STEP_SUMMARY" ;;
+            1) cat "$REPORT" >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "::error::source-sync failed (exit $code) — see the log above."; exit "$code" ;;
+          esac
+
+      - name: Upload full report
+        if: steps.check.outputs.code == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-sync-report
+          path: ${{ runner.temp }}/source-sync-report.md
+
+      - name: Open or refresh draft PR
+        if: steps.check.outputs.code == '1'
+        run: |
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/source-sync-report.md"
+          git config user.name "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+          commit=$(node -p "require('./source-manifest.json').nalixCommit")
+          cp source-manifest.json "$RUNNER_TEMP/manifest.json"
+
+          pr=$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
+
+          # Commits on the branch that a person pushed (docs fixes in progress) must never be force-pushed away.
+          human=0
+          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null; then
+            git fetch origin "$BRANCH"
+            human=$(git log "origin/$BASE..origin/$BRANCH" --format=%ae | grep -vcxF "$BOT_EMAIL" || true)
+          fi
+
+          git stash --include-untracked > /dev/null
+          if [ -n "$pr" ] && [ "$human" -gt 0 ]; then
+            echo "Branch has $human human commit(s): adding the manifest update on top (no force-push)."
+            git switch -C "$BRANCH" "origin/$BRANCH"
+            cp "$RUNNER_TEMP/manifest.json" source-manifest.json
+            if ! git diff --quiet -- source-manifest.json; then
+              git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}" -- source-manifest.json
+              git push origin "$BRANCH"
+            fi
+          else
+            git switch -C "$BRANCH" "origin/$BASE"
+            cp "$RUNNER_TEMP/manifest.json" source-manifest.json
+            git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}" -- source-manifest.json
+            git push --force origin "$BRANCH"
+          fi
+
+          {
+            echo "> Automated by \`.github/workflows/source-sync.yml\`. Check out \`$BRANCH\`, update the pages below, push, and mark ready for review. Merging records nalix \`${commit:0:7}\` as synced."
+            echo
+            cat "$REPORT"
+          } > "$RUNNER_TEMP/body.md"
+          # GitHub caps PR bodies at 65536 characters; the full report is in the job summary and artifact.
+          if [ "$(wc -c < "$RUNNER_TEMP/body.md")" -gt 60000 ]; then
+            head -c 60000 "$RUNNER_TEMP/body.md" > "$RUNNER_TEMP/body.trim.md"
+            printf '\n\n…_Report truncated — see the workflow run summary or the `source-sync-report` artifact: %s_\n' \
+              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> "$RUNNER_TEMP/body.trim.md"
+            mv "$RUNNER_TEMP/body.trim.md" "$RUNNER_TEMP/body.md"
+          fi
+
+          title="docs: sync with nalix ${commit:0:7}"
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+            echo "Refreshed PR #$pr" >> "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh pr create --draft --base "$BASE" --head "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/body.md")
+            echo "Opened $url" >> "$GITHUB_STEP_SUMMARY"
+          fi
