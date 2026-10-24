@@ -44,8 +44,8 @@ const currentPath = localizePath(currentSlug, locale);
         </button>
       )}
 
-      <a href={localizePath('', locale)} class="nlx-brand" data-link-location="HeaderLogo">
-        <img src="/assets/nalix.png" alt="Nalix" class="nlx-brand__logo" width="22" height="22" />
+      <a href={localizePath('', locale)} class="nlx-brand" data-link-location="HeaderLogo" data-astro-prefetch>
+        <img src="/assets/nalix.png" alt="Nalix" class="nlx-brand__logo" width="22" height="22" decoding="async" />
         <span>{t('site.headerBrand')}</span>
       </a>
 
@@ -58,6 +58,7 @@ const currentPath = localizePath(currentSlug, locale);
             <a
               href={tab.href}
               class:list={['nlx-topnav__link', { 'is-active': isActive }]}
+              data-astro-prefetch
             >
               {tab.title}
             </a>

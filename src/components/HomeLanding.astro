@@ -220,7 +220,7 @@ const productCards: ProductCardItem[] = [
         <div class="nlx-product-card">
           <div>
             <div class="nlx-product-card__header">
-              <a href={card.href} class="nlx-product-card__title-link">
+              <a href={card.href} class="nlx-product-card__title-link" data-astro-prefetch>
                 <span class="nlx-product-card__icon" aria-hidden="true">
                   {card.icon === 'rocket' && (
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
@@ -274,7 +274,7 @@ const productCards: ProductCardItem[] = [
             <div class="nlx-product-card__topics-label">{t('home.exploreTopics')}</div>
             <div class="nlx-product-card__links">
               {card.topics.map((topic) => (
-                <a href={localizePath(topic.slug, locale)} class="nlx-topic-link">
+                <a href={localizePath(topic.slug, locale)} class="nlx-topic-link" data-astro-prefetch>
                   {topic.label}
                 </a>
               ))}
@@ -294,8 +294,8 @@ const productCards: ProductCardItem[] = [
       <div class="nlx-home-footer__links">
         <a href="https://github.com/ppn-systems/nalix" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
         <a href="https://www.nuget.org/packages?q=Nalix" target="_blank" rel="noopener noreferrer">NuGet Gallery</a>
-        <a href={localizePath('quickstart', locale)}>Quick Start</a>
-        <a href={localizePath('api', locale)}>API Reference</a>
+        <a href={localizePath('quickstart', locale)} data-astro-prefetch>Quick Start</a>
+        <a href={localizePath('api', locale)} data-astro-prefetch>API Reference</a>
       </div>
     </footer>
   </div>

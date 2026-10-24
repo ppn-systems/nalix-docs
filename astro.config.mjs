@@ -8,6 +8,14 @@ import { remarkNalixDocs } from './src/plugins/remark-nalix-docs';
 export default defineConfig({
   site: 'https://ppn.io.vn',
   trailingSlash: 'ignore',
+  compressHTML: true,
+  prefetch: {
+    prefetchAll: false,
+    defaultStrategy: 'hover',
+  },
+  build: {
+    inlineStylesheets: 'auto',
+  },
   i18n: {
     defaultLocale: 'en-us',
     locales: ['en-us', 'vi-vn'],

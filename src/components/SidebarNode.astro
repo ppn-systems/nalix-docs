@@ -54,6 +54,7 @@ const shouldOpenByDefault =
           class:list={['nlx-nav-summary__link', { 'is-active': isCurrent }]}
           data-nav-leaf
           data-nav-title={label.toLowerCase()}
+          data-astro-prefetch
           onclick="event.stopPropagation();"
         >
           {label}
@@ -78,6 +79,7 @@ const shouldOpenByDefault =
     aria-current={isCurrent ? 'page' : undefined}
     data-nav-leaf
     data-nav-title={label.toLowerCase()}
+    data-astro-prefetch
   >
     {label}
   </a>

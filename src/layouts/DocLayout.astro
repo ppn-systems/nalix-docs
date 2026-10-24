@@ -180,17 +180,17 @@ const jsonLdSchema = isLanding
     <link rel="icon" type="image/png" href="/assets/nalix.png" />
     <link rel="apple-touch-icon" href="/assets/nalix.png" />
 
-    <!-- Preload self-hosted critical fonts (zero external font dependencies) -->
+    <!-- Preload self-hosted critical IBM Plex fonts (zero external font dependencies) -->
     <link
       rel="preload"
-      href="/assets/fonts/inter-regular.woff2"
+      href="/assets/fonts/ibm-plex-sans-latin-400-normal.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
     <link
       rel="preload"
-      href="/assets/fonts/inter-bold.woff2"
+      href="/assets/fonts/ibm-plex-mono-latin-400-normal.woff2"
       as="font"
       type="font/woff2"
       crossorigin
@@ -388,8 +388,6 @@ const jsonLdSchema = isLanding
     </button>
 
     <script>
-      import mermaid from 'mermaid';
-
       function initThemeAndHeader() {
         const themeBtn = document.getElementById('nlx-theme-toggle');
         themeBtn?.addEventListener('click', () => {
@@ -566,6 +564,8 @@ const jsonLdSchema = isLanding
         const nodes = document.querySelectorAll<HTMLElement>('pre.mermaid');
         if (nodes.length === 0) return;
 
+        const { default: mermaid } = await import('mermaid');
+
         nodes.forEach((node) => {
           if (!node.getAttribute('data-mermaid-src')) {
             node.setAttribute('data-mermaid-src', node.textContent || '');
@@ -579,8 +579,8 @@ const jsonLdSchema = isLanding
         mermaid.initialize({
           startOnLoad: false,
           theme: isLight ? 'neutral' : 'dark',
-          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-          securityLevel: 'loose',
+          fontFamily: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+          securityLevel: 'strict',
         });
 
         try {
