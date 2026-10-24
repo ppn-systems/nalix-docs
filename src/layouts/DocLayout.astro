@@ -248,6 +248,7 @@ const jsonLdSchema = isLanding
   </head>
 
   <body data-copy-text={t('doc.copyCode')} data-copied-text={t('doc.copiedCode')}>
+    <div class="nlx-topline" aria-hidden="true"><span></span></div>
     <Header
       locale={locale}
       currentSlug={slug}
@@ -390,6 +391,39 @@ const jsonLdSchema = isLanding
         <path d="m18 15-6-6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </button>
+
+    <script>
+      // Light streak along the top edge: it runs while the next page loads, then sweeps off on arrival.
+      const root = document.documentElement;
+      try {
+        if (sessionStorage.getItem('nlx-nav')) {
+          sessionStorage.removeItem('nlx-nav');
+          root.classList.add('nlx-is-arriving');
+          window.setTimeout(() => root.classList.remove('nlx-is-arriving'), 900);
+        }
+      } catch {}
+      // Capture phase: some links stop propagation themselves.
+      document.addEventListener(
+        'click',
+        (event) => {
+          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          const link = (event.target as Element | null)?.closest('a');
+          if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+          const url = new URL(link.href, location.href);
+          if (url.origin !== location.origin) return;
+          if (url.pathname === location.pathname && url.search === location.search) return; // same page (anchor)
+          root.classList.add('nlx-is-loading');
+          try {
+            sessionStorage.setItem('nlx-nav', '1');
+          } catch {}
+        },
+        true
+      );
+      // Coming back through the browser's back/forward cache must not leave the streak running.
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) root.classList.remove('nlx-is-loading');
+      });
+    </script>
 
     <script>
       function initThemeAndHeader() {

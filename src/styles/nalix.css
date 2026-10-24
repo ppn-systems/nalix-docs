@@ -1255,6 +1255,30 @@ html[data-intro] .nlx-brand > span {
   margin-top: 4px;
 }
 
+.nlx-nav-icon {
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  color: var(--text-secondary);
+  transition: color 0.15s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nlx-nav-summary:hover .nlx-nav-icon {
+  color: var(--primary-lighter);
+  transform: scale(1.12) rotate(-4deg);
+}
+
+.nlx-nav-details[open] > .nlx-nav-summary .nlx-nav-icon,
+.nlx-nav-summary.is-active .nlx-nav-icon {
+  color: var(--primary-lighter);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nlx-nav-summary:hover .nlx-nav-icon {
+    transform: none;
+  }
+}
+
 .nlx-nav-chevron {
   width: 14px;
   height: 14px;
@@ -2205,4 +2229,59 @@ html[data-theme="light"] .nlx-theme-icon--sun {
   left: auto;
   right: 0;
   width: min(520px, calc(100vw - 24px));
+}
+
+/* Page transition: a light streak along the top edge */
+.nlx-topline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 400;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.nlx-topline span {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent 0%, var(--primary-main) 35%, #bfe0ff 80%, #ffffff 100%);
+  box-shadow: 0 0 12px 1px rgba(104, 176, 255, 0.85);
+}
+
+html.nlx-is-loading .nlx-topline span {
+  opacity: 1;
+  animation: nlx-line-load 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+html.nlx-is-arriving .nlx-topline span {
+  opacity: 1;
+  animation: nlx-line-pass 0.75s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes nlx-line-load {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(-14%); }
+}
+
+@keyframes nlx-line-pass {
+  from { transform: translateX(-14%); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0.9; }
+}
+
+/* The article settles in when a page opens */
+.nlx-article {
+  animation: nlx-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nlx-topline {
+    display: none;
+  }
+  .nlx-article {
+    animation: none;
+  }
 }

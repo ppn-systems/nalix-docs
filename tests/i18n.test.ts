@@ -16,6 +16,7 @@ import {
   useTranslations,
 } from '../src/i18n';
 import { enUs } from '../src/i18n/locales/en-us';
+import { getMegaMenu, getNavTitle, getTopLevelTabs } from '../src/config/navigation';
 import { resolveMarkdownHref } from '../src/utils/docs';
 
 const DOCS_ROOT = path.resolve(__dirname, '../src/content/docs');
@@ -145,5 +146,28 @@ describe('Content Directory i18n Guardrails', () => {
         ).toBe(true);
       }
     }
+  });
+});
+
+describe('Navigation labels follow the locale dictionaries', () => {
+  it('top tabs and menu strings come from each locale dictionary', () => {
+    for (const locale of ALL_LOCALE_CODES) {
+      const t = useTranslations(locale);
+      expect(getTopLevelTabs(locale).map((tab) => tab.title)).toEqual([
+        t('nav.startHere'),
+        t('nav.guides'),
+        t('nav.concepts'),
+        t('nav.packages'),
+        t('nav.api'),
+        t('nav.benchmarks'),
+      ]);
+      expect(getMegaMenu(locale).at(-1)?.footer.title).toContain(getMegaMenu(locale).at(-1)!.title);
+    }
+  });
+
+  it('a locale without a title for an item falls back to the English title', () => {
+    const item = { title: 'Overview', titles: { 'vi-vn': 'Tổng quan' } } as const;
+    expect(getNavTitle(item, 'vi-vn')).toBe('Tổng quan');
+    expect(getNavTitle(item, 'en-us')).toBe('Overview');
   });
 });

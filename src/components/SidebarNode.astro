@@ -1,5 +1,6 @@
 ---
 import { getNavTitle, type NavItem } from '../config/navigation';
+import { NAV_ICONS } from '../config/nav-icons';
 import { localizePath, type LocaleCode } from '../i18n';
 
 interface Props {
@@ -32,6 +33,7 @@ const folderIndexSlug = hasOverviewIndexChild ? rawChildren[0].slug : item.slug;
 const visibleChildren = hasOverviewIndexChild ? rawChildren.slice(1) : rawChildren;
 
 const hasChildren = visibleChildren.length > 0;
+const icon = depth === 0 ? NAV_ICONS[item.title] : undefined;
 const isCurrent = folderIndexSlug === currentSlug;
 const isActiveBranch = containsActiveSlug(item, currentSlug);
 const shouldOpenByDefault =
@@ -48,6 +50,9 @@ const shouldOpenByDefault =
         { 'nlx-nav-summary--depth-0': depth === 0, 'is-active': isCurrent },
       ]}
     >
+      {icon && (
+        <svg class="nlx-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={icon} />
+      )}
       {typeof folderIndexSlug === 'string' ? (
         <a
           href={localizePath(folderIndexSlug, locale)}

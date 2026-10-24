@@ -11,8 +11,8 @@
 
 ### Navigation sync (R8)
 - Every `.md` under `src/content/docs/en-us/` has **exactly one** entry in `NAVIGATION_TREE`, and every entry's `file` exists on disk — no orphans, no dangling entries.
-- An entry: `{ title, titleVi, slug, file }`. `slug` = path without `.md` (`index.md` → folder slug, root → `''`).
-- Group nodes have `title`, `titleVi`, `items` and no `file`.
+- An entry: `{ title, titles, slug, file }` (`titles` maps a locale code to its title, e.g. `{ "vi-vn": "…" }`; a locale without an entry uses `title`). `slug` = path without `.md` (`index.md` → folder slug, root → `''`).
+- Group nodes have `title`, `titles`, `items` and no `file`.
 - Tests also hard-code the total page count (currently **203**) — update the numbers in `tests/*.test.ts` when adding/removing pages.
 
 ### i18n
@@ -25,7 +25,7 @@
 
 ## Checklist — adding a page
 1. Create `src/content/docs/en-us/<area>/<name>.md` with valid frontmatter.
-2. Register it in `navigation.ts` under the right group (with `titleVi`).
+2. Register it in `navigation.ts` under the right group (with `titles` for each enabled translation).
 3. Link it from the parent `index.md` where relevant.
 4. Bump the page count in tests if needed.
 5. `npm test`.

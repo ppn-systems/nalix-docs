@@ -23,6 +23,8 @@ export const viVn: TranslationDictionary = {
   'nav.language': 'Chọn ngôn ngữ',
   'nav.comingSoon': 'Sắp có',
   'nav.themeToggle': 'Đổi giao diện Sáng / Tối',
+  'nav.guidesAndTutorials': 'Bắt đầu & Hướng dẫn',
+  'nav.gettingStarted': 'Bắt đầu',
   'nav.viewAll': 'Xem toàn bộ {title}',
   'nav.density': 'Mật độ chữ',
   'density.dense': 'Gọn',

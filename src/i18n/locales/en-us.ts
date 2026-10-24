@@ -21,6 +21,8 @@ export const enUs = {
   'nav.language': 'Select a language',
   'nav.comingSoon': 'Soon',
   'nav.themeToggle': 'Toggle the theme',
+  'nav.guidesAndTutorials': 'Guides & Tutorials',
+  'nav.gettingStarted': 'Getting Started',
   'nav.viewAll': 'Browse all of {title}',
   'nav.density': 'Text density',
   'density.dense': 'Dense',
