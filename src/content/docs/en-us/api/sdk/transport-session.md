@@ -119,6 +119,8 @@ Pass `tcpSession.State` into the `UdpSession(options, tcpSession.State)` constru
 | `SendAsync(ReadOnlyMemory<byte>, ...)` | `Task SendAsync(ReadOnlyMemory<byte> payload, bool? encrypt = null, CancellationToken ct = default)` | Transmits raw pre-serialized bytes with an optional encryption override. |
 | `ResetSequenceCounters` | `void ResetSequenceCounters()` | Resets outbound and inbound `SequenceCounter` state (called automatically during `ConnectAsync`, `ResumeSessionAsync`, and `RekeyAsync`). |
 | `WaitUntilReadyAsync` | `Task WaitUntilReadyAsync(CancellationToken ct = default)` | Awaits any in-flight `ReconnectSupervisor` recovery (including handshake/resume and `OnReauthenticateAsync` / `OnResumedAsync`). Completes immediately if already connected. |
+| `NextSequenceId` | `ushort NextSequenceId()` | Reserves the next outbound `SequenceId` from the session counter; `0` ("unset") is skipped when the counter wraps. |
+| `StampSequenceId` | `ushort StampSequenceId(IPacket packet)` | Sets `packet.Header.SequenceId` from `NextSequenceId()` when it is `0` and returns the value the packet carries; a packet that already has a non-zero `SequenceId` is left untouched. Concrete sessions call it from `SendAsync(IPacket, ...)` before serialization. |
 | `Dispose` | `void Dispose()` | Marks the disconnect as intentional, stops keepalive monitoring, closes the transport, and releases locks. |
 
 ## Built-In Resilience Mechanics

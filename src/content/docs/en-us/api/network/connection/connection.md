@@ -13,7 +13,7 @@ package: Nalix.Network
 ## Source Mapping
 
 - `src/Nalix.Abstractions/Networking/IConnection.cs`
-- `src/Nalix.Abstractions/Networking/IConnection.Transport.cs`
+- `src/Nalix.Abstractions/Networking/IConnection.Transmission.cs`
 - `src/Nalix.Abstractions/Networking/IConnection.ErrorTracked.cs`
 - `src/Nalix.Abstractions/Networking/IConnection.TrafficMetrics.cs`
 - `src/Nalix.Network/Connections/Connection.cs`

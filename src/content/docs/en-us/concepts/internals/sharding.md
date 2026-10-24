@@ -70,7 +70,7 @@ You can tune the parallelism of your application by adjusting the number of shar
 
 | Option | Default | Tuning Strategy |
 | --- | --- | --- |
-| `DispatchLoopCount` | `null` (auto) | Set explicitly for deterministic loop count, or keep auto mode. |
+| `Drain.Count` (`WithDispatchLoopCount`) | `0` / `null` (auto) | Set explicitly for deterministic loop count, or keep auto mode. |
 | `MinDispatchLoops` / `MaxDispatchLoops` | `1` / `64` | Clamp auto loop selection based on host capacity. |
 | `MaxDrainPerWake` | `2,048` | Upper cap for drain budget. Actual drain uses `Clamp(ProcessorCount * MaxDrainPerWakeMultiplier, MinDrainPerWake, MaxDrainPerWake)`. |
 | `MaxDrainPerWakeMultiplier` | `5` | Multiplier applied to `ProcessorCount` to compute the actual drain budget per wake cycle. |
@@ -85,7 +85,7 @@ builder.ConfigureDispatchOptions(options =>
     // 1. Core Affinity: Match physical cores to avoid context switching
     options.WithDispatchLoopCount(Environment.ProcessorCount / 2);
     
-    // 2. Auto-mode guardrails (used only when DispatchLoopCount is null)
+    // 2. Auto-mode guardrails (used only when the loop count is auto)
     options.Drain.MinDispatchLoops = 2;
     options.Drain.MaxDispatchLoops = 32;
 

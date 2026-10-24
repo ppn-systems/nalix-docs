@@ -7,7 +7,7 @@ import {
   useTranslations,
   type LocaleCode,
 } from '../i18n';
-import { getTopLevelTabs } from '../config/navigation';
+import { getMegaMenu } from '../config/navigation';
 
 interface Props {
   locale: LocaleCode;
@@ -24,7 +24,7 @@ const {
 } = Astro.props;
 
 const t = useTranslations(locale);
-const topTabs = getTopLevelTabs(locale);
+const topTabs = getMegaMenu(locale);
 const currentPath = localizePath(currentSlug, locale);
 ---
 
@@ -45,44 +45,105 @@ const currentPath = localizePath(currentSlug, locale);
       )}
 
       <a href={localizePath('', locale)} class="nlx-brand" data-link-location="HeaderLogo" data-astro-prefetch>
-        <img src="/assets/nalix.png" alt="Nalix" class="nlx-brand__logo" width="22" height="22" decoding="async" />
+        <img src="/assets/nalix.svg" alt="Nalix" class="nlx-brand__logo" width="22" height="22" fetchpriority="high" />
         <span>{t('site.headerBrand')}</span>
       </a>
 
       <div class="nlx-header__vdivider" role="separator" aria-orientation="vertical"></div>
 
-      <nav class="nlx-topnav" aria-label="Primary Documentation Sections">
-        {topTabs.map((tab) => {
-          const isActive = !isLanding && activeSectionTitle === tab.sectionTitle;
+      <nav class="nlx-topnav" aria-label={t('nav.primarySections')}>
+        {topTabs.map((tab, index) => {
+          const isActive = !isLanding && tab.sectionTitles.includes(activeSectionTitle);
+          const panelId = `nlx-mega-${index}`;
           return (
-            <a
-              href={tab.href}
-              class:list={['nlx-topnav__link', { 'is-active': isActive }]}
-              data-astro-prefetch
-            >
-              {tab.title}
-            </a>
+            <div class="nlx-topnav__item" data-mega>
+              <button
+                type="button"
+                class:list={['nlx-topnav__link', { 'is-active': isActive }]}
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-controls={panelId}
+                data-mega-trigger
+              >
+                {tab.title}
+                <svg class="nlx-topnav__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              <div class="nlx-mega" id={panelId} role="region" aria-label={tab.title} style={`--mega-cols:${Math.min(Math.max(tab.columns.length, 1), 5)}`}>
+                <div class="nlx-mega__inner">
+                  <div class="nlx-mega__grid">
+                  {tab.columns.map((column, columnIndex) => (
+                    <div class="nlx-mega__col" style={`--i:${columnIndex}`}>
+                      <div class="nlx-mega__heading">
+                        {column.title ? (
+                          column.href ? (
+                            <a href={column.href} data-astro-prefetch>
+                              <span>{column.title}</span>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+                            </a>
+                          ) : (
+                            column.title
+                          )
+                        ) : '\u00a0'}
+                      </div>
+                      <ul class="nlx-mega__list">
+                        {column.links.map((link) => (
+                          <li>
+                            <a
+                              href={link.href}
+                              class="nlx-mega__link"
+                              target={link.external ? '_blank' : undefined}
+                              rel={link.external ? 'noopener noreferrer' : undefined}
+                              data-astro-prefetch={link.external ? undefined : ''}
+                            >
+                              <span>{link.title}</span>
+                              {link.external && (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                  <path d="M15 3h6v6M10 14 21 3M18 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+                                </svg>
+                              )}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                  </div>
+                  <a href={tab.footer.href} class="nlx-mega__footer" data-astro-prefetch>
+                    <span>{tab.footer.title}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                  </a>
+                </div>
+              </div>
+            </div>
           );
         })}
       </nav>
     </div>
 
     <div class="nlx-header__right">
-      <button
-        type="button"
-        class="nlx-search-trigger"
-        id="nlx-search-open"
-        aria-label={t('nav.searchPlaceholder')}
-      >
-        <span class="nlx-search-trigger__left">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <circle cx="11" cy="11" r="7"/>
-            <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
-          </svg>
-          <span>{t('nav.searchPlaceholder')}</span>
-        </span>
+      <div class="nlx-search-box" id="nlx-header-search" data-locale={locale} data-empty-text={t('search.noResults')}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
+        </svg>
+        <input
+          type="text"
+          id="nlx-header-search-input"
+          class="nlx-search-box__input"
+          placeholder={t('nav.searchPlaceholder')}
+          aria-label={t('nav.searchPlaceholder')}
+          autocomplete="off"
+          spellcheck="false"
+          role="combobox"
+          aria-expanded="false"
+          aria-controls="nlx-header-results"
+          aria-autocomplete="list"
+        />
         <kbd>{t('nav.searchShortcut')}</kbd>
-      </button>
+        <div class="nlx-search-pop nlx-search-pop--header" id="nlx-header-results" role="listbox" hidden></div>
+      </div>
 
       <!-- Theme Switcher -->
       <button
@@ -92,11 +153,43 @@ const currentPath = localizePath(currentSlug, locale);
         aria-label={t('nav.themeToggle')}
         title={t('nav.themeToggle')}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="nlx-theme-icon nlx-theme-icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <circle cx="12" cy="12" r="4"/>
           <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" stroke-linecap="round"/>
         </svg>
+        <svg class="nlx-theme-icon nlx-theme-icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+        </svg>
       </button>
+
+      <!-- Text density -->
+      <div class="nlx-lang-switcher" id="nlx-density-switcher">
+        <button
+          type="button"
+          class="nlx-icon-btn nlx-density-btn"
+          id="nlx-density-btn"
+          aria-label={t('nav.density')}
+          title={t('nav.density')}
+          aria-haspopup="true"
+          aria-expanded="false"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <g transform="translate(1.1 0)">
+              <path d="m1.5 19 5.5-13 5.5 13M3.6 15h6.8" />
+              <circle cx="17.5" cy="15.5" r="2.8" />
+              <path d="M20.3 12.7V19" />
+            </g>
+          </svg>
+        </button>
+
+        <div class="nlx-lang-menu" role="menu">
+          {(['dense', 'normal', 'comfortable'] as const).map((value) => (
+            <button type="button" class="nlx-lang-option nlx-density-option" role="menuitemradio" aria-checked="false" data-density={value}>
+              <span>{t(`density.${value}`)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <!-- Locale Switcher -->
       <div class="nlx-lang-switcher" id="nlx-lang-switcher">
@@ -109,8 +202,10 @@ const currentPath = localizePath(currentSlug, locale);
           aria-haspopup="true"
           aria-expanded="false"
         >
-          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor">
-            <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm87.63,96H175.79a151.92,151.92,0,0,0-15.27-57.8A88.19,88.19,0,0,1,215.63,120ZM128,215.89c-13.72-16.3-24.06-43-26.92-79.89h53.84C152.06,172.89,141.72,199.59,128,215.89ZM101.08,120C103.94,83.11,114.28,56.41,128,40.11c13.72,16.3,24.06,43,26.92,79.89Zm-5.6-57.8A151.92,151.92,0,0,0,80.21,120H40.37A88.19,88.19,0,0,1,95.48,62.2ZM40.37,136H80.21a151.92,151.92,0,0,0,15.27,57.8A88.19,88.19,0,0,1,40.37,136Zm120.15,57.8A151.92,151.92,0,0,0,175.79,136h39.84A88.19,88.19,0,0,1,160.52,193.8Z"/>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M3.5 12h17" />
+            <path d="M12 3.5c2.2 2.3 3.3 5.1 3.3 8.5s-1.1 6.2-3.3 8.5c-2.2-2.3-3.3-5.1-3.3-8.5S9.8 5.8 12 3.5Z" />
           </svg>
         </button>
 
@@ -127,10 +222,9 @@ const currentPath = localizePath(currentSlug, locale);
                 aria-current={isCurrent ? 'true' : undefined}
               >
                 <span>{def.nativeLabel}</span>
-                <span class="nlx-lang-badge">{code}</span>
               </a>
             ) : (
-              <span class="nlx-lang-option is-disabled" role="menuitem" title="Vietnamese (vi-VN) translation will be added soon">
+              <span class="nlx-lang-option is-disabled" role="menuitem" title={t('nav.langSoonHint')}>
                 <span>{def.nativeLabel}</span>
                 <span class="nlx-lang-badge">{t('nav.comingSoon')}</span>
               </span>
@@ -145,8 +239,8 @@ const currentPath = localizePath(currentSlug, locale);
         target="_blank"
         rel="noopener noreferrer"
         class="nlx-icon-btn"
-        aria-label="Nalix on GitHub"
-        title="Nalix on GitHub"
+        aria-label={t('nav.githubLabel')}
+        title={t('nav.githubLabel')}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.09 3.29 9.4 7.86 10.92.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11.05 11.05 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.68.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/>
@@ -155,3 +249,105 @@ const currentPath = localizePath(currentSlug, locale);
     </div>
   </div>
 </header>
+
+<script>
+  import { attachInlineSearch } from '../scripts/inline-search';
+
+  const searchBox = document.getElementById('nlx-header-search');
+  const searchInput = document.getElementById('nlx-header-search-input') as HTMLInputElement | null;
+  const searchList = document.getElementById('nlx-header-results');
+  if (searchBox && searchInput && searchList) {
+    attachInlineSearch({
+      input: searchInput,
+      list: searchList,
+      locale: searchBox.dataset.locale || 'en-us',
+      emptyText: searchBox.dataset.emptyText || '',
+    });
+    window.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+      }
+    });
+  }
+</script>
+
+<script>
+  // Hover-intent, keyboard and touch handling for the navigation panels.
+  const OPEN_DELAY_MS = 70;
+  const CLOSE_DELAY_MS = 160;
+  const items = Array.from(document.querySelectorAll<HTMLElement>('[data-mega]'));
+  let openTimer: number | undefined;
+  let closeTimer: number | undefined;
+
+  const triggerOf = (item: HTMLElement) => item.querySelector<HTMLElement>('[data-mega-trigger]')!;
+  const panelOf = (item: HTMLElement) => item.querySelector<HTMLElement>('.nlx-mega')!;
+
+  function place(item: HTMLElement) {
+    const panel = panelOf(item);
+    panel.style.setProperty('--mega-shift', '0px');
+    const rect = panel.getBoundingClientRect();
+    const overflow = rect.right - (window.innerWidth - 16);
+    if (overflow > 0) panel.style.setProperty('--mega-shift', `${-overflow}px`);
+  }
+
+  function close(item: HTMLElement) {
+    item.classList.remove('is-open');
+    triggerOf(item).setAttribute('aria-expanded', 'false');
+  }
+
+  function open(item: HTMLElement) {
+    items.forEach((other) => other !== item && close(other));
+    item.classList.add('is-open');
+    triggerOf(item).setAttribute('aria-expanded', 'true');
+    place(item);
+  }
+
+  items.forEach((item) => {
+    const trigger = triggerOf(item);
+
+    item.addEventListener('pointerenter', (event) => {
+      if ((event as PointerEvent).pointerType === 'touch') return;
+      window.clearTimeout(closeTimer);
+      openTimer = window.setTimeout(() => open(item), OPEN_DELAY_MS);
+    });
+    item.addEventListener('pointerleave', (event) => {
+      if ((event as PointerEvent).pointerType === 'touch') return;
+      window.clearTimeout(openTimer);
+      closeTimer = window.setTimeout(() => close(item), CLOSE_DELAY_MS);
+    });
+    item.addEventListener('focusout', (event) => {
+      if (!item.contains((event as FocusEvent).relatedTarget as Node | null)) close(item);
+    });
+    item.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && item.classList.contains('is-open')) {
+        close(item);
+        trigger.focus();
+      } else if (event.key === 'ArrowDown' && event.target === trigger) {
+        event.preventDefault();
+        open(item);
+        panelOf(item).querySelector<HTMLElement>('a')?.focus();
+      }
+    });
+    // The tab only opens its panel; the panel's last line leads to the whole section.
+    // A mouse already opened it on hover, so a click keeps it open; touch and keyboard toggle it.
+    let pointer = 'keyboard';
+    trigger.addEventListener('pointerdown', (event) => {
+      pointer = event.pointerType;
+    });
+    trigger.addEventListener('click', () => {
+      if (pointer === 'mouse') open(item);
+      else if (item.classList.contains('is-open')) close(item);
+      else open(item);
+      pointer = 'keyboard';
+    });
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    items.forEach((item) => {
+      if (!item.contains(event.target as Node)) close(item);
+    });
+  });
+  window.addEventListener('resize', () => items.forEach(close));
+</script>

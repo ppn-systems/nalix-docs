@@ -34,6 +34,7 @@ Nalix uses attributes to declare controller discovery, opcode routing, transport
 | `[PacketTimeout]` | Method | `PacketTimeoutAttribute(int timeoutMilliseconds)`<br/>Property: `int TimeoutMilliseconds { get; }` | Sets a linked `CancellationToken` timeout budget in milliseconds, enforced by `TimeoutMiddleware`. |
 | `[PacketTransport]` | Method | `PacketTransportAttribute(NetworkTransport transport)`<br/>Property: `NetworkTransport TransportType { get; }` | Restricts the handler to `NetworkTransport.TCP`, `UDP`, or `WEBSOCKET` (enforced by `TransportMiddleware`) and routes `context.Sender` replies over that transport. |
 | `[PacketIdempotent]` | Class | `PacketIdempotentAttribute()` | Documentation-only metadata marking a packet class as idempotent (safe for client-side retry policies). |
+| `[ReservedOpcodePermitted]` | Class, Method | `ReservedOpcodePermittedAttribute()` (`Nalix.Abstractions`; not inherited, single use) | Marks a type or method as permitted to use reserved opcodes (`0x0000..0x00FF`), which are normally blocked for application-level use. |
 | `[RpcService]` | Interface | `RpcServiceAttribute()` | Marks an interface for compile-time typed client extension generation by `RpcClientGenerator`. |
 
 :::important[Declaration vs. Middleware Enforcement]

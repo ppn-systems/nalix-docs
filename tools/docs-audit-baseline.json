@@ -1,0 +1,8 @@
+{
+  "comment": "Accepted audit findings. Every entry needs a reason; remove it once the docs cover the item. Keys are '<code>|<page>|<detail>' as printed by scripts/docs-audit.mjs --json.",
+  "accepted": {
+    "A010||Sponge": "Keccak256 internal sponge state, [EditorBrowsable(Never)].",
+    "A010||Tags": "TaskNaming helper constants, [EditorBrowsable(Never)].",
+    "A010||TaskNaming": "Task naming helper, [EditorBrowsable(Never)]."
+  }
+}

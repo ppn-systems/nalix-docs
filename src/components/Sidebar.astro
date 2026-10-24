@@ -1,5 +1,5 @@
 ---
-import { NAVIGATION_TREE, getNavContextForSlug, type NavItem } from '../config/navigation';
+import { NAVIGATION_TREE, getNavContextForSlug, getNavTitle, type NavItem } from '../config/navigation';
 import { useTranslations, type LocaleCode } from '../i18n';
 import SidebarNode from './SidebarNode.astro';
 
@@ -19,8 +19,6 @@ const activeTopTitle = topSection?.title || 'Start Here';
  * the global top navbar tabs (Get Started, Guides, Concepts, Packages, API Reference, Benchmarks).
  */
 function getScopedSidebarItems(): { sectionLabel: string; items: NavItem[] } {
-  const isVi = locale === 'vi-vn';
-
   // When on "Start Here" or "Guides", show Overview first, then Getting Started, followed by Guides groups
   if (activeTopTitle === 'Start Here' || activeTopTitle === 'Guides') {
     const startHereNode = NAVIGATION_TREE.find((n) => n.title === 'Start Here');
@@ -45,12 +43,12 @@ function getScopedSidebarItems(): { sectionLabel: string; items: NavItem[] } {
       .filter((item) => !item.items || item.items.length > 0);
 
     return {
-      sectionLabel: isVi ? 'Bắt đầu & Hướng dẫn' : 'Guides & Tutorials',
+      sectionLabel: t('nav.guidesAndTutorials'),
       items: [
         ...(overviewItem ? [overviewItem] : []),
         {
           title: 'Getting Started',
-          titleVi: 'Bắt đầu',
+          titles: { [locale]: t('nav.gettingStarted') },
           items: startItems,
         },
         ...guideGroups,
@@ -66,14 +64,7 @@ function getScopedSidebarItems(): { sectionLabel: string; items: NavItem[] } {
     };
   }
 
-  const displayHeader =
-    activeTopTitle === 'API'
-      ? isVi
-        ? 'Tài liệu API'
-        : 'API Reference'
-      : isVi && matchedSection.titleVi
-        ? matchedSection.titleVi
-        : matchedSection.title;
+  const displayHeader = activeTopTitle === 'API' ? t('nav.api') : getNavTitle(matchedSection, locale);
 
   return {
     sectionLabel: displayHeader,

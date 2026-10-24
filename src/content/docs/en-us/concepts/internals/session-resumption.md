@@ -8,7 +8,7 @@ Session Resumption is a high-performance protocol in Nalix that allows clients t
 
 ## Source Mapping
 
-- `src/Nalix.Codec/ProtocolFrames/SessionResume.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionResume.cs`
 - `src/Nalix.Runtime/Handlers/SessionHandlers.cs`
 - `src/Nalix.SDK/Transport/Extensions/ResumeExtensions.cs`
 - `src/Nalix.Runtime/Sessions/SessionService.cs`

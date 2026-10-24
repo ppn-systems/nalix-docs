@@ -18,7 +18,7 @@ If you're looking for the core interfaces and classes that drive Nalix:
 
 :::warning[Important]
 Most users should NOT start by reading the API reference.  
-If you are new, follow the [Recommended Path](../index.md#recommended-path)  
+If you are new, follow the [Recommended Path](../index.md#start-here)  
 or explore the [Guides](../guides/index.md) first.
 :::
 
@@ -33,8 +33,8 @@ or explore the [Guides](../guides/index.md) first.
 - `src/Nalix.Hosting`
 - `src/Nalix.SDK`
 - `analyzers/Nalix.Analyzers`
-- `analyzers/Nalix.Analyzers.CodeFix`
-- `analyzers/Nalix.Analyzers.CodeGen`
+- `analyzers/Nalix.Analyzers.CodeFixes`
+- `analyzers/Nalix.Analyzers.Generators`
 
 ## Why This Structure Exists
 

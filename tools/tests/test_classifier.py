@@ -1,0 +1,189 @@
+import unittest
+from collections import Counter
+
+from docsync.domain.citations import cited_by, collect_citations
+from docsync.domain.classifier import ChangeClassifier, relevant_tokens
+from docsync.domain.markdown import DocFile
+from docsync.domain.report import plan_by_page, render_report, truncate_report
+from docsync.domain.snapshot import ChangeSet
+
+HUB = "src/Nalix.Net/Hub.cs"
+
+
+def hub(body: str, extra: str = "") -> str:
+    return f"namespace Nalix.Net;\npublic sealed class Hub\n{{\n{extra}\n    public int Count {{ get; set; }} = 5;\n    public void Run() {{ {body} }}\n}}\n"
+
+
+DOCS = [
+    DocFile("api/hub.md", "The `Hub` type.\n\n- `src/Nalix.Net/Hub.cs`\n\n`MaxRetries` is 5.\n```csharp\nhub.Run();\n```\n"),
+    DocFile("api/other.md", "See `Hub.Count` and `src/Nalix.Net`.\n"),
+]
+MODIFIED = ChangeSet(modified=(HUB,))
+
+
+class Citations(unittest.TestCase):
+    def test_cited_paths_map_to_pages_and_package_wide_citations_are_ignored(self):
+        citations = collect_citations(DOCS)
+        self.assertEqual(list(citations), [HUB])
+        self.assertEqual(cited_by(HUB, citations), ["api/hub.md"])
+        self.assertEqual(cited_by("src/Nalix.Net/Other.cs", citations), [])
+
+    def test_folder_citations_match_files_inside_them(self):
+        citations = collect_citations([DocFile("g.md", "`samples/Chat/Server`")])
+        self.assertEqual(cited_by("samples/Chat/Server/Program.cs", citations), ["g.md"])
+        self.assertEqual(cited_by("samples/Chat/ServerX/Program.cs", citations), [])
+
+
+class Classification(unittest.TestCase):
+    def classify(self, old, new, docs=DOCS, changes=MODIFIED):
+        old_files = None if old is None else ({HUB: old} if old != {} else {})
+        return ChangeClassifier(docs).classify(changes, old_files, {HUB: new} if new is not None else {})
+
+    def test_a_public_signature_change_the_docs_do_not_show_is_api(self):
+        report = self.classify(hub(""), hub("", "public void Stop() { }"))
+        self.assertEqual(len(report.api), 1)
+        entry = report.api[0].entries[0]
+        self.assertEqual((entry.sign, entry.type, entry.signature, entry.ok), ("+", "Nalix.Net.Hub", "public void Stop()", False))
+        self.assertIn("api/hub.md", report.api[0].pages)
+
+    def test_an_api_change_the_docs_already_contain_is_reflected(self):
+        docs = [DocFile("api/hub.md", "Signature: `public void Stop()`\n`src/Nalix.Net/Hub.cs`")]
+        report = self.classify(hub(""), hub("", "public void Stop() { }"), docs)
+        self.assertEqual((len(report.api), len(report.reflected)), (0, 1))
+        self.assertFalse(report.needs_docs)
+
+    def test_docs_lines_that_still_mention_a_removed_member_are_pointed_at(self):
+        docs = [DocFile("api/hub.md", "`Hub` has `Old` for compat.\n`src/Nalix.Net/Hub.cs`")]
+        report = self.classify(hub("", "public void Old() { }"), hub(""), docs)
+        self.assertEqual([(p.page, p.line) for p in report.api[0].pointers], [("api/hub.md", 1)])
+
+    def test_a_body_change_is_behavior_only_when_the_page_mentions_what_changed(self):
+        relevant = self.classify(hub("Go(MaxRetries = 5);"), hub("Go(MaxRetries = 6);"))
+        self.assertEqual(len(relevant.behavior), 1)
+        self.assertIn("MaxRetries", relevant.behavior[0].tokens)
+        self.assertEqual(relevant.behavior[0].pages, ("api/hub.md",))
+
+        unrelated = self.classify(hub("Go(3);"), hub("Go(3); Cleanup();"))
+        self.assertEqual((len(unrelated.behavior), len(unrelated.internal)), (0, 1))
+
+        only_new_names = self.classify(hub("Go(3);"), hub("Go(MaxRetries);"))  # the docs cannot misdescribe a name that did not exist
+        self.assertEqual(len(only_new_names.behavior), 0)
+
+    def test_body_changes_in_files_no_page_cites_are_ignored(self):
+        report = self.classify(hub("A();"), hub("B();"), docs=[DocFile("x.md", "nothing")])
+        self.assertEqual(report.counts(), Counter(api=0, reflected=0, behavior=0, internal=1))
+
+    def test_every_api_file_counts_as_changed_when_the_previous_version_is_unavailable(self):
+        report = ChangeClassifier(DOCS).classify(MODIFIED, None, {HUB: hub("")})
+        self.assertEqual(len(report.api), 1)
+        self.assertFalse(report.api[0].exact)
+
+    def test_added_and_removed_files_are_judged_by_their_public_surface(self):
+        added = ChangeClassifier([]).classify(ChangeSet(added=(HUB,)), {}, {HUB: hub("")})
+        self.assertEqual(added.api[0].new_types, ("Hub",))
+        removed = ChangeClassifier([DocFile("a.md", "The `Hub` type")]).classify(ChangeSet(removed=(HUB,)), {HUB: hub("")}, {})
+        self.assertEqual(removed.api[0].removed_types, ("Hub",))
+
+    def test_plain_english_words_are_not_evidence_only_identifier_like_tokens_and_numbers(self):
+        df = Counter()
+        self.assertEqual(relevant_tokens(["Duplicate declares MaxRetries NALIX068 _lock 4096"], ["Duplicate declares MaxRetries NALIX068 _lock 4096"], df), ["4096", "MaxRetries", "NALIX068", "_lock"])
+
+    def test_generic_words_and_words_found_in_many_files_do_not_prove_relevance(self):
+        df = Counter({"Connection": 50, "MaxRetries": 1})
+        self.assertEqual(relevant_tokens(["Connection MaxRetries return null"], ["Connection MaxRetries"], df), ["MaxRetries"])
+        self.assertEqual(relevant_tokens(["limit = 4_096;"], ["limit 4096 bytes"], df), ["4096"])
+
+
+class Rendering(unittest.TestCase):
+    def test_tiers_diff_blocks_pointers_and_a_page_checklist(self):
+        report = ChangeClassifier(DOCS).classify(MODIFIED, {HUB: hub("", "public void Old() { }")}, {HUB: hub("", "public void Stop() { }")})
+        markdown = render_report("o/r", "a" * 40, "b" * 40, report)
+        for expected in (
+            "| 🔴 | Public API changed and the docs do not show it yet | 1 |",
+            "```diff",
+            "- public void Old()",
+            "+ public void Stop()",
+            "- [ ] `src/content/docs/en-us/api/hub.md`",
+            f"compare/{'a' * 40}...{'b' * 40}",
+        ):
+            self.assertIn(expected, markdown)
+
+    def test_truncation_never_leaves_a_code_fence_open(self):
+        body = "intro\n```diff\n" + "x\n" * 500 + "```\nend"
+        cut = truncate_report(body, 300)
+        self.assertEqual(cut.count("```") % 2, 0)
+        self.assertIn("Report truncated", cut)
+        self.assertEqual(truncate_report("short", 300), "short")
+
+
+class ChangeSets(unittest.TestCase):
+    def test_added_removed_and_modified_files(self):
+        changes = ChangeSet.between({"a": "1", "b": "2", "c": "3"}, {"a": "1", "b": "X", "d": "4"})
+        self.assertEqual((changes.added, changes.removed, changes.modified), (("d",), ("c",), ("b",)))
+        self.assertEqual(len(changes), 3)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+PAGE = DocFile("api/hub.md", "---\ntitle: Hub\n---\nThe `Hub` type.\n\n- `src/Nalix.Net/Hub.cs`\n\n| Member | Notes |\n| :-- | :-- |\n| `Count` | how many |\n| `Run` | runs |\n\n`MaxRetries` is 5.\n")
+
+
+class EditPlan(unittest.TestCase):
+    def plan(self, old, new, docs=(PAGE,)):
+        return ChangeClassifier(list(docs)).classify(MODIFIED, {HUB: old}, {HUB: new}).plan
+
+    def test_a_changed_signature_names_the_docs_line_the_old_and_new_form_and_the_source_line(self):
+        plan = self.plan(hub("", ""), hub("", "").replace("public void Run()", "public int Run(int n)"))
+        task = next(t for t in plan if t.kind == "update")
+        self.assertEqual((task.page, task.line, task.subject), ("api/hub.md", 11, "Run"))
+        self.assertEqual((task.old, task.new), ("public void Run()", "public int Run(int n)"))
+        self.assertEqual(task.docs_text, "| `Run` | runs |")
+        self.assertRegex(task.source, r"^src/Nalix\.Net/Hub\.cs#L\d+$")
+
+    def test_a_removed_member_still_mentioned_is_a_remove_task_pointing_at_the_old_source(self):
+        plan = self.plan(hub("", "public void Old() { }"), hub(""), [DocFile("api/hub.md", "`Hub`\n\n- uses `Old` here\n")])
+        task = next(t for t in plan if t.kind == "remove")
+        self.assertEqual((task.line, task.subject, task.source_side), (3, "Old", "old"))
+
+    def test_a_new_member_is_placed_after_the_last_row_of_the_table_that_lists_its_siblings(self):
+        plan = self.plan(hub(""), hub("", "public void Stop() { }"))
+        task = next(t for t in plan if t.kind == "add-member")
+        self.assertEqual((task.page, task.line, task.subject), ("api/hub.md", 11, "Stop"))
+        self.assertEqual(task.docs_text, "| `Run` | runs |")  # the last row of the table that lists the siblings
+        self.assertEqual(task.new, "public void Stop()")
+
+    def test_a_new_type_goes_where_the_members_that_use_it_are_documented(self):
+        old = "namespace Nalix.Net;\npublic sealed class Hub\n{\n    public int Count { get; set; } = 5;\n}\n"
+        new = old.replace("public int Count", "public Mode Mode { get; set; } = Mode.Fast;\n    public int Count") + "public enum Mode { Fast, Slow }\n"
+        plan = self.plan(old, new)
+        task = next(t for t in plan if t.kind == "add-type")
+        self.assertEqual((task.subject, task.page, task.docs_text), ("Mode", "api/hub.md", "used by Mode"))
+
+    def test_behavior_review_tasks_only_cover_pages_and_lines_that_mention_the_touched_names(self):
+        docs = [PAGE, DocFile("api/hub2.md", "`Hub`\n- `src/Nalix.Net/Hub.cs`\nnothing else\n")]
+        report = ChangeClassifier(docs).classify(MODIFIED, {HUB: hub("Go(MaxRetries = 5);")}, {HUB: hub("Go(MaxRetries = 6);")})
+        self.assertEqual([(t.page, t.line, t.kind) for t in report.plan], [("api/hub.md", 13, "review")])
+        self.assertEqual(report.plan[0].new, "MaxRetries")
+
+    def test_edits_come_before_reviews_within_a_page(self):
+        other = "src/Nalix.Net/Other.cs"
+        docs = [DocFile("api/hub.md", PAGE.text + "\n- `src/Nalix.Net/Other.cs`\n")]
+        report = ChangeClassifier(docs).classify(
+            ChangeSet(modified=(HUB, other)),
+            {HUB: hub(""), other: hub("Go(MaxRetries = 5);")},
+            {HUB: hub("", "public void Stop() { }"), other: hub("Go(MaxRetries = 6);")},
+        )
+        self.assertEqual([t.kind for t in report.plan], ["add-member", "review"])
+
+    def test_the_plan_is_rendered_by_page_and_exported_as_json(self):
+        report = ChangeClassifier([PAGE]).classify(MODIFIED, {HUB: hub("")}, {HUB: hub("", "public void Stop() { }")})
+        markdown = render_report("o/r", "a" * 40, "b" * 40, report)
+        self.assertIn("## Edit plan (by page)", markdown)
+        self.assertIn("### `src/content/docs/en-us/api/hub.md`", markdown)
+        self.assertIn("**add near L11** `Stop`", markdown)
+        self.assertIn(f"https://github.com/o/r/blob/{'b' * 40}/src/Nalix.Net/Hub.cs#L", markdown)
+        pages = plan_by_page(report.plan)
+        self.assertEqual(list(pages), ["api/hub.md"])
+        self.assertEqual(pages["api/hub.md"][0]["kind"], "add-member")

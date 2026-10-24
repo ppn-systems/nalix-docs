@@ -7,7 +7,7 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import { remarkNalixDocs } from './src/plugins/remark-nalix-docs';
 
 export default defineConfig({
-  site: 'https://ppn.io.vn',
+  site: 'https://docs.ppnsys.com',
   trailingSlash: 'ignore',
   compressHTML: true,
   prefetch: {

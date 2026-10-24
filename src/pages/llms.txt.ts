@@ -6,7 +6,7 @@ import { DEFAULT_LOCALE, localizePath } from '../i18n';
 import { getFlatNavigation } from '../config/navigation';
 
 export const GET: APIRoute = async ({ site }) => {
-  const baseUrl = (site?.toString() || 'https://ppn.io.vn').replace(/\/+$/, '');
+  const baseUrl = (site?.toString() || 'https://docs.ppnsys.com').replace(/\/+$/, '');
   const docsDir = path.resolve(process.cwd(), 'src/content/docs', DEFAULT_LOCALE);
   const flatNav = getFlatNavigation();
 

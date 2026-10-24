@@ -12,7 +12,6 @@ import { getNavContextForSlug, getPrevNextLinks } from '../config/navigation';
 import Header from '../components/Header.astro';
 import Sidebar from '../components/Sidebar.astro';
 import TableOfContents, { type MarkdownHeading } from '../components/TableOfContents.astro';
-import SearchModal from '../components/SearchModal.astro';
 import HomeLanding from '../components/HomeLanding.astro';
 
 interface Props {
@@ -59,7 +58,7 @@ const readTimeText = `${t('doc.readTime')} ${readMinutes} ${readMinutes === 1 ? 
 
 const pageTitle = isLanding ? `${t('site.title')}` : `${title} | ${t('site.title')}`;
 const metaDescription = description || t('site.tagline');
-const siteOrigin = (Astro.site || new URL('https://ppn.io.vn')).toString().replace(/\/+$/, '');
+const siteOrigin = (Astro.site || new URL('https://docs.ppnsys.com')).toString().replace(/\/+$/, '');
 const canonicalUrl = new URL(localizePath(slug, locale), siteOrigin).toString();
 const ogImageUrl = `${siteOrigin}/assets/social-preview.svg`;
 const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/main/src/content/docs/${sourceLocale}/${relFile}`;
@@ -188,13 +187,15 @@ const jsonLdSchema = isLanding
       type="font/woff2"
       crossorigin
     />
-    <link
-      rel="preload"
-      href="/assets/fonts/ibm-plex-mono-latin-400-normal.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    {!isLanding && (
+      <link
+        rel="preload"
+        href="/assets/fonts/ibm-plex-mono-latin-400-normal.woff2"
+        as="font"
+        type="font/woff2"
+        crossorigin
+      />
+    )}
 
     <!-- i18n hreflang alternates -->
     {ENABLED_LOCALES.map((altLocale) => (
@@ -237,12 +238,19 @@ const jsonLdSchema = isLanding
           var saved = localStorage.getItem('nlx-theme');
           var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
           document.documentElement.setAttribute('data-theme', theme);
+          if (!sessionStorage.getItem('nlx-intro')) {
+            document.documentElement.setAttribute('data-intro', '');
+            sessionStorage.setItem('nlx-intro', '1');
+          }
+          var density = localStorage.getItem('nlx-density');
+          if (density === 'dense' || density === 'comfortable') document.documentElement.setAttribute('data-density', density);
         } catch (e) {}
       })();
     </script>
   </head>
 
   <body data-copy-text={t('doc.copyCode')} data-copied-text={t('doc.copiedCode')}>
+    <div class="nlx-topline" aria-hidden="true"><span></span></div>
     <Header
       locale={locale}
       currentSlug={slug}
@@ -363,7 +371,7 @@ const jsonLdSchema = isLanding
 
               <div style="margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 0.75rem; color: var(--text-secondary);">
                 <span>{t('footer.copyright')}</span>
-                <span>{t('footer.license')} · {t('footer.builtWith')}</span>
+                <span>{t('footer.builtWith')}</span>
               </div>
             </footer>
           </article>
@@ -373,7 +381,6 @@ const jsonLdSchema = isLanding
       </div>
     )}
 
-    <SearchModal locale={locale} />
 
     <button
       type="button"
@@ -388,6 +395,39 @@ const jsonLdSchema = isLanding
     </button>
 
     <script>
+      // Light streak along the top edge: it runs while the next page loads, then sweeps off on arrival.
+      const root = document.documentElement;
+      try {
+        if (sessionStorage.getItem('nlx-nav')) {
+          sessionStorage.removeItem('nlx-nav');
+          root.classList.add('nlx-is-arriving');
+          window.setTimeout(() => root.classList.remove('nlx-is-arriving'), 900);
+        }
+      } catch {}
+      // Capture phase: some links stop propagation themselves.
+      document.addEventListener(
+        'click',
+        (event) => {
+          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          const link = (event.target as Element | null)?.closest('a');
+          if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+          const url = new URL(link.href, location.href);
+          if (url.origin !== location.origin) return;
+          if (url.pathname === location.pathname && url.search === location.search) return; // same page (anchor)
+          root.classList.add('nlx-is-loading');
+          try {
+            sessionStorage.setItem('nlx-nav', '1');
+          } catch {}
+        },
+        true
+      );
+      // Coming back through the browser's back/forward cache must not leave the streak running.
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) root.classList.remove('nlx-is-loading');
+      });
+    </script>
+
+    <script>
       function initThemeAndHeader() {
         const themeBtn = document.getElementById('nlx-theme-toggle');
         themeBtn?.addEventListener('click', () => {
@@ -400,13 +440,43 @@ const jsonLdSchema = isLanding
           renderMermaidDiagrams();
         });
 
+        const densitySwitcher = document.getElementById('nlx-density-switcher');
+        const densityOptions = Array.from(document.querySelectorAll<HTMLElement>('.nlx-density-option'));
+        const syncDensity = () => {
+          const current = document.documentElement.getAttribute('data-density') || 'normal';
+          densityOptions.forEach((option) => {
+            const active = option.dataset.density === current;
+            option.classList.toggle('is-active', active);
+            option.setAttribute('aria-checked', String(active));
+          });
+        };
+        syncDensity();
+        document.getElementById('nlx-density-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          document.getElementById('nlx-lang-switcher')?.classList.remove('is-open');
+          densitySwitcher?.classList.toggle('is-open');
+        });
+        densityOptions.forEach((option) =>
+          option.addEventListener('click', () => {
+            const value = option.dataset.density || 'normal';
+            if (value === 'normal') document.documentElement.removeAttribute('data-density');
+            else document.documentElement.setAttribute('data-density', value);
+            try {
+              localStorage.setItem('nlx-density', value);
+            } catch {}
+            syncDensity();
+          })
+        );
+
         const langSwitcher = document.getElementById('nlx-lang-switcher');
         const langBtn = document.getElementById('nlx-lang-btn');
         langBtn?.addEventListener('click', (e) => {
           e.stopPropagation();
+          densitySwitcher?.classList.remove('is-open');
           langSwitcher?.classList.toggle('is-open');
         });
         document.addEventListener('click', () => {
+          densitySwitcher?.classList.remove('is-open');
           langSwitcher?.classList.remove('is-open');
         });
 

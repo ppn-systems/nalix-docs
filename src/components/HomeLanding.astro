@@ -1,5 +1,6 @@
 ---
-import { localizePath, useTranslations, type LocaleCode } from '../i18n';
+import { localizePath, useTranslations, type LocaleCode, type TranslationKey } from '../i18n';
+import HeroBackdrop from './HeroBackdrop.astro';
 
 interface Props {
   locale: LocaleCode;
@@ -9,59 +10,51 @@ const { locale } = Astro.props;
 const t = useTranslations(locale);
 
 interface ProductCardItem {
-  title: string;
+  id: 'start' | 'guides' | 'concepts' | 'packages' | 'api' | 'benchmarks';
   href: string;
   icon: 'rocket' | 'compass' | 'layers' | 'box' | 'code' | 'gauge';
-  description: string;
-  topics: Array<{ label: string; slug: string }>;
+  /** `key` is a dictionary entry (`home.topic.<key>`); `label` is used as written (package names). */
+  topics: Array<{ key?: string; label?: string; slug: string }>;
 }
 
 const productCards: ProductCardItem[] = [
   {
-    title: 'Get Started',
+    id: 'start',
     href: localizePath('quickstart', locale),
     icon: 'rocket',
-    description:
-      'Set up your .NET 10 environment, define shared packet contracts, and launch your first Nalix server and client.',
     topics: [
-      { label: 'Quick Start', slug: 'quickstart' },
-      { label: 'Installation', slug: 'installation' },
-      { label: 'Your First Server', slug: 'guides/getting-started/your-first-server' },
-      { label: 'Server Blueprint', slug: 'guides/getting-started/server-blueprint' },
+      { key: 'quickStart', slug: 'quickstart' },
+      { key: 'installation', slug: 'installation' },
+      { key: 'firstServer', slug: 'guides/getting-started/your-first-server' },
+      { key: 'serverBlueprint', slug: 'guides/getting-started/server-blueprint' },
     ],
   },
   {
-    title: 'Application & Networking Guides',
+    id: 'guides',
     href: localizePath('guides', locale),
     icon: 'compass',
-    description:
-      'Practical tutorials for real-time chat servers, TCP/UDP socket patterns, middleware pipelines, and production deployment.',
     topics: [
-      { label: 'Build a Chat Room', slug: 'guides/build-a-chat-room' },
-      { label: 'Packet Handlers', slug: 'guides/application/packet-handlers' },
-      { label: 'TCP Patterns', slug: 'guides/networking/tcp-patterns' },
-      { label: 'Production Checklist', slug: 'guides/deployment/production-checklist' },
+      { key: 'chatRoom', slug: 'guides/build-a-chat-room' },
+      { key: 'packetHandlers', slug: 'guides/application/packet-handlers' },
+      { key: 'tcpPatterns', slug: 'guides/networking/tcp-patterns' },
+      { key: 'productionChecklist', slug: 'guides/deployment/production-checklist' },
     ],
   },
   {
-    title: 'Core Concepts & Internals',
+    id: 'concepts',
     href: localizePath('concepts', locale),
     icon: 'layers',
-    description:
-      'Deep dives into packet framing, zero-allocation BufferLease memory pools, AEAD encryption, and handshake state machines.',
     topics: [
-      { label: 'How Packets Work', slug: 'concepts/how-packets-work' },
-      { label: 'System Architecture', slug: 'concepts/internals/architecture' },
-      { label: 'Binary Specification', slug: 'concepts/internals/binary-spec' },
-      { label: 'Zero-Allocation Path', slug: 'concepts/internals/zero-allocation' },
+      { key: 'howPacketsWork', slug: 'concepts/how-packets-work' },
+      { key: 'architecture', slug: 'concepts/internals/architecture' },
+      { key: 'binarySpec', slug: 'concepts/internals/binary-spec' },
+      { key: 'zeroAllocation', slug: 'concepts/internals/zero-allocation' },
     ],
   },
   {
-    title: 'NuGet Packages',
+    id: 'packages',
     href: localizePath('packages', locale),
     icon: 'box',
-    description:
-      'Modular Level 0 to Level 4 package hierarchy—from zero-dependency abstractions to full server hosting.',
     topics: [
       { label: 'Nalix.Hosting', slug: 'packages/nalix-hosting' },
       { label: 'Nalix.Network', slug: 'packages/nalix-network' },
@@ -70,29 +63,25 @@ const productCards: ProductCardItem[] = [
     ],
   },
   {
-    title: 'API Reference',
+    id: 'api',
     href: localizePath('api', locale),
     icon: 'code',
-    description:
-      'Complete type, method, and configuration reference for listeners, codecs, cryptography, and Roslyn source generators.',
     topics: [
-      { label: 'Network API', slug: 'api/network' },
-      { label: 'Runtime API', slug: 'api/runtime' },
-      { label: 'Client SDK API', slug: 'api/sdk' },
-      { label: 'Diagnostic Codes', slug: 'api/analyzers/diagnostic-codes' },
+      { key: 'networkApi', slug: 'api/network' },
+      { key: 'runtimeApi', slug: 'api/runtime' },
+      { key: 'sdkApi', slug: 'api/sdk' },
+      { key: 'diagnosticCodes', slug: 'api/analyzers/diagnostic-codes' },
     ],
   },
   {
-    title: 'Performance Benchmarks',
+    id: 'benchmarks',
     href: localizePath('benchmarks', locale),
     icon: 'gauge',
-    description:
-      'Reproducible .NET 10 socket benchmarks comparing Nalix (52.2 µs p50, 56 B alloc) with gRPC, SignalR, and MagicOnion.',
     topics: [
-      { label: 'Network Comparison', slug: 'benchmarks/network-comparison' },
-      { label: 'Core Infrastructure', slug: 'benchmarks/infrastructure' },
-      { label: 'Memory & Storage', slug: 'benchmarks/memory' },
-      { label: 'Serialization', slug: 'benchmarks/serialization' },
+      { key: 'networkComparison', slug: 'benchmarks/network-comparison' },
+      { key: 'infrastructure', slug: 'benchmarks/infrastructure' },
+      { key: 'memory', slug: 'benchmarks/memory' },
+      { key: 'serialization', slug: 'benchmarks/serialization' },
     ],
   },
 ];
@@ -102,98 +91,13 @@ const productCards: ProductCardItem[] = [
   <div class="nlx-home-container">
     <!-- Top Hero Card -->
     <div class="nlx-home-hero-card">
-      <svg
-        class="nlx-home-hero__bg-svg"
-        viewBox="0 0 1200 320"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        preserveAspectRatio="xMidYMid slice"
-        aria-hidden="true"
-      >
-        <defs>
-          <radialGradient id="nlxHeroSpotCenter" cx="50%" cy="0%" r="70%">
-            <stop offset="0%" stop-color="#2584f4" stop-opacity="0.22" />
-            <stop offset="55%" stop-color="#0a6ec8" stop-opacity="0.06" />
-            <stop offset="100%" stop-color="#0a6ec8" stop-opacity="0" />
-          </radialGradient>
-          <radialGradient id="nlxHeroSpotLeft" cx="12%" cy="80%" r="45%">
-            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.14" />
-            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
-          </radialGradient>
-          <radialGradient id="nlxHeroSpotRight" cx="88%" cy="20%" r="45%">
-            <stop offset="0%" stop-color="#6366f1" stop-opacity="0.16" />
-            <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
-          </radialGradient>
-          <linearGradient id="nlxHeroBeam" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stop-color="currentColor" stop-opacity="0" />
-            <stop offset="50%" stop-color="#68b0ff" stop-opacity="0.55" />
-            <stop offset="100%" stop-color="currentColor" stop-opacity="0" />
-          </linearGradient>
-          <linearGradient id="nlxTraceLeft" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#68b0ff" stop-opacity="0.45" />
-            <stop offset="100%" stop-color="#68b0ff" stop-opacity="0" />
-          </linearGradient>
-          <linearGradient id="nlxTraceRight" x1="1" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#818cf8" stop-opacity="0.45" />
-            <stop offset="100%" stop-color="#818cf8" stop-opacity="0" />
-          </linearGradient>
-          <pattern id="nlxHeroGrid" width="48" height="48" patternUnits="userSpaceOnUse">
-            <path d="M 48 0 L 0 0 0 48" fill="none" stroke="currentColor" stroke-opacity="0.055" stroke-width="1" />
-          </pattern>
-          <radialGradient id="nlxGridMaskGrad" cx="50%" cy="45%" r="58%">
-            <stop offset="0%" stop-color="white" stop-opacity="1" />
-            <stop offset="75%" stop-color="white" stop-opacity="0.45" />
-            <stop offset="100%" stop-color="white" stop-opacity="0" />
-          </radialGradient>
-          <mask id="nlxGridMask">
-            <rect width="1200" height="320" fill="url(#nlxGridMaskGrad)" />
-          </mask>
-        </defs>
-
-        <!-- Ambient glows -->
-        <rect width="1200" height="320" fill="url(#nlxHeroSpotCenter)" />
-        <rect width="1200" height="320" fill="url(#nlxHeroSpotLeft)" />
-        <rect width="1200" height="320" fill="url(#nlxHeroSpotRight)" />
-
-        <!-- Subtle architectural grid with radial fade mask -->
-        <rect width="1200" height="320" fill="url(#nlxHeroGrid)" mask="url(#nlxGridMask)" />
-
-        <!-- Left wing network packet circuit traces -->
-        <g stroke="url(#nlxTraceLeft)" stroke-width="1.5" stroke-linecap="round">
-          <path d="M-20 72 H110 L152 114 H250" />
-          <path d="M-20 168 H84 L120 204 H210" />
-          <path d="M40 280 H144 L184 240 H280" />
-        </g>
-        <g fill="#68b0ff" fill-opacity="0.65">
-          <circle cx="110" cy="72" r="3" />
-          <circle cx="250" cy="114" r="3.5" />
-          <circle cx="120" cy="204" r="2.5" />
-          <circle cx="184" cy="240" r="3" />
-        </g>
-
-        <!-- Right wing network packet circuit traces -->
-        <g stroke="url(#nlxTraceRight)" stroke-width="1.5" stroke-linecap="round">
-          <path d="M1220 64 H1080 L1038 106 H940" />
-          <path d="M1220 176 H1110 L1072 214 H980" />
-          <path d="M1150 276 H1048 L1008 236 H915" />
-        </g>
-        <g fill="#818cf8" fill-opacity="0.65">
-          <circle cx="1080" cy="64" r="3" />
-          <circle cx="940" cy="106" r="3.5" />
-          <circle cx="1072" cy="214" r="2.5" />
-          <circle cx="1008" cy="236" r="3" />
-        </g>
-
-        <!-- Top & bottom precision hairline beams -->
-        <rect x="120" y="0.5" width="960" height="1" fill="url(#nlxHeroBeam)" />
-        <rect x="240" y="318.5" width="720" height="1" fill="url(#nlxHeroBeam)" opacity="0.5" />
-      </svg>
+      <HeroBackdrop />
 
       <div class="nlx-home-hero__content">
         <h1 class="nlx-home-hero__title">{t('hero.title')}</h1>
         <p class="nlx-home-hero__subtitle">{t('hero.subtitle')}</p>
 
-        <div class="nlx-home-search-bar">
+        <div class="nlx-home-search-bar" data-locale={locale} data-empty-text={t('search.noResults')}>
           <div class="nlx-home-search-input-wrap">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary); flex-shrink: 0;">
               <circle cx="11" cy="11" r="7"/>
@@ -205,11 +109,16 @@ const productCards: ProductCardItem[] = [
               class="nlx-home-search-input"
               placeholder={t('nav.searchPlaceholder')}
               autocomplete="off"
+              role="combobox"
+              aria-expanded="false"
+              aria-controls="nlx-hero-results"
+              aria-autocomplete="list"
             />
           </div>
           <button type="button" id="nlx-hero-search-btn" class="nlx-btn-primary nlx-home-search-btn">
             {t('nav.searchButton')}
           </button>
+          <div class="nlx-search-pop" id="nlx-hero-results" role="listbox" hidden></div>
         </div>
       </div>
     </div>
@@ -261,13 +170,13 @@ const productCards: ProductCardItem[] = [
                     </svg>
                   )}
                 </span>
-                <h2 class="nlx-product-card__title">{card.title}</h2>
+                <h2 class="nlx-product-card__title">{t(`home.card.${card.id}.title` as TranslationKey)}</h2>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                   <path d="M5 12h14m-6-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </a>
             </div>
-            <p class="nlx-product-card__desc">{card.description}</p>
+            <p class="nlx-product-card__desc">{t(`home.card.${card.id}.desc` as TranslationKey)}</p>
           </div>
 
           <div class="nlx-product-card__topics">
@@ -275,7 +184,7 @@ const productCards: ProductCardItem[] = [
             <div class="nlx-product-card__links">
               {card.topics.map((topic) => (
                 <a href={localizePath(topic.slug, locale)} class="nlx-topic-link" data-astro-prefetch>
-                  {topic.label}
+                  {topic.key ? t(`home.topic.${topic.key}` as TranslationKey) : topic.label}
                 </a>
               ))}
             </div>
@@ -288,43 +197,30 @@ const productCards: ProductCardItem[] = [
     <footer class="nlx-home-footer">
       <div>
         <span>{t('footer.copyright')}</span>
-        <span> · </span>
-        <span>{t('footer.license')}</span>
       </div>
       <div class="nlx-home-footer__links">
-        <a href="https://github.com/ppn-systems/nalix" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
-        <a href="https://www.nuget.org/packages?q=Nalix" target="_blank" rel="noopener noreferrer">NuGet Gallery</a>
-        <a href={localizePath('quickstart', locale)} data-astro-prefetch>Quick Start</a>
-        <a href={localizePath('api', locale)} data-astro-prefetch>API Reference</a>
+        <a href="https://github.com/ppn-systems/nalix" target="_blank" rel="noopener noreferrer">{t('nav.github')}</a>
+        <a href="https://www.nuget.org/packages?q=Nalix" target="_blank" rel="noopener noreferrer">{t('nav.nuget')}</a>
+        <a href={localizePath('quickstart', locale)} data-astro-prefetch>{t('nav.startHere')}</a>
+        <a href={localizePath('api', locale)} data-astro-prefetch>{t('nav.api')}</a>
       </div>
     </footer>
   </div>
 </div>
 
 <script>
-  function initHeroSearch() {
-    const heroInput = document.getElementById('nlx-hero-search-input') as HTMLInputElement | null;
-    const heroBtn = document.getElementById('nlx-hero-search-btn');
-    const modalBackdrop = document.getElementById('nlx-search-backdrop');
-    const modalInput = document.getElementById('nlx-search-input') as HTMLInputElement | null;
+  import { attachInlineSearch } from '../scripts/inline-search';
 
-    if (!heroInput || !modalBackdrop || !modalInput) return;
-
-    function openModalWithQuery(q: string) {
-      modalBackdrop!.classList.add('is-open');
-      modalInput!.value = q;
-      modalInput!.dispatchEvent(new Event('input'));
-      modalInput!.focus();
-    }
-
-    heroInput.addEventListener('focus', () => {
-      openModalWithQuery(heroInput.value);
+  const bar = document.querySelector<HTMLElement>('.nlx-home-search-bar');
+  const input = document.getElementById('nlx-hero-search-input') as HTMLInputElement | null;
+  const list = document.getElementById('nlx-hero-results');
+  if (bar && input && list) {
+    const { run } = attachInlineSearch({
+      input,
+      list,
+      locale: bar.dataset.locale || 'en-us',
+      emptyText: bar.dataset.emptyText || '',
     });
-
-    heroBtn?.addEventListener('click', () => {
-      openModalWithQuery(heroInput.value);
-    });
+    document.getElementById('nlx-hero-search-btn')?.addEventListener('click', () => (input.value.trim() ? run() : input.focus()));
   }
-
-  initHeroSearch();
 </script>

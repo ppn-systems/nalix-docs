@@ -110,6 +110,14 @@ Configured via `[TaskManager]` in `default.ini` or `builder.Configure<TaskManage
 | `BackoffBaseInterval` | `TimeSpan` | `00:00:01` (`1s`) | `>= 10 ms` | Base interval multiplied by $2^{\text{failures}}$ during recurring task backoff. |
 | `CleanupInterval` | `TimeSpan` | `00:00:30` (`30s`) | `>= 1 s` | Interval at which completed workers past their `RetainFor` window are purged. |
 
+## `TaskExtensions` (`Nalix.Framework.Extensions`)
+
+`TaskExtensions` (`src/Nalix.Framework/Extensions/TaskExtensions.cs`) is a static class of helpers for consuming tasks from non-`async` code:
+
+- `Await(this Task)`, `Await(this Task, bool continueOnCapturedContext)`, `Await(this ValueTask)`, `Await<TResult>(this Task<TResult>)`, `Await<TResult>(this ValueTask<TResult>)` — block until completion and rethrow the original failure.
+- `WithTimeout<T>(this Task<T>, int msTimeout)` — returns the result, or `default` if the timeout elapses first.
+- `LinkCancellation<T>(this TaskCompletionSource<T>, CancellationToken)` — completes the TCS as canceled when the token fires; returns an `IDisposable` registration.
+
 ## Related APIs
 
 - [WorkerOptions](./options/worker-options.md)

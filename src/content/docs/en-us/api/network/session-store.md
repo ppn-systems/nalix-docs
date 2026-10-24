@@ -8,7 +8,7 @@ package: Nalix.Runtime
 **Namespaces:** `Nalix.Abstractions.Networking.Sessions`, `Nalix.Runtime.Sessions`  
 **Assembly:** `Nalix.Runtime`
 
-`SessionService`, `InMemorySessionStore`, `SessionFactory`, `DefaultSessionPersistencePolicy`, and `SessionPersistenceObserver` manage resumable session snapshots (`SessionEntry` / `SessionScope`) when clients disconnect and later reconnect via the 0-RTT `SessionResume` protocol (`ControlType.RESUME_REQUEST`).
+`SessionService`, `InMemorySessionStore`, `SessionFactory`, `DefaultSessionPersistencePolicy`, and `SessionPersistenceObserver` manage resumable session snapshots (`SessionEntry` / `SessionScope`) when clients disconnect and later reconnect via the 0-RTT `SessionResume` protocol (`SessionResumeStage.REQUEST`).
 
 ## Source Mapping
 

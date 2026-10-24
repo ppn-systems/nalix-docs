@@ -16,7 +16,7 @@ Nalix includes a stateless, adaptive Proof-of-Work (PoW) challenge-response syst
 - `src/Nalix.Abstractions/Security/IProofOfWorkPolicy.cs` — Dynamic difficulty policy contract
 - `src/Nalix.Runtime/Handlers/ProofOfWorkHandlers.cs` — Server-side proof verification handler
 - `src/Nalix.Runtime/Handlers/SystemControlHandlers.cs` — Handles `ControlType.POW_REQUEST`
-- `src/Nalix.Network/Guard/ConnectionGuard.cs` — Implements `IProofOfWorkPolicy`
+- `src/Nalix.Network/RateLimiting/Connection.Guard.cs` — Implements `IProofOfWorkPolicy`
 
 ## How It Works
 
@@ -86,12 +86,12 @@ long solution = ProofOfWorkSolver.SolveChallenge(
 | Property | Default | Description |
 | --- | ---: | --- |
 | `EnableAdaptiveMode` | `false` | Enables EWMA connection-rate adaptive PoW difficulty scaling. |
-| `AdaptivePowMinDifficulty` | `0` | Baseline difficulty when traffic is normal (`0` = disabled). |
+| `AdaptivePowMinDifficulty` | `12` | Baseline difficulty when traffic is normal (`0..32`). |
 | `AdaptivePowMaxDifficulty` | `24` | Maximum PoW difficulty under flood conditions (`0..32`). |
 | `AdaptivePowStartRate` | `10.0` | Connection rate (connections/sec) where PoW scaling starts. |
 | `AdaptivePowMaxRate` | `100.0` | Connection rate (connections/sec) where `AdaptivePowMaxDifficulty` is reached. |
 | `EnableCapacityBasedPoW` | `true` | Enables PoW scaling when active connection count exceeds `CapacityPoWThreshold`. |
-| `CapacityPoWThreshold` | `0.75` | Active connection ratio (`0.1..1.0` of `MaxConnections`) that triggers capacity-based PoW. |
+| `CapacityPoWThreshold` | `0.5` | Active connection ratio (`0.1..1.0` of `MaxConnections`) that triggers capacity-based PoW. |
 
 ## Related APIs
 

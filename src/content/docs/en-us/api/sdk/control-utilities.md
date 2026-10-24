@@ -119,9 +119,8 @@ public static class ControlExtensions
 
     public static ValueTask<Control> AwaitControlAsync(
         this ITransportSession client,
-        ControlType expectedType,
-        uint expectedSequenceId = 0,
-        int timeoutMs = 5000,
+        Func<Control, bool> predicate,
+        int timeoutMs,
         CancellationToken ct = default);
 }
 ```

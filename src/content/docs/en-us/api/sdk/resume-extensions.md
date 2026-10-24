@@ -13,7 +13,7 @@ package: Nalix.SDK
 ## Source Mapping
 
 - `src/Nalix.SDK/Transport/Extensions/ResumeExtensions.cs`
-- `src/Nalix.Codec/ProtocolFrames/SessionResume.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionResume.cs`
 - `src/Nalix.Codec/Security/Hashing/HmacKeccak256.cs`
 
 ## Public API Reference

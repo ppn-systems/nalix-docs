@@ -64,7 +64,6 @@ Configured via `[Memory]` in `default.ini` or `builder.Configure<MemoryOptions>(
 | `MaxWriterCapacity` | `int` | `134_217_728` (`128 MiB`) | `[ValueRange(1024, 1073741824)]` | Maximum growable capacity for `DataWriter` in rented mode. |
 | `BufferLeaseThreadLocalCacheMaxSlots` | `int` | `8` | `[ValueRange(1, 1024)]` | Number of L1 `[ThreadStatic]` cache slots per thread for `BufferLease` shells. |
 | `BufferLeaseSharedPoolSize` | `int` | `64` | `[ValueRange(16, 65536)]` | Number of L2 striped shared pool slots for `BufferLease` shells. |
-| `DataWriterStackAllocThreshold` | `int` | `512` | `[ValueRange(64, 8192)]` | Cutoff in bytes between stack allocation and `BufferLease` renting (`BufferLease.StackAllocThreshold`). |
 
 ## `BufferOptions` (`Nalix.Framework.Options`)
 

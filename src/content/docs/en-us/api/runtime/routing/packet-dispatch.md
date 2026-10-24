@@ -87,6 +87,14 @@ For each dequeued `IBufferLease`:
 - **Worker & Channel Metrics**: `Running`, `DispatchLoops`, `WakeSignals`, `WakeReads`, `IdleWorkers`, `TotalPackets`, `PeakPackets`, `TotalConnections`, `ReadyConnections`, and `PendingPerPriority` (`URGENT` down to `NONE`).
 - **Pipeline Metrics (`Options.Metrics`)**: `ActiveExecutions`, `TotalExecutions`, `TotalDropped` (`_totalDropped + _dispatch.TotalEvicted`), `TotalErrors`, `DeserializationErrors`, `AverageTimeMs`, `MaxTimeMs`, and per-middleware breakdowns (`MiddlewareMetrics`).
 
+## `InlinePacketDispatcher`
+
+`InlinePacketDispatcher` (`public sealed class InlinePacketDispatcher : PacketDispatcherBase<IPacket>, IPacketDispatch, IActivatable`, `src/Nalix.Runtime/Dispatching/InlinePacketDispatcher.cs`) is a lightweight alternative to `PacketDispatchChannel` that has no dispatch queue or worker loops. It takes the same optional `Action<PacketDispatchOptions<IPacket>>` in its constructor.
+
+- `Activate` / `Deactivate` only toggle a running flag. While deactivated, `HandlePacket` disposes the lease and returns.
+- `HandlePacket` drops (and disposes) a `UInt16LengthPrefixed` lease shorter than `PacketConstants.HeaderSize` and calls `connection.IncrementErrorCount()`; otherwise it calls `lease.Retain()` and queues the work with `ThreadPool.UnsafeQueueUserWorkItem(..., preferLocal: true)` so the IO thread is not blocked.
+- The queued work then follows the same opcode lookup, `MemoryPacket` fast path and deserialization steps as `ExecutePacketAsync` above. There is no per-connection ordering, priority queueing or drain budget.
+
 ## Related APIs
 
 - [Dispatch Contracts](./dispatch-contracts.md)

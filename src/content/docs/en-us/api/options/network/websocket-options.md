@@ -96,11 +96,12 @@ AllowMissingOrigin = true
 | :--- | :--- | :--- | :--- |
 | `Enabled` | `bool` | `false` | Enables parsing `CF-Connecting-IP` and `X-Forwarded-For` HTTP upgrade headers to obtain the real client IP. |
 | `RequireTrustedProxy` | `bool` | `false` | When `true`, only physical connections originating from IPs/CIDRs listed in [TrustedProxyOptions](./trusted-proxy-options.md) are allowed to forward client IPs via HTTP headers; untrusted peers sending forwarded headers are rejected. |
+| `ClientIpHeader` | `ForwardedClientIpHeader` | `Auto` | Selects which header carries the client IP: `Auto`, `CfConnectingIp`, `XRealIp` or `XForwardedFor`. Any value other than `Auto` reads only that header and ignores the others. |
 
-Header precedence is fixed: the first present of `CF-Connecting-IP`, `X-Real-IP`, `X-Forwarded-For` wins, and that IP drives bans, per-IP limits and rate limiting.
+With `ClientIpHeader = Auto` (default), the first present of `CF-Connecting-IP`, `X-Real-IP`, `X-Forwarded-For` wins (no fallback to lower-priority headers), and that IP drives bans, per-IP limits and rate limiting.
 
 :::caution[Spoofable headers]
-The proxy must overwrite or clear these headers from clients — a client-sent `CF-Connecting-IP` outranks `X-Real-IP`. `X-Forwarded-For` is currently read from its **left-most** entry, which a client can forge when the proxy only appends (e.g. AWS ALB); have the proxy set `X-Real-IP`, and keep `RequireTrustedProxy = true`. See [Reverse Proxy & TLS](../../../guides/deployment/reverse-proxy-tls.md).
+The proxy must overwrite or clear these headers from clients — a client-sent `CF-Connecting-IP` outranks `X-Real-IP`. `X-Forwarded-For` is walked right-to-left and the first entry that is not a trusted proxy is used (if every entry is trusted, the left-most is used), so list your proxies in [TrustedProxyOptions](./trusted-proxy-options.md); you can also pin `ClientIpHeader` to the one header your proxy sets, and keep `RequireTrustedProxy = true`. See [Reverse Proxy & TLS](../../../guides/deployment/reverse-proxy-tls.md).
 :::
 
 ## See Also

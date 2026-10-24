@@ -12,25 +12,29 @@ The source of truth for every technical claim is the sibling repository [`ppn-sy
 | `src/config/navigation.ts` | Sidebar tree — every page must be registered here |
 | `src/i18n/` | Locale registry, routing helpers, UI dictionaries |
 | `src/plugins/remark-nalix-docs.ts` | Admonitions, Mermaid, locale-aware link rewriting |
-| `tests/` | Integrity gates (frontmatter, links, navigation, i18n, C# parity) |
-| `scripts/` | Maintenance scripts (Node ESM, no extra deps) |
-| `.github/workflows/source-sync.yml` | Daily drift check; opens a draft PR on `bot/source-sync` with the report |
-| `source-manifest.json` | Hash snapshot of `nalix` source the docs were last synced to (`npm run sync:check` / `sync:update`) |
+| `tests/` | Vitest gates (frontmatter, links, navigation, i18n, remark plugin, C# parity) |
+| `tools/` | Python tools (standard library only): source-sync and docs audit, with `unittest` tests in `tools/tests/` |
+| `scripts/` | One-off Node migration script |
+| `.github/workflows/source-sync.yml` | Daily drift check (opens a draft PR on `bot/source-sync` only when the docs are affected) plus a daily full audit and coverage job |
+| `.github/workflows/preview.yml` | PR preview on Cloudflare Pages; path-filtered to files that change the built site |
+| `source-manifest.json`, `source-api-index.json` | Hashes + public-API snapshot of the `nalix` commit the docs were last synced to |
 
 ## Commands
 
-- `npm test` — all integrity gates (fast, run after every content change)
+- `npm test` — Vitest gates + Python `unittest` (includes the docs-vs-source audit); run after every content change
 - `npm run build` — Astro static build
 - `npm run check` — test + build (what CI runs)
-- `npm run sync:check` / `npm run sync:update` — detect / record `nalix` source changes (see docs-source-parity skill)
+- `npm run sync:check` / `sync:update` — classify `nalix` source changes (API / behavior / ignored) and record the synced commit
+- `npm run audit` — docs vs source API index (offline); also gated by `tools/tests/test_docs_gate.py`; `python3 tools/run.py audit --live` checks against the current GitHub source instead
+- `npm run coverage` — per-package share of public types/methods the pages mention
 
-Run `npm test` after any change under `src/`, `tests/` or `scripts/`. Pure `README`/`CLAUDE.md`/skill edits need no validation.
+Run `npm test` after any change under `src/`, `tests/` or `tools/`. Pure `README`/`CLAUDE.md`/skill edits need no validation.
 
 ## Global Rules
 
 - **Accuracy first:** never document an API, option, default value or behavior without reading it in `nalix/src`. If the source is not available, say so instead of guessing.
 - **English canonical:** write in `en-us`; translations never add content that `en-us` lacks.
-- **No new npm dependencies** unless explicitly requested.
+- **No new npm or pip dependencies** unless explicitly requested; `tools/` uses the Python standard library only.
 - **Surgical changes:** touch only the pages the task requires; match the surrounding tone and structure.
 - **Do not rename or move pages** without updating `navigation.ts` and every inbound link (URLs are public).
 - Never commit `dist/`, `.astro/`, `node_modules/`.
@@ -41,6 +45,7 @@ Run `npm test` after any change under `src/`, `tests/` or `scripts/`. Pure `READ
 | :--- | :--- |
 | [docs-authoring](.claude/skills/docs-authoring.md) | Frontmatter, Markdown rules (R6/R7/R19), admonitions, Mermaid, code samples |
 | [docs-structure](.claude/skills/docs-structure.md) | Adding/moving pages, `navigation.ts` sync (R8), i18n `vi-vn` |
-| [docs-source-parity](.claude/skills/docs-source-parity.md) | Verifying docs against `nalix` source; keeping docs in sync with source changes |
+| [docs-source-parity](.claude/skills/docs-source-parity.md) | Source-sync tiers (🔴🟡✅⚪), audit codes A001–A010, fixing findings |
+| [docs-sync-pr](.claude/skills/docs-sync-pr.md) | Handling the `bot/source-sync` draft PR; fanning out fixes |
 
 The behavioral guidelines in `nalix/CLAUDE.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) apply here too.

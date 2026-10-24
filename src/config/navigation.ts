@@ -1,10 +1,11 @@
 // Auto-generated and synchronized with Nalix documentation structure (Rule R8)
 import type { LocaleCode } from '../i18n/config';
-import { localizePath } from '../i18n';
+import { localizePath, useTranslations } from '../i18n';
 
 export interface NavItem {
   title: string;
-  titleVi?: string;
+  /** Titles per locale; a locale without an entry uses `title`. */
+  titles?: Partial<Record<LocaleCode, string>>;
   /** Canonical doc slug (empty string '' for root index) */
   slug?: string;
   /** Source markdown file path relative to locale folder */
@@ -15,35 +16,35 @@ export interface NavItem {
 export const NAVIGATION_TREE: NavItem[] = [
   {
     "title": "Overview",
-    "titleVi": "Tổng quan",
+    "titles": { "vi-vn": "Tổng quan" },
     "slug": "",
     "file": "index.md"
   },
   {
     "title": "Start Here",
-    "titleVi": "Bắt đầu",
+    "titles": { "vi-vn": "Bắt đầu" },
     "items": [
       {
         "title": "Quick Start",
-        "titleVi": "Bắt đầu nhanh",
+        "titles": { "vi-vn": "Bắt đầu nhanh" },
         "slug": "quickstart",
         "file": "quickstart.md"
       },
       {
         "title": "Installation",
-        "titleVi": "Cài đặt",
+        "titles": { "vi-vn": "Cài đặt" },
         "slug": "installation",
         "file": "installation.md"
       },
       {
         "title": "Your First Server",
-        "titleVi": "Máy chủ đầu tiên",
+        "titles": { "vi-vn": "Máy chủ đầu tiên" },
         "slug": "guides/getting-started/your-first-server",
         "file": "guides/getting-started/your-first-server.md"
       },
       {
         "title": "Server Blueprint",
-        "titleVi": "Kiến trúc máy chủ mẫu",
+        "titles": { "vi-vn": "Kiến trúc máy chủ mẫu" },
         "slug": "guides/getting-started/server-blueprint",
         "file": "guides/getting-started/server-blueprint.md"
       }
@@ -51,33 +52,33 @@ export const NAVIGATION_TREE: NavItem[] = [
   },
   {
     "title": "Guides",
-    "titleVi": "Hướng dẫn",
+    "titles": { "vi-vn": "Hướng dẫn" },
     "items": [
       {
         "title": "Overview",
-        "titleVi": "Tổng quan",
+        "titles": { "vi-vn": "Tổng quan" },
         "slug": "guides",
         "file": "guides/index.md"
       },
       {
         "title": "Tutorials",
-        "titleVi": "Bài tập thực hành",
+        "titles": { "vi-vn": "Bài tập thực hành" },
         "items": [
           {
             "title": "Build a Chat Room",
-            "titleVi": "Xây dựng phòng Chat",
+            "titles": { "vi-vn": "Xây dựng phòng Chat" },
             "slug": "guides/build-a-chat-room",
             "file": "guides/build-a-chat-room.md"
           },
           {
             "title": "Blazor WebAssembly",
-            "titleVi": "Blazor WebAssembly",
+            "titles": { "vi-vn": "Blazor WebAssembly" },
             "slug": "guides/blazor-wasm",
             "file": "guides/blazor-wasm.md"
           },
           {
             "title": "Securing Your Server",
-            "titleVi": "Bảo mật máy chủ",
+            "titles": { "vi-vn": "Bảo mật máy chủ" },
             "slug": "guides/securing-your-server",
             "file": "guides/securing-your-server.md"
           }
@@ -85,17 +86,17 @@ export const NAVIGATION_TREE: NavItem[] = [
       },
       {
         "title": "Application Logic",
-        "titleVi": "Logic ứng dụng",
+        "titles": { "vi-vn": "Logic ứng dụng" },
         "items": [
           {
             "title": "Packet Handlers",
-            "titleVi": "Xử lý gói tin",
+            "titles": { "vi-vn": "Xử lý gói tin" },
             "slug": "guides/application/packet-handlers",
             "file": "guides/application/packet-handlers.md"
           },
           {
             "title": "Middleware Usage",
-            "titleVi": "Sử dụng Middleware",
+            "titles": { "vi-vn": "Sử dụng Middleware" },
             "slug": "guides/application/middleware-usage",
             "file": "guides/application/middleware-usage.md"
           }
@@ -103,35 +104,35 @@ export const NAVIGATION_TREE: NavItem[] = [
       },
       {
         "title": "Networking",
-        "titleVi": "Mạng & Kết nối",
+        "titles": { "vi-vn": "Mạng & Kết nối" },
         "items": [
           {
             "title": "Client Sessions",
-            "titleVi": "Phiên kết nối Client",
+            "titles": { "vi-vn": "Phiên kết nối Client" },
             "slug": "guides/networking/connecting-clients",
             "file": "guides/networking/connecting-clients.md"
           },
           {
             "title": "TCP Patterns",
-            "titleVi": "Mẫu kết nối TCP",
+            "titles": { "vi-vn": "Mẫu kết nối TCP" },
             "slug": "guides/networking/tcp-patterns",
             "file": "guides/networking/tcp-patterns.md"
           },
           {
             "title": "UDP Server",
-            "titleVi": "Máy chủ UDP",
+            "titles": { "vi-vn": "Máy chủ UDP" },
             "slug": "guides/networking/udp-server",
             "file": "guides/networking/udp-server.md"
           },
           {
             "title": "UDP Security",
-            "titleVi": "Bảo mật UDP",
+            "titles": { "vi-vn": "Bảo mật UDP" },
             "slug": "guides/networking/udp-security",
             "file": "guides/networking/udp-security.md"
           },
           {
             "title": "Idle Connection Timeout",
-            "titleVi": "Thời gian chờ kết nối rỗi",
+            "titles": { "vi-vn": "Thời gian chờ kết nối rỗi" },
             "slug": "guides/networking/idle-timeout-configuration",
             "file": "guides/networking/idle-timeout-configuration.md"
           }
@@ -139,29 +140,29 @@ export const NAVIGATION_TREE: NavItem[] = [
       },
       {
         "title": "Extensibility",
-        "titleVi": "Mở rộng hệ thống",
+        "titles": { "vi-vn": "Mở rộng hệ thống" },
         "items": [
           {
             "title": "Custom Middleware",
-            "titleVi": "Tùy chỉnh Middleware",
+            "titles": { "vi-vn": "Tùy chỉnh Middleware" },
             "slug": "guides/extensibility/custom-middleware",
             "file": "guides/extensibility/custom-middleware.md"
           },
           {
             "title": "Custom Packet Router",
-            "titleVi": "Tùy chỉnh bộ định tuyến",
+            "titles": { "vi-vn": "Tùy chỉnh bộ định tuyến" },
             "slug": "guides/extensibility/custom-packet-router",
             "file": "guides/extensibility/custom-packet-router.md"
           },
           {
             "title": "Custom Metadata Providers",
-            "titleVi": "Tùy chỉnh Metadata Provider",
+            "titles": { "vi-vn": "Tùy chỉnh Metadata Provider" },
             "slug": "guides/extensibility/metadata-providers",
             "file": "guides/extensibility/metadata-providers.md"
           },
           {
             "title": "Custom Serialization Providers",
-            "titleVi": "Tùy chỉnh tuần tự hóa",
+            "titles": { "vi-vn": "Tùy chỉnh tuần tự hóa" },
             "slug": "guides/extensibility/serialization-providers",
             "file": "guides/extensibility/serialization-providers.md"
           }
@@ -169,23 +170,23 @@ export const NAVIGATION_TREE: NavItem[] = [
       },
       {
         "title": "Deployment & Operations",
-        "titleVi": "Triển khai & Vận hành",
+        "titles": { "vi-vn": "Triển khai & Vận hành" },
         "items": [
           {
             "title": "Production Checklist",
-            "titleVi": "Danh mục kiểm tra Production",
+            "titles": { "vi-vn": "Danh mục kiểm tra Production" },
             "slug": "guides/deployment/production-checklist",
             "file": "guides/deployment/production-checklist.md"
           },
           {
             "title": "Reverse Proxy & TLS",
-            "titleVi": "Reverse Proxy & TLS",
+            "titles": { "vi-vn": "Reverse Proxy & TLS" },
             "slug": "guides/deployment/reverse-proxy-tls",
             "file": "guides/deployment/reverse-proxy-tls.md"
           },
           {
             "title": "Troubleshooting",
-            "titleVi": "Xử lý sự cố",
+            "titles": { "vi-vn": "Xử lý sự cố" },
             "slug": "guides/deployment/troubleshooting",
             "file": "guides/deployment/troubleshooting.md"
           }
@@ -195,17 +196,17 @@ export const NAVIGATION_TREE: NavItem[] = [
   },
   {
     "title": "Concepts",
-    "titleVi": "Khái niệm",
+    "titles": { "vi-vn": "Khái niệm" },
     "items": [
       {
         "title": "Overview",
-        "titleVi": "Tổng quan",
+        "titles": { "vi-vn": "Tổng quan" },
         "slug": "concepts",
         "file": "concepts/index.md"
       },
       {
         "title": "Core Concepts",
-        "titleVi": "Khái niệm cốt lõi",
+        "titles": { "vi-vn": "Khái niệm cốt lõi" },
         "items": [
           {
             "title": "How Packets Work",
@@ -236,11 +237,11 @@ export const NAVIGATION_TREE: NavItem[] = [
       },
       {
         "title": "Architecture & Internals",
-        "titleVi": "Kiến trúc nội bộ",
+        "titles": { "vi-vn": "Kiến trúc nội bộ" },
         "items": [
           {
             "title": "Overview",
-            "titleVi": "Tổng quan",
+            "titles": { "vi-vn": "Tổng quan" },
             "slug": "concepts/internals",
             "file": "concepts/internals/index.md"
           },
@@ -308,7 +309,7 @@ export const NAVIGATION_TREE: NavItem[] = [
       },
       {
         "title": "Security Model",
-        "titleVi": "Mô hình bảo mật",
+        "titles": { "vi-vn": "Mô hình bảo mật" },
         "items": [
           {
             "title": "Security Architecture",
@@ -334,7 +335,7 @@ export const NAVIGATION_TREE: NavItem[] = [
       },
       {
         "title": "Advanced Topics",
-        "titleVi": "Chủ đề nâng cao",
+        "titles": { "vi-vn": "Chủ đề nâng cao" },
         "items": [
           {
             "title": "Manual Server Wiring",
@@ -362,11 +363,11 @@ export const NAVIGATION_TREE: NavItem[] = [
   },
   {
     "title": "Packages",
-    "titleVi": "Gói thư viện",
+    "titles": { "vi-vn": "Gói thư viện" },
     "items": [
       {
         "title": "Overview",
-        "titleVi": "Tổng quan",
+        "titles": { "vi-vn": "Tổng quan" },
         "slug": "packages",
         "file": "packages/index.md"
       },
@@ -414,11 +415,11 @@ export const NAVIGATION_TREE: NavItem[] = [
   },
   {
     "title": "API",
-    "titleVi": "Tài liệu API",
+    "titles": { "vi-vn": "Tài liệu API" },
     "items": [
       {
         "title": "Overview",
-        "titleVi": "Tổng quan",
+        "titles": { "vi-vn": "Tổng quan" },
         "slug": "api",
         "file": "api/index.md"
       },
@@ -427,7 +428,7 @@ export const NAVIGATION_TREE: NavItem[] = [
         "items": [
           {
             "title": "Overview",
-            "titleVi": "Tổng quan",
+            "titles": { "vi-vn": "Tổng quan" },
             "slug": "api/analyzers",
             "file": "api/analyzers/index.md"
           },
@@ -446,7 +447,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "items": [
               {
                 "title": "Overview",
-                "titleVi": "Tổng quan",
+                "titles": { "vi-vn": "Tổng quan" },
                 "slug": "api/analyzers/autogen",
                 "file": "api/analyzers/autogen/index.md"
               },
@@ -489,7 +490,7 @@ export const NAVIGATION_TREE: NavItem[] = [
         "items": [
           {
             "title": "Overview",
-            "titleVi": "Tổng quan",
+            "titles": { "vi-vn": "Tổng quan" },
             "slug": "api/abstractions",
             "file": "api/abstractions/index.md"
           },
@@ -550,7 +551,7 @@ export const NAVIGATION_TREE: NavItem[] = [
         "items": [
           {
             "title": "Overview",
-            "titleVi": "Tổng quan",
+            "titles": { "vi-vn": "Tổng quan" },
             "slug": "api/framework",
             "file": "api/framework/index.md"
           },
@@ -559,7 +560,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "items": [
               {
                 "title": "Overview",
-                "titleVi": "Tổng quan",
+                "titles": { "vi-vn": "Tổng quan" },
                 "slug": "api/environment",
                 "file": "api/environment/index.md"
               },
@@ -665,7 +666,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "items": [
               {
                 "title": "Overview",
-                "titleVi": "Tổng quan",
+                "titles": { "vi-vn": "Tổng quan" },
                 "slug": "api/codec",
                 "file": "api/codec/index.md"
               },
@@ -763,7 +764,7 @@ export const NAVIGATION_TREE: NavItem[] = [
         "items": [
           {
             "title": "Overview",
-            "titleVi": "Tổng quan",
+            "titles": { "vi-vn": "Tổng quan" },
             "slug": "api/security/cryptography",
             "file": "api/security/cryptography.md"
           },
@@ -814,7 +815,7 @@ export const NAVIGATION_TREE: NavItem[] = [
         "items": [
           {
             "title": "Overview",
-            "titleVi": "Tổng quan",
+            "titles": { "vi-vn": "Tổng quan" },
             "slug": "api/runtime",
             "file": "api/runtime/index.md"
           },
@@ -828,7 +829,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "items": [
               {
                 "title": "Overview",
-                "titleVi": "Tổng quan",
+                "titles": { "vi-vn": "Tổng quan" },
                 "slug": "api/runtime/routing",
                 "file": "api/runtime/routing/index.md"
               },
@@ -869,7 +870,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "items": [
               {
                 "title": "Overview",
-                "titleVi": "Tổng quan",
+                "titles": { "vi-vn": "Tổng quan" },
                 "slug": "api/runtime/middleware",
                 "file": "api/runtime/middleware/index.md"
               },
@@ -907,7 +908,7 @@ export const NAVIGATION_TREE: NavItem[] = [
         "items": [
           {
             "title": "Overview",
-            "titleVi": "Tổng quan",
+            "titles": { "vi-vn": "Tổng quan" },
             "slug": "api/network",
             "file": "api/network/index.md"
           },
@@ -951,7 +952,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "items": [
               {
                 "title": "Overview",
-                "titleVi": "Tổng quan",
+                "titles": { "vi-vn": "Tổng quan" },
                 "slug": "api/network/connection/connection",
                 "file": "api/network/connection/connection.md"
               },
@@ -1019,7 +1020,7 @@ export const NAVIGATION_TREE: NavItem[] = [
         "items": [
           {
             "title": "Overview",
-            "titleVi": "Tổng quan",
+            "titles": { "vi-vn": "Tổng quan" },
             "slug": "api/sdk",
             "file": "api/sdk/index.md"
           },
@@ -1128,7 +1129,7 @@ export const NAVIGATION_TREE: NavItem[] = [
             "items": [
               {
                 "title": "Overview",
-                "titleVi": "Tổng quan",
+                "titles": { "vi-vn": "Tổng quan" },
                 "slug": "api/options/network/options",
                 "file": "api/options/network/options.md"
               },
@@ -1250,11 +1251,11 @@ export const NAVIGATION_TREE: NavItem[] = [
   },
   {
     "title": "Benchmarks",
-    "titleVi": "Hiệu năng",
+    "titles": { "vi-vn": "Hiệu năng" },
     "items": [
       {
         "title": "Overview",
-        "titleVi": "Tổng quan",
+        "titles": { "vi-vn": "Tổng quan" },
         "slug": "benchmarks",
         "file": "benchmarks/index.md"
       },
@@ -1309,10 +1310,7 @@ export interface FlatNavLink {
  * Returns localized title for a NavItem
  */
 export function getNavTitle(item: NavItem, locale: LocaleCode): string {
-  if (locale === 'vi-vn' && item.titleVi) {
-    return item.titleVi;
-  }
-  return item.title;
+  return item.titles?.[locale] ?? item.title;
 }
 
 /**
@@ -1415,13 +1413,117 @@ function findInSubtree(items: NavItem[], targetSlug: string, trail: string[]): s
  * Top-level header tabs for quick jumping across major documentation pillars.
  */
 export function getTopLevelTabs(locale: LocaleCode) {
-  const isVi = locale === 'vi-vn';
+  const t = useTranslations(locale);
   return [
-    { title: isVi ? 'Bắt đầu' : 'Get Started', sectionTitle: 'Start Here', href: localizePath('quickstart', locale) },
-    { title: isVi ? 'Hướng dẫn' : 'Guides', sectionTitle: 'Guides', href: localizePath('guides', locale) },
-    { title: isVi ? 'Khái niệm' : 'Concepts', sectionTitle: 'Concepts', href: localizePath('concepts', locale) },
-    { title: isVi ? 'Gói thư viện' : 'Packages', sectionTitle: 'Packages', href: localizePath('packages', locale) },
-    { title: isVi ? 'Tài liệu API' : 'API Reference', sectionTitle: 'API', href: localizePath('api', locale) },
-    { title: isVi ? 'Hiệu năng' : 'Benchmarks', sectionTitle: 'Benchmarks', href: localizePath('benchmarks', locale) },
+    { title: t('nav.startHere'), sectionTitle: 'Start Here', href: localizePath('quickstart', locale) },
+    { title: t('nav.guides'), sectionTitle: 'Guides', href: localizePath('guides', locale) },
+    { title: t('nav.concepts'), sectionTitle: 'Concepts', href: localizePath('concepts', locale) },
+    { title: t('nav.packages'), sectionTitle: 'Packages', href: localizePath('packages', locale) },
+    { title: t('nav.api'), sectionTitle: 'API', href: localizePath('api', locale) },
+    { title: t('nav.benchmarks'), sectionTitle: 'Benchmarks', href: localizePath('benchmarks', locale) },
   ];
+}
+
+export interface MegaLink {
+  title: string;
+  href: string;
+  external?: boolean;
+}
+
+export interface MegaColumn {
+  /** Column heading; empty for a continuation of the previous column. */
+  title: string;
+  /** Where the heading leads (the group's overview page). */
+  href?: string;
+  links: MegaLink[];
+}
+
+export interface MegaTab {
+  title: string;
+  sectionTitle: string;
+  /** Sections this tab stands for (it is highlighted on pages of any of them). */
+  sectionTitles: string[];
+  href: string;
+  columns: MegaColumn[];
+  /** Last line of the panel, leading to the whole section. */
+  footer: MegaLink;
+}
+
+/** Pages shown per column: the first ones of the group, in navigation order. */
+const MEGA_MAX_LINKS_PER_COLUMN = 5;
+/** A section that is a plain list of pages (no groups) fills columns of this size. */
+const MEGA_MAX_FLAT_LINKS_PER_COLUMN = 8;
+
+const isOverview = (item: NavItem) => item.title === 'Overview';
+
+function leafPages(items: NavItem[]): NavItem[] {
+  return items.flatMap((item) => (item.items ? leafPages(item.items) : item.slug !== undefined ? [item] : []));
+}
+
+/**
+ * Content of the drop-down panels of the primary navigation: one panel per top-level section.
+ * A group becomes a column whose heading links to the group's overview, so the overview page is
+ * not repeated in the list; only the first few pages of the group are listed.
+ */
+export function getMegaMenu(locale: LocaleCode): MegaTab[] {
+  const t = useTranslations(locale);
+  const link = (item: NavItem): MegaLink => ({ title: getNavTitle(item, locale), href: localizePath(item.slug ?? '', locale) });
+
+  const tabs = getTopLevelTabs(locale).map((tab): MegaTab => {
+    const section = NAVIGATION_TREE.find((node) => node.title === tab.sectionTitle);
+    const children = section?.items ?? [];
+    const columns: MegaColumn[] = [];
+
+    const flat = children.filter((child) => !child.items && !isOverview(child));
+    for (let i = 0; i < flat.length; i += MEGA_MAX_FLAT_LINKS_PER_COLUMN) {
+      columns.push({
+        title: i === 0 ? tab.title : '',
+        href: i === 0 ? tab.href : undefined,
+        links: flat.slice(i, i + MEGA_MAX_FLAT_LINKS_PER_COLUMN).map(link),
+      });
+    }
+
+    for (const group of children.filter((child) => child.items)) {
+      const pages = leafPages(group.items ?? []);
+      if (!pages.length) continue;
+      const overview = pages.find(isOverview) ?? pages[0];
+      // Direct children only: a sub-group is one line named after the sub-group, so
+      // identical page titles of nested groups never repeat in a column.
+      const entries = (group.items ?? [])
+        .filter((child) => !isOverview(child))
+        .flatMap((child): MegaLink[] => {
+          const target = child.items ? leafPages(child.items)[0] : child;
+          return target?.slug === undefined ? [] : [{ title: getNavTitle(child, locale), href: link(target).href }];
+        });
+      columns.push({
+        title: getNavTitle(group, locale),
+        href: link(overview).href,
+        links: entries.slice(0, MEGA_MAX_LINKS_PER_COLUMN),
+      });
+    }
+
+    if (tab.sectionTitle === 'Start Here') {
+      columns.push({
+        title: t('nav.resources'),
+        links: [
+          { title: t('nav.github'), href: 'https://github.com/ppn-systems/nalix', external: true },
+          { title: t('nav.nuget'), href: 'https://www.nuget.org/packages?q=Nalix', external: true },
+        ],
+      });
+    }
+    return {
+      ...tab,
+      sectionTitles: [tab.sectionTitle],
+      columns,
+      footer: { title: t('nav.viewAll').replace('{title}', tab.title), href: tab.href },
+    };
+  });
+
+  // Benchmarks has no tab of its own: its pages are a column of the Packages panel.
+  const benchmarks = tabs.find((tab) => tab.sectionTitle === 'Benchmarks');
+  const packages = tabs.find((tab) => tab.sectionTitle === 'Packages');
+  if (!benchmarks || !packages) return tabs;
+  packages.columns.push(...benchmarks.columns);
+  packages.sectionTitles.push(benchmarks.sectionTitle);
+  return tabs.filter((tab) => tab !== benchmarks);
 }

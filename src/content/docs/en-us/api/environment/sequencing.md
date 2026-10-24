@@ -8,11 +8,11 @@ package: Nalix.Environment
 **Namespace:** `Nalix.Environment.Sequencing`  
 **Assembly:** `Nalix.Environment`
 
-`SequenceCounter` (`src/Nalix.Environment/Sequencing/SequenceCounter.cs`) is a thread-safe, lock-free 32-bit sequence counter implementing `ISequenceCounter` (`Nalix.Abstractions.Networking.ISequenceCounter`), used for packet ordering, nonce uniqueness, and 32-bit bitmap sliding-window replay validation.
+`SequenceCounter` (`src/Nalix.Environment/Sequencing/SequenceCounter.cs`) is a thread-safe, lock-free 32-bit sequence counter implementing `ISequenceCounter` (`Nalix.Abstractions.Security.ISequenceCounter`), used for packet ordering, nonce uniqueness, and 32-bit bitmap sliding-window replay validation.
 
 ## Source Mapping
 
-- `src/Nalix.Abstractions/Networking/ISequenceCounter.cs`
+- `src/Nalix.Abstractions/Security/ISequenceCounter.cs`
 - `src/Nalix.Environment/Sequencing/SequenceCounter.cs`
 
 ## Public Constructors & Methods
@@ -41,6 +41,17 @@ if (outbound.IsApproachingOverflow(margin: 1_000_000))
     // Trigger mid-session key rotation (SESSION_REKEY) before 32-bit wrap-around
 }
 ```
+
+## `SequenceOptions` (`Nalix.Environment.Options`)
+
+`SequenceOptions` (`src/Nalix.Environment/Options/SequenceOptions.cs`) is a sealed configuration class (`ConfigurationLoader`, `IValidatableConfiguration`) that controls the anti-replay reordering window per transport:
+
+| Property | Type | Default | Validation | Description |
+| --- | --- | :---: | --- | --- |
+| `TcpWindow` | `uint` | `32` | `[ValueRange(0, 256)]` | Reordering window for TCP connections. |
+| `UdpWindow` | `uint` | `128` | `[ValueRange(0, 1024)]` | Reordering window for UDP connections. |
+
+`Validate()` runs data-annotation validation and throws `ValidationException` when `UdpWindow < TcpWindow`.
 
 ## Related APIs
 

@@ -84,7 +84,7 @@ export function remarkNalixDocs() {
         return;
       }
 
-      // 4. Transform :::note[Title] ... ::: container directives into Unity-style Admonition Alerts
+      // 4. Transform :::note[Title] ... ::: container directives into admonition callouts
       if (node.type === 'containerDirective') {
         const rawKind = (node.name || 'note').toLowerCase();
         const kind = CALLOUT_DEFAULT_TITLES[rawKind] ? rawKind : 'note';

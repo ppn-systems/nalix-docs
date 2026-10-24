@@ -1,9 +1,10 @@
 name: "Source Sync: Nalix → Docs"
 
-# Hashes the Nalix source (comments/formatting ignored) and compares it with source-manifest.json.
-# On drift it opens — or refreshes — one draft PR on `bot/source-sync` that carries the updated
-# manifest and a report of the changed files and the pages to review. Check out that branch,
-# fix the pages, push, and merge: merging marks the docs as synced.
+# Compares the Nalix source with source-manifest.json and classifies what changed: public API the docs
+# do not show yet (red), behavior in code the docs describe (yellow), API the docs already match or
+# internal changes (ignored). Only when something needs the docs does it open — or refresh — one draft
+# PR on `bot/source-sync` carrying the updated manifest/API index and a report with signature diffs
+# and the docs lines to edit. Check out that branch, fix the pages, push, and merge.
 on:
   schedule:
     - cron: "17 1 * * *" # daily, 01:17 UTC
@@ -42,32 +43,48 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 24
+          python-version: "3.12"
 
       - name: Compare Nalix source with manifest
         id: check
         run: |
           REPORT="$RUNNER_TEMP/source-sync-report.md"
           set +e
-          node scripts/source-sync.mjs check --ref "$NALIX_REF" --report "$REPORT" --update
+          python3 tools/run.py sync-check --ref "$NALIX_REF" --report "$REPORT" --pr-body "$RUNNER_TEMP/source-sync-pr-body.md" --plan "$RUNNER_TEMP/source-sync-plan.json" --update
           code=$?
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
           case "$code" in
-            0) echo "✅ Docs are in sync with Nalix source." >> "$GITHUB_STEP_SUMMARY" ;;
+            0)
+              if [ -f "$REPORT" ]; then
+                echo "✅ Nalix changed, but nothing in it affects the docs (internal changes, or API the docs already show)." >> "$GITHUB_STEP_SUMMARY"
+                cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "✅ Docs are in sync with Nalix source." >> "$GITHUB_STEP_SUMMARY"
+              fi ;;
             1) cat "$REPORT" >> "$GITHUB_STEP_SUMMARY" ;;
             *) echo "::error::source-sync failed (exit $code) — see the log above."; exit "$code" ;;
           esac
 
-      - name: Upload full report
+      - name: Audit docs against the new source
+        if: steps.check.outputs.code == '1'
+        run: |
+          # source-api-index.json was just regenerated for the new commit; findings are informational here.
+          python3 tools/run.py audit --baseline tools/docs-audit-baseline.json --markdown "$RUNNER_TEMP/audit.md" || true
+          cat "$RUNNER_TEMP/audit.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/audit.md" >> "$RUNNER_TEMP/source-sync-report.md"
+
+      - name: Upload full report and edit plan
         if: steps.check.outputs.code == '1'
         uses: actions/upload-artifact@v4
         with:
           name: source-sync-report
-          path: ${{ runner.temp }}/source-sync-report.md
+          path: |
+            ${{ runner.temp }}/source-sync-report.md
+            ${{ runner.temp }}/source-sync-plan.json
 
       - name: Open or refresh draft PR
         if: steps.check.outputs.code == '1'
@@ -76,8 +93,9 @@ jobs:
           REPORT="$RUNNER_TEMP/source-sync-report.md"
           git config user.name "$BOT_NAME"
           git config user.email "$BOT_EMAIL"
-          commit=$(node -p "require('./source-manifest.json').nalixCommit")
-          cp source-manifest.json "$RUNNER_TEMP/manifest.json"
+          commit=$(python3 -c "import json; print(json.load(open('source-manifest.json'))['nalixCommit'])")
+          mkdir -p "$RUNNER_TEMP/snapshot"
+          cp source-manifest.json source-api-index.json "$RUNNER_TEMP/snapshot/"
 
           pr=$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
 
@@ -92,30 +110,28 @@ jobs:
           if [ -n "$pr" ] && [ "$human" -gt 0 ]; then
             echo "Branch has $human human commit(s): adding the manifest update on top (no force-push)."
             git switch -C "$BRANCH" "origin/$BRANCH"
-            cp "$RUNNER_TEMP/manifest.json" source-manifest.json
-            if ! git diff --quiet -- source-manifest.json; then
-              git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}" -- source-manifest.json
+            cp "$RUNNER_TEMP/snapshot/source-manifest.json" "$RUNNER_TEMP/snapshot/source-api-index.json" .
+            git add source-manifest.json source-api-index.json
+            if ! git diff --cached --quiet; then
+              git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}"
               git push origin "$BRANCH"
             fi
           else
             git switch -C "$BRANCH" "origin/$BASE"
-            cp "$RUNNER_TEMP/manifest.json" source-manifest.json
-            git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}" -- source-manifest.json
+            cp "$RUNNER_TEMP/snapshot/source-manifest.json" "$RUNNER_TEMP/snapshot/source-api-index.json" .
+            git add source-manifest.json source-api-index.json
+            git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}"
             git push --force origin "$BRANCH"
           fi
 
           {
-            echo "> Automated by \`.github/workflows/source-sync.yml\`. Check out \`$BRANCH\`, update the pages below, push, and mark ready for review. Merging records nalix \`${commit:0:7}\` as synced."
+            echo "> Automated by \`.github/workflows/source-sync.yml\`. Check out \`$BRANCH\`, update the pages below, push, and mark ready for review. Merging records nalix \`${commit:0:7}\` as synced. Changes that do not affect the docs are not listed."
             echo
-            cat "$REPORT"
+            cat "$RUNNER_TEMP/source-sync-pr-body.md"
+            if [ -s "$RUNNER_TEMP/audit.md" ]; then echo; head -c 4000 "$RUNNER_TEMP/audit.md"; fi
           } > "$RUNNER_TEMP/body.md"
-          # GitHub caps PR bodies at 65536 characters; the full report is in the job summary and artifact.
-          if [ "$(wc -c < "$RUNNER_TEMP/body.md")" -gt 60000 ]; then
-            head -c 60000 "$RUNNER_TEMP/body.md" > "$RUNNER_TEMP/body.trim.md"
-            printf '\n\n…_Report truncated — see the workflow run summary or the `source-sync-report` artifact: %s_\n' \
-              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> "$RUNNER_TEMP/body.trim.md"
-            mv "$RUNNER_TEMP/body.trim.md" "$RUNNER_TEMP/body.md"
-          fi
+          # GitHub caps PR bodies at 65,536 characters (the report is already capped; this is a final guard).
+          if [ "$(wc -c < "$RUNNER_TEMP/body.md")" -gt 64000 ]; then head -c 64000 "$RUNNER_TEMP/body.md" > "$RUNNER_TEMP/body.trim.md"; mv "$RUNNER_TEMP/body.trim.md" "$RUNNER_TEMP/body.md"; fi
 
           title="docs: sync with nalix ${commit:0:7}"
           if [ -n "$pr" ]; then
@@ -125,3 +141,42 @@ jobs:
             url=$(gh pr create --draft --base "$BASE" --head "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/body.md")
             echo "Opened $url" >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  # Runs every day, whether or not Nalix changed: the docs are checked against the current Nalix source
+  # (index built in memory, nothing recorded), so a docs edit that went wrong is caught too.
+  full-audit:
+    name: "Full audit and coverage"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NALIX_REF: ${{ inputs.ref || github.event.client_payload.ref || 'HEAD' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Coverage per package
+        run: |
+          python3 tools/run.py coverage --live --ref "$NALIX_REF" --markdown "$RUNNER_TEMP/coverage.md" --json "$RUNNER_TEMP/coverage.json" > /dev/null
+          cat "$RUNNER_TEMP/coverage.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Audit docs against the current source
+        run: |
+          set +e
+          python3 tools/run.py audit --live --ref "$NALIX_REF" --baseline tools/docs-audit-baseline.json --markdown "$RUNNER_TEMP/audit.md" --json "$RUNNER_TEMP/audit.json"
+          code=$?
+          set -e
+          if [ -s "$RUNNER_TEMP/audit.md" ]; then cat "$RUNNER_TEMP/audit.md" >> "$GITHUB_STEP_SUMMARY"; else echo "✅ No findings." >> "$GITHUB_STEP_SUMMARY"; fi
+          exit "$code"
+
+      - name: Upload audit and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-audit
+          path: |
+            ${{ runner.temp }}/audit.json
+            ${{ runner.temp }}/coverage.json

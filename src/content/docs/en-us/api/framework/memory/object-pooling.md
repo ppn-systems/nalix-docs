@@ -117,6 +117,14 @@ Configured via `[ObjectPool]` in `default.ini` or `builder.Configure<ObjectPoolO
 | `DefaultPreallocate` | `int` | `8` | `[ValueRange(0, 1_000_000)]` | Number of instances preallocated when a type pool is first created. |
 | `ThreadCacheDepth` | `int` | `0` | `[ValueRange(0, 4)]` | Per-thread `ThreadLocalCache<T>` depth (`0` = disabled by default so `async`/`await` continuations across ThreadPool threads do not strand pooled objects). |
 
+## `ListPool<T>` (`Nalix.Framework.Memory.Pools`)
+
+`ListPool<T>` (`src/Nalix.Framework/Memory/Pools/ListPool.cs`) is a sealed, thread-safe pool of reusable `List<T>` instances. `ListPool<T>.Instance` is the shared singleton (default max pool size `1024`, initial capacity `16`); a public constructor `ListPool(int maxPoolSize, int initialCapacity)` creates a custom pool.
+
+- `Rent(int minimumCapacity = 0)` / `Return(List<T> list, bool clearItems = true)` — rent and give back a list.
+- `Prealloc(int count, int capacity = 0)`, `Trim(int maximumSize = 0)`, `Clear()` — pool maintenance.
+- `AvailableCount`, `CreatedCount`, `RentedCount`, `TotalRentOperations`, `TotalReturnOperations`, `TrimmedCount`, `UptimeMs`, `GetStatistics()`, `ResetStatistics()` — statistics.
+
 ## Related APIs
 
 - [Typed Object Pools (TypedObjectPool<T>)](./typed-object-pools.md)

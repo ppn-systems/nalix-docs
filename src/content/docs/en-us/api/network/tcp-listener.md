@@ -55,7 +55,7 @@ public abstract partial class TcpListenerBase : IListener
     protected TcpListenerBase(IProtocol protocol, IConnectionHub hub, IConnectionGuard guard);
 
     public int ProcessChannelCount { get; }
-    public Metrics Metrics { get; }
+    public LMetrics Metrics { get; }
     protected internal IConnectionGuard Limiter { get; }
 
     public virtual void Activate(CancellationToken cancellationToken = default);
@@ -67,6 +67,19 @@ public abstract partial class TcpListenerBase : IListener
     protected virtual void Dispose(bool disposing);
 }
 ```
+
+## Metrics (`TcpListenerBase.LMetrics`)
+
+`TcpListenerBase.LMetrics` (`Nalix.Network.Listeners.Tcp`, `TcpListener.Metrics.cs`) is a public sealed nested class exposed through `TcpListenerBase.Metrics`. It tracks connection lifecycle counters using lock-free atomic reads. All members are read-only `long` properties:
+
+| Property | Meaning |
+| :--- | :--- |
+| `TotalAccepted` | Connections accepted. |
+| `TotalErrors` | Acceptance errors. |
+| `TotalRejected` | Rejected connections, including queue-full and limiter rejections. |
+| `TotalProxyProtocolErrors` | PROXY protocol handshake errors. |
+| `TotalQueueFullRejections` | Rejections because the queue was full. |
+| `TotalLimiterRejections` | Rejections by the connection limiter/guard. |
 
 ## Key Subsystems
 

@@ -54,7 +54,7 @@ Reserved system and protocol opcodes (`0x0000..0x00FF`, `src/Nalix.Abstractions/
 | `SESSION_SIGNAL` | `0x0002` | Session resumption flow (`SessionResume`: request, ack, or reject). |
 | `SESSION_PROOF` | `0x0003` | Client proves possession of the derived session key over the transcript hash. |
 | `SYSTEM_TIMESYNC` | `0x0004` | High-resolution clock synchronization frame (`TimeSync`). |
-| `SESSION_TOFU` | `0x0005` | Trust-On-First-Use static Ed25519/X25519 identity frame (`SessionTofu`). |
+| `SESSION_TOFU` | `0x0005` | Trust-On-First-Use static X25519 identity frame (`SessionTofu`). |
 | `SESSION_CHALLENGE` | `0x0006` | Server handshake response carrying server ephemeral public key, nonce, and signature. |
 | `SESSION_ESTABLISHED` | `0x0007` | Server confirmation that the encrypted session is established (`SessionEstablished`). |
 | `SYSTEM_DIRECTIVE` | `0x0008` | Server-to-client runtime instruction frame (`Directive`: throttle, redirect, notice). |
@@ -84,7 +84,6 @@ Bitflags stored at byte offset `2` (`PacketHeaderOffset.Flags = 2`) of the 6-byt
 | `NONE` | `0x00` | Active | Uncompressed, unencrypted, unfragmented application frame. |
 | `COMPRESSED` | `1 << 1` (`0x02`) | Active | Payload is compressed with `LZ4Codec`. |
 | `ENCRYPTED` | `1 << 2` (`0x04`) | Active | Payload is wrapped in an `EnvelopeCipher` AEAD/Symmetric envelope. |
-| `ALERT` | `1 << 2` (`0x04`) | Active | Alias value (`1 << 2`) used for alert signaling. |
 | `FRAGMENTED` | `1 << 3` (`0x08`) | Active | Payload carries an 8-byte `FragmentHeader` chunk. |
 | `RELIABLE` | `1 << 4` (`0x10`) | `[Obsolete]` | Legacy reliability flag — transport reliability is determined by `NetworkTransport`. |
 | `UNRELIABLE` | `1 << 5` (`0x20`) | `[Obsolete]` | Legacy unreliability flag — use `NetworkTransport.UDP`. |
@@ -265,6 +264,14 @@ Configures `DispatchOptions.DropPolicy` when a connection's inbound packet queue
 ### `WorkerPriority` (`byte`)
 
 - `LOW = 0`, `NORMAL = 1`, `HIGH = 2`, `URGENT = 3`.
+
+### `PacketContextState` (`byte`)
+
+Namespace `Nalix.Abstractions.Networking.Packets` (`src/Nalix.Abstractions/Networking/Packets/PacketContextState.cs`). Tracks the lifecycle of a pooled packet context:
+
+- `Pooled = 0` — stored in the object pool, available for allocation.
+- `InUse = 1` — actively used by a packet handler.
+- `Returned = 2` — finished processing and returned for reuse.
 
 ## Related APIs
 

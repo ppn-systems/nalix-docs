@@ -34,7 +34,7 @@ sequenceDiagram
     S->>R: Start ReceiveLoopAsync (LongRunning Task)
     S->>S: StartKeepAliveIfEnabled()
     App->>S: SendAsync(packet, encrypt, ct)
-    S->>S: StampSequenceIdIfUnset(packet) + Serialize
+    S->>S: StampSequenceId(packet) + Serialize
     S->>W: SendAsync(lease, encrypt, ct)
     W->>Sock: FramePipeline.ProcessOutbound + 2B Length Prefix (or FragmentStream)
     Sock-->>R: Inbound Framed Bytes
