@@ -67,7 +67,7 @@ const currentPath = localizePath(currentSlug, locale);
                 data-astro-prefetch
               >
                 {tab.title}
-                <svg class="nlx-topnav__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg class="nlx-topnav__chevron" data-mega-toggle width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="m6 9 6 6 6-6" />
                 </svg>
               </a>
@@ -136,9 +136,12 @@ const currentPath = localizePath(currentSlug, locale);
         aria-label={t('nav.themeToggle')}
         title={t('nav.themeToggle')}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="nlx-theme-icon nlx-theme-icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <circle cx="12" cy="12" r="4"/>
           <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" stroke-linecap="round"/>
+        </svg>
+        <svg class="nlx-theme-icon nlx-theme-icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
         </svg>
       </button>
 
@@ -153,7 +156,11 @@ const currentPath = localizePath(currentSlug, locale);
           aria-haspopup="true"
           aria-expanded="false"
         >
-          <span aria-hidden="true">Aa</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m3 18 5-12.5L13 18M4.9 13.4h6.2" />
+            <circle cx="17.4" cy="14.6" r="2.7" />
+            <path d="M20.1 11.9v6.1" />
+          </svg>
         </button>
 
         <div class="nlx-lang-menu" role="menu">
@@ -229,7 +236,6 @@ const currentPath = localizePath(currentSlug, locale);
   const items = Array.from(document.querySelectorAll<HTMLElement>('[data-mega]'));
   let openTimer: number | undefined;
   let closeTimer: number | undefined;
-  let lastPointer: string = 'mouse';
 
   const triggerOf = (item: HTMLElement) => item.querySelector<HTMLElement>('[data-mega-trigger]')!;
   const panelOf = (item: HTMLElement) => item.querySelector<HTMLElement>('.nlx-mega')!;
@@ -281,15 +287,17 @@ const currentPath = localizePath(currentSlug, locale);
         panelOf(item).querySelector<HTMLElement>('a')?.focus();
       }
     });
-    trigger.addEventListener('pointerdown', (event) => {
-      lastPointer = event.pointerType;
+    // The label always follows the link; the chevron opens or closes the panel (touch, or a mouse click).
+    const toggle = trigger.querySelector('[data-mega-toggle]');
+    let wasOpen = false; // focusing the link opens the panel before the click arrives
+    toggle?.addEventListener('pointerdown', () => {
+      wasOpen = item.classList.contains('is-open');
     });
-    // On touch screens the first tap opens the panel; the second follows the link.
-    trigger.addEventListener('click', (event) => {
-      if (lastPointer === 'touch' && !item.classList.contains('is-open')) {
-        event.preventDefault();
-        open(item);
-      }
+    toggle?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (wasOpen) close(item);
+      else open(item);
     });
   });
 

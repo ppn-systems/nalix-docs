@@ -370,6 +370,9 @@ a:hover {
 }
 
 .nlx-topnav__chevron {
+  box-sizing: content-box;
+  margin: -8px -6px -8px 0; /* larger tap target without growing the tab */
+  padding: 8px 6px;
   opacity: 0.6;
   transition: transform 0.2s ease, opacity 0.15s ease;
 }
@@ -2084,12 +2087,6 @@ html[data-density="comfortable"] {
   --prose-leading: 1.9;
 }
 
-.nlx-density-btn {
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
 .nlx-density-option {
   width: 100%;
   border: none;
@@ -2097,4 +2094,14 @@ html[data-density="comfortable"] {
   font-family: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* The theme button shows the current theme: moon in dark, sun in light */
+.nlx-theme-icon--sun,
+html[data-theme="light"] .nlx-theme-icon--moon {
+  display: none;
+}
+
+html[data-theme="light"] .nlx-theme-icon--sun {
+  display: block;
 }
