@@ -111,6 +111,32 @@ public ValueTask<AccountResponse> GetProfile(IPacketContext<ProfileRequest> cont
 
 These are enforced by built-in middleware before your handler body runs — see [Handlers and Middleware](../concepts/handlers-and-middleware.md).
 
+## Require encryption on sensitive handlers
+
+Encryption is opt-in per handler. After the handshake the server still accepts frames that arrive **unencrypted**, and it dispatches them to any handler that does not carry `[PacketEncryption(true)]`. Those plaintext frames also have no sequence number, so the anti-replay check does not apply to them.
+
+Mark every handler that changes state or returns private data:
+
+```csharp
+[PacketOpcode(0x2002)]
+[PacketEncryption(true)]
+[PacketPermission(PermissionLevel.USER)]
+public ValueTask<TransferResponse> Transfer(IPacketContext<TransferRequest> context)
+{
+    // Rejected with FORBIDDEN unless the frame arrived encrypted on the wire
+}
+```
+
+Whether this matters depends on what sits in front of the server:
+
+| Deployment | Plaintext frames injected by someone on the path |
+| :--- | :--- |
+| WebSocket or TCP behind TLS (`wss://`, a TLS-terminating proxy) | Not possible: TLS authenticates the whole byte stream |
+| Raw TCP without TLS (as in the samples) | Possible for handlers without `[PacketEncryption(true)]` |
+| UDP | Possible: TLS never covers UDP, so mark UDP handlers too |
+
+If you do not terminate TLS in front of Nalix, treat `[PacketEncryption(true)]` as required on anything sensitive. See [Reverse Proxy and TLS](./deployment/reverse-proxy-tls.md).
+
 ## Run it
 
 ```bash
