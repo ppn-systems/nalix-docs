@@ -360,6 +360,135 @@ a:hover {
   font-weight: 600;
 }
 
+/* Mega-menu */
+.nlx-topnav__item {
+  position: relative;
+}
+
+.nlx-topnav__link {
+  gap: 5px;
+}
+
+.nlx-topnav__chevron {
+  opacity: 0.6;
+  transition: transform 0.2s ease, opacity 0.15s ease;
+}
+
+.nlx-topnav__item.is-open > .nlx-topnav__link {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.nlx-topnav__item.is-open .nlx-topnav__chevron {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+.nlx-mega {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 60;
+  padding-top: 10px; /* hover bridge between trigger and panel */
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(var(--mega-shift, 0px), -6px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s linear 0.16s;
+}
+
+.nlx-topnav__item.is-open > .nlx-mega {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(var(--mega-shift, 0px), 0);
+  transition-delay: 0s;
+}
+
+.nlx-mega__inner {
+  display: grid;
+  grid-template-columns: repeat(var(--mega-cols, 1), minmax(190px, 1fr));
+  gap: 6px 28px;
+  min-width: 240px;
+  max-width: min(960px, calc(100vw - 32px));
+  padding: 20px 24px 18px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-divider);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+}
+
+.nlx-mega__heading {
+  margin-bottom: 8px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-disabled);
+  letter-spacing: 0.01em;
+}
+
+.nlx-mega__heading a {
+  color: inherit;
+}
+
+.nlx-mega__heading a:hover {
+  color: var(--text-primary);
+}
+
+.nlx-mega__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nlx-mega__link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  margin: 0 -8px;
+  border-radius: 6px;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: var(--text-body);
+  transition: background-color 0.12s ease, color 0.12s ease, transform 0.12s ease;
+}
+
+.nlx-mega__link svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.nlx-mega__link:hover,
+.nlx-mega__link:focus-visible {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  transform: translateX(2px);
+}
+
+.nlx-mega__more {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--primary-lighter);
+}
+
+.nlx-mega__more:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nlx-mega,
+  .nlx-mega__link,
+  .nlx-topnav__chevron {
+    transition: none;
+  }
+}
+
 .nlx-header__right {
   display: flex;
   align-items: center;
