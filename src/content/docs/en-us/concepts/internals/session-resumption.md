@@ -90,6 +90,14 @@ The resume proof is `HMAC-Keccak256(Secret, SessionToken || (UnixSecondsNow() / 
 
 See `tests/Nalix.Network.Tests/InMemorySessionStoreTests.cs::ConsumeAsync_ReplayedTokenWithinSameTimeBucket_RejectedOnSecondAttempt` and `tests/Nalix.Framework.Tests/Cryptography/SessionResumeProofTests.cs` for the two halves of this guarantee (nonce consumption vs. proof determinism).
 
+:::caution[Resume without TLS: an active man-in-the-middle can take the resume]
+Single-use tokens stop a *second* resume, not the *first* one. The `SessionResume` request travels in plaintext, and its proof is bound only to the token and the time bucket — not to the new connection or a server challenge. An attacker who sits on the path can block the client's request and send the same bytes first from their own connection; the server then resumes the session there.
+
+That attacker still does not know the session secret, so it cannot read traffic or build new encrypted frames. But a resume restores the **same secret** and resets the TCP/UDP receive sequence counters to `0` (`SessionHandlers.HandleAsync`), so encrypted frames it recorded earlier from the victim are accepted again — previously sent requests can be replayed with the victim's permission level. Plaintext frames reach handlers without `[PacketEncryption(true)]` as well (see [Securing Your Server](../../guides/securing-your-server.md#require-encryption-on-sensitive-handlers)).
+
+Behind TLS (`wss://` or a TLS-terminating proxy) the request cannot be observed or blocked, so this does not apply. Over raw TCP without TLS, either terminate TLS in front of Nalix or turn resume off on the client (`TransportOptions.ResumeEnabled = false`) so every reconnect performs a fresh handshake.
+:::
+
 ## Sequence Counter Wrap Policy
 
 Each transport direction is protected by a monotonic `SequenceCounter` used as part of the AEAD nonce. `SequenceCounter.Next()` throws `CipherException` if incrementing would wrap past `uint.MaxValue`, refusing to ever reuse a nonce. To avoid hitting that guard as a live failure, every send path (`TcpFrameSender`, `UdpFrameSender`, `WsFrameSender` on the client; `PacketPipeline.ProcessAndSendAsync` on the server) now checks `ISequenceCounter.IsApproachingOverflow(margin: 1_000_000)` **before** reserving the next sequence number:
