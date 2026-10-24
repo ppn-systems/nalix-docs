@@ -11,9 +11,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# environment variables
+# environment variables & Cloudflare local state
 .env
 .env.production
+.dev.vars*
+.wrangler/
 
 # macOS / Windows artifacts
 .DS_Store

@@ -1,4 +1,4 @@
-name: "Docs: Test, Build & Deploy"
+name: "Docs: Test, Build & Deploy (Cloudflare)"
 
 on:
   push:
@@ -8,13 +8,12 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: pages-${{ github.ref }}
+  group: cloudflare-docs-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
+  deployments: write
 
 jobs:
   test-and-build:
@@ -39,21 +38,36 @@ jobs:
       - name: Build static site with Astro
         run: npm run build
 
-      - name: Upload GitHub Pages artifact
+      - name: Upload built static assets
         if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
+          name: dist-assets
           path: ./dist
+          retention-days: 1
 
   deploy:
-    name: "Deploy to GitHub Pages"
+    name: "Deploy to Cloudflare"
     needs: test-and-build
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      name: cloudflare
+      url: ${{ steps.cf_deploy.outputs.deployment-url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download built static assets
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-assets
+          path: ./dist
+
+      - name: Deploy to Cloudflare Workers Static Assets
+        id: cf_deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
