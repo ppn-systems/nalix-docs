@@ -146,6 +146,12 @@ public static class StreamExtensions
 
 `RequestWithStreamAsync` has 3 overloads returning `Task<(THeader Header, List<T1> Items1)>`, `Task<(THeader Header, List<T1> Items1, List<T2> Items2)>`, and `Task<(THeader Header, List<T1> Items1, List<T2> Items2, List<T3> Items3)>`. Each overload awaits an initial `THeader` packet and collects `1`, `2`, or `3` concurrent `IPacketStreamable` item lists (filtered by `isItem1Valid`, `isItem2Valid`, `isItem3Valid`) until each stream reaches `IsEndOfStream == true`.
 
+:::caution[Collecting helpers trust the server to end the stream]
+`CollectStreamAsync` and `RequestWithStreamAsync` keep every item in memory until the server sends `IsEndOfStream`; there is no item-count limit. Only the per-attempt timeout bounds them, so a server that keeps streaming can grow the client's memory for the whole timeout (on every attempt), and with `timeoutMs = 0` without any limit. Items collected by an attempt that times out are not disposed, so pooled packets from that attempt are not returned to the pool.
+
+Against servers you do not fully trust, keep a finite `timeoutMs`, or consume `StreamAsync<TResponse>` directly and stop (and dispose) once you have read as many items as you expect.
+:::
+
 ## 3. Push Subscriptions via Channels & `IObservable<T>` (`ChannelExtensions` & `ObservableExtensions`)
 
 ```csharp

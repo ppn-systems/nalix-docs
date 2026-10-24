@@ -58,6 +58,10 @@ sequenceDiagram
 - **Preconditions**: Throws `ArgumentNullException` if `session` is `null`.
 - **Negotiation & Rollback**: Sends a `Control` packet with `Type = ControlType.CIPHER_UPDATE`, `SequenceId = seq`, and `Reason = (ProtocolReason)cipherSuite`, immediately switches `session.Options.Algorithm = cipherSuite` so the encrypted `CIPHER_UPDATE_ACK` can be decrypted under the new cipher, and awaits `Control(ControlType.CIPHER_UPDATE_ACK, SequenceId == seq)` up to `timeoutMs` (rolling back `session.Options.Algorithm = previousCipher` if the server does not acknowledge).
 
+:::caution[Only switch to an AEAD suite]
+Neither the client nor the server rejects a non-AEAD suite: the server accepts any defined `CipherSuiteType` except `None`. `CipherSuiteType.Chacha20` and `CipherSuiteType.Salsa20` only encrypt — they carry no authentication tag. After switching to them, someone on the path can flip ciphertext bits and the matching plaintext bits change without detection, and the packet header is no longer authenticated either. Use `Chacha20Poly1305` (the handshake default) or `Salsa20Poly1305`.
+:::
+
 ## 2. Mid-Session Key Rotation (`RekeyAsync`)
 
 ```mermaid
