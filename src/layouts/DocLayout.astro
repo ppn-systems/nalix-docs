@@ -12,7 +12,6 @@ import { getNavContextForSlug, getPrevNextLinks } from '../config/navigation';
 import Header from '../components/Header.astro';
 import Sidebar from '../components/Sidebar.astro';
 import TableOfContents, { type MarkdownHeading } from '../components/TableOfContents.astro';
-import SearchModal from '../components/SearchModal.astro';
 import HomeLanding from '../components/HomeLanding.astro';
 
 interface Props {
@@ -369,7 +368,7 @@ const jsonLdSchema = isLanding
 
               <div style="margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 0.75rem; color: var(--text-secondary);">
                 <span>{t('footer.copyright')}</span>
-                <span>{t('footer.license')} · {t('footer.builtWith')}</span>
+                <span>{t('footer.builtWith')}</span>
               </div>
             </footer>
           </article>
@@ -379,7 +378,6 @@ const jsonLdSchema = isLanding
       </div>
     )}
 
-    <SearchModal locale={locale} />
 
     <button
       type="button"

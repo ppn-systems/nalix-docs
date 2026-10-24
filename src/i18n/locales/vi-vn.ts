@@ -35,8 +35,40 @@ export const viVn: TranslationDictionary = {
 
   // Home portal
   'hero.title': 'Tài liệu Nalix',
-  'hero.subtitle': 'Framework mạng thời gian thực nhị phân độ trễ thấp cho .NET 10.',
+  'hero.subtitle': 'Tài liệu hướng dẫn và tham chiếu API chính thức.',
   'home.exploreTopics': 'Khám phá chủ đề',
+  'home.card.start.title': 'Bắt đầu',
+  'home.card.start.desc': 'Thiết lập môi trường .NET 10, định nghĩa gói tin dùng chung và chạy server và client Nalix đầu tiên của bạn.',
+  'home.card.guides.title': 'Hướng dẫn ứng dụng & mạng',
+  'home.card.guides.desc': 'Hướng dẫn thực hành về server chat thời gian thực, mẫu socket TCP/UDP, pipeline middleware và triển khai production.',
+  'home.card.concepts.title': 'Khái niệm cốt lõi & nội bộ',
+  'home.card.concepts.desc': 'Đi sâu vào đóng khung gói tin, vùng nhớ BufferLease không cấp phát, mã hóa AEAD và máy trạng thái bắt tay.',
+  'home.card.packages.title': 'Gói NuGet',
+  'home.card.packages.desc': 'Phân cấp gói theo mô-đun từ Level 0 đến Level 4, từ lớp trừu tượng không phụ thuộc đến hosting server đầy đủ.',
+  'home.card.api.title': 'Tài liệu API',
+  'home.card.api.desc': 'Tham chiếu kiểu, phương thức và cấu hình cho listener, codec, mã hóa và Roslyn source generator.',
+  'home.card.benchmarks.title': 'Đo hiệu năng',
+  'home.card.benchmarks.desc': 'Benchmark .NET 10 qua socket thật của Nalix (p50 52,2 µs và 56 B cấp phát mỗi gói 32 B) so với gRPC, SignalR và MagicOnion.',
+  'home.topic.quickStart': 'Khởi động nhanh',
+  'home.topic.installation': 'Cài đặt',
+  'home.topic.firstServer': 'Server đầu tiên',
+  'home.topic.serverBlueprint': 'Mẫu kiến trúc server',
+  'home.topic.chatRoom': 'Xây dựng phòng chat',
+  'home.topic.packetHandlers': 'Bộ xử lý gói tin',
+  'home.topic.tcpPatterns': 'Mẫu TCP',
+  'home.topic.productionChecklist': 'Danh sách kiểm tra production',
+  'home.topic.howPacketsWork': 'Gói tin hoạt động thế nào',
+  'home.topic.architecture': 'Kiến trúc hệ thống',
+  'home.topic.binarySpec': 'Đặc tả nhị phân',
+  'home.topic.zeroAllocation': 'Đường đi không cấp phát',
+  'home.topic.networkApi': 'API Network',
+  'home.topic.runtimeApi': 'API Runtime',
+  'home.topic.sdkApi': 'API Client SDK',
+  'home.topic.diagnosticCodes': 'Mã chẩn đoán',
+  'home.topic.networkComparison': 'So sánh mạng',
+  'home.topic.infrastructure': 'Hạ tầng lõi',
+  'home.topic.memory': 'Bộ nhớ & lưu trữ',
+  'home.topic.serialization': 'Tuần tự hóa',
 
   // Reader Layout & TOC
   'doc.onThisPage': 'Trên trang này',
@@ -58,15 +90,9 @@ export const viVn: TranslationDictionary = {
   'doc.namespaceLabel': 'Không gian tên',
 
   // Search Modal
-  'search.inputPlaceholder': 'Tìm kiếm hướng dẫn, API, gói tin và kết quả đo đạc...',
   'search.noResults': 'Không tìm thấy tài liệu phù hợp.',
-  'search.InitialHint': 'Nhập từ khóa để tìm kiếm trên toàn bộ 203 trang tài liệu Nalix.',
-  'search.navigateHint': 'để di chuyển',
-  'search.selectHint': 'để chọn',
-  'search.closeHint': 'để đóng',
 
   // Footer
-  'footer.copyright': 'Bản quyền © 2025–2026 PPN Corporation. Bảo lưu mọi quyền.',
-  'footer.license': 'Giấy phép Apache-2.0',
+  'footer.copyright': 'Bản quyền © 2026 PPN Systems. Bảo lưu mọi quyền.',
   'footer.builtWith': 'Thiết kế cho .NET 10.',
 };

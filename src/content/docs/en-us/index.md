@@ -66,4 +66,4 @@ For the full package map, see [Packages Overview](./packages/index.md).
 
 ---
 
-*Nalix is built by [PPN Corporation](https://github.com/ppn-systems). Licensed under Apache 2.0.*
+*Nalix is built by [PPN Systems](https://github.com/ppn-systems). Licensed under Apache 2.0.*

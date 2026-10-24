@@ -123,21 +123,27 @@ const currentPath = localizePath(currentSlug, locale);
     </div>
 
     <div class="nlx-header__right">
-      <button
-        type="button"
-        class="nlx-search-trigger"
-        id="nlx-search-open"
-        aria-label={t('nav.searchPlaceholder')}
-      >
-        <span class="nlx-search-trigger__left">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <circle cx="11" cy="11" r="7"/>
-            <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
-          </svg>
-          <span>{t('nav.searchPlaceholder')}</span>
-        </span>
+      <div class="nlx-search-box" id="nlx-header-search" data-locale={locale} data-empty-text={t('search.noResults')}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
+        </svg>
+        <input
+          type="text"
+          id="nlx-header-search-input"
+          class="nlx-search-box__input"
+          placeholder={t('nav.searchPlaceholder')}
+          aria-label={t('nav.searchPlaceholder')}
+          autocomplete="off"
+          spellcheck="false"
+          role="combobox"
+          aria-expanded="false"
+          aria-controls="nlx-header-results"
+          aria-autocomplete="list"
+        />
         <kbd>{t('nav.searchShortcut')}</kbd>
-      </button>
+        <div class="nlx-search-pop nlx-search-pop--header" id="nlx-header-results" role="listbox" hidden></div>
+      </div>
 
       <!-- Theme Switcher -->
       <button
@@ -243,6 +249,29 @@ const currentPath = localizePath(currentSlug, locale);
     </div>
   </div>
 </header>
+
+<script>
+  import { attachInlineSearch } from '../scripts/inline-search';
+
+  const searchBox = document.getElementById('nlx-header-search');
+  const searchInput = document.getElementById('nlx-header-search-input') as HTMLInputElement | null;
+  const searchList = document.getElementById('nlx-header-results');
+  if (searchBox && searchInput && searchList) {
+    attachInlineSearch({
+      input: searchInput,
+      list: searchList,
+      locale: searchBox.dataset.locale || 'en-us',
+      emptyText: searchBox.dataset.emptyText || '',
+    });
+    window.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+      }
+    });
+  }
+</script>
 
 <script>
   // Hover-intent, keyboard and touch handling for the navigation panels.

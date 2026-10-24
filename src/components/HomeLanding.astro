@@ -1,5 +1,5 @@
 ---
-import { localizePath, useTranslations, type LocaleCode } from '../i18n';
+import { localizePath, useTranslations, type LocaleCode, type TranslationKey } from '../i18n';
 import HeroBackdrop from './HeroBackdrop.astro';
 
 interface Props {
@@ -10,59 +10,51 @@ const { locale } = Astro.props;
 const t = useTranslations(locale);
 
 interface ProductCardItem {
-  title: string;
+  id: 'start' | 'guides' | 'concepts' | 'packages' | 'api' | 'benchmarks';
   href: string;
   icon: 'rocket' | 'compass' | 'layers' | 'box' | 'code' | 'gauge';
-  description: string;
-  topics: Array<{ label: string; slug: string }>;
+  /** `key` is a dictionary entry (`home.topic.<key>`); `label` is used as written (package names). */
+  topics: Array<{ key?: string; label?: string; slug: string }>;
 }
 
 const productCards: ProductCardItem[] = [
   {
-    title: 'Get Started',
+    id: 'start',
     href: localizePath('quickstart', locale),
     icon: 'rocket',
-    description:
-      'Set up your .NET 10 environment, define shared packet contracts, and launch your first Nalix server and client.',
     topics: [
-      { label: 'Quick Start', slug: 'quickstart' },
-      { label: 'Installation', slug: 'installation' },
-      { label: 'Your First Server', slug: 'guides/getting-started/your-first-server' },
-      { label: 'Server Blueprint', slug: 'guides/getting-started/server-blueprint' },
+      { key: 'quickStart', slug: 'quickstart' },
+      { key: 'installation', slug: 'installation' },
+      { key: 'firstServer', slug: 'guides/getting-started/your-first-server' },
+      { key: 'serverBlueprint', slug: 'guides/getting-started/server-blueprint' },
     ],
   },
   {
-    title: 'Application & Networking Guides',
+    id: 'guides',
     href: localizePath('guides', locale),
     icon: 'compass',
-    description:
-      'Practical tutorials for real-time chat servers, TCP/UDP socket patterns, middleware pipelines, and production deployment.',
     topics: [
-      { label: 'Build a Chat Room', slug: 'guides/build-a-chat-room' },
-      { label: 'Packet Handlers', slug: 'guides/application/packet-handlers' },
-      { label: 'TCP Patterns', slug: 'guides/networking/tcp-patterns' },
-      { label: 'Production Checklist', slug: 'guides/deployment/production-checklist' },
+      { key: 'chatRoom', slug: 'guides/build-a-chat-room' },
+      { key: 'packetHandlers', slug: 'guides/application/packet-handlers' },
+      { key: 'tcpPatterns', slug: 'guides/networking/tcp-patterns' },
+      { key: 'productionChecklist', slug: 'guides/deployment/production-checklist' },
     ],
   },
   {
-    title: 'Core Concepts & Internals',
+    id: 'concepts',
     href: localizePath('concepts', locale),
     icon: 'layers',
-    description:
-      'Deep dives into packet framing, zero-allocation BufferLease memory pools, AEAD encryption, and handshake state machines.',
     topics: [
-      { label: 'How Packets Work', slug: 'concepts/how-packets-work' },
-      { label: 'System Architecture', slug: 'concepts/internals/architecture' },
-      { label: 'Binary Specification', slug: 'concepts/internals/binary-spec' },
-      { label: 'Zero-Allocation Path', slug: 'concepts/internals/zero-allocation' },
+      { key: 'howPacketsWork', slug: 'concepts/how-packets-work' },
+      { key: 'architecture', slug: 'concepts/internals/architecture' },
+      { key: 'binarySpec', slug: 'concepts/internals/binary-spec' },
+      { key: 'zeroAllocation', slug: 'concepts/internals/zero-allocation' },
     ],
   },
   {
-    title: 'NuGet Packages',
+    id: 'packages',
     href: localizePath('packages', locale),
     icon: 'box',
-    description:
-      'Modular Level 0 to Level 4 package hierarchy—from zero-dependency abstractions to full server hosting.',
     topics: [
       { label: 'Nalix.Hosting', slug: 'packages/nalix-hosting' },
       { label: 'Nalix.Network', slug: 'packages/nalix-network' },
@@ -71,29 +63,25 @@ const productCards: ProductCardItem[] = [
     ],
   },
   {
-    title: 'API Reference',
+    id: 'api',
     href: localizePath('api', locale),
     icon: 'code',
-    description:
-      'Complete type, method, and configuration reference for listeners, codecs, cryptography, and Roslyn source generators.',
     topics: [
-      { label: 'Network API', slug: 'api/network' },
-      { label: 'Runtime API', slug: 'api/runtime' },
-      { label: 'Client SDK API', slug: 'api/sdk' },
-      { label: 'Diagnostic Codes', slug: 'api/analyzers/diagnostic-codes' },
+      { key: 'networkApi', slug: 'api/network' },
+      { key: 'runtimeApi', slug: 'api/runtime' },
+      { key: 'sdkApi', slug: 'api/sdk' },
+      { key: 'diagnosticCodes', slug: 'api/analyzers/diagnostic-codes' },
     ],
   },
   {
-    title: 'Performance Benchmarks',
+    id: 'benchmarks',
     href: localizePath('benchmarks', locale),
     icon: 'gauge',
-    description:
-      'Reproducible .NET 10 socket benchmarks comparing Nalix (52.2 µs p50, 56 B alloc) with gRPC, SignalR, and MagicOnion.',
     topics: [
-      { label: 'Network Comparison', slug: 'benchmarks/network-comparison' },
-      { label: 'Core Infrastructure', slug: 'benchmarks/infrastructure' },
-      { label: 'Memory & Storage', slug: 'benchmarks/memory' },
-      { label: 'Serialization', slug: 'benchmarks/serialization' },
+      { key: 'networkComparison', slug: 'benchmarks/network-comparison' },
+      { key: 'infrastructure', slug: 'benchmarks/infrastructure' },
+      { key: 'memory', slug: 'benchmarks/memory' },
+      { key: 'serialization', slug: 'benchmarks/serialization' },
     ],
   },
 ];
@@ -130,7 +118,7 @@ const productCards: ProductCardItem[] = [
           <button type="button" id="nlx-hero-search-btn" class="nlx-btn-primary nlx-home-search-btn">
             {t('nav.searchButton')}
           </button>
-          <div class="nlx-hero-results" id="nlx-hero-results" role="listbox" hidden></div>
+          <div class="nlx-search-pop" id="nlx-hero-results" role="listbox" hidden></div>
         </div>
       </div>
     </div>
@@ -182,13 +170,13 @@ const productCards: ProductCardItem[] = [
                     </svg>
                   )}
                 </span>
-                <h2 class="nlx-product-card__title">{card.title}</h2>
+                <h2 class="nlx-product-card__title">{t(`home.card.${card.id}.title` as TranslationKey)}</h2>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                   <path d="M5 12h14m-6-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </a>
             </div>
-            <p class="nlx-product-card__desc">{card.description}</p>
+            <p class="nlx-product-card__desc">{t(`home.card.${card.id}.desc` as TranslationKey)}</p>
           </div>
 
           <div class="nlx-product-card__topics">
@@ -196,7 +184,7 @@ const productCards: ProductCardItem[] = [
             <div class="nlx-product-card__links">
               {card.topics.map((topic) => (
                 <a href={localizePath(topic.slug, locale)} class="nlx-topic-link" data-astro-prefetch>
-                  {topic.label}
+                  {topic.key ? t(`home.topic.${topic.key}` as TranslationKey) : topic.label}
                 </a>
               ))}
             </div>
@@ -209,100 +197,30 @@ const productCards: ProductCardItem[] = [
     <footer class="nlx-home-footer">
       <div>
         <span>{t('footer.copyright')}</span>
-        <span> · </span>
-        <span>{t('footer.license')}</span>
       </div>
       <div class="nlx-home-footer__links">
-        <a href="https://github.com/ppn-systems/nalix" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
-        <a href="https://www.nuget.org/packages?q=Nalix" target="_blank" rel="noopener noreferrer">NuGet Gallery</a>
-        <a href={localizePath('quickstart', locale)} data-astro-prefetch>Quick Start</a>
-        <a href={localizePath('api', locale)} data-astro-prefetch>API Reference</a>
+        <a href="https://github.com/ppn-systems/nalix" target="_blank" rel="noopener noreferrer">{t('nav.github')}</a>
+        <a href="https://www.nuget.org/packages?q=Nalix" target="_blank" rel="noopener noreferrer">{t('nav.nuget')}</a>
+        <a href={localizePath('quickstart', locale)} data-astro-prefetch>{t('nav.startHere')}</a>
+        <a href={localizePath('api', locale)} data-astro-prefetch>{t('nav.api')}</a>
       </div>
     </footer>
   </div>
 </div>
 
 <script>
-  import { searchPages } from '../scripts/search';
+  import { attachInlineSearch } from '../scripts/inline-search';
 
-  function initHeroSearch() {
-    const bar = document.querySelector<HTMLElement>('.nlx-home-search-bar');
-    const input = document.getElementById('nlx-hero-search-input') as HTMLInputElement | null;
-    const button = document.getElementById('nlx-hero-search-btn');
-    const list = document.getElementById('nlx-hero-results');
-    if (!bar || !input || !list) return;
-
-    const locale = bar.dataset.locale || 'en-us';
-    const emptyText = bar.dataset.emptyText || '';
-    let selected = 0;
-    let request = 0;
-
-    const links = () => Array.from(list.querySelectorAll<HTMLAnchorElement>('.nlx-search-item'));
-    const setOpen = (open: boolean) => {
-      list.hidden = !open;
-      input.setAttribute('aria-expanded', String(open));
-    };
-    const select = (index: number) => {
-      const items = links();
-      if (!items.length) return;
-      items[selected]?.classList.remove('is-selected');
-      selected = (index + items.length) % items.length;
-      items[selected].classList.add('is-selected');
-      items[selected].scrollIntoView({ block: 'nearest' });
-    };
-
-    async function run() {
-      const id = ++request;
-      const query = input!.value;
-      if (!query.trim()) return setOpen(false);
-      const results = await searchPages(query, locale, 8);
-      if (id !== request) return; // a newer keystroke superseded this search
-      list!.replaceChildren();
-      selected = 0;
-      if (!results.length) {
-        const empty = document.createElement('div');
-        empty.className = 'nlx-hero-results__empty';
-        empty.textContent = emptyText;
-        list!.append(empty);
-      }
-      results.forEach((item, i) => {
-        const a = document.createElement('a');
-        a.href = item.url;
-        a.className = 'nlx-search-item' + (i === 0 ? ' is-selected' : '');
-        a.setAttribute('role', 'option');
-        const top = document.createElement('div');
-        top.className = 'nlx-search-item__top';
-        const title = document.createElement('span');
-        title.className = 'nlx-search-item__title';
-        title.textContent = item.title;
-        const section = document.createElement('span');
-        section.className = 'nlx-search-item__section';
-        section.textContent = item.pkg || item.section;
-        top.append(title, section);
-        const desc = document.createElement('div');
-        desc.className = 'nlx-search-item__desc';
-        desc.textContent = item.description;
-        a.append(top, desc);
-        list!.append(a);
-      });
-      setOpen(true);
-    }
-
-    const open = () => links()[selected] ? (window.location.href = links()[selected].href) : run();
-
-    input.addEventListener('input', run);
-    input.addEventListener('focus', () => input.value.trim() && run());
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowDown') { e.preventDefault(); select(selected + 1); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); select(selected - 1); }
-      else if (e.key === 'Enter') { e.preventDefault(); open(); }
-      else if (e.key === 'Escape') setOpen(false);
+  const bar = document.querySelector<HTMLElement>('.nlx-home-search-bar');
+  const input = document.getElementById('nlx-hero-search-input') as HTMLInputElement | null;
+  const list = document.getElementById('nlx-hero-results');
+  if (bar && input && list) {
+    const { run } = attachInlineSearch({
+      input,
+      list,
+      locale: bar.dataset.locale || 'en-us',
+      emptyText: bar.dataset.emptyText || '',
     });
-    button?.addEventListener('click', () => (input.value.trim() ? open() : input.focus()));
-    document.addEventListener('pointerdown', (e) => {
-      if (!bar.contains(e.target as Node)) setOpen(false);
-    });
+    document.getElementById('nlx-hero-search-btn')?.addEventListener('click', () => (input.value.trim() ? run() : input.focus()));
   }
-
-  initHeroSearch();
 </script>
