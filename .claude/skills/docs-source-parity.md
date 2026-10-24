@@ -23,7 +23,7 @@
 
 ## Checklist — syncing after source changes
 1. `npm run sync:check` — reads `ppn-systems/nalix@HEAD` straight from GitHub (one tarball download, no clone).
-   - Covers `src/` + `samples/` (`.cs`, `.csproj`, skipping `bin`/`obj`) and compares against `source-manifest.json`.
+   - Covers `analyzers/` + `samples/` + `src/` (`.cs`, `.csproj`, skipping `bin`/`obj`) and compares against `source-manifest.json`.
    - Hashes are **semantic**: SHA-256 of the file with comments (`//`, `/* */`, `///`, `<!-- -->`) and formatting whitespace removed. String/char literals (regular, `@"…"`, `$"…{hole}…"`, raw `"""…"""`, `'"'`) are kept verbatim, so `//` inside a string is never treated as a comment. Comment-only or reformat-only commits do not show up.
    - Prints modified / added / removed files and, under each, the pages that mention its type name (`Foo.Types.cs` → `Foo`). Exits `1` when anything changed.
    - Options: `--ref <branch|tag|sha>`, `--repo <owner/name>`, `--source <local clone>` (or `NALIX_SOURCE`) to hash a working tree instead. Set `GITHUB_TOKEN` if the anonymous API rate limit is hit.

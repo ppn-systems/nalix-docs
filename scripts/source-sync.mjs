@@ -21,10 +21,10 @@ const MANIFEST_PATH = path.join(ROOT, 'source-manifest.json');
 const DOCS_DIR = path.join(ROOT, 'src/content/docs/en-us');
 
 export const DEFAULT_REPO = 'ppn-systems/nalix';
-export const TRACKED_DIRS = ['src', 'samples'];
+export const TRACKED_DIRS = ['analyzers', 'samples', 'src'];
 const SKIPPED_SEGMENTS = new Set(['bin', 'obj', '.git', '.vs']);
 
-/** True for `.cs`/`.csproj` files under `src/` or `samples/`, outside `bin`/`obj`. */
+/** True for `.cs`/`.csproj` files under `analyzers/`, `samples/` or `src/`, outside `bin`/`obj`. */
 export function isTracked(file) {
   const segments = file.split('/');
   return (
