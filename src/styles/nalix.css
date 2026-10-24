@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Nalix Documentation — Unity Docs (docs.unity.com/en-us) Design System
+   Nalix Documentation — Enterprise Design System
    ========================================================================== */
 
 @font-face {
@@ -69,7 +69,7 @@
   --primary-underline: rgba(104, 176, 255, 0.4);
   --primary-selected-bg: rgba(37, 132, 244, 0.15);
 
-  /* Semantic Alert Tokens (Unity MuiAlert Standard) */
+  /* Semantic Alert Tokens */
   --alert-info-bg: rgba(62, 99, 221, 0.12);
   --alert-info-border: rgba(62, 99, 221, 0.35);
   --alert-info-icon: #8da4ef;
@@ -185,7 +185,7 @@ a:hover {
 }
 
 /* ==========================================================================
-   Row 1: Global Header (48px — docs.unity.com header.tsx)
+   Row 1: Global Header (48px)
    ========================================================================== */
 
 .nlx-header {
@@ -427,7 +427,7 @@ a:hover {
 }
 
 /* ==========================================================================
-   Row 2: Product Context Subheader (48px — docs.unity.com product-header.tsx)
+   Row 2: Product Context Subheader (48px)
    ========================================================================== */
 
 .nlx-subheader {
@@ -511,7 +511,7 @@ a:hover {
 }
 
 /* ==========================================================================
-   Portal Home Page (/en-us — docs.unity.com home-page.tsx & product-card.tsx)
+   Portal Home Page (/en-us)
    ========================================================================== */
 
 .nlx-home-wrapper {
@@ -764,7 +764,7 @@ a:hover {
 }
 
 /* ==========================================================================
-   Inner Documentation Workspace (docs.unity.com base-layout.tsx)
+   Inner Documentation Workspace
    ========================================================================== */
 
 .nlx-workspace {
@@ -1233,7 +1233,7 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
   border-bottom: none;
 }
 
-/* Unity-Style Admonition Alerts (admonition.tsx) */
+/* Admonition Callout Alerts */
 .nlx-callout {
   margin: 1.15rem 0;
   padding: 12px 16px;

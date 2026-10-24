@@ -1,5 +1,5 @@
 ---
-import '../styles/apple.css';
+import '../styles/nalix.css';
 import {
   DEFAULT_LOCALE,
   ENABLED_LOCALES,
@@ -13,7 +13,7 @@ import Header from '../components/Header.astro';
 import Sidebar from '../components/Sidebar.astro';
 import TableOfContents, { type MarkdownHeading } from '../components/TableOfContents.astro';
 import SearchModal from '../components/SearchModal.astro';
-import AppleLanding from '../components/AppleLanding.astro';
+import HomeLanding from '../components/HomeLanding.astro';
 
 interface Props {
   title: string;
@@ -52,7 +52,7 @@ const parentBreadcrumbs = (breadcrumbs.length > 1 ? breadcrumbs.slice(0, -1) : [
 const { prev, next } = getPrevNextLinks(slug);
 const isLanding = slug === '';
 
-// Estimate reading time (like docs.unity.com content-renderer.tsx)
+// Estimate reading time
 const wordCount = rawBody ? rawBody.trim().split(/\s+/).length : 250;
 const readMinutes = Math.max(1, Math.ceil(wordCount / 220));
 const readTimeText = `${t('doc.readTime')} ${readMinutes} ${readMinutes === 1 ? t('doc.minute') : t('doc.minutes')}`;
@@ -126,7 +126,7 @@ const hasMobileToc = tocHeadings.length > 1;
 
     {isLanding ? (
       <main id="nlx-main-content">
-        <AppleLanding locale={locale} />
+        <HomeLanding locale={locale} />
       </main>
     ) : (
       <div class="nlx-workspace">
