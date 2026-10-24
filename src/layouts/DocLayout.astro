@@ -58,7 +58,7 @@ const readTimeText = `${t('doc.readTime')} ${readMinutes} ${readMinutes === 1 ? 
 
 const pageTitle = isLanding ? `${t('site.title')}` : `${title} | ${t('site.title')}`;
 const metaDescription = description || t('site.tagline');
-const siteOrigin = (Astro.site || new URL('https://ppn.io.vn')).toString().replace(/\/+$/, '');
+const siteOrigin = (Astro.site || new URL('https://docs.ppnsys.com')).toString().replace(/\/+$/, '');
 const canonicalUrl = new URL(localizePath(slug, locale), siteOrigin).toString();
 const ogImageUrl = `${siteOrigin}/assets/social-preview.svg`;
 const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/main/src/content/docs/${sourceLocale}/${relFile}`;

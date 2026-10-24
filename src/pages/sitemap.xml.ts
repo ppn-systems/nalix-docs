@@ -3,7 +3,7 @@ import { DEFAULT_LOCALE, ENABLED_LOCALES, getLocaleDefinition, localizePath } fr
 import { getFlatNavigation } from '../config/navigation';
 
 export const GET: APIRoute = async ({ site }) => {
-  const baseUrl = (site?.toString() || 'https://ppn.io.vn').replace(/\/+$/, '');
+  const baseUrl = (site?.toString() || 'https://docs.ppnsys.com').replace(/\/+$/, '');
   const flatNav = getFlatNavigation();
   const lastmod = new Date().toISOString().split('T')[0];
 

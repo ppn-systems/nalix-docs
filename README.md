@@ -2,7 +2,7 @@
 
 Source of the documentation site for [Nalix](https://github.com/ppn-systems/nalix), a .NET 10 networking framework (TCP, UDP and WebSocket).
 
-Live site: <https://ppn.io.vn>
+Live site: <https://docs.ppnsys.com>
 
 The site is a static [Astro](https://astro.build) project. Pages are Markdown files under `src/content/docs/`, tested with Vitest and deployed to Cloudflare Pages.
 
