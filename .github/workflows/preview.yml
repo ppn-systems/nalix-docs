@@ -31,6 +31,11 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      deployments: write
+    # Shows up as "This branch was successfully deployed" on the PR, with a View deployment button.
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.deployment-url }}
     steps:
       - uses: actions/checkout@v4
 
