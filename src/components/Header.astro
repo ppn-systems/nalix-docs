@@ -73,10 +73,20 @@ const currentPath = localizePath(currentSlug, locale);
               </a>
               <div class="nlx-mega" id={panelId} role="region" aria-label={tab.title} style={`--mega-cols:${Math.min(Math.max(tab.columns.length, 1), 5)}`}>
                 <div class="nlx-mega__inner">
-                  {tab.columns.map((column) => (
-                    <div class="nlx-mega__col">
+                  <div class="nlx-mega__grid">
+                  {tab.columns.map((column, columnIndex) => (
+                    <div class="nlx-mega__col" style={`--i:${columnIndex}`}>
                       <div class="nlx-mega__heading">
-                        {column.title ? (column.href ? <a href={column.href} data-astro-prefetch>{column.title}</a> : column.title) : '\u00a0'}
+                        {column.title ? (
+                          column.href ? (
+                            <a href={column.href} data-astro-prefetch>
+                              <span>{column.title}</span>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+                            </a>
+                          ) : (
+                            column.title
+                          )
+                        ) : '\u00a0'}
                       </div>
                       <ul class="nlx-mega__list">
                         {column.links.map((link) => (
@@ -98,11 +108,13 @@ const currentPath = localizePath(currentSlug, locale);
                           </li>
                         ))}
                       </ul>
-                      {column.more && (
-                        <a href={column.more.href} class="nlx-mega__more" data-astro-prefetch>{column.more.title} →</a>
-                      )}
                     </div>
                   ))}
+                  </div>
+                  <a href={tab.footer.href} class="nlx-mega__footer" data-astro-prefetch>
+                    <span>{tab.footer.title}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                  </a>
                 </div>
               </div>
             </div>

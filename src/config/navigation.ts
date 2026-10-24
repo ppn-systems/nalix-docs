@@ -1435,10 +1435,9 @@ export interface MegaLink {
 export interface MegaColumn {
   /** Column heading; empty for a continuation of the previous column. */
   title: string;
+  /** Where the heading leads (the group's overview page). */
   href?: string;
   links: MegaLink[];
-  /** Shown under the links when the group has more pages than fit. */
-  more?: MegaLink;
 }
 
 export interface MegaTab {
@@ -1448,50 +1447,60 @@ export interface MegaTab {
   sectionTitles: string[];
   href: string;
   columns: MegaColumn[];
+  /** Last line of the panel, leading to the whole section. */
+  footer: MegaLink;
 }
 
+/** Pages shown per column: the first ones of the group, in navigation order. */
 const MEGA_MAX_LINKS_PER_COLUMN = 5;
+/** A section that is a plain list of pages (no groups) fills columns of this size. */
+const MEGA_MAX_FLAT_LINKS_PER_COLUMN = 8;
+
+const isOverview = (item: NavItem) => item.title === 'Overview';
 
 function leafPages(items: NavItem[]): NavItem[] {
   return items.flatMap((item) => (item.items ? leafPages(item.items) : item.slug !== undefined ? [item] : []));
 }
 
 /**
- * Content of the drop-down panels of the primary navigation: one panel per top-level section,
- * one column per group of that section (or per five pages when the section is a flat list).
+ * Content of the drop-down panels of the primary navigation: one panel per top-level section.
+ * A group becomes a column whose heading links to the group's overview, so the overview page is
+ * not repeated in the list; only the first few pages of the group are listed.
  */
 export function getMegaMenu(locale: LocaleCode): MegaTab[] {
   const t = useTranslations(locale);
   const link = (item: NavItem): MegaLink => ({ title: getNavTitle(item, locale), href: localizePath(item.slug ?? '', locale) });
 
-  const tabs = getTopLevelTabs(locale).map((tab) => {
+  const tabs = getTopLevelTabs(locale).map((tab): MegaTab => {
     const section = NAVIGATION_TREE.find((node) => node.title === tab.sectionTitle);
     const children = section?.items ?? [];
     const columns: MegaColumn[] = [];
 
-    const flat = children.filter((child) => !child.items);
-    for (let i = 0; i < flat.length; i += MEGA_MAX_LINKS_PER_COLUMN) {
-      columns.push({ title: i === 0 ? tab.title : '', links: flat.slice(i, i + MEGA_MAX_LINKS_PER_COLUMN).map(link) });
+    const flat = children.filter((child) => !child.items && !isOverview(child));
+    for (let i = 0; i < flat.length; i += MEGA_MAX_FLAT_LINKS_PER_COLUMN) {
+      columns.push({
+        title: i === 0 ? tab.title : '',
+        href: i === 0 ? tab.href : undefined,
+        links: flat.slice(i, i + MEGA_MAX_FLAT_LINKS_PER_COLUMN).map(link),
+      });
     }
 
     for (const group of children.filter((child) => child.items)) {
       const pages = leafPages(group.items ?? []);
       if (!pages.length) continue;
-      const first = link(pages[0]);
+      const overview = pages.find(isOverview) ?? pages[0];
       // Direct children only: a sub-group is one line named after the sub-group, so
-      // identical page titles ("Overview") of nested groups never repeat in a column.
-      const entries = (group.items ?? []).flatMap((child): MegaLink[] => {
-        const target = child.items ? leafPages(child.items)[0] : child;
-        return target?.slug === undefined ? [] : [{ title: getNavTitle(child, locale), href: link(target).href }];
-      });
+      // identical page titles of nested groups never repeat in a column.
+      const entries = (group.items ?? [])
+        .filter((child) => !isOverview(child))
+        .flatMap((child): MegaLink[] => {
+          const target = child.items ? leafPages(child.items)[0] : child;
+          return target?.slug === undefined ? [] : [{ title: getNavTitle(child, locale), href: link(target).href }];
+        });
       columns.push({
         title: getNavTitle(group, locale),
-        href: first.href,
+        href: link(overview).href,
         links: entries.slice(0, MEGA_MAX_LINKS_PER_COLUMN),
-        more:
-          entries.length > MEGA_MAX_LINKS_PER_COLUMN || pages.length > entries.length
-            ? { title: t('nav.allPages').replace('{count}', String(pages.length)), href: first.href }
-            : undefined,
       });
     }
 
@@ -1504,7 +1513,12 @@ export function getMegaMenu(locale: LocaleCode): MegaTab[] {
         ],
       });
     }
-    return { ...tab, sectionTitles: [tab.sectionTitle], columns };
+    return {
+      ...tab,
+      sectionTitles: [tab.sectionTitle],
+      columns,
+      footer: { title: t('nav.viewAll').replace('{title}', tab.title), href: tab.href },
+    };
   });
 
   // Benchmarks has no tab of its own: its pages are a column of the Packages panel.
