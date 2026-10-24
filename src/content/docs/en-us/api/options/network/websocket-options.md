@@ -97,6 +97,12 @@ AllowMissingOrigin = true
 | `Enabled` | `bool` | `false` | Enables parsing `CF-Connecting-IP` and `X-Forwarded-For` HTTP upgrade headers to obtain the real client IP. |
 | `RequireTrustedProxy` | `bool` | `false` | When `true`, only physical connections originating from IPs/CIDRs listed in [TrustedProxyOptions](./trusted-proxy-options.md) are allowed to forward client IPs via HTTP headers; untrusted peers sending forwarded headers are rejected. |
 
+Header precedence is fixed: the first present of `CF-Connecting-IP`, `X-Real-IP`, `X-Forwarded-For` wins, and that IP drives bans, per-IP limits and rate limiting.
+
+:::caution[Spoofable headers]
+The proxy must overwrite or clear these headers from clients — a client-sent `CF-Connecting-IP` outranks `X-Real-IP`. `X-Forwarded-For` is currently read from its **left-most** entry, which a client can forge when the proxy only appends (e.g. AWS ALB); have the proxy set `X-Real-IP`, and keep `RequireTrustedProxy = true`. See [Reverse Proxy & TLS](../../../guides/deployment/reverse-proxy-tls.md).
+:::
+
 ## See Also
 
 * [WebSocket Listener](../../network/websocket-listener.md)

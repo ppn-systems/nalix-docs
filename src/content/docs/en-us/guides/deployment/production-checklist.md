@@ -46,6 +46,7 @@ Before launch, check:
 - listen port and backlog are correct
 - `TimingWheelOptions.IdleTimeoutMs` (and `connection.ExcludeFromIdleTimeout` for exempt connections) match your real idle behavior expectations
 - if `ProxyProtocolOptions.Enabled` is `true`, `RequireTrustedProxy` is also `true` and the load balancer's IPs are in `TrustedProxyOptions` — the default is `false`, which lets any client spoof its IP past bans and rate limits ([details](../../api/options/network/proxy-protocol-options.md#security-notes))
+- if `ForwardedHeadersOptions.Enabled` is `true`, the reverse proxy overwrites or clears client-supplied `CF-Connecting-IP` / `X-Real-IP` / `X-Forwarded-For` ([details](./reverse-proxy-tls.md))
 
 ## 4. Dispatch safety
 

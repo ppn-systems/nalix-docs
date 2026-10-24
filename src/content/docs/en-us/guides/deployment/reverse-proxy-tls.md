@@ -49,6 +49,7 @@ server {
         # Real client IP + origin
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header CF-Connecting-IP "";   # not behind Cloudflare: drop client-supplied value
         proxy_set_header Host $host;
 
         # WebSocket connections are long-lived; don't let nginx kill them early
@@ -81,9 +82,29 @@ example.com {
     reverse_proxy /ws/* 127.0.0.1:57207 {
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
+        header_up -CF-Connecting-IP
     }
 }
 ```
+
+:::caution[Clear headers the client could supply]
+With `[ForwardedHeaders] Enabled = true` and a trusted peer, Nalix takes the
+client IP from the first header present, in this fixed order:
+`CF-Connecting-IP`, then `X-Real-IP`, then `X-Forwarded-For`. nginx and Caddy
+forward client-sent headers unless told otherwise, so a client that adds its
+own `CF-Connecting-IP` would outrank your `X-Real-IP` and pick the IP used for
+bans, per-IP limits and rate limiting. When you are not behind Cloudflare,
+clear `CF-Connecting-IP` as above and always set `X-Real-IP` from the real
+peer address.
+:::
+
+:::caution[Proxies that only append `X-Forwarded-For`]
+If the proxy only appends to `X-Forwarded-For` and does not set `X-Real-IP`
+(for example AWS ALB, or nginx with only `$proxy_add_x_forwarded_for`), Nalix
+currently reads the **left-most** `X-Forwarded-For` entry, which the client
+can forge. Configure the proxy to set `X-Real-IP` from the peer address, and
+keep `RequireTrustedProxy = true` with a strict `trusted_proxies.txt`.
+:::
 
 That's the whole config — Caddy issues, installs, and renews the
 certificate automatically on first request.
@@ -126,6 +147,12 @@ before `X-Real-IP` and `X-Forwarded-For`, but only honors it from a trusted
 physical peer. For Tunnel, add the local `cloudflared` peer to
 `trusted_proxies.txt`; for the loopback config above, that is usually
 `127.0.0.1` (and `::1` if IPv6 loopback is used).
+
+`CF-Connecting-IP` is only trustworthy if nothing but Cloudflare can reach the
+origin. Keep Nalix bound to loopback behind `cloudflared`, or, for a proxied
+(orange-cloud) origin without Tunnel, firewall the origin to Cloudflare's IP
+ranges (or your proxy) only — otherwise a client connecting directly can set
+the header itself.
 
 You do not need TLS between `cloudflared` and Nalix when `service` uses
 `http://127.0.0.1:57207`. Use an HTTPS origin service only if you intentionally
