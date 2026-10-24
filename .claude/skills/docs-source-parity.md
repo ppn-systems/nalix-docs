@@ -22,14 +22,17 @@
 3. Fix discrepancies; `npm test`.
 
 ## Checklist — syncing after source changes
-1. Identify changed files in `nalix/src` since the last synced revision.
-2. Map each changed file to the pages that document it (mapping above + `grep` for type names).
-3. Update those pages, then record the new synced revision.
-
-> A script that snapshots the `nalix` source tree with per-file hashes and reports changed files (to automate steps 1 and 3) is planned under `scripts/`. Until it exists, use `git -C ../nalix diff --stat <last-rev> HEAD -- src`.
+1. Pull the latest `../nalix`, then `npm run sync:check`.
+   - Compares `../nalix/src` + `samples` (`.cs`, `.csproj`) against `source-manifest.json` (SHA-256 per file, CRLF-normalized).
+   - Prints modified / added / removed files and, under each, the pages that mention its type name (`Foo.Types.cs` → `Foo`). Exits `1` when anything changed.
+   - Other location: `--source <path>` or `NALIX_SOURCE=<path>`.
+2. Read each change (`git -C ../nalix diff <manifest nalixCommit> HEAD -- <file>`) and fix the listed pages; `grep` for renamed members the name match misses.
+3. `npm test`, then `npm run sync:update` to record the new hashes + commit, and commit `source-manifest.json` together with the doc fixes.
 
 ---
 
 ## Gotchas
+- Page matching is by type name only: generic file names (`Program.cs`, `Extensions.cs`) list noisy pages, and pages that never name the type are missed.
+- Never run `sync:update` without fixing the reported pages — it marks them as reviewed.
 - `nalix/.claude/skills/*.md` encode invariants (pipeline order, crypto rules) that docs must not contradict.
 - Sample code in `nalix/samples` may lag `src`; trust `src` when they disagree.

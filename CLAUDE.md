@@ -14,12 +14,14 @@ The source of truth for every technical claim is the sibling repository [`ppn-sy
 | `src/plugins/remark-nalix-docs.ts` | Admonitions, Mermaid, locale-aware link rewriting |
 | `tests/` | Integrity gates (frontmatter, links, navigation, i18n, C# parity) |
 | `scripts/` | Maintenance scripts (Node ESM, no extra deps) |
+| `source-manifest.json` | Hash snapshot of `nalix` source the docs were last synced to (`npm run sync:check` / `sync:update`) |
 
 ## Commands
 
 - `npm test` — all integrity gates (fast, run after every content change)
 - `npm run build` — Astro static build
 - `npm run check` — test + build (what CI runs)
+- `npm run sync:check` / `npm run sync:update` — detect / record `nalix` source changes (see docs-source-parity skill)
 
 Run `npm test` after any change under `src/`, `tests/` or `scripts/`. Pure `README`/`CLAUDE.md`/skill edits need no validation.
 
