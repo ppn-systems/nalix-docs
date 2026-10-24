@@ -141,3 +141,42 @@ jobs:
             url=$(gh pr create --draft --base "$BASE" --head "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/body.md")
             echo "Opened $url" >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  # Runs every day, whether or not Nalix changed: the docs are checked against the current Nalix source
+  # (index built in memory, nothing recorded), so a docs edit that went wrong is caught too.
+  full-audit:
+    name: "Full audit and coverage"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NALIX_REF: ${{ inputs.ref || github.event.client_payload.ref || 'HEAD' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Coverage per package
+        run: |
+          python3 tools/run.py coverage --live --ref "$NALIX_REF" --markdown "$RUNNER_TEMP/coverage.md" --json "$RUNNER_TEMP/coverage.json" > /dev/null
+          cat "$RUNNER_TEMP/coverage.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Audit docs against the current source
+        run: |
+          set +e
+          python3 tools/run.py audit --live --ref "$NALIX_REF" --baseline tools/docs-audit-baseline.json --markdown "$RUNNER_TEMP/audit.md" --json "$RUNNER_TEMP/audit.json"
+          code=$?
+          set -e
+          if [ -s "$RUNNER_TEMP/audit.md" ]; then cat "$RUNNER_TEMP/audit.md" >> "$GITHUB_STEP_SUMMARY"; else echo "✅ No findings." >> "$GITHUB_STEP_SUMMARY"; fi
+          exit "$code"
+
+      - name: Upload audit and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-audit
+          path: |
+            ${{ runner.temp }}/audit.json
+            ${{ runner.temp }}/coverage.json

@@ -69,6 +69,7 @@ Technical statements must match the Nalix source. Read the code before documenti
 
 ```bash
 npm run audit         # docs vs the stored API snapshot: paths, namespaces, option defaults, enum members and values, diagnostic codes, package graph and versions, heading links, signatures, undocumented types
+npm run coverage      # per package: share of public types and methods that pages mention (add --live for the current source)
 npm run sync:check    # what changed in Nalix since the docs were last synced, and which of it matters
 npm run sync:update   # record the current Nalix commit as synced (after fixing the docs)
 ```
@@ -84,6 +85,8 @@ The report starts with an edit plan grouped by page: for each page the docs line
 `source-manifest.json` (file hashes) and `source-api-index.json` (public API snapshot) record the Nalix commit the docs match. `npm test` runs the audit against that snapshot, so the docs cannot drift from it unnoticed. Findings that are intentionally accepted are listed with a reason in `tools/docs-audit-baseline.json`.
 
 The workflow `.github/workflows/source-sync.yml` runs the check every day. When Nalix changed in a way that affects the docs, it opens one draft pull request on `bot/source-sync` with the report. Check out that branch, update the listed pages, push and merge.
+
+The same workflow also runs a **full audit every day**, even when Nalix did not change: `audit --live` builds the API index from the current GitHub source in memory and compares the pages with it, and `coverage --live` prints the per-package table. Both go to the run summary and an artifact; unaccepted audit errors fail the job.
 
 The repository setting **Allow GitHub Actions to create and approve pull requests** (Settings → Actions → General) must be enabled for the workflow to open that pull request.
 
@@ -105,12 +108,13 @@ The repository setting **Allow GitHub Actions to create and approve pull request
 ├── tools/                      # Python: audit and source-sync tools, with unittest tests
 ├── source-manifest.json        # hashes of the Nalix source the docs were last synced to
 ├── source-api-index.json       # public API snapshot of that Nalix commit
-└── .github/workflows/          # ci.yml, deploy.yml, source-sync.yml
+└── .github/workflows/          # ci.yml, preview.yml, deploy.yml, source-sync.yml
 ```
 
 ## CI and deployment
 
 - `ci.yml` runs the tests and the build on pushes and pull requests.
+- `preview.yml` deploys a Cloudflare Pages preview for pull requests (branch `pr-<number>`, URL posted as a sticky comment). It only runs when the PR changes `src/`, `public/`, `astro.config.*`, `package*.json` or `tsconfig.json`; changes to `tools/`, `tests/`, workflows, README or the sync snapshot deploy nothing. Fork PRs are skipped because they have no secrets.
 - `deploy.yml` is started by hand and publishes `dist/` to Cloudflare Pages (project `nalix-docs`).
 
 ## License

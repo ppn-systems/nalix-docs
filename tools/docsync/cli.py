@@ -1,4 +1,4 @@
-"""Command line: ``python tools/run.py <sync-check|sync-update|audit> [options]``."""
+"""Command line: ``python tools/run.py <sync-check|sync-update|audit|coverage> [options]``."""
 
 from __future__ import annotations
 
@@ -9,7 +9,8 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .application.ports import SyncError
-from .application.use_cases import AuditDocs, CheckDrift, DriftStatus, RecordSnapshot
+from .application.use_cases import AuditDocs, CheckDrift, DriftStatus, MeasureCoverage, RecordSnapshot, index_of
+from .domain.coverage import render_coverage
 from .domain.findings import Severity
 from .domain.report import plan_by_page, render_report, truncate_report
 from .infrastructure.sources import GitHubSource, LocalSource
@@ -42,10 +43,23 @@ def _parser() -> argparse.ArgumentParser:
 
     audit = sub.add_parser("audit", help="check the docs against the stored API index")
     audit.add_argument("--index", help="API index file (default source-api-index.json)")
+    audit.add_argument("--live", action="store_true", help="audit against the current Nalix source (index built in memory, nothing recorded)")
+    source_options(audit)
     audit.add_argument("--baseline", help="JSON file of accepted findings")
     audit.add_argument("--json", help="write findings as JSON")
     audit.add_argument("--markdown", help="write findings as Markdown (empty when none)")
+
+    coverage = sub.add_parser("coverage", help="share of public types and methods each package's pages mention")
+    coverage.add_argument("--live", action="store_true", help="measure against the current Nalix source instead of the stored index")
+    source_options(coverage)
+    coverage.add_argument("--json", help="write the numbers as JSON")
+    coverage.add_argument("--markdown", help="write the table as Markdown")
     return parser
+
+
+def _live_index(args: argparse.Namespace) -> dict:
+    source = _source(args)
+    return index_of(source.read(source.resolve(args.ref)))
 
 
 def _source(args: argparse.Namespace):
@@ -103,7 +117,7 @@ def _sync_update(args: argparse.Namespace) -> int:
 
 def _audit(args: argparse.Namespace) -> int:
     store = JsonSnapshotStore(ROOT)
-    index_data = json.loads(Path(args.index).read_text(encoding="utf-8")) if args.index else None
+    index_data = _live_index(args) if args.live else json.loads(Path(args.index).read_text(encoding="utf-8")) if args.index else None
     accepted = frozenset(json.loads(Path(args.baseline).read_text(encoding="utf-8")).get("accepted", {})) if args.baseline else frozenset()
     findings = AuditDocs(store, DocsDirectory(DOCS_DIR))(accepted, index_data)
 
@@ -118,6 +132,17 @@ def _audit(args: argparse.Namespace) -> int:
     return 1 if counts[Severity.ERROR] else 0
 
 
+def _coverage(args: argparse.Namespace) -> int:
+    rows = MeasureCoverage(JsonSnapshotStore(ROOT), DocsDirectory(DOCS_DIR))(_live_index(args) if args.live else None)
+    markdown = render_coverage(rows)
+    if args.json:
+        Path(args.json).write_text(json.dumps([r.to_dict() for r in rows], indent=2), encoding="utf-8")
+    if args.markdown:
+        Path(args.markdown).write_text(markdown, encoding="utf-8")
+    print(markdown)
+    return 0
+
+
 def _render_findings(findings) -> str:
     out: list[str] = []
     for severity in Severity:
@@ -129,7 +154,7 @@ def _render_findings(findings) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    handlers = {"sync-check": _sync_check, "sync-update": _sync_update, "audit": _audit}
+    handlers = {"sync-check": _sync_check, "sync-update": _sync_update, "audit": _audit, "coverage": _coverage}
     try:
         return handlers[args.command](args)
     except SyncError as error:

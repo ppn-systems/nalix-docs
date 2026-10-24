@@ -1,4 +1,4 @@
-"""The three things the tooling does: check for drift, record a snapshot, audit the docs."""
+"""What the tooling does: check for drift, record a snapshot, audit the docs, measure coverage."""
 
 from __future__ import annotations
 
@@ -9,7 +9,9 @@ from ..domain.api_index import SourceFile, build_api_index
 from ..domain.api_view import ApiIndex
 from ..domain.audit import DocsAuditor
 from ..domain.classifier import ChangeClassifier, ChangeReport
+from ..domain.coverage import PackageCoverage, compute_coverage
 from ..domain.findings import Finding
+from ..domain.markdown import parse_page
 from ..domain.snapshot import ChangeSet, Manifest, SourceSnapshot
 from .ports import DocsRepository, SnapshotStore, SourceReader, SyncError
 
@@ -59,6 +61,14 @@ class CheckDrift:
         return DriftResult(manifest.commit, snapshot, changes, report, previous is not None)
 
 
+def index_of(snapshot: SourceSnapshot) -> dict:
+    """The API index of a snapshot, built in memory."""
+    return {
+        "nalixCommit": snapshot.commit,
+        **build_api_index((SourceFile(p, t) for p, t in snapshot.files.items()), snapshot.all_paths),
+    }
+
+
 class RecordSnapshot:
     """Stores the manifest and the API index of a commit as the new synced state."""
 
@@ -66,11 +76,7 @@ class RecordSnapshot:
         self._store = store
 
     def __call__(self, snapshot: SourceSnapshot) -> None:
-        index = {
-            "nalixCommit": snapshot.commit,
-            **build_api_index((SourceFile(p, t) for p, t in snapshot.files.items()), snapshot.all_paths),
-        }
-        self._store.save(snapshot, index)
+        self._store.save(snapshot, index_of(snapshot))
 
 
 class AuditDocs:
@@ -82,3 +88,14 @@ class AuditDocs:
     def __call__(self, accepted: frozenset[str] = frozenset(), index_data: dict | None = None) -> list[Finding]:
         index = ApiIndex(index_data if index_data is not None else self._store.load_index())
         return [f for f in self._auditor.audit(index, self._docs.pages()) if f.key not in accepted]
+
+
+class MeasureCoverage:
+    """Per-package share of public types and methods that the pages mention."""
+
+    def __init__(self, store: SnapshotStore, docs: DocsRepository) -> None:
+        self._store, self._docs = store, docs
+
+    def __call__(self, index_data: dict | None = None) -> list[PackageCoverage]:
+        index = ApiIndex(index_data if index_data is not None else self._store.load_index())
+        return compute_coverage(index, tuple(parse_page(d) for d in self._docs.pages()))

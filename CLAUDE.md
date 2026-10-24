@@ -15,7 +15,8 @@ The source of truth for every technical claim is the sibling repository [`ppn-sy
 | `tests/` | Vitest gates (frontmatter, links, navigation, i18n, remark plugin, C# parity) |
 | `tools/` | Python tools (standard library only): source-sync and docs audit, with `unittest` tests in `tools/tests/` |
 | `scripts/` | One-off Node migration script |
-| `.github/workflows/source-sync.yml` | Daily drift check; opens a draft PR on `bot/source-sync` only when the docs are affected |
+| `.github/workflows/source-sync.yml` | Daily drift check (opens a draft PR on `bot/source-sync` only when the docs are affected) plus a daily full audit and coverage job |
+| `.github/workflows/preview.yml` | PR preview on Cloudflare Pages; path-filtered to files that change the built site |
 | `source-manifest.json`, `source-api-index.json` | Hashes + public-API snapshot of the `nalix` commit the docs were last synced to |
 
 ## Commands
@@ -24,7 +25,8 @@ The source of truth for every technical claim is the sibling repository [`ppn-sy
 - `npm run build` — Astro static build
 - `npm run check` — test + build (what CI runs)
 - `npm run sync:check` / `sync:update` — classify `nalix` source changes (API / behavior / ignored) and record the synced commit
-- `npm run audit` — docs vs source API index (offline); also gated by `tools/tests/test_docs_gate.py`
+- `npm run audit` — docs vs source API index (offline); also gated by `tools/tests/test_docs_gate.py`; `python3 tools/run.py audit --live` checks against the current GitHub source instead
+- `npm run coverage` — per-package share of public types/methods the pages mention
 
 Run `npm test` after any change under `src/`, `tests/` or `tools/`. Pure `README`/`CLAUDE.md`/skill edits need no validation.
 

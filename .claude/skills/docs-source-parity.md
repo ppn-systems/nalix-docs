@@ -14,7 +14,8 @@
 | :--- | :--- |
 | `npm run sync:check` | What changed in `ppn-systems/nalix` since `source-manifest.json`, **and does it matter to the docs?** |
 | `npm run sync:update` | Record the current Nalix commit (hashes + `source-api-index.json`). Only after the docs were fixed. |
-| `npm run audit` | Is anything in the docs wrong or missing compared with the committed API index? Runs offline. |
+| `npm run audit` | Is anything in the docs wrong or missing compared with the committed API index? Runs offline; `--live` uses the current GitHub source (the daily job does this). |
+| `npm run coverage` | Per-package percentage of public types and methods that some page mentions (`domain/coverage.py`). |
 
 `source-api-index.json` is a public-API snapshot of Nalix (types, namespaces, options + defaults, enum members, identifiers, every repo path). It is what lets the tests run without the network.
 
@@ -49,7 +50,7 @@ Hashing ignores `//`, `/* */`, `///` and formatting; literals (`"//"`, `$"{x}"`,
 
 ### Code map
 ```text
-tools/run.py                      entry point (sync-check | sync-update | audit)
+tools/run.py                      entry point (sync-check | sync-update | audit | coverage)
 tools/docsync/domain/             pure logic, no I/O
   normalize.py                    comment-free C#/XML views, content hash
   declarations.py, surface.py     type scan, member signatures, surface diff
