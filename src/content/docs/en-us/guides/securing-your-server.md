@@ -135,6 +135,8 @@ Whether this matters depends on what sits in front of the server:
 | Raw TCP without TLS (as in the samples) | Possible for handlers without `[PacketEncryption(true)]` |
 | UDP | Possible: TLS never covers UDP, so mark UDP handlers too |
 
+Plaintext UDP datagrams are only replay-checked against the 16-bit header `SequenceId`, so a captured plaintext datagram can be accepted again once that counter wraps (about 65,536 packets later). Encrypted datagrams also carry an authenticated 32-bit sequence and are not affected. Mark UDP handlers with `[PacketEncryption(true)]`, or make them safe to run twice on the same input.
+
 If you do not terminate TLS in front of Nalix, treat `[PacketEncryption(true)]` as required on anything sensitive. See [Reverse Proxy and TLS](./deployment/reverse-proxy-tls.md).
 
 ## Run it
