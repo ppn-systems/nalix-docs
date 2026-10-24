@@ -16,7 +16,11 @@
     "deploy": "wrangler pages deploy",
     "sync:check": "python3 tools/run.py sync-check",
     "sync:update": "python3 tools/run.py sync-update",
-    "audit": "python3 tools/run.py audit --baseline tools/docs-audit-baseline.json"
+    "audit": "python3 tools/run.py audit --baseline tools/docs-audit-baseline.json",
+    "coverage": "python3 tools/run.py coverage",
+    "l10n": "python3 tools/l10n.py",
+    "l10n:status": "python3 tools/l10n.py status --locale vi-vn",
+    "l10n:check": "python3 tools/l10n.py check --locale vi-vn"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.3.4",

@@ -33,8 +33,8 @@ export const LOCALE_REGISTRY: Record<LocaleCode, LocaleDefinition> = {
     htmlLang: 'vi-VN',
     ogLocale: 'vi_VN',
     dir: 'ltr',
-    // Currently ported for English ('en-us') first; flip to `true` when adding docs under `src/content/docs/vi-vn/`
-    enabled: false,
+    // Pages without a translation are served in English (see `npm run l10n:status`)
+    enabled: true,
   },
 };
 

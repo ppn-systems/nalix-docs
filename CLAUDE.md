@@ -13,7 +13,8 @@ The source of truth for every technical claim is the sibling repository [`ppn-sy
 | `src/i18n/` | Locale registry, routing helpers, UI dictionaries |
 | `src/plugins/remark-nalix-docs.ts` | Admonitions, Mermaid, locale-aware link rewriting |
 | `tests/` | Vitest gates (frontmatter, links, navigation, i18n, remark plugin, C# parity) |
-| `tools/` | Python tools (standard library only): source-sync and docs audit, with `unittest` tests in `tools/tests/` |
+| `tools/` | Python tools (standard library only): `docsync` (source-sync, docs audit, coverage) and `l10n` (translation checks), with `unittest` tests in `tools/tests/` |
+| `translations/` | Per-language glossary and the stamps (`<locale>.lock.json`) of the English text each translated page was made from |
 | `scripts/` | One-off Node migration script |
 | `.github/workflows/source-sync.yml` | Daily drift check (opens a draft PR on `bot/source-sync` only when the docs are affected) plus a daily full audit and coverage job |
 | `.github/workflows/preview.yml` | PR preview on Cloudflare Pages; path-filtered to files that change the built site |
@@ -27,13 +28,14 @@ The source of truth for every technical claim is the sibling repository [`ppn-sy
 - `npm run sync:check` / `sync:update` — classify `nalix` source changes (API / behavior / ignored) and record the synced commit
 - `npm run audit` — docs vs source API index (offline); also gated by `tools/tests/test_docs_gate.py`; `python3 tools/run.py audit --live` checks against the current GitHub source instead
 - `npm run coverage` — per-package share of public types/methods the pages mention
+- `npm run l10n:status` / `l10n:check` — translation progress / structural check of translated pages against the English ones (also gated by `tools/tests/test_l10n_gate.py`)
 
 Run `npm test` after any change under `src/`, `tests/` or `tools/`. Pure `README`/`CLAUDE.md`/skill edits need no validation.
 
 ## Global Rules
 
 - **Accuracy first:** never document an API, option, default value or behavior without reading it in `nalix/src`. If the source is not available, say so instead of guessing.
-- **English canonical:** write in `en-us`; translations never add content that `en-us` lacks.
+- **English canonical:** write in `en-us`; translations never add content that `en-us` lacks. When you change an English page, its translations become `stale` in `npm run l10n:check` until they are updated and stamped.
 - **No new npm or pip dependencies** unless explicitly requested; `tools/` uses the Python standard library only.
 - **Surgical changes:** touch only the pages the task requires; match the surrounding tone and structure.
 - **Do not rename or move pages** without updating `navigation.ts` and every inbound link (URLs are public).
@@ -47,5 +49,6 @@ Run `npm test` after any change under `src/`, `tests/` or `tools/`. Pure `README
 | [docs-structure](.claude/skills/docs-structure.md) | Adding/moving pages, `navigation.ts` sync (R8), i18n `vi-vn` |
 | [docs-source-parity](.claude/skills/docs-source-parity.md) | Source-sync tiers (🔴🟡✅⚪), audit codes A001–A010, fixing findings |
 | [docs-sync-pr](.claude/skills/docs-sync-pr.md) | Handling the `bot/source-sync` draft PR; fanning out fixes |
+| [docs-translation](.claude/skills/docs-translation.md) | Translating pages, keeping translations in step with English (`l10n` tool), adding a language |
 
 The behavioral guidelines in `nalix/CLAUDE.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) apply here too.
