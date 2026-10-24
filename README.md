@@ -76,3 +76,18 @@ The project is pre-wired for Vietnamese (`vi-vn`, with automatic alias support f
    Set `enabled: true` under `LOCALE_REGISTRY['vi-vn']`.
 3. **Verify with tests:**
    Run `npm test` to verify there are no orphaned paths, missing frontmatter fields, or broken links.
+
+---
+
+## Contributing & Writing Standards
+
+All technical content must match the Nalix source code in [`ppn-systems/nalix`](https://github.com/ppn-systems/nalix). Before contributing, read:
+
+- [`CLAUDE.md`](./CLAUDE.md) — repository layout, commands, and global rules
+- [`.claude/skills/docs-authoring.md`](./.claude/skills/docs-authoring.md) — frontmatter, Markdown rules (R6/R7/R19), callouts, code samples
+- [`.claude/skills/docs-structure.md`](./.claude/skills/docs-structure.md) — adding/moving pages, navigation sync (R8), i18n
+- [`.claude/skills/docs-source-parity.md`](./.claude/skills/docs-source-parity.md) — verifying pages against source and syncing after source changes
+
+To find pages made stale by source changes: `npm run sync:check` (needs `../nalix`), fix them, then `npm run sync:update`.
+
+Every change must pass `npm test` (and `npm run check` before release).
