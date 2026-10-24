@@ -320,6 +320,64 @@ a:hover {
   width: 22px;
   height: 22px;
   border-radius: 4px;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+}
+
+.nlx-brand > span {
+  display: inline-block;
+  transition: transform 0.25s ease, letter-spacing 0.25s ease;
+}
+
+.nlx-brand:hover .nlx-brand__logo,
+.nlx-brand:focus-visible .nlx-brand__logo {
+  transform: rotate(-8deg) scale(1.14);
+  box-shadow: 0 0 0 2px rgba(104, 176, 255, 0.35), 0 0 14px rgba(37, 132, 244, 0.45);
+}
+
+.nlx-brand:hover > span,
+.nlx-brand:focus-visible > span {
+  transform: translateX(2px);
+}
+
+.nlx-brand:active .nlx-brand__logo {
+  transform: scale(0.92);
+  transition-duration: 0.1s;
+}
+
+/* Intro, once per browser session (html[data-intro] is set by the head script) */
+@keyframes nlx-logo-in {
+  0% { opacity: 0; transform: scale(0.4) rotate(-24deg); }
+  60% { opacity: 1; transform: scale(1.15) rotate(6deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes nlx-logo-ring {
+  0% { box-shadow: 0 0 0 0 rgba(104, 176, 255, 0.55); }
+  100% { box-shadow: 0 0 0 12px rgba(104, 176, 255, 0); }
+}
+
+@keyframes nlx-brand-text-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
+html[data-intro] .nlx-brand__logo {
+  animation: nlx-logo-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both, nlx-logo-ring 0.9s ease-out 0.55s both;
+}
+
+html[data-intro] .nlx-brand > span {
+  animation: nlx-brand-text-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-intro] .nlx-brand__logo,
+  html[data-intro] .nlx-brand > span {
+    animation: none;
+  }
+  .nlx-brand:hover .nlx-brand__logo,
+  .nlx-brand:hover > span {
+    transform: none;
+  }
 }
 
 .nlx-header__vdivider {

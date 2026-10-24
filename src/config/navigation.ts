@@ -1444,6 +1444,8 @@ export interface MegaColumn {
 export interface MegaTab {
   title: string;
   sectionTitle: string;
+  /** Sections this tab stands for (it is highlighted on pages of any of them). */
+  sectionTitles: string[];
   href: string;
   columns: MegaColumn[];
 }
@@ -1462,7 +1464,7 @@ export function getMegaMenu(locale: LocaleCode): MegaTab[] {
   const t = useTranslations(locale);
   const link = (item: NavItem): MegaLink => ({ title: getNavTitle(item, locale), href: localizePath(item.slug ?? '', locale) });
 
-  return getTopLevelTabs(locale).map((tab) => {
+  const tabs = getTopLevelTabs(locale).map((tab) => {
     const section = NAVIGATION_TREE.find((node) => node.title === tab.sectionTitle);
     const children = section?.items ?? [];
     const columns: MegaColumn[] = [];
@@ -1502,6 +1504,14 @@ export function getMegaMenu(locale: LocaleCode): MegaTab[] {
         ],
       });
     }
-    return { ...tab, columns };
+    return { ...tab, sectionTitles: [tab.sectionTitle], columns };
   });
+
+  // Benchmarks has no tab of its own: its pages are a column of the Packages panel.
+  const benchmarks = tabs.find((tab) => tab.sectionTitle === 'Benchmarks');
+  const packages = tabs.find((tab) => tab.sectionTitle === 'Packages');
+  if (!benchmarks || !packages) return tabs;
+  packages.columns.push(...benchmarks.columns);
+  packages.sectionTitles.push(benchmarks.sectionTitle);
+  return tabs.filter((tab) => tab !== benchmarks);
 }

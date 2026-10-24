@@ -237,6 +237,10 @@ const jsonLdSchema = isLanding
           var saved = localStorage.getItem('nlx-theme');
           var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
           document.documentElement.setAttribute('data-theme', theme);
+          if (!sessionStorage.getItem('nlx-intro')) {
+            document.documentElement.setAttribute('data-intro', '');
+            sessionStorage.setItem('nlx-intro', '1');
+          }
           var density = localStorage.getItem('nlx-density');
           if (density === 'dense' || density === 'comfortable') document.documentElement.setAttribute('data-density', density);
         } catch (e) {}

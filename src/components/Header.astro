@@ -53,7 +53,7 @@ const currentPath = localizePath(currentSlug, locale);
 
       <nav class="nlx-topnav" aria-label={t('nav.primarySections')}>
         {topTabs.map((tab, index) => {
-          const isActive = !isLanding && activeSectionTitle === tab.sectionTitle;
+          const isActive = !isLanding && tab.sectionTitles.includes(activeSectionTitle);
           const panelId = `nlx-mega-${index}`;
           return (
             <div class="nlx-topnav__item" data-mega>
