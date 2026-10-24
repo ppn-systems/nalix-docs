@@ -12,7 +12,7 @@ package: Nalix.Network
 
 ## Source Mapping
 
-- `src/Nalix.Abstractions/Networking/IConnectionGuard.cs`
+- `src/Nalix.Abstractions/Networking/IConnection.Guard.cs`
 - `src/Nalix.Abstractions/Security/IProofOfWorkPolicy.cs`
 - `src/Nalix.Network/RateLimiting/Connection.Guard.cs`
 - `src/Nalix.Network/RateLimiting/Connection.Guard.Slot.cs`

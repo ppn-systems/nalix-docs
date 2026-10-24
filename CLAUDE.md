@@ -14,15 +14,16 @@ The source of truth for every technical claim is the sibling repository [`ppn-sy
 | `src/plugins/remark-nalix-docs.ts` | Admonitions, Mermaid, locale-aware link rewriting |
 | `tests/` | Integrity gates (frontmatter, links, navigation, i18n, C# parity) |
 | `scripts/` | Maintenance scripts (Node ESM, no extra deps) |
-| `.github/workflows/source-sync.yml` | Daily drift check; opens a draft PR on `bot/source-sync` with the report |
-| `source-manifest.json` | Hash snapshot of `nalix` source the docs were last synced to (`npm run sync:check` / `sync:update`) |
+| `.github/workflows/source-sync.yml` | Daily drift check; opens a draft PR on `bot/source-sync` only when the docs are affected |
+| `source-manifest.json`, `source-api-index.json` | Hashes + public-API snapshot of the `nalix` commit the docs were last synced to |
 
 ## Commands
 
 - `npm test` — all integrity gates (fast, run after every content change)
 - `npm run build` — Astro static build
 - `npm run check` — test + build (what CI runs)
-- `npm run sync:check` / `npm run sync:update` — detect / record `nalix` source changes (see docs-source-parity skill)
+- `npm run sync:check` / `sync:update` — classify `nalix` source changes (API / behavior / ignored) and record the synced commit
+- `npm run audit` — docs vs source API index (offline); also gated by `tests/docs-audit.test.ts`
 
 Run `npm test` after any change under `src/`, `tests/` or `scripts/`. Pure `README`/`CLAUDE.md`/skill edits need no validation.
 
@@ -41,6 +42,7 @@ Run `npm test` after any change under `src/`, `tests/` or `scripts/`. Pure `READ
 | :--- | :--- |
 | [docs-authoring](.claude/skills/docs-authoring.md) | Frontmatter, Markdown rules (R6/R7/R19), admonitions, Mermaid, code samples |
 | [docs-structure](.claude/skills/docs-structure.md) | Adding/moving pages, `navigation.ts` sync (R8), i18n `vi-vn` |
-| [docs-source-parity](.claude/skills/docs-source-parity.md) | Verifying docs against `nalix` source; keeping docs in sync with source changes |
+| [docs-source-parity](.claude/skills/docs-source-parity.md) | Source-sync tiers (🔴🟡✅⚪), audit codes A001–A010, fixing findings |
+| [docs-sync-pr](.claude/skills/docs-sync-pr.md) | Handling the `bot/source-sync` draft PR; fanning out fixes |
 
 The behavioral guidelines in `nalix/CLAUDE.md` (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) apply here too.

@@ -16,7 +16,7 @@ package: Nalix.Hosting
 - `src/Nalix.Hosting/IWebSocketBindingBuilder.cs`
 - `src/Nalix.Hosting/Internal/WebSocketBindingBuilder.cs`
 - `src/Nalix.Hosting/Internal/WebSocketServerListener.cs`
-- `src/Nalix.Network/Listeners/Web/WebSocketListenerBase.cs`
+- `src/Nalix.Network/Listeners/WebListener/WebSocketListener.Core.cs`
 - `src/Nalix.Network/Options/NetworkWebSocketOptions.cs`
 
 ## API Reference

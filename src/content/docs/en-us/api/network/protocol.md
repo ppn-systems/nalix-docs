@@ -12,7 +12,7 @@ package: Nalix.Network
 
 ## Source Mapping
 
-- `src/Nalix.Abstractions/Networking/Protocols/IProtocol.cs`
+- `src/Nalix.Abstractions/Networking/IProtocol.cs`
 - `src/Nalix.Network/Protocols/Protocol.Core.cs`
 - `src/Nalix.Network/Protocols/Protocol.PublicMethods.cs`
 - `src/Nalix.Network/Protocols/Protocol.Lifecycle.cs`

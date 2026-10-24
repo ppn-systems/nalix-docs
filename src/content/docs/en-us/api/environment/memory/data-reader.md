@@ -71,7 +71,7 @@ Because `DataReader` is a `ref struct`, it must be passed by `ref` to methods th
 
 ## LEB128 VarInt Encoding (`Nalix.Environment.Memory.Leb128`)
 
-`Leb128` (`src/Nalix.Environment/Memory/Leb128.cs`) provides branch-free, pointer-accelerated Little-Endian Base 128 (`LEB128`) variable-length integer encoding and decoding (`MaxByteCount = 5`) used by `TransportFraming.VarInt` and protocol headers:
+`Leb128` (`src/Nalix.Environment/Memory/Leb128.cs`) provides branch-free, pointer-accelerated Little-Endian Base 128 (`LEB128`) variable-length integer encoding and decoding (`MaxByteCount = 5`) used by `TransportFraming.VarIntLengthPrefixed` and protocol headers:
 
 ```csharp
 namespace Nalix.Environment.Memory;

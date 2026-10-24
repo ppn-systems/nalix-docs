@@ -93,6 +93,14 @@ Thrown when a configuration or data validation check fails. This is the AOT-safe
   ValidationException(string propertyName, object? invalidValue, string reason)
   ```
 
+## Other exception and configuration types
+
+- `BaseException` (`Nalix.Abstractions.Exceptions`): `abstract class BaseException : Exception` with protected `()`, `(string message)` and `(string message, Exception innerException)` constructors. Base type for custom Nalix exceptions (`src/Nalix.Abstractions/Exceptions/BaseException.cs`).
+- `ConcurrencyFailureException` (`Nalix.Abstractions.Exceptions`): `sealed class ConcurrencyFailureException : InternalErrorException`, thrown when a concurrency conflict is detected and the operation is rejected. Constructors: `()`, `(string message)`, `(string message, string details)`, `(string message, Exception innerException)` (`src/Nalix.Abstractions/Exceptions/ConcurrencyFailureException.cs`).
+- `ExceptionClassifier` (`Nalix.Abstractions.Exceptions`): `static class` with `bool IsNonFatal(Exception ex)`. Returns `false` for `OutOfMemoryException`, `StackOverflowException`, `AccessViolationException`, `AppDomainUnloadedException`, `BadImageFormatException`, `CannotUnloadAppDomainException` and `InvalidProgramException`, otherwise `true`; throws `ArgumentNullException` for `null` (`src/Nalix.Abstractions/Exceptions/ExceptionClassifier.cs`).
+- `ConfiguredIgnoreAttribute` (`Nalix.Abstractions`): property-only attribute `ConfiguredIgnoreAttribute(string? reason = null)` with `string Reason` (empty when omitted). Marked properties are not set when loading values from a configuration file (`src/Nalix.Abstractions/ConfiguredIgnoreAttribute.cs`).
+- `IniCommentAttribute` (`Nalix.Abstractions`): `sealed` attribute for classes (section comment) and properties (key comment), `IniCommentAttribute(string comment)` with `string Comment`; multi-line via `\n`. The constructor throws `ArgumentException` for null or whitespace text (`src/Nalix.Abstractions/IniCommentAttribute.cs`).
+
 ## Usage in Options
 
 Nalix option types use these attributes and call `ValidateDataAnnotations()` in their `Validate()` method:

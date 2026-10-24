@@ -172,7 +172,14 @@ AllowMissingOrigin = false
 [ForwardedHeaders]
 Enabled = true           ; trust X-Forwarded-For / X-Real-IP / CF-Connecting-IP
 RequireTrustedProxy = true
+ClientIpHeader = Auto    ; Auto, CfConnectingIp, XRealIp or XForwardedFor
 ```
+
+`ClientIpHeader` selects which header carries the client IP. `Auto` (the default)
+uses the first present of `CF-Connecting-IP`, `X-Real-IP`, `X-Forwarded-For`; any
+other value reads only that header and ignores the rest, so set it to the one
+header your proxy always sets (for example `XRealIp` for nginx/Caddy as
+configured above).
 
 `RequireTrustedProxy = true` means forwarded-IP headers are only honored
 from IPs listed in `trusted_proxies.txt` (`TrustedProxyOptions.StoreFileName`,
@@ -182,8 +189,8 @@ spoof `X-Forwarded-For` and bypass IP-based rate limiting.
 
 See [Trusted Proxy Options](../../api/options/network/trusted-proxy-options.md)
 for the full option reference. `ForwardedHeadersOptions` itself
-(`src/Nalix.Network/Options/ForwardedHeadersOptions.cs`) has just the two
-fields shown above: `Enabled` and `RequireTrustedProxy`.
+(`src/Nalix.Network/Options/ForwardedHeadersOptions.cs`) has three
+fields: `Enabled`, `RequireTrustedProxy` and `ClientIpHeader`.
 
 ## Checklist
 

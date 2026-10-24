@@ -24,7 +24,7 @@ To avoid heap allocations when wrapping rented byte arrays, `BufferLease` recycl
 
 ## Constants & Static Configuration
 
-- `public static readonly int StackAllocThreshold;` — Cutoff between `stackalloc` and `BufferLease.Rent` (loaded from `MemoryOptions.DataWriterStackAllocThreshold`, default `512` bytes).
+- `public static readonly int StackAllocThreshold;` — Cutoff between `stackalloc` and `BufferLease.Rent` (fixed at `512` bytes; not configurable through `MemoryOptions`).
 - `public const int TransportHeadroom = sizeof(ushort);` (`2` bytes) — Headroom constant for reserving 2 bytes at the start of rented buffers so TCP can prepend the 2-byte frame length without copying the payload.
 - `public static void Configure(IObjectPoolManager poolManager)` — Binds `BufferLease` shell pooling to an external `IObjectPoolManager`.
 - `BufferLease.ByteArrayPool` — Static helper (`Rent(int)`, `Return(byte[], bool)`, `Configure(IBufferPoolManager)`) backed by `ArrayPool<byte>.Shared` or a configured `IBufferPoolManager`.

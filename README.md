@@ -59,7 +59,10 @@ nalix-docs/
     ├── i18n.test.ts            # Guards i18n dictionaries, 'en-us'/'vi-vn' resolution, and translation parity
     ├── navigation-sync.test.ts # Guards 1:1 sync between navigation.ts and markdown files (Rule R8)
     ├── content-and-links.test.ts # Guards frontmatter, markdown rules, and 100% of internal links
-    └── remark-plugin.test.ts   # Guards AST transformations
+    ├── remark-plugin.test.ts   # Guards AST transformations
+    ├── docs-audit.test.ts      # Guards docs against the Nalix public-API index (paths, namespaces, option defaults, enums)
+    ├── drift-report.test.ts    # Guards the source-sync classifier (API / behavior / ignored)
+    └── api-index.test.ts, line-diff.test.ts, source-sync.test.ts   # C# scanner, diff and hashing
 ```
 
 ---
@@ -88,6 +91,10 @@ All technical content must match the Nalix source code in [`ppn-systems/nalix`](
 - [`.claude/skills/docs-structure.md`](./.claude/skills/docs-structure.md) — adding/moving pages, navigation sync (R8), i18n
 - [`.claude/skills/docs-source-parity.md`](./.claude/skills/docs-source-parity.md) — verifying pages against source and syncing after source changes
 
-To find pages made stale by source changes: `npm run sync:check` (reads `ppn-systems/nalix` from GitHub; comment/format-only changes are ignored), fix them, then `npm run sync:update`. The `Source Sync` workflow runs this daily and opens a draft PR on `bot/source-sync` when docs need updating.
+### Keeping docs in sync with Nalix
+
+- `npm run sync:check` reads `ppn-systems/nalix` from GitHub and classifies every change since `source-manifest.json`: 🔴 public API the docs do not show (signature diff + `page:line` pointers), 🟡 behavior changed in code a page describes, ✅ API the docs already match, ⚪ internal/cosmetic (comments and formatting are ignored) — only 🔴/🟡 need work.
+- `npm run audit` checks the docs against `source-api-index.json` (cited paths, namespaces, options tables and defaults, enum members, `Type.Member` references, undocumented public types). It also runs inside `npm test`.
+- The `Source Sync` workflow runs daily and opens one draft PR on `bot/source-sync` when the docs are affected; `npm run sync:update` records the synced commit after the pages are fixed.
 
 Every change must pass `npm test` (and `npm run check` before release).

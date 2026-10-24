@@ -11,7 +11,7 @@ package: Nalix.Framework
 
 - [**Instance Manager (DI)**](./instance-manager.md) — Lock-free service registry with 2-slot MRU `[ThreadStatic]` L1 caching, compile-time `[Injectable]` activators, greedy constructor injection (`CreateInstanceWithInjection`), and post-startup `Lockdown()`.
 - [**SingletonBase\<T\>**](./singleton-base.md) — Thread-safe generic singleton base backed by `Lazy<T>` and compile-time `SingletonActivatorCache` factories (`ReportRegistry`, `PacketRegistryFactory`, etc.).
-- **`ReportRegistry` & `ReportExtensions`** (`Nalix.Framework`, `Nalix.Framework.Extensions`) — Thread-safe diagnostic report registry (`ReportRegistry.Instance.Register<T>(CoreTelemetryTarget, instance)`, `Get<T>(key)`, `GenerateReport()`, `WriteReportData(Utf8JsonWriter)`, and `IReportable.ToJsonUtf8()` / `ToJsonString()`).
+- **`ReportRegistry` & `ReportExtensions`** (`Nalix.Framework`, `Nalix.Framework.Extensions`) — Thread-safe diagnostic report registry (`ReportRegistry.Instance.Register<T>(CoreTelemetryTarget, instance)`, `Get<T>(key)`, `GenerateReport()`, `WriteReportData(Utf8JsonWriter)`, and `IReportable.WriteReportData(Utf8JsonWriter)`).
 - **`DiagnosticsEvents` & `DiagnosticListenerFactory`** (`Nalix.Environment`, `Nalix.Codec`, `Nalix.Framework`, `Nalix.Network`, `Nalix.Runtime`) — Per-assembly `DiagnosticListener` sources (`"Environment"`, `"Codec"`, `"Framework"`, `"Network"`, `"Runtime"`) emitting structured `DiagnosticLog(Tag, Message, Exception)` payloads (with a browser-safe No-Op adapter on WebAssembly).
 
 ## Background Tasks & Identifiers

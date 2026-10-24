@@ -1,6 +1,6 @@
 ---
 title: Handshake Extensions
-description: Reference for HandshakeExtensions.HandshakeAsync in Nalix.SDK.Transport.Extensions — authenticated X25519 ECDH key exchange, TOFU/pinned Ed25519 verification, and automatic Proof-of-Work challenge solving.
+description: Reference for HandshakeExtensions.HandshakeAsync in Nalix.SDK.Transport.Extensions — authenticated X25519 ECDH key exchange, TOFU/pinned X25519 identity verification, and automatic Proof-of-Work challenge solving.
 section: API Reference
 package: Nalix.SDK
 ---
@@ -14,13 +14,13 @@ package: Nalix.SDK
 
 - `src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs`
 - `src/Nalix.SDK/Options/TransportOptions.cs`
-- `src/Nalix.Codec/ProtocolFrames/SessionInit.cs`
-- `src/Nalix.Codec/ProtocolFrames/SessionChallenge.cs`
-- `src/Nalix.Codec/ProtocolFrames/SessionProof.cs`
-- `src/Nalix.Codec/ProtocolFrames/SessionEstablished.cs`
-- `src/Nalix.Codec/ProtocolFrames/SessionTofu.cs`
-- `src/Nalix.Codec/ProtocolFrames/ProofOfWorkChallenge.cs`
-- `src/Nalix.Codec/ProtocolFrames/ProofOfWorkProof.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionInit.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionChallenge.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionProof.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionEstablished.cs`
+- `src/Nalix.Codec/ProtocolFrames/Session/SessionTofu.cs`
+- `src/Nalix.Codec/ProtocolFrames/Security/ProofOfWorkChallenge.cs`
+- `src/Nalix.Codec/ProtocolFrames/Security/ProofOfWorkProof.cs`
 
 ## Public Signature
 
@@ -86,7 +86,7 @@ When `ConnectionGuard` requires Proof-of-Work on the server, the server replies 
 
 ### 3. Ephemeral Key Zeroization & Rollback
 
-- `HandshakeAsync` sets `TransportSession.IsNegotiating = true` while running (pausing background keepalive pings) and zeroes the ephemeral X25519 private key and intermediate ECDH secrets (`CryptographicOperations.ZeroMemory`) in a `finally` block.
+- `HandshakeAsync` enters negotiation on the `TransportSession` while running (pausing background keepalive pings) and zeroes the ephemeral X25519 private key and intermediate ECDH secrets (`CryptographicOperations.ZeroMemory`) in a `finally` block.
 - Each handshake step uses `session.Options.ConnectTimeoutMillis` (or `5000` ms when `ConnectTimeoutMillis <= 0`).
 
 ## Usage Example

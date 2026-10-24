@@ -63,7 +63,7 @@ Manages the **Session Resumption** protocol.
 
 ### `SystemControlHandlers`
 
-Handles global **Control Signaling** (`ProtocolOpCode.CONTROL`).
+Handles global **Control Signaling** (`ProtocolOpCode.SYSTEM_CONTROL`).
 
 - **Heartbeats**: Responds to Ping with Pong.
 - **Utility**: Processes TimeSync requests and CipherUpdate acknowledgements.

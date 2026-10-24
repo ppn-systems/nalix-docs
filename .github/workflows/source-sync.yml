@@ -1,9 +1,10 @@
 name: "Source Sync: Nalix → Docs"
 
-# Hashes the Nalix source (comments/formatting ignored) and compares it with source-manifest.json.
-# On drift it opens — or refreshes — one draft PR on `bot/source-sync` that carries the updated
-# manifest and a report of the changed files and the pages to review. Check out that branch,
-# fix the pages, push, and merge: merging marks the docs as synced.
+# Compares the Nalix source with source-manifest.json and classifies what changed: public API the docs
+# do not show yet (red), behavior in code the docs describe (yellow), API the docs already match or
+# internal changes (ignored). Only when something needs the docs does it open — or refresh — one draft
+# PR on `bot/source-sync` carrying the updated manifest/API index and a report with signature diffs
+# and the docs lines to edit. Check out that branch, fix the pages, push, and merge.
 on:
   schedule:
     - cron: "17 1 * * *" # daily, 01:17 UTC
@@ -52,15 +53,29 @@ jobs:
         run: |
           REPORT="$RUNNER_TEMP/source-sync-report.md"
           set +e
-          node scripts/source-sync.mjs check --ref "$NALIX_REF" --report "$REPORT" --update
+          node scripts/source-sync.mjs check --ref "$NALIX_REF" --report "$REPORT" --pr-body "$RUNNER_TEMP/source-sync-pr-body.md" --update
           code=$?
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
           case "$code" in
-            0) echo "✅ Docs are in sync with Nalix source." >> "$GITHUB_STEP_SUMMARY" ;;
+            0)
+              if [ -f "$REPORT" ]; then
+                echo "✅ Nalix changed, but nothing in it affects the docs (internal changes, or API the docs already show)." >> "$GITHUB_STEP_SUMMARY"
+                cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "✅ Docs are in sync with Nalix source." >> "$GITHUB_STEP_SUMMARY"
+              fi ;;
             1) cat "$REPORT" >> "$GITHUB_STEP_SUMMARY" ;;
             *) echo "::error::source-sync failed (exit $code) — see the log above."; exit "$code" ;;
           esac
+
+      - name: Audit docs against the new source
+        if: steps.check.outputs.code == '1'
+        run: |
+          # source-api-index.json was just regenerated for the new commit; findings are informational here.
+          node scripts/docs-audit.mjs --baseline tests/fixtures/docs-audit-baseline.json --markdown "$RUNNER_TEMP/audit.md" || true
+          cat "$RUNNER_TEMP/audit.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/audit.md" >> "$RUNNER_TEMP/source-sync-report.md"
 
       - name: Upload full report
         if: steps.check.outputs.code == '1'
@@ -77,7 +92,8 @@ jobs:
           git config user.name "$BOT_NAME"
           git config user.email "$BOT_EMAIL"
           commit=$(node -p "require('./source-manifest.json').nalixCommit")
-          cp source-manifest.json "$RUNNER_TEMP/manifest.json"
+          mkdir -p "$RUNNER_TEMP/snapshot"
+          cp source-manifest.json source-api-index.json "$RUNNER_TEMP/snapshot/"
 
           pr=$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
 
@@ -92,30 +108,28 @@ jobs:
           if [ -n "$pr" ] && [ "$human" -gt 0 ]; then
             echo "Branch has $human human commit(s): adding the manifest update on top (no force-push)."
             git switch -C "$BRANCH" "origin/$BRANCH"
-            cp "$RUNNER_TEMP/manifest.json" source-manifest.json
-            if ! git diff --quiet -- source-manifest.json; then
-              git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}" -- source-manifest.json
+            cp "$RUNNER_TEMP/snapshot/source-manifest.json" "$RUNNER_TEMP/snapshot/source-api-index.json" .
+            git add source-manifest.json source-api-index.json
+            if ! git diff --cached --quiet; then
+              git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}"
               git push origin "$BRANCH"
             fi
           else
             git switch -C "$BRANCH" "origin/$BASE"
-            cp "$RUNNER_TEMP/manifest.json" source-manifest.json
-            git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}" -- source-manifest.json
+            cp "$RUNNER_TEMP/snapshot/source-manifest.json" "$RUNNER_TEMP/snapshot/source-api-index.json" .
+            git add source-manifest.json source-api-index.json
+            git commit -m "chore(source-sync): bump manifest to nalix ${commit:0:7}"
             git push --force origin "$BRANCH"
           fi
 
           {
-            echo "> Automated by \`.github/workflows/source-sync.yml\`. Check out \`$BRANCH\`, update the pages below, push, and mark ready for review. Merging records nalix \`${commit:0:7}\` as synced."
+            echo "> Automated by \`.github/workflows/source-sync.yml\`. Check out \`$BRANCH\`, update the pages below, push, and mark ready for review. Merging records nalix \`${commit:0:7}\` as synced. Changes that do not affect the docs are not listed."
             echo
-            cat "$REPORT"
+            cat "$RUNNER_TEMP/source-sync-pr-body.md"
+            if [ -s "$RUNNER_TEMP/audit.md" ]; then echo; head -c 4000 "$RUNNER_TEMP/audit.md"; fi
           } > "$RUNNER_TEMP/body.md"
-          # GitHub caps PR bodies at 65536 characters; the full report is in the job summary and artifact.
-          if [ "$(wc -c < "$RUNNER_TEMP/body.md")" -gt 60000 ]; then
-            head -c 60000 "$RUNNER_TEMP/body.md" > "$RUNNER_TEMP/body.trim.md"
-            printf '\n\n…_Report truncated — see the workflow run summary or the `source-sync-report` artifact: %s_\n' \
-              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> "$RUNNER_TEMP/body.trim.md"
-            mv "$RUNNER_TEMP/body.trim.md" "$RUNNER_TEMP/body.md"
-          fi
+          # GitHub caps PR bodies at 65,536 characters (the report is already capped; this is a final guard).
+          if [ "$(wc -c < "$RUNNER_TEMP/body.md")" -gt 64000 ]; then head -c 64000 "$RUNNER_TEMP/body.md" > "$RUNNER_TEMP/body.trim.md"; mv "$RUNNER_TEMP/body.trim.md" "$RUNNER_TEMP/body.md"; fi
 
           title="docs: sync with nalix ${commit:0:7}"
           if [ -n "$pr" ]; then

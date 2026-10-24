@@ -33,8 +33,8 @@ or explore the [Guides](../guides/index.md) first.
 - `src/Nalix.Hosting`
 - `src/Nalix.SDK`
 - `analyzers/Nalix.Analyzers`
-- `analyzers/Nalix.Analyzers.CodeFix`
-- `analyzers/Nalix.Analyzers.CodeGen`
+- `analyzers/Nalix.Analyzers.CodeFixes`
+- `analyzers/Nalix.Analyzers.Generators`
 
 ## Why This Structure Exists
 

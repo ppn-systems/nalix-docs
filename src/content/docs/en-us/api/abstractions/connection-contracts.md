@@ -85,6 +85,10 @@ Implemented by `Connection`, `WebSocketConnection`, and `PassthroughConnection` 
 | `IncrementBytesReceived(int bytes)` | `void` | Atomically adds `bytes` to `BytesReceived`. |
 | `IncrementPacketsDropped()` | `void` | Atomically increments `PacketsDropped`. |
 
+## `ConnectionSequenceState`
+
+`public sealed class ConnectionSequenceState` (`Nalix.Abstractions.Networking`, `src/Nalix.Abstractions/Networking/ConnectionSequenceState.cs`) is a pooled holder of per-connection sequence numbers used for session resume. Properties (`uint`, get/set): `TcpSendSequence`, `TcpReceiveSequence`, `UdpSendSequence`, `UdpReceiveSequence`. `ResetForPool()` sets all four to `0`.
+
 ## `IConnectionHub`
 
 `public interface IConnectionHub : IReportable, IDisposable` is the sharded, thread-safe registry of all active server connections:

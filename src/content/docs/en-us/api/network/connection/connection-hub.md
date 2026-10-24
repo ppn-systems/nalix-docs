@@ -12,8 +12,8 @@ package: Nalix.Network
 
 ## Source Mapping
 
-- `src/Nalix.Abstractions/Networking/IConnectionHub.cs`
-- `src/Nalix.Abstractions/Networking/IConnectionBroadcaster.cs`
+- `src/Nalix.Abstractions/Networking/IConnection.Hub.cs`
+- `src/Nalix.Abstractions/Networking/IConnection.Broadcaster.cs`
 - `src/Nalix.Abstractions/Networking/IConnectionSender.cs`
 - `src/Nalix.Abstractions/Networking/IConnectionGroupRegistry.cs`
 - `src/Nalix.Network/Connections/ConnectionHub.cs`

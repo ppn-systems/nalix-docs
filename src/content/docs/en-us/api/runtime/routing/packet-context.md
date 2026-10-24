@@ -55,6 +55,14 @@ stateDiagram-v2
 2. **Never Store `IPacketContext<TPacket>` Beyond Handler Scope**: Because the context, its `Packet`, and its `Scope` are recycled as soon as the handler's `ValueTask`/`Task` completes, never capture `context` or `context.Packet` in background tasks or static fields (enforced by analyzer **`NALIX076`**).
 3. **Idempotent Return**: `Dispose()` and `DisposeAsync()` transition `_state` atomically from `InUse` to `Returned` via `Interlocked.Exchange`, preventing double-return bugs.
 
+## `PacketContextBridge`
+
+`PacketContextBridge` (`public static class PacketContextBridge`, `src/Nalix.Runtime/Dispatching/PacketContextBridge.cs`) lets a handler that expects a concrete packet type run from a pipeline typed on a base packet type, without reflection.
+
+- `Create<TConcrete, TBase>(PacketContext<TBase> baseContext, TConcrete concretePacket)` rents a `PacketContext<TConcrete>` from `ObjectPoolManager.Shared` and initializes it with the base context's connection, attributes, `IsReliable`, `EncryptedOnWire`, `CancellationToken` and `Scope`. It uses `ownsPacket: false`, so the base context keeps ownership of the packet.
+- `Return<TConcrete>(PacketContext<TConcrete> bridgeContext)` disposes the bridge context back to the pool without disposing the borrowed packet.
+- `WrapStream<TConcrete, TChunk>(IAsyncEnumerable<TChunk> source, PacketContext<TConcrete> bridgeContext)` keeps the bridge context rented until the stream is fully consumed or its enumerator is disposed, so a streaming handler does not read a context that was already returned to the pool.
+
 ## Related APIs
 
 - [Packet Sender (PacketSender)](./packet-sender.md)

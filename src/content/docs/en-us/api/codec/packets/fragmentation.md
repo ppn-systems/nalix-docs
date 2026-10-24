@@ -54,8 +54,8 @@ header.WriteTo(buffer);
 
 ### Key Behavior & Safety Limits
 
-- **Bounded Concurrent Streams**: Caps concurrent in-flight streams per connection via `MaxOpenStreams` (default `64`).
-- **Bounded Per-Stream Memory**: Rejects/evicts streams whose total reassembled size exceeds `MaxStreamBytes` (`FragmentOptions.MaxReassemblyBytes`, default `16 MB`).
+- **Bounded Concurrent Streams**: Caps concurrent in-flight streams per connection via `MaxOpenStreams` (default `64`). When the limit is reached, expired streams are evicted first; a new stream is rejected only if none could be evicted.
+- **Bounded Per-Stream Memory**: Rejects/evicts streams whose total reassembled size exceeds `MaxStreamBytes` (`FragmentOptions.MaxReassemblyBytes`, default `16 MB`). A first chunk larger than `MaxStreamBytes` is rejected (`streamEvicted = true`).
 - **Sequential Chunk Enforcement**: A stream only opens on `ChunkIndex == 0`, and subsequent chunks must arrive in order (`ChunkIndex == expectedIndex`).
 - **Timeout Eviction**: `EvictExpired()` returns the `int` count of evicted streams older than `StreamTimeoutMs` (`FragmentOptions.ReassemblyTimeoutMs`, default `30_000` ms) and releases their pooled leases.
 
@@ -87,7 +87,7 @@ Loaded from the `[Fragment]` section of `server.ini` via `ConfigurationManager.I
 | Property | Type | Default | Validation | Description |
 | --- | --- | ---: | --- | --- |
 | `MaxPayloadSize` | `int` | `16_777_216` (16 MB) | `[ValueRange(1, int.MaxValue)]` | Maximum total payload size that may be split into fragments. |
-| `MaxChunkSize` | `int` | `32_000` | `[ValueRange(4096, 65000)]` | Maximum payload bytes per chunk (`MaxChunkSize + FragmentHeader.WireSize <= PacketConstants.PacketSizeLimit`). |
+| `MaxChunkSize` | `int` | `32_000` | `[ValueRange(4096, 65000)]` | Maximum payload bytes per chunk (`PacketConstants.HeaderSize + FragmentHeader.WireSize + MaxChunkSize` must not exceed `ushort.MaxValue`). |
 | `MaxReassemblyBytes` | `int` | `16_777_216` (16 MB) | `[ValueRange(1, int.MaxValue)]` | Maximum reassembly bytes allowed per stream (`MaxReassemblyBytes >= MaxPayloadSize`). |
 | `ReassemblyTimeoutMs` | `long` | `30_000` | `[ValueRange(100, 3600000)]` | Milliseconds before an incomplete fragment stream is evicted. |
 | `MinReceiveBufferSize` | `int` | `4096` | `[ValueRange(1024, int.MaxValue)]` | Minimum receive buffer size in bytes. |

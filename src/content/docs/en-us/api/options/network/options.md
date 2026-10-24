@@ -79,7 +79,7 @@ flowchart LR
 
 ## VarInt Framing Configuration (`VarIntFramingOptions`)
 
-`VarIntFramingOptions` (`src/Nalix.Network/Options/VarIntFramingOptions.cs`) maps to the `[VarIntFraming]` section in `default.ini` and configures maximum frame size for protocols using LEB128 VarInt length-prefixed framing (`TransportFraming.VarInt`, such as Minecraft-compatible streams):
+`VarIntFramingOptions` (`src/Nalix.Network/Options/VarIntFramingOptions.cs`) maps to the `[VarIntFraming]` section in `default.ini` and configures maximum frame size for protocols using LEB128 VarInt length-prefixed framing (`TransportFraming.VarIntLengthPrefixed`, such as Minecraft-compatible streams):
 
 | Property | Type | Default | Description |
 | :--- | :--- | ---: | :--- |

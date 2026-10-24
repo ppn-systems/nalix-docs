@@ -51,11 +51,11 @@ sequenceDiagram
 
 1. **Handshake Timeout Sweeper**: When `Activate()` is called, `WebSocketListenerBase` schedules a 1-second recurring task (`TaskManager.ScheduleRecurring`) that sweeps stalled HTTP upgrade contexts exceeding `NetworkWebSocketOptions.HandshakeTimeoutMs` (`5000` ms default), closing their sockets outside the lock and releasing their `ConnectionGuard` slots.
 2. **Built-In DevOps HTTP Endpoints**: When `NetworkWebSocketOptions.EnableDevOpsEndpoints = true` (default), the listener registers zero-allocation HTTP `GET` handlers on the same port:
-   - `/healthz`, `/health`, `/livez`, `/readyz`, `/startupz`, `/ping` $\rightarrow$ `200 OK` (`OK`)
+   - `/healthz`, `/health`, `/livez`, `/readyz`, `/startupz`, `/ping` $\rightarrow$ `200 OK` (`Healthy`)
    - `/version` $\rightarrow$ `200 OK` JSON (`{"name":"Nalix","version":"1.0.0","status":"running"}`)
    - `/metrics` $\rightarrow$ `200 OK` Prometheus text format (`nalix_active_connections`)
 3. **CSWSH Origin Enforcement**: Validates the `Origin` header via `NetworkWebSocketOptions.IsOriginAllowed(origin)` before sending `101 Switching Protocols`. Rejected requests receive `HTTP/1.1 403 Forbidden` and close immediately.
-4. **L7 Forwarded Headers (`ForwardedHeadersOptions`)**: When `ForwardedHeadersOptions.Enabled = true`, extracts the real client IP from `CF-Connecting-IP` or `X-Forwarded-For` (enforcing `TrustedProxyOptions` when `RequireTrustedProxy = true`) and transfers the `ConnectionGuard` slot from the proxy IP to the real client IP.
+4. **L7 Forwarded Headers (`ForwardedHeadersOptions`)**: When `ForwardedHeadersOptions.Enabled = true`, extracts the real client IP from `CF-Connecting-IP`, `X-Real-IP` or `X-Forwarded-For` (selected by `ForwardedHeadersOptions.ClientIpHeader`, default `Auto`) (enforcing `TrustedProxyOptions` when `RequireTrustedProxy = true`) and transfers the `ConnectionGuard` slot from the proxy IP to the real client IP.
 
 ---
 

@@ -15,7 +15,7 @@ When building high-concurrency networked systems, you need to know exactly what 
 - `src/Nalix.Runtime/Internal/Routing/DispatchChannel.cs`
 - `src/Nalix.Runtime/Dispatching/PacketDispatchChannel.cs`
 - `src/Nalix.Runtime/Dispatching/PacketDispatcherBase.cs`
-- `src/Nalix.Abstractions/Networking/IConnectionErrorTracked.cs`
+- `src/Nalix.Abstractions/Networking/IConnection.ErrorTracked.cs`
 - `tests/Nalix.Framework.Tests/Memory/BufferPoolTests.cs`
 
 ## What the runtime guarantees
@@ -121,6 +121,6 @@ Regardless of success or failure, cleanup is guaranteed: every `BufferLease` is 
 | Worker Loop | `src/Nalix.Runtime/Dispatching/PacketDispatchChannel.cs` | Fault isolation & buffer cleanup |
 | ErrorHandler | `src/Nalix.Runtime/Dispatching/PacketDispatcherBase.cs` | Handler exception wrap, client FAIL/INVALID signaling |
 | Pools | `tests/Nalix.Framework.Tests/Memory/BufferPoolTests.cs` | Buffer integrity |
-| `ErrorCount` contract | `src/Nalix.Abstractions/Networking/IConnectionErrorTracked.cs` | Per-connection error signal |
+| `ErrorCount` contract | `src/Nalix.Abstractions/Networking/IConnection.ErrorTracked.cs` | Per-connection error signal |
 
 If your production requirements demand sub-millisecond latency, guaranteed per-connection packet order, and resilience against handler faults, this is the model Nalix is built around.

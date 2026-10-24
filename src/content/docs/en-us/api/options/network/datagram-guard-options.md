@@ -57,6 +57,7 @@ flowchart LR
 | `CleanupInterval` | `00:01:00` | `00:00:01..01:00:00` | Delay between stale-window eviction passes. |
 | `IdleTimeout` | `00:00:10` | `00:00:01..01:00:00` | Inactive source-window retention before eviction. |
 | `FailOpenWhenFull` | `false` | Boolean | When `true`, allows packets through when the tracking map is full, preventing legitimate-user lockout during spoofed-source floods. When `false` (default), the guard rejects incoming packets when the map is full (fail-closed). |
+| `UdpReplayWindowSize` | `512` | `64..65536` | Bit-size of the UDP replay-protection sliding window; larger windows use more memory but tolerate more out-of-order arrival. |
 
 `Validate()` runs DataAnnotation validation and throws `ValidationException` when constraints are violated.
 

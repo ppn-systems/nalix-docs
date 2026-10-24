@@ -13,13 +13,8 @@ package: Nalix.Analyzers
 - `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs` (8 source-generator descriptors)
 - `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.cs`
 - `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.SymbolSet.cs`
-- `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.CompilationSummary.cs`
 - `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.InvocationAnalysis.cs`
-- `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.TypeDeclarationAnalysis.cs`
-- `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.ResourceLifecycleAnalysis.cs`
-- `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.CodeQualityAnalysis.cs`
-- `analyzers/Nalix.Analyzers/Analyzers/PacketContextEscapeAnalyzer.cs`
-- `analyzers/Nalix.Analyzers/Analyzers/PacketScopeMustDisposeAnalyzer.cs`
+- `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.RpcService.cs`
 - `analyzers/Nalix.Analyzers.CodeFixes/*.cs` (16 code fix providers)
 - `analyzers/Nalix.Analyzers.Generators/*.cs` (7 incremental source generators)
 

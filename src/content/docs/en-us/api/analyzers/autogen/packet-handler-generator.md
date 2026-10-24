@@ -45,6 +45,8 @@ Handler methods must always take `IPacketContext<TPacket>` as their first parame
 - `ValueTask<TResult>`
 - `IAsyncEnumerable<TElement>` (server-to-client streaming responses)
 
+Internally the generator classifies each handler's return type into the public enum `Nalix.Analyzers.Generators.HandlerReturnKind` (`Void`, `NonGenericValueTask`, `GenericValueTask`, `NonGenericTask`, `GenericTask`, `AsyncEnumerable`, `SyncValue`), exposed as `HandlerMethodModel.ReturnKind`, and emits a different dispatch body for each kind. It is a generator implementation detail, not an API you call.
+
 ## Example
 
 ```csharp

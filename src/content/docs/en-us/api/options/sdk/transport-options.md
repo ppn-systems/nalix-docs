@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Options`  
 **Assembly:** `Nalix.SDK`
 
-`TransportOptions` (`public sealed partial class TransportOptions : ConfigurationLoader`) configures client-side connectivity, socket buffers, AEAD cipher suite, LZ4 compression, Ed25519 server key pinning / Trust-On-First-Use (TOFU), 0-RTT session resumption, `ReconnectSupervisor` backoff, keepalive probing, and clock synchronization across [TcpSession](../../sdk/tcp-session.md), [UdpSession](../../sdk/udp-session.md), and [WebSocketSession](../../sdk/websocket-session.md).
+`TransportOptions` (`public sealed partial class TransportOptions : ConfigurationLoader`) configures client-side connectivity, socket buffers, AEAD cipher suite, LZ4 compression, X25519 server key pinning / Trust-On-First-Use (TOFU), 0-RTT session resumption, `ReconnectSupervisor` backoff, keepalive probing, and clock synchronization across [TcpSession](../../sdk/tcp-session.md), [UdpSession](../../sdk/udp-session.md), and [WebSocketSession](../../sdk/websocket-session.md).
 
 ## Source Mapping
 

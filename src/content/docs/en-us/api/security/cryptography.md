@@ -13,7 +13,6 @@ package: Nalix.Codec
 ## Source Mapping
 
 - `src/Nalix.Codec/Security/Asymmetric/X25519.cs`
-- `src/Nalix.Codec/Security/Asymmetric/Ed25519.cs`
 - `src/Nalix.Codec/Security/Hashing/Keccak256.cs`
 - `src/Nalix.Codec/Security/Hashing/HmacKeccak256.cs`
 - `src/Nalix.Codec/Security/Hashing/Poly1305.cs`
@@ -44,7 +43,7 @@ package: Nalix.Codec
 
 ## Quick Guidance
 
-- Use **`X25519`** (`Nalix.Codec.Security.Asymmetric.X25519`), **`Ed25519`** (`GetPublicKey`, `Sign`, `Verify`), and **`HandshakeX25519`** for Noise-style ephemeral + static key agreement and digital signatures.
+- Use **`X25519`** (`Nalix.Codec.Security.Asymmetric.X25519`), and **`HandshakeX25519`** for Noise-style ephemeral + static key agreement.
 - Use **`Keccak256.HashDataToFixed(ReadOnlySpan<byte>)`** when you want a zero-allocation `Bytes32` digest on the stack.
 - Use **`EnvelopeCipher`** (`Encrypt`, `Decrypt`, `TryDecrypt`) for transport-facing frame encryption and authentication.
 - Use **`Pbkdf2`** (configured via `SecurityOptions.Pbkdf2Iterations` or `Pbkdf2.Iterations`: `150_000` Release / `10_000` Debug) for password/credential hashing.
