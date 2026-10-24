@@ -2065,6 +2065,14 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
 }
 
+.nlx-hero-results {
+  scrollbar-width: none; /* still scrolls with the wheel and the arrow keys */
+}
+
+.nlx-hero-results::-webkit-scrollbar {
+  display: none;
+}
+
 .nlx-hero-results[hidden] {
   display: none;
 }
