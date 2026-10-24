@@ -237,6 +237,8 @@ const jsonLdSchema = isLanding
           var saved = localStorage.getItem('nlx-theme');
           var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
           document.documentElement.setAttribute('data-theme', theme);
+          var density = localStorage.getItem('nlx-density');
+          if (density === 'dense' || density === 'comfortable') document.documentElement.setAttribute('data-density', density);
         } catch (e) {}
       })();
     </script>
@@ -400,13 +402,43 @@ const jsonLdSchema = isLanding
           renderMermaidDiagrams();
         });
 
+        const densitySwitcher = document.getElementById('nlx-density-switcher');
+        const densityOptions = Array.from(document.querySelectorAll<HTMLElement>('.nlx-density-option'));
+        const syncDensity = () => {
+          const current = document.documentElement.getAttribute('data-density') || 'normal';
+          densityOptions.forEach((option) => {
+            const active = option.dataset.density === current;
+            option.classList.toggle('is-active', active);
+            option.setAttribute('aria-checked', String(active));
+          });
+        };
+        syncDensity();
+        document.getElementById('nlx-density-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          document.getElementById('nlx-lang-switcher')?.classList.remove('is-open');
+          densitySwitcher?.classList.toggle('is-open');
+        });
+        densityOptions.forEach((option) =>
+          option.addEventListener('click', () => {
+            const value = option.dataset.density || 'normal';
+            if (value === 'normal') document.documentElement.removeAttribute('data-density');
+            else document.documentElement.setAttribute('data-density', value);
+            try {
+              localStorage.setItem('nlx-density', value);
+            } catch {}
+            syncDensity();
+          })
+        );
+
         const langSwitcher = document.getElementById('nlx-lang-switcher');
         const langBtn = document.getElementById('nlx-lang-btn');
         langBtn?.addEventListener('click', (e) => {
           e.stopPropagation();
+          densitySwitcher?.classList.remove('is-open');
           langSwitcher?.classList.toggle('is-open');
         });
         document.addEventListener('click', () => {
+          densitySwitcher?.classList.remove('is-open');
           langSwitcher?.classList.remove('is-open');
         });
 

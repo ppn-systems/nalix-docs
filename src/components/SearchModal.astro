@@ -49,29 +49,9 @@ const t = useTranslations(locale);
 </div>
 
 <script>
-  interface SearchItem {
-    title: string;
-    description: string;
-    section: string;
-    pkg?: string;
-    url: string;
-    locale: string;
-    headings: string[];
-  }
+  import { loadSearchIndex, searchPages, type SearchItem } from '../scripts/search';
 
-  let cachedIndex: SearchItem[] | null = null;
   let selectedIdx = 0;
-
-  async function loadSearchIndex(): Promise<SearchItem[]> {
-    if (cachedIndex) return cachedIndex;
-    try {
-      const res = await fetch('/search-index.json');
-      cachedIndex = await res.json();
-      return cachedIndex || [];
-    } catch {
-      return [];
-    }
-  }
 
   function initSpotlightSearch() {
     const backdrop = document.getElementById('nlx-search-backdrop');
@@ -142,39 +122,7 @@ const t = useTranslations(locale);
     });
 
     input.addEventListener('input', async () => {
-      const q = input.value.trim().toLowerCase();
-      const all = (await loadSearchIndex()).filter((i) => i.locale === currentLocale);
-      if (!q) {
-        renderItems(all.slice(0, 8));
-        return;
-      }
-
-      const terms = q.split(/\s+/).filter(Boolean);
-      const scored = all
-        .map((item) => {
-          let score = 0;
-          const tLower = item.title.toLowerCase();
-          const dLower = item.description.toLowerCase();
-          const hLower = item.headings.join(' ').toLowerCase();
-          const pLower = (item.pkg || '').toLowerCase();
-
-          for (const term of terms) {
-            if (tLower === term) score += 100;
-            else if (tLower.startsWith(term)) score += 60;
-            else if (tLower.includes(term)) score += 40;
-
-            if (pLower.includes(term)) score += 25;
-            if (hLower.includes(term)) score += 20;
-            if (dLower.includes(term)) score += 10;
-          }
-          return { item, score };
-        })
-        .filter((entry) => entry.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 12)
-        .map((entry) => entry.item);
-
-      renderItems(scored);
+      renderItems(await searchPages(input.value, currentLocale, 12));
     });
 
     input.addEventListener('keydown', (e) => {

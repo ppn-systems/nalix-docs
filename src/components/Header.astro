@@ -142,6 +142,29 @@ const currentPath = localizePath(currentSlug, locale);
         </svg>
       </button>
 
+      <!-- Text density -->
+      <div class="nlx-lang-switcher" id="nlx-density-switcher">
+        <button
+          type="button"
+          class="nlx-icon-btn nlx-density-btn"
+          id="nlx-density-btn"
+          aria-label={t('nav.density')}
+          title={t('nav.density')}
+          aria-haspopup="true"
+          aria-expanded="false"
+        >
+          <span aria-hidden="true">Aa</span>
+        </button>
+
+        <div class="nlx-lang-menu" role="menu">
+          {(['dense', 'normal', 'comfortable'] as const).map((value) => (
+            <button type="button" class="nlx-lang-option nlx-density-option" role="menuitemradio" aria-checked="false" data-density={value}>
+              <span>{t(`density.${value}`)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <!-- Locale Switcher -->
       <div class="nlx-lang-switcher" id="nlx-lang-switcher">
         <button

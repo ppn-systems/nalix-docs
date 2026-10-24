@@ -1476,12 +1476,18 @@ export function getMegaMenu(locale: LocaleCode): MegaTab[] {
       const pages = leafPages(group.items ?? []);
       if (!pages.length) continue;
       const first = link(pages[0]);
+      // Direct children only: a sub-group is one line named after the sub-group, so
+      // identical page titles ("Overview") of nested groups never repeat in a column.
+      const entries = (group.items ?? []).flatMap((child): MegaLink[] => {
+        const target = child.items ? leafPages(child.items)[0] : child;
+        return target?.slug === undefined ? [] : [{ title: getNavTitle(child, locale), href: link(target).href }];
+      });
       columns.push({
         title: getNavTitle(group, locale),
         href: first.href,
-        links: pages.slice(0, MEGA_MAX_LINKS_PER_COLUMN).map(link),
+        links: entries.slice(0, MEGA_MAX_LINKS_PER_COLUMN),
         more:
-          pages.length > MEGA_MAX_LINKS_PER_COLUMN
+          entries.length > MEGA_MAX_LINKS_PER_COLUMN || pages.length > entries.length
             ? { title: t('nav.allPages').replace('{count}', String(pages.length)), href: first.href }
             : undefined,
       });
