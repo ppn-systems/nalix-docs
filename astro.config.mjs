@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import { unified } from '@astrojs/markdown-remark';
 import remarkGfm from 'remark-gfm';
 import remarkDirective from 'remark-directive';
 import rehypeSlug from 'rehype-slug';
@@ -25,29 +26,31 @@ export default defineConfig({
     },
   },
   markdown: {
-    remarkPlugins: [
-      remarkGfm,
-      remarkDirective,
-      remarkNalixDocs,
-    ],
-    rehypePlugins: [
-      rehypeSlug,
-      [
-        rehypeAutolinkHeadings,
-        {
-          behavior: 'append',
-          properties: {
-            className: ['nlx-heading-anchor'],
-            ariaHidden: 'true',
-            tabIndex: -1,
-          },
-          content: {
-            type: 'text',
-            value: '#',
-          },
-        },
+    processor: unified({
+      remarkPlugins: [
+        remarkGfm,
+        remarkDirective,
+        remarkNalixDocs,
       ],
-    ],
+      rehypePlugins: [
+        rehypeSlug,
+        [
+          rehypeAutolinkHeadings,
+          {
+            behavior: 'append',
+            properties: {
+              className: ['nlx-heading-anchor'],
+              ariaHidden: 'true',
+              tabIndex: -1,
+            },
+            content: {
+              type: 'text',
+              value: '#',
+            },
+          },
+        ],
+      ],
+    }),
     shikiConfig: {
       themes: {
         light: 'github-light-default',
