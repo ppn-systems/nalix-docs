@@ -8,9 +8,14 @@ class LineDiff(unittest.TestCase):
         a = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n"
         b = "a\nb\nC\nd\ne\nf\ng\nh\nj\nk\n"
         d = unified_diff(a, b, context=1)
-        self.assertEqual(d.text, " b\n-c\n+C\n d\n@@\n h\n-i\n j\n+k")
+        self.assertEqual(d.text, "@@ -2 +2 @@\n b\n-c\n+C\n d\n@@ -8 +8 @@\n h\n-i\n j\n+k")
         self.assertEqual((d.added, d.removed), (2, 2))
         self.assertEqual(d.changed, ("c", "C", "i", "k"))
+
+    def test_hunk_headers_carry_the_original_line_numbers_of_both_sides(self):
+        d = unified_diff("a\n\nb\nc\nd\n", "a\nb\nC\nd\n", context=1)
+        self.assertEqual(d.text.split("\n")[0], "@@ -3 +2 @@")  # the blank line counts on the old side only
+        self.assertEqual(d.first_new_line, 2)
 
     def test_blank_lines_and_trailing_whitespace_are_ignored(self):
         self.assertEqual(unified_diff("a  \n\nb\n", "a\nb\n").text, "")

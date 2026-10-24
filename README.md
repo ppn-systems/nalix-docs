@@ -75,9 +75,11 @@ npm run sync:update   # record the current Nalix commit as synced (after fixing 
 
 `sync:check` ignores changes that do not affect the docs: comments, formatting and method bodies are not compared. Each remaining change is reported as one of
 
-- **API change the docs do not show**: a signature diff and the docs lines that mention the changed members,
+- **API change the docs do not show**: a signature diff with source line numbers,
 - **behavior change in code a page describes**: a line diff to review, which may need no edit,
 - **already documented** or **internal**: nothing to do.
+
+The report starts with an edit plan grouped by page: for each page the docs lines to change, what they say now, the old and new signature, and the source line to read. `--plan plan.json` writes the same plan as JSON so each page can be handed to one person or one agent.
 
 `source-manifest.json` (file hashes) and `source-api-index.json` (public API snapshot) record the Nalix commit the docs match. `npm test` runs the audit against that snapshot, so the docs cannot drift from it unnoticed. Findings that are intentionally accepted are listed with a reason in `tools/docs-audit-baseline.json`.
 

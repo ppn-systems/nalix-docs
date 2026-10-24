@@ -68,7 +68,47 @@ public enum Kind : byte
         self.assertEqual(index["files"], ["README.md", "src/A.cs"])
 
 
+class SourceLines(unittest.TestCase):
+    SRC = """namespace N;
+/* a
+ b */
+public sealed class A
+{
+    // c
+    [Obsolete("x")]
+    public int Count { get; set; } = 5;
+
+    #region r
+    public void Run() { }
+}
+public enum E
+{
+    #region x
+    A = 1,
+    [Obsolete]
+    B = 2,
+}
+"""
+
+    def test_every_signature_knows_its_line_in_the_original_file(self):
+        lines = {m.signature: m.line for m in file_surface("src/A.cs", self.SRC)}
+        self.assertEqual(lines["<sealed class>"], 4)
+        self.assertEqual(lines["public int Count {get;set;} = 5"], 8)  # past the attribute, comments and blank lines
+        self.assertEqual(lines["public void Run()"], 11)  # past the #region line
+        self.assertEqual((lines["<enum>"], lines["A = 1"]), (13, 16))
+
+    def test_the_line_is_not_part_of_a_members_identity(self):
+        moved = "\n\n\n" + self.SRC
+        self.assertFalse(diff_surfaces(file_surface("src/A.cs", self.SRC), file_surface("src/A.cs", moved)))
+
+
 class MemberSignatures(unittest.TestCase):
+    def test_async_and_non_visible_accessibility_are_not_part_of_the_contract(self):
+        before = file_surface("src/A.cs", "namespace N; public class A { public async Task Go() { } private protected void Hook() { } }")
+        after = file_surface("src/A.cs", "namespace N; public class A { public Task Go() { } }")
+        self.assertEqual([m.signature for m in before], ["<class>", "public Task Go()"])
+        self.assertFalse(diff_surfaces(before, after))
+
     def test_accessors_and_defaults_are_kept_but_method_bodies_are_not(self):
         sigs = surface("""namespace N;
 public sealed class A

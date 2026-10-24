@@ -1,5 +1,5 @@
 {
-  "nalixCommit": "eae1ecf2e7b5a711c60591e4fe15677eb06346cf",
+  "nalixCommit": "21ad820e210f561bccd016f7834968eafd2a49e0",
   "files": {
     "analyzers/Nalix.Analyzers.CodeFixes/ConfigurationIgnoreCodeFixProvider.cs": "43c4205e2b520dda210192844342e84dcfd6a246dd91c784d6225485efa2b495",
     "analyzers/Nalix.Analyzers.CodeFixes/DispatchLoopCountCodeFixProvider.cs": "8990191b6b7b168664360cfa7f658c4888e5a8987a057c6016a01140cc043087",
@@ -572,14 +572,14 @@
     "src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs": "fc9b484fb79683c2c64d7d4dd27ebd71e22206e35695434d316cc46f62c76116",
     "src/Nalix.SDK/Transport/Extensions/DisconnectExtensions.cs": "bd5f9e168e52d03fe19d540250281723d1e7e84b814ce1dd6c95cc6cc7b7feb4",
     "src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs": "7682dcce513f0be3a6d2ae32e7793868e80b20673e1e5013b1aad012c5905a82",
-    "src/Nalix.SDK/Transport/Extensions/HeaderStreamExtensions.cs": "fc53b46e4b847c976109b9c5b3d0f1d0bbbabb11016ded698571901854d0ac89",
+    "src/Nalix.SDK/Transport/Extensions/HeaderStreamExtensions.cs": "d21454b5bb569aaa0df0c6dffc0f0d7375245e49164cbb62dccc288fce17f366",
     "src/Nalix.SDK/Transport/Extensions/ObservableExtensions.cs": "7ebd1332afcec140865ddf4f18e8878304a9493f201d9b84d3570af88b490a22",
     "src/Nalix.SDK/Transport/Extensions/PingExtensions.cs": "e44fd30b7e2fe415aaf216c0e8dff7e36f7249ed774d41e95fc3803357b17f8a",
     "src/Nalix.SDK/Transport/Extensions/RekeyExtensions.cs": "7fae8b5f85fb2d2d5783cf51d39fa8e6cfb95637bbb17dd092b9176f35ae8c15",
-    "src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs": "90a85d115a172ba93f7b702c671fc349cd9d9c628b129b2a94b10ae0ed36d87a",
+    "src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs": "3fa17e3b9eb270a2e2d7c5f677fce56a36b78cf03ed2093cba495e5332cb7bd4",
     "src/Nalix.SDK/Transport/Extensions/ResumeExtensions.cs": "95aa6149f81cf083dc9a730062d97d4524f6105a64427f63d2a4d8253d23a597",
     "src/Nalix.SDK/Transport/Extensions/RpcExtensions.cs": "8b77bef2d0e04853c5200b5e485bfe0e76e71ce0083f878b0f24a721ebf714ba",
-    "src/Nalix.SDK/Transport/Extensions/StreamExtensions.cs": "5bccc258ee344e0b9360aa5985c298423948fcf90295741ca2ed4e9ec268db61",
+    "src/Nalix.SDK/Transport/Extensions/StreamExtensions.cs": "bc02aa368db76cca06fab17921890392258c5a5acac90d3c7ea9a5ece1c01b8a",
     "src/Nalix.SDK/Transport/Extensions/TimeSyncExtensions.cs": "bf1268bc16796166f3065d836738b620d95d3f4a6912f74a6a47d9909718a06d",
     "src/Nalix.SDK/Transport/Extensions/TransportSessionSubscriptions.cs": "c7536e751ac1b2490d5526359ab49809400ba374acf0896c91efe5f7c98b821a",
     "src/Nalix.SDK/Transport/ITransportSession.cs": "14233322f8ff10de96ad9ea0cf2c59da30cb89d3d7b8fc1f170b177510c8af1c",
@@ -595,9 +595,9 @@
     "src/Nalix.SDK/Transport/Rpc/RpcCall.cs": "33b0aa5864ab9ec5298cae426cdae4c1b11a3bd917c0b81a1846e5d9ad3aee78",
     "src/Nalix.SDK/Transport/Rpc/RpcStream.cs": "5b663489db61459e98d344d4b92727a796fa53ece2a407378aa0e5e19c16afa7",
     "src/Nalix.SDK/Transport/SessionState.cs": "a0c52a867f15d88bb91b9522eaba58127d41f1098c0433044b4ac682f50c309b",
-    "src/Nalix.SDK/Transport/TcpSession.cs": "2836909ce896d454f546a57480e9aa898bf441783468309705ec483efd21aff4",
-    "src/Nalix.SDK/Transport/TransportSession.cs": "b45a45965d769b62c7c4c9d1b5e5738a21aa12d916895c355d0b8b1e67097a3a",
-    "src/Nalix.SDK/Transport/UdpSession.cs": "a0a89476f96a3518798c0cae665ee05b88b1424f97091ca49851dbce5fa371ec",
-    "src/Nalix.SDK/Transport/WebSocketSession.cs": "8810b80c286dadb6cbced540900d4274470ede82b7120122b2ac491958d46036"
+    "src/Nalix.SDK/Transport/TcpSession.cs": "b7684922e7a57ea93e02f296cabc206a0455e1cdd454a0318b055ce208794a8d",
+    "src/Nalix.SDK/Transport/TransportSession.cs": "41eb986885ecf09cd4d62da154c869c5208249570d6cdf9137160c28d93567ae",
+    "src/Nalix.SDK/Transport/UdpSession.cs": "45a73c005eb9ed1eb2810f7e7d1554a89d413e2d92cd8e82cdfdb18a20a4a496",
+    "src/Nalix.SDK/Transport/WebSocketSession.cs": "55d39bec67c732ab9ff8f635694e8d018b6e9d9a2df6d17524718357e32e1929"
   }
 }

@@ -11,7 +11,7 @@ from pathlib import Path
 from .application.ports import SyncError
 from .application.use_cases import AuditDocs, CheckDrift, DriftStatus, RecordSnapshot
 from .domain.findings import Severity
-from .domain.report import render_report, truncate_report
+from .domain.report import plan_by_page, render_report, truncate_report
 from .infrastructure.sources import GitHubSource, LocalSource
 from .infrastructure.stores import DocsDirectory, JsonSnapshotStore
 
@@ -34,6 +34,7 @@ def _parser() -> argparse.ArgumentParser:
     check.add_argument("--report", help="write the full Markdown report")
     check.add_argument("--pr-body", help="write a size-capped Markdown report for a PR body")
     check.add_argument("--json", help="write the report as JSON")
+    check.add_argument("--plan", help="write the edit plan as JSON, grouped by page (one entry per page for a worker)")
     check.add_argument("--update", action="store_true", help="record the new snapshot when the docs are affected")
 
     update = sub.add_parser("sync-update", help="record the current Nalix commit as synced")
@@ -76,6 +77,9 @@ def _sync_check(args: argparse.Namespace) -> int:
         Path(args.report).write_text(markdown, encoding="utf-8")
     if args.pr_body:
         Path(args.pr_body).write_text(truncate_report(markdown), encoding="utf-8")
+    if args.plan:
+        plan = {"from": result.manifest_commit, "to": result.snapshot.commit, "pages": plan_by_page(report.plan)}
+        Path(args.plan).write_text(json.dumps(plan, indent=2), encoding="utf-8")
     if args.json:
         payload = {"from": result.manifest_commit, "to": result.snapshot.commit, "report": asdict(report)}
         Path(args.json).write_text(json.dumps(payload, indent=2), encoding="utf-8")

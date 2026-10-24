@@ -26,6 +26,8 @@
 | ✅ | API changed but the docs already contain the new signatures | Nothing |
 | ⚪ | Internal, not cited by any page, or only comments/formatting | Nothing — **never edit docs for these** |
 
+`sync-check` ends its report with an **Edit plan by page** (docs line + what to change + source line); see [docs-sync-pr](./docs-sync-pr.md). Signatures ignore `async`, `private protected` members and source-generator `*Model` types (not part of the contract).
+
 Hashing ignores `//`, `/* */`, `///` and formatting; literals (`"//"`, `$"{x}"`, `"""raw"""`, `'"'`) are preserved, so the scanner never mistakes them for comments.
 
 ### Audit codes

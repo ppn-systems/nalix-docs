@@ -83,8 +83,10 @@ class _Scanner:
                 continue
             if c == "/" and nxt == "*":
                 end = src.find("*/", i + 2)
-                self.i = n if end < 0 else end + 2
-                self._comment_gap()
+                stop = n if end < 0 else end + 2
+                breaks = src.count("\n", i, stop)
+                self.i = stop
+                self._comment_gap(breaks)
                 continue
             if c == "#" and self.line_start and not in_hole:
                 self._directive()
@@ -111,9 +113,9 @@ class _Scanner:
             self._emit(c)
             self.i += 1
 
-    def _comment_gap(self) -> None:
+    def _comment_gap(self, line_breaks: int = 0) -> None:
         if self.layout:
-            self._put(" ")
+            self._put(" " + "\n" * line_breaks)  # keep line numbers true to the original file
         self.pending_space = True
 
     def _directive(self) -> None:
@@ -121,9 +123,12 @@ class _Scanner:
         end = self.src.find("\n", self.i)
         end = self.n if end < 0 else end
         line = _WHITESPACE.sub(" ", _TRAILING_COMMENT.sub("", self.src[self.i:end])).strip()
-        if self.length:
-            self._put("\n")
-        self._put(line + "\n")
+        if self.layout:
+            self._put(line)  # the surrounding line breaks are emitted as whitespace, keeping line numbers true
+        else:
+            if self.length:
+                self._put("\n")
+            self._put(line + "\n")
         self.pending_space = False
         self.i = end
 

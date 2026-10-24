@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import bisect
 import re
 from dataclasses import dataclass, field
 
@@ -30,6 +31,8 @@ class TypeDeclaration:
     namespace: str
     file: str
     header_start: int
+    line: int = 0  # 1-based line of the declaration
+    body_line: int = 0  # 1-based line on which the body starts
     header: str = ""
     is_api: bool = False
     body: str = ""
@@ -56,6 +59,11 @@ def scan_declarations(file: str, source: str) -> FileScan:
     ns_match = _NAMESPACE.search(masked)
     namespace = ns_match.group(1) if ns_match else ""
 
+    line_starts = [0] + [i + 1 for i, ch in enumerate(text) if ch == "\n"]
+
+    def line_of(offset: int) -> int:
+        return bisect.bisect_right(line_starts, offset)
+
     scan = FileScan()
     stack: list[tuple[TypeDeclaration | None, int]] = []
     pending: TypeDeclaration | None = None
@@ -76,6 +84,8 @@ def scan_declarations(file: str, source: str) -> FileScan:
             if pending is not None:
                 pending.header = header_of(pending, m.start())
                 pending.is_api = pending.access == "public" and (parent is None or parent.is_api)
+            if pending is not None:
+                pending.body_line = line_of(m.end())
             stack.append((pending, m.end()))
             pending = None
         elif punct == "}":
@@ -106,6 +116,7 @@ def scan_declarations(file: str, source: str) -> FileScan:
                 namespace=namespace,
                 file=file,
                 header_start=m.end(),
+                line=line_of(m.start(4)),
             )
     scan.identifiers = set(_IDENTIFIER.findall(masked))
     return scan

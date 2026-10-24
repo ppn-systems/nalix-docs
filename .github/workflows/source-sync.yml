@@ -53,7 +53,7 @@ jobs:
         run: |
           REPORT="$RUNNER_TEMP/source-sync-report.md"
           set +e
-          python3 tools/run.py sync-check --ref "$NALIX_REF" --report "$REPORT" --pr-body "$RUNNER_TEMP/source-sync-pr-body.md" --update
+          python3 tools/run.py sync-check --ref "$NALIX_REF" --report "$REPORT" --pr-body "$RUNNER_TEMP/source-sync-pr-body.md" --plan "$RUNNER_TEMP/source-sync-plan.json" --update
           code=$?
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
@@ -77,12 +77,14 @@ jobs:
           cat "$RUNNER_TEMP/audit.md" >> "$GITHUB_STEP_SUMMARY"
           cat "$RUNNER_TEMP/audit.md" >> "$RUNNER_TEMP/source-sync-report.md"
 
-      - name: Upload full report
+      - name: Upload full report and edit plan
         if: steps.check.outputs.code == '1'
         uses: actions/upload-artifact@v4
         with:
           name: source-sync-report
-          path: ${{ runner.temp }}/source-sync-report.md
+          path: |
+            ${{ runner.temp }}/source-sync-report.md
+            ${{ runner.temp }}/source-sync-plan.json
 
       - name: Open or refresh draft PR
         if: steps.check.outputs.code == '1'
