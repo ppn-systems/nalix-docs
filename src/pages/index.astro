@@ -1,0 +1,25 @@
+---
+import { render } from 'astro:content';
+import DocLayout from '../layouts/DocLayout.astro';
+import { DEFAULT_LOCALE } from '../i18n';
+import { getAllResolvedDocsForLocale } from '../utils/content-loader';
+
+const docs = await getAllResolvedDocsForLocale(DEFAULT_LOCALE);
+const rootDoc = docs.find((d) => d.slug === '')!;
+const { Content, headings } = await render(rootDoc.entry);
+---
+
+<DocLayout
+  title={rootDoc.entry.data.title}
+  description={rootDoc.entry.data.description}
+  pkg={rootDoc.entry.data.package}
+  locale={DEFAULT_LOCALE}
+  sourceLocale={rootDoc.sourceLocale}
+  slug=""
+  relFile={rootDoc.relFile}
+  isFallback={false}
+  headings={headings}
+  rawBody={rootDoc.entry.body}
+>
+  <Content />
+</DocLayout>

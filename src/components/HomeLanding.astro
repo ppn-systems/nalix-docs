@@ -1,0 +1,330 @@
+---
+import { localizePath, useTranslations, type LocaleCode } from '../i18n';
+
+interface Props {
+  locale: LocaleCode;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+
+interface ProductCardItem {
+  title: string;
+  href: string;
+  icon: 'rocket' | 'compass' | 'layers' | 'box' | 'code' | 'gauge';
+  description: string;
+  topics: Array<{ label: string; slug: string }>;
+}
+
+const productCards: ProductCardItem[] = [
+  {
+    title: 'Get Started',
+    href: localizePath('quickstart', locale),
+    icon: 'rocket',
+    description:
+      'Set up your .NET 10 environment, define shared packet contracts, and launch your first Nalix server and client.',
+    topics: [
+      { label: 'Quick Start', slug: 'quickstart' },
+      { label: 'Installation', slug: 'installation' },
+      { label: 'Your First Server', slug: 'guides/getting-started/your-first-server' },
+      { label: 'Server Blueprint', slug: 'guides/getting-started/server-blueprint' },
+    ],
+  },
+  {
+    title: 'Application & Networking Guides',
+    href: localizePath('guides', locale),
+    icon: 'compass',
+    description:
+      'Practical tutorials for real-time chat servers, TCP/UDP socket patterns, middleware pipelines, and production deployment.',
+    topics: [
+      { label: 'Build a Chat Room', slug: 'guides/build-a-chat-room' },
+      { label: 'Packet Handlers', slug: 'guides/application/packet-handlers' },
+      { label: 'TCP Patterns', slug: 'guides/networking/tcp-patterns' },
+      { label: 'Production Checklist', slug: 'guides/deployment/production-checklist' },
+    ],
+  },
+  {
+    title: 'Core Concepts & Internals',
+    href: localizePath('concepts', locale),
+    icon: 'layers',
+    description:
+      'Deep dives into packet framing, zero-allocation BufferLease memory pools, AEAD encryption, and handshake state machines.',
+    topics: [
+      { label: 'How Packets Work', slug: 'concepts/how-packets-work' },
+      { label: 'System Architecture', slug: 'concepts/internals/architecture' },
+      { label: 'Binary Specification', slug: 'concepts/internals/binary-spec' },
+      { label: 'Zero-Allocation Path', slug: 'concepts/internals/zero-allocation' },
+    ],
+  },
+  {
+    title: 'NuGet Packages',
+    href: localizePath('packages', locale),
+    icon: 'box',
+    description:
+      'Modular Level 0 to Level 4 package hierarchy—from zero-dependency abstractions to full server hosting.',
+    topics: [
+      { label: 'Nalix.Hosting', slug: 'packages/nalix-hosting' },
+      { label: 'Nalix.Network', slug: 'packages/nalix-network' },
+      { label: 'Nalix.Runtime', slug: 'packages/nalix-runtime' },
+      { label: 'Nalix.SDK', slug: 'packages/nalix-sdk' },
+    ],
+  },
+  {
+    title: 'API Reference',
+    href: localizePath('api', locale),
+    icon: 'code',
+    description:
+      'Complete type, method, and configuration reference for listeners, codecs, cryptography, and Roslyn source generators.',
+    topics: [
+      { label: 'Network API', slug: 'api/network' },
+      { label: 'Runtime API', slug: 'api/runtime' },
+      { label: 'Client SDK API', slug: 'api/sdk' },
+      { label: 'Diagnostic Codes', slug: 'api/analyzers/diagnostic-codes' },
+    ],
+  },
+  {
+    title: 'Performance Benchmarks',
+    href: localizePath('benchmarks', locale),
+    icon: 'gauge',
+    description:
+      'Reproducible .NET 10 socket benchmarks comparing Nalix (52.2 µs p50, 56 B alloc) with gRPC, SignalR, and MagicOnion.',
+    topics: [
+      { label: 'Network Comparison', slug: 'benchmarks/network-comparison' },
+      { label: 'Core Infrastructure', slug: 'benchmarks/infrastructure' },
+      { label: 'Memory & Storage', slug: 'benchmarks/memory' },
+      { label: 'Serialization', slug: 'benchmarks/serialization' },
+    ],
+  },
+];
+---
+
+<div class="nlx-home-wrapper">
+  <div class="nlx-home-container">
+    <!-- Top Hero Card -->
+    <div class="nlx-home-hero-card">
+      <svg
+        class="nlx-home-hero__bg-svg"
+        viewBox="0 0 1200 320"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="xMidYMid slice"
+        aria-hidden="true"
+      >
+        <defs>
+          <radialGradient id="nlxHeroSpotCenter" cx="50%" cy="0%" r="70%">
+            <stop offset="0%" stop-color="#2584f4" stop-opacity="0.22" />
+            <stop offset="55%" stop-color="#0a6ec8" stop-opacity="0.06" />
+            <stop offset="100%" stop-color="#0a6ec8" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="nlxHeroSpotLeft" cx="12%" cy="80%" r="45%">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.14" />
+            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="nlxHeroSpotRight" cx="88%" cy="20%" r="45%">
+            <stop offset="0%" stop-color="#6366f1" stop-opacity="0.16" />
+            <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
+          </radialGradient>
+          <linearGradient id="nlxHeroBeam" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="currentColor" stop-opacity="0" />
+            <stop offset="50%" stop-color="#68b0ff" stop-opacity="0.55" />
+            <stop offset="100%" stop-color="currentColor" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="nlxTraceLeft" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#68b0ff" stop-opacity="0.45" />
+            <stop offset="100%" stop-color="#68b0ff" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="nlxTraceRight" x1="1" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#818cf8" stop-opacity="0.45" />
+            <stop offset="100%" stop-color="#818cf8" stop-opacity="0" />
+          </linearGradient>
+          <pattern id="nlxHeroGrid" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path d="M 48 0 L 0 0 0 48" fill="none" stroke="currentColor" stroke-opacity="0.055" stroke-width="1" />
+          </pattern>
+          <radialGradient id="nlxGridMaskGrad" cx="50%" cy="45%" r="58%">
+            <stop offset="0%" stop-color="white" stop-opacity="1" />
+            <stop offset="75%" stop-color="white" stop-opacity="0.45" />
+            <stop offset="100%" stop-color="white" stop-opacity="0" />
+          </radialGradient>
+          <mask id="nlxGridMask">
+            <rect width="1200" height="320" fill="url(#nlxGridMaskGrad)" />
+          </mask>
+        </defs>
+
+        <!-- Ambient glows -->
+        <rect width="1200" height="320" fill="url(#nlxHeroSpotCenter)" />
+        <rect width="1200" height="320" fill="url(#nlxHeroSpotLeft)" />
+        <rect width="1200" height="320" fill="url(#nlxHeroSpotRight)" />
+
+        <!-- Subtle architectural grid with radial fade mask -->
+        <rect width="1200" height="320" fill="url(#nlxHeroGrid)" mask="url(#nlxGridMask)" />
+
+        <!-- Left wing network packet circuit traces -->
+        <g stroke="url(#nlxTraceLeft)" stroke-width="1.5" stroke-linecap="round">
+          <path d="M-20 72 H110 L152 114 H250" />
+          <path d="M-20 168 H84 L120 204 H210" />
+          <path d="M40 280 H144 L184 240 H280" />
+        </g>
+        <g fill="#68b0ff" fill-opacity="0.65">
+          <circle cx="110" cy="72" r="3" />
+          <circle cx="250" cy="114" r="3.5" />
+          <circle cx="120" cy="204" r="2.5" />
+          <circle cx="184" cy="240" r="3" />
+        </g>
+
+        <!-- Right wing network packet circuit traces -->
+        <g stroke="url(#nlxTraceRight)" stroke-width="1.5" stroke-linecap="round">
+          <path d="M1220 64 H1080 L1038 106 H940" />
+          <path d="M1220 176 H1110 L1072 214 H980" />
+          <path d="M1150 276 H1048 L1008 236 H915" />
+        </g>
+        <g fill="#818cf8" fill-opacity="0.65">
+          <circle cx="1080" cy="64" r="3" />
+          <circle cx="940" cy="106" r="3.5" />
+          <circle cx="1072" cy="214" r="2.5" />
+          <circle cx="1008" cy="236" r="3" />
+        </g>
+
+        <!-- Top & bottom precision hairline beams -->
+        <rect x="120" y="0.5" width="960" height="1" fill="url(#nlxHeroBeam)" />
+        <rect x="240" y="318.5" width="720" height="1" fill="url(#nlxHeroBeam)" opacity="0.5" />
+      </svg>
+
+      <div class="nlx-home-hero__content">
+        <h1 class="nlx-home-hero__title">{t('hero.title')}</h1>
+        <p class="nlx-home-hero__subtitle">{t('hero.subtitle')}</p>
+
+        <div class="nlx-home-search-bar">
+          <div class="nlx-home-search-input-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary); flex-shrink: 0;">
+              <circle cx="11" cy="11" r="7"/>
+              <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
+            </svg>
+            <input
+              type="text"
+              id="nlx-hero-search-input"
+              class="nlx-home-search-input"
+              placeholder={t('nav.searchPlaceholder')}
+              autocomplete="off"
+            />
+          </div>
+          <button type="button" id="nlx-hero-search-btn" class="nlx-btn-primary nlx-home-search-btn">
+            {t('nav.searchButton')}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2-Column Product Cards Grid -->
+    <div class="nlx-product-grid">
+      {productCards.map((card) => (
+        <div class="nlx-product-card">
+          <div>
+            <div class="nlx-product-card__header">
+              <a href={card.href} class="nlx-product-card__title-link" data-astro-prefetch>
+                <span class="nlx-product-card__icon" aria-hidden="true">
+                  {card.icon === 'rocket' && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+                      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+                      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+                    </svg>
+                  )}
+                  {card.icon === 'compass' && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+                    </svg>
+                  )}
+                  {card.icon === 'layers' && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                      <polyline points="2 17 12 22 22 17"/>
+                      <polyline points="2 12 12 17 22 12"/>
+                    </svg>
+                  )}
+                  {card.icon === 'box' && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                      <path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>
+                    </svg>
+                  )}
+                  {card.icon === 'code' && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="16 18 22 12 16 6"/>
+                      <polyline points="8 6 2 12 8 18"/>
+                    </svg>
+                  )}
+                  {card.icon === 'gauge' && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m12 14 4-4"/>
+                      <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+                    </svg>
+                  )}
+                </span>
+                <h2 class="nlx-product-card__title">{card.title}</h2>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M5 12h14m-6-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </a>
+            </div>
+            <p class="nlx-product-card__desc">{card.description}</p>
+          </div>
+
+          <div class="nlx-product-card__topics">
+            <div class="nlx-product-card__topics-label">{t('home.exploreTopics')}</div>
+            <div class="nlx-product-card__links">
+              {card.topics.map((topic) => (
+                <a href={localizePath(topic.slug, locale)} class="nlx-topic-link" data-astro-prefetch>
+                  {topic.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- Home Portal Footer -->
+    <footer class="nlx-home-footer">
+      <div>
+        <span>{t('footer.copyright')}</span>
+        <span> · </span>
+        <span>{t('footer.license')}</span>
+      </div>
+      <div class="nlx-home-footer__links">
+        <a href="https://github.com/ppn-systems/nalix" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
+        <a href="https://www.nuget.org/packages?q=Nalix" target="_blank" rel="noopener noreferrer">NuGet Gallery</a>
+        <a href={localizePath('quickstart', locale)} data-astro-prefetch>Quick Start</a>
+        <a href={localizePath('api', locale)} data-astro-prefetch>API Reference</a>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<script>
+  function initHeroSearch() {
+    const heroInput = document.getElementById('nlx-hero-search-input') as HTMLInputElement | null;
+    const heroBtn = document.getElementById('nlx-hero-search-btn');
+    const modalBackdrop = document.getElementById('nlx-search-backdrop');
+    const modalInput = document.getElementById('nlx-search-input') as HTMLInputElement | null;
+
+    if (!heroInput || !modalBackdrop || !modalInput) return;
+
+    function openModalWithQuery(q: string) {
+      modalBackdrop!.classList.add('is-open');
+      modalInput!.value = q;
+      modalInput!.dispatchEvent(new Event('input'));
+      modalInput!.focus();
+    }
+
+    heroInput.addEventListener('focus', () => {
+      openModalWithQuery(heroInput.value);
+    });
+
+    heroBtn?.addEventListener('click', () => {
+      openModalWithQuery(heroInput.value);
+    });
+  }
+
+  initHeroSearch();
+</script>

@@ -1,0 +1,56 @@
+name: "Deploy to Cloudflare (Manual)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target Cloudflare environment to deploy"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+
+concurrency:
+  group: cloudflare-manual-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test-build-and-deploy:
+    name: "Test, Build & Deploy to Cloudflare"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    environment:
+      name: ${{ inputs.environment || 'production' }}
+      url: ${{ steps.cf_deploy.outputs.deployment-url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run i18n, navigation, link, and source parity tests
+        run: npm test
+
+      - name: Build static site with Astro
+        run: npm run build
+
+      - name: Deploy static assets to Cloudflare
+        id: cf_deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy

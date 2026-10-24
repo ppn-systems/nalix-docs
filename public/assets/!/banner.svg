@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" fill="none">
+  <title>Nalix — Low-latency binary realtime networking for .NET</title>
+  <defs>
+    <linearGradient id="tileFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#141414"/><stop offset="0.45" stop-color="#050505"/><stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="tileRim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4A4A4A"/><stop offset="1" stop-color="#232323"/>
+    </linearGradient>
+    <clipPath id="nRings"><rect x="0" y="19" width="400" height="4"/><rect x="0" y="40" width="400" height="4"/></clipPath>
+    <radialGradient id="spot" cx="0.5" cy="0.38" r="0.6">
+      <stop offset="0" stop-color="#1E1E1E"/><stop offset="1" stop-color="#050505"/>
+    </radialGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="300" fill="url(#spot)"/>
+  <rect x="47.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="147.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="247.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="347.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="447.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="547.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="647.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="747.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="847.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="947.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="1047.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/><rect x="1147.0" y="0" width="6" height="300" fill="#FFFFFF" fill-opacity="0.018"/>
+  <rect x="0" y="6.0" width="1200" height="1" fill="url(#hair)"/>
+  <rect x="0" y="294.0" width="1200" height="1" fill="url(#hair)"/>
+  <g transform="translate(428.73 70.40) scale(1.55)">
+    <rect x="0.5" y="0.5" width="63" height="63" rx="8.5" fill="url(#tileFill)" stroke="url(#tileRim)"/>
+    <path d="M15 16H21L43 38V16H49V47H43V46L21 24V47H15Z" fill="#FFFFFF"/>
+    <path d="M15 16H21L43 38V16H49V47H43V46L21 24V47H15Z" fill="#929292" clip-path="url(#nRings)"/>
+    <path d="M14 47H22V48H23V50H13V48H14Z M42 47H50V48H51V50H41V48H42Z" fill="#2E2E2E"/>
+    <path d="M78 16 H84 L106 38 V16 H112 V47 H106 V46 L84 24 V47 H78Z M118 47 L131.5 16 H137.5 L149 47 H142.5 L134.5 25 L126 47Z M154 16 H160 V41 H174 V47 H154Z M179 16 H185 V47 H179Z M190 16 H198 L221 47 H213Z M213 16 H221 L198 47 H190Z" fill="#F5F5F5"/>
+    <path d="M78 16 H84 L106 38 V16 H112 V47 H106 V46 L84 24 V47 H78Z M118 47 L131.5 16 H137.5 L149 47 H142.5 L134.5 25 L126 47Z M154 16 H160 V41 H174 V47 H154Z M179 16 H185 V47 H179Z M190 16 H198 L221 47 H213Z M213 16 H221 L198 47 H190Z" fill="#8E8E8E" clip-path="url(#nRings)"/>
+  </g>
+  <text x="600.0" y="208.6" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif" font-size="17" font-weight="400" letter-spacing="1.0" fill="#A8A8A8">Low-latency binary realtime networking for .NET</text>
+  <rect x="247.7" y="229.6" width="106.6" height="26" rx="13.0" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.16"/><text x="301.0" y="246.8" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif" font-size="11.4" font-weight="500" fill="#BDBDBD">Zero-Alloc</text><rect x="364.7" y="229.6" width="126.1" height="26" rx="13.0" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.16"/><text x="427.8" y="246.8" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif" font-size="11.4" font-weight="500" fill="#BDBDBD">X25519 + AEAD</text><rect x="501.2" y="229.6" width="178.1" height="26" rx="13.0" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.16"/><text x="590.2" y="246.8" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif" font-size="11.4" font-weight="500" fill="#BDBDBD">TCP · UDP · WebSocket</text><rect x="689.7" y="229.6" width="106.6" height="26" rx="13.0" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.16"/><text x="743.0" y="246.8" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif" font-size="11.4" font-weight="500" fill="#BDBDBD">Native AOT</text><rect x="806.7" y="229.6" width="145.6" height="26" rx="13.0" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.16"/><text x="879.5" y="246.8" text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif" font-size="11.4" font-weight="500" fill="#BDBDBD">Source-Generated</text>
+  
+</svg>

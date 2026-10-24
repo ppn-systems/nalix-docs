@@ -1,0 +1,599 @@
+---
+import '../styles/nalix.css';
+import {
+  DEFAULT_LOCALE,
+  ENABLED_LOCALES,
+  getLocaleDefinition,
+  localizePath,
+  useTranslations,
+  type LocaleCode,
+} from '../i18n';
+import { getNavContextForSlug, getPrevNextLinks } from '../config/navigation';
+import Header from '../components/Header.astro';
+import Sidebar from '../components/Sidebar.astro';
+import TableOfContents, { type MarkdownHeading } from '../components/TableOfContents.astro';
+import SearchModal from '../components/SearchModal.astro';
+import HomeLanding from '../components/HomeLanding.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  pkg?: string;
+  locale: LocaleCode;
+  sourceLocale: LocaleCode;
+  slug: string;
+  relFile: string;
+  isFallback: boolean;
+  headings: MarkdownHeading[];
+  rawBody?: string;
+}
+
+const {
+  title,
+  description = '',
+  pkg,
+  locale,
+  sourceLocale,
+  slug,
+  relFile,
+  isFallback,
+  headings,
+  rawBody = '',
+} = Astro.props;
+
+const localeDef = getLocaleDefinition(locale);
+const t = useTranslations(locale);
+const { topSection, breadcrumbs } = getNavContextForSlug(slug);
+const parentBreadcrumbs = (breadcrumbs.length > 1 ? breadcrumbs.slice(0, -1) : []).map((crumb) => {
+  if (crumb === 'API') return 'API Reference';
+  if (crumb === 'Start Here') return 'Get Started';
+  return crumb;
+});
+const { prev, next } = getPrevNextLinks(slug);
+const isLanding = slug === '';
+
+// Estimate reading time
+const wordCount = rawBody ? rawBody.trim().split(/\s+/).length : 250;
+const readMinutes = Math.max(1, Math.ceil(wordCount / 220));
+const readTimeText = `${t('doc.readTime')} ${readMinutes} ${readMinutes === 1 ? t('doc.minute') : t('doc.minutes')}`;
+
+const pageTitle = isLanding ? `${t('site.title')}` : `${title} | ${t('site.title')}`;
+const metaDescription = description || t('site.tagline');
+const siteOrigin = (Astro.site || new URL('https://ppn.io.vn')).toString().replace(/\/+$/, '');
+const canonicalUrl = new URL(localizePath(slug, locale), siteOrigin).toString();
+const ogImageUrl = `${siteOrigin}/assets/social-preview.svg`;
+const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/main/src/content/docs/${sourceLocale}/${relFile}`;
+const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const hasMobileToc = tocHeadings.length > 1;
+
+const jsonLdSchema = isLanding
+  ? {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'WebSite',
+          '@id': `${siteOrigin}/#website`,
+          url: `${siteOrigin}/en-us`,
+          name: 'Nalix Documentation',
+          description: metaDescription,
+          inLanguage: localeDef.htmlLang,
+          publisher: {
+            '@type': 'Organization',
+            name: 'PPN Systems',
+            url: 'https://github.com/ppn-systems',
+            logo: {
+              '@type': 'ImageObject',
+              url: `${siteOrigin}/assets/nalix.png`,
+            },
+          },
+        },
+        {
+          '@type': 'SoftwareSourceCode',
+          name: 'Nalix',
+          description: metaDescription,
+          programmingLanguage: 'C#',
+          runtimePlatform: '.NET 10',
+          codeRepository: 'https://github.com/ppn-systems/nalix',
+          license: 'https://opensource.org/licenses/Apache-2.0',
+        },
+      ],
+    }
+  : {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'TechArticle',
+          headline: title,
+          description: metaDescription,
+          url: canonicalUrl,
+          inLanguage: localeDef.htmlLang,
+          image: ogImageUrl,
+          author: {
+            '@type': 'Organization',
+            name: 'PPN Systems',
+            url: 'https://github.com/ppn-systems/nalix',
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'PPN Systems',
+            logo: {
+              '@type': 'ImageObject',
+              url: `${siteOrigin}/assets/nalix.png`,
+            },
+          },
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': canonicalUrl,
+          },
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Documentation',
+              item: `${siteOrigin}${localizePath('', locale)}`,
+            },
+            ...parentBreadcrumbs.map((crumb, idx) => ({
+              '@type': 'ListItem',
+              position: idx + 2,
+              name: crumb,
+            })),
+            {
+              '@type': 'ListItem',
+              position: parentBreadcrumbs.length + 2,
+              name: title,
+              item: canonicalUrl,
+            },
+          ],
+        },
+      ],
+    };
+---
+
+<!doctype html>
+<html lang={localeDef.htmlLang} dir={localeDef.dir} data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={metaDescription} />
+    <meta
+      name="robots"
+      content={
+        isFallback
+          ? 'noindex, follow'
+          : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+      }
+    />
+    <meta name="author" content="PPN Systems" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#101214" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/assets/nalix.svg" />
+    <link rel="icon" type="image/png" href="/assets/nalix.png" />
+    <link rel="apple-touch-icon" href="/assets/nalix.png" />
+
+    <!-- Preload self-hosted critical IBM Plex fonts (zero external font dependencies) -->
+    <link
+      rel="preload"
+      href="/assets/fonts/ibm-plex-sans-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/assets/fonts/ibm-plex-mono-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <!-- i18n hreflang alternates -->
+    {ENABLED_LOCALES.map((altLocale) => (
+      <link
+        rel="alternate"
+        hreflang={getLocaleDefinition(altLocale).htmlLang}
+        href={new URL(localizePath(slug, altLocale), siteOrigin).toString()}
+      />
+    ))}
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href={new URL(localizePath(slug, DEFAULT_LOCALE), siteOrigin).toString()}
+    />
+
+    <!-- Open Graph -->
+    <meta property="og:site_name" content="Nalix Documentation" />
+    <meta property="og:type" content={isLanding ? 'website' : 'article'} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={metaDescription} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:locale" content={localeDef.ogLocale} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:alt" content={pageTitle} />
+
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={metaDescription} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content={pageTitle} />
+
+    <!-- Structured Data (Schema.org JSON-LD) -->
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLdSchema)} />
+
+    <!-- Flicker-free theme initialization -->
+    <script is:inline>
+      (function () {
+        try {
+          var saved = localStorage.getItem('nlx-theme');
+          var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+
+  <body data-copy-text={t('doc.copyCode')} data-copied-text={t('doc.copiedCode')}>
+    <Header
+      locale={locale}
+      currentSlug={slug}
+      activeSectionTitle={topSection?.title || 'Overview'}
+      isLanding={isLanding}
+    />
+
+    {isLanding ? (
+      <main id="nlx-main-content">
+        <HomeLanding locale={locale} />
+      </main>
+    ) : (
+      <div class="nlx-workspace">
+        <Sidebar locale={locale} currentSlug={slug} />
+
+        <main class="nlx-main" id="nlx-main-content">
+          <article class="nlx-article">
+            {isFallback && (
+              <div class="nlx-fallback-banner" role="status">
+                <strong>{t('doc.fallbackBannerTitle')}</strong>
+                <span>{t('doc.fallbackBannerBody')}</span>
+              </div>
+            )}
+
+            {parentBreadcrumbs.length > 0 && (
+              <nav class="nlx-breadcrumbs" aria-label="Breadcrumb">
+                {parentBreadcrumbs.map((crumb, idx) => (
+                  <>
+                    {idx > 0 && <span class="nlx-breadcrumbs__sep">›</span>}
+                    <span>{crumb}</span>
+                  </>
+                ))}
+              </nav>
+            )}
+
+            <h1 class="nlx-doc-title">{title}</h1>
+
+            <div class="nlx-doc-submeta">
+              <span>{readTimeText}</span>
+              {pkg && (
+                <>
+                  <span class="nlx-doc-submeta__sep" role="separator"></span>
+                  <span>{t('doc.packageLabel')}: <span class="nlx-pkg-pill">{pkg}</span></span>
+                </>
+              )}
+              <span class="nlx-doc-submeta__sep" role="separator"></span>
+              <button
+                type="button"
+                class="nlx-copy-md-btn"
+                id="nlx-copy-page-md"
+                data-copy-label={t('doc.copyMarkdown')}
+                data-copied-label={t('doc.copiedMarkdown')}
+                data-raw-md={`# ${title}\n\n${rawBody}`}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                <span>{t('doc.copyMarkdown')}</span>
+              </button>
+            </div>
+
+            {hasMobileToc && (
+              <details class="nlx-mobile-toc">
+                <summary class="nlx-mobile-toc__summary">
+                  <span>{t('doc.onThisPage')}</span>
+                  <svg class="nlx-nav-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="m7.5 5 5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </summary>
+                <ul class="nlx-mobile-toc__list">
+                  {tocHeadings.map((h) => (
+                    <li class:list={['nlx-mobile-toc__item', { 'nlx-mobile-toc__item--depth-3': h.depth === 3 }]}>
+                      <a href={`#${h.slug}`}>{h.text.split('`').join('')}</a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+
+            <hr class="nlx-doc-header-divider" />
+
+            <div class="nlx-prose">
+              <slot />
+            </div>
+
+            <footer class="nlx-doc-footer">
+              <div class="nlx-doc-footer__meta">
+                <a href={editUrl} target="_blank" rel="noopener noreferrer" class="nlx-edit-link">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>{t('doc.editPage')}</span>
+                </a>
+
+                <a href="#nlx-main-content" class="nlx-edit-link">
+                  <span>{t('doc.backToTop')} ↑</span>
+                </a>
+              </div>
+
+              {(prev || next) && (
+                <nav class="nlx-pager" aria-label="Pagination">
+                  {prev ? (
+                    <a href={localizePath(prev.slug, locale)} class="nlx-pager__card nlx-pager__card--prev">
+                      <span class="nlx-pager__label">← {t('doc.previous')}</span>
+                      <span class="nlx-pager__title">{prev.title}</span>
+                    </a>
+                  ) : <div />}
+
+                  {next && (
+                    <a href={localizePath(next.slug, locale)} class="nlx-pager__card nlx-pager__card--next">
+                      <span class="nlx-pager__label">{t('doc.next')} →</span>
+                      <span class="nlx-pager__title">{next.title}</span>
+                    </a>
+                  )}
+                </nav>
+              )}
+
+              <div style="margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 0.75rem; color: var(--text-secondary);">
+                <span>{t('footer.copyright')}</span>
+                <span>{t('footer.license')} · {t('footer.builtWith')}</span>
+              </div>
+            </footer>
+          </article>
+        </main>
+
+        <TableOfContents headings={headings} locale={locale} />
+      </div>
+    )}
+
+    <SearchModal locale={locale} />
+
+    <button
+      type="button"
+      id="nlx-floating-top"
+      class="nlx-floating-top"
+      aria-label={t('doc.backToTop')}
+      title={t('doc.backToTop')}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="m18 15-6-6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <script>
+      function initThemeAndHeader() {
+        const themeBtn = document.getElementById('nlx-theme-toggle');
+        themeBtn?.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+          const next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try {
+            localStorage.setItem('nlx-theme', next);
+          } catch {}
+          renderMermaidDiagrams();
+        });
+
+        const langSwitcher = document.getElementById('nlx-lang-switcher');
+        const langBtn = document.getElementById('nlx-lang-btn');
+        langBtn?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          langSwitcher?.classList.toggle('is-open');
+        });
+        document.addEventListener('click', () => {
+          langSwitcher?.classList.remove('is-open');
+        });
+
+        const mobileBtn = document.getElementById('nlx-mobile-menu-toggle');
+        mobileBtn?.addEventListener('click', () => {
+          document.body.classList.toggle('is-sidebar-open');
+        });
+
+        // Copy Page Markdown button
+        const copyMdBtn = document.getElementById('nlx-copy-page-md');
+        copyMdBtn?.addEventListener('click', async () => {
+          const mdText = copyMdBtn.getAttribute('data-raw-md');
+          if (!mdText) return;
+          try {
+            await navigator.clipboard.writeText(mdText);
+            const span = copyMdBtn.querySelector('span');
+            const defaultLabel = copyMdBtn.getAttribute('data-copy-label') || 'Copy Markdown';
+            const copiedLabel = copyMdBtn.getAttribute('data-copied-label') || 'Copied Markdown';
+            if (span) span.textContent = copiedLabel;
+            copyMdBtn.classList.add('is-copied');
+            setTimeout(() => {
+              if (span) span.textContent = defaultLabel;
+              copyMdBtn.classList.remove('is-copied');
+            }, 1600);
+          } catch {}
+        });
+
+        // Floating scroll-to-top button
+        const floatingTop = document.getElementById('nlx-floating-top');
+        if (floatingTop) {
+          window.addEventListener(
+            'scroll',
+            () => {
+              floatingTop.classList.toggle('is-visible', window.scrollY > 420);
+            },
+            { passive: true }
+          );
+          floatingTop.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+        }
+
+        // Heading anchor click-to-copy URL
+        document.querySelectorAll<HTMLAnchorElement>('.nlx-heading-anchor').forEach((anchor) => {
+          anchor.addEventListener('click', async (e) => {
+            const href = anchor.getAttribute('href');
+            if (!href) return;
+            e.preventDefault();
+            history.replaceState(null, '', href);
+            const target = document.getElementById(href.slice(1));
+            target?.scrollIntoView({ behavior: 'smooth' });
+            try {
+              await navigator.clipboard.writeText(window.location.href);
+            } catch {}
+          });
+        });
+      }
+
+      function enhanceCodeBlocksAndTables() {
+        const copyLabel = document.body.getAttribute('data-copy-text') || 'Copy';
+        const copiedLabel = document.body.getAttribute('data-copied-text') || 'Copied';
+
+        // Wrap tables for horizontal scroll
+        document.querySelectorAll('.nlx-prose > table').forEach((table) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'nlx-table-scroll';
+          table.parentNode?.insertBefore(wrapper, table);
+          wrapper.appendChild(table);
+        });
+
+        // Wrap code blocks with clean developer header (no fake window dots)
+        document.querySelectorAll<HTMLPreElement>('.nlx-prose pre.astro-code').forEach((pre) => {
+          if (pre.parentElement?.classList.contains('nlx-code-wrapper')) return;
+
+          const rawLang = (pre.getAttribute('data-language') || 'text').toLowerCase();
+          const langDisplayMap: Record<string, string> = {
+            csharp: 'C#',
+            cs: 'C#',
+            bash: 'Terminal',
+            sh: 'Shell',
+            powershell: 'PowerShell',
+            ps1: 'PowerShell',
+            json: 'JSON',
+            yaml: 'YAML',
+            yml: 'YAML',
+            ini: 'INI',
+            xml: 'XML',
+            text: 'Text',
+            plaintext: 'Text',
+          };
+          const headerTitle = langDisplayMap[rawLang] || rawLang.toUpperCase();
+
+          const wrapper = document.createElement('div');
+          wrapper.className = 'nlx-code-wrapper';
+
+          const toolbar = document.createElement('div');
+          toolbar.className = 'nlx-code-toolbar';
+          toolbar.innerHTML = `
+            <span class="nlx-code-title">${headerTitle}</span>
+            <div class="nlx-code-toolbar__right">
+              <button type="button" class="nlx-copy-btn">${copyLabel}</button>
+            </div>
+          `;
+
+          const copyBtn = toolbar.querySelector('.nlx-copy-btn') as HTMLButtonElement | null;
+          copyBtn?.addEventListener('click', async () => {
+            const codeText = pre.innerText || '';
+            try {
+              await navigator.clipboard.writeText(codeText);
+              copyBtn.textContent = copiedLabel;
+              setTimeout(() => {
+                copyBtn.textContent = copyLabel;
+              }, 1600);
+            } catch {}
+          });
+
+          pre.parentNode?.insertBefore(wrapper, pre);
+          wrapper.appendChild(toolbar);
+          wrapper.appendChild(pre);
+        });
+      }
+
+      function initScrollSpy() {
+        const tocLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-toc-link]'));
+        if (tocLinks.length === 0) return;
+
+        const headingEls = tocLinks
+          .map((link) => {
+            const id = link.getAttribute('data-toc-link') || '';
+            return document.getElementById(id);
+          })
+          .filter((el): el is HTMLElement => el !== null);
+
+        if (headingEls.length === 0) return;
+
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                const activeId = entry.target.id;
+                tocLinks.forEach((l) => {
+                  l.classList.toggle('is-active', l.getAttribute('data-toc-link') === activeId);
+                });
+                break;
+              }
+            }
+          },
+          { rootMargin: '-100px 0px -75% 0px', threshold: 0 }
+        );
+
+        headingEls.forEach((h) => observer.observe(h));
+      }
+
+      async function renderMermaidDiagrams() {
+        const nodes = document.querySelectorAll<HTMLElement>('pre.mermaid');
+        if (nodes.length === 0) return;
+
+        const { default: mermaid } = await import('mermaid');
+
+        nodes.forEach((node) => {
+          if (!node.getAttribute('data-mermaid-src')) {
+            node.setAttribute('data-mermaid-src', node.textContent || '');
+          } else {
+            node.innerHTML = node.getAttribute('data-mermaid-src') || '';
+            node.removeAttribute('data-processed');
+          }
+        });
+
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: isLight ? 'neutral' : 'dark',
+          fontFamily: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+          securityLevel: 'strict',
+        });
+
+        try {
+          await mermaid.run({ nodes });
+        } catch (err) {
+          console.warn('Mermaid render warning:', err);
+        }
+      }
+
+      initThemeAndHeader();
+      enhanceCodeBlocksAndTables();
+      initScrollSpy();
+      renderMermaidDiagrams();
+    </script>
+  </body>
+</html>

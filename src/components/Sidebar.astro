@@ -1,0 +1,156 @@
+---
+import { NAVIGATION_TREE, getNavContextForSlug, type NavItem } from '../config/navigation';
+import { useTranslations, type LocaleCode } from '../i18n';
+import SidebarNode from './SidebarNode.astro';
+
+interface Props {
+  locale: LocaleCode;
+  currentSlug: string;
+}
+
+const { locale, currentSlug } = Astro.props;
+const t = useTranslations(locale);
+
+const { topSection } = getNavContextForSlug(currentSlug);
+const activeTopTitle = topSection?.title || 'Start Here';
+
+/**
+ * Scope the sidebar strictly to the active top-level section so it never duplicates
+ * the global top navbar tabs (Get Started, Guides, Concepts, Packages, API Reference, Benchmarks).
+ */
+function getScopedSidebarItems(): { sectionLabel: string; items: NavItem[] } {
+  const isVi = locale === 'vi-vn';
+
+  // When on "Start Here" or "Guides", show Overview first, then Getting Started, followed by Guides groups
+  if (activeTopTitle === 'Start Here' || activeTopTitle === 'Guides') {
+    const startHereNode = NAVIGATION_TREE.find((n) => n.title === 'Start Here');
+    const guidesNode = NAVIGATION_TREE.find((n) => n.title === 'Guides');
+
+    const startItems = startHereNode?.items ?? [];
+    const startSlugs = new Set(startItems.map((i) => i.slug).filter(Boolean));
+    const rawGuides = guidesNode?.items ?? [];
+
+    const overviewItem = rawGuides.find((item) => item.title === 'Overview' && item.slug === 'guides');
+    const guideGroups = rawGuides
+      .filter((item) => !(item.title === 'Overview' && item.slug === 'guides'))
+      .map((item) => {
+        if (item.items) {
+          return {
+            ...item,
+            items: item.items.filter((child) => !child.slug || !startSlugs.has(child.slug)),
+          };
+        }
+        return item;
+      })
+      .filter((item) => !item.items || item.items.length > 0);
+
+    return {
+      sectionLabel: isVi ? 'Bắt đầu & Hướng dẫn' : 'Guides & Tutorials',
+      items: [
+        ...(overviewItem ? [overviewItem] : []),
+        {
+          title: 'Getting Started',
+          titleVi: 'Bắt đầu',
+          items: startItems,
+        },
+        ...guideGroups,
+      ],
+    };
+  }
+
+  const matchedSection = NAVIGATION_TREE.find((n) => n.title === activeTopTitle);
+  if (!matchedSection || !matchedSection.items) {
+    return {
+      sectionLabel: activeTopTitle,
+      items: NAVIGATION_TREE,
+    };
+  }
+
+  const displayHeader =
+    activeTopTitle === 'API'
+      ? isVi
+        ? 'Tài liệu API'
+        : 'API Reference'
+      : isVi && matchedSection.titleVi
+        ? matchedSection.titleVi
+        : matchedSection.title;
+
+  return {
+    sectionLabel: displayHeader,
+    items: matchedSection.items,
+  };
+}
+
+const { sectionLabel, items: sidebarItems } = getScopedSidebarItems();
+---
+
+<aside class="nlx-sidebar" id="nlx-sidebar" aria-label="Section navigation">
+  <div class="nlx-sidebar__filter">
+    <div class="nlx-sidebar__filter-box">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary); flex-shrink: 0;">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
+      </svg>
+      <input
+        type="search"
+        id="nlx-sidebar-filter"
+        class="nlx-sidebar__filter-input"
+        placeholder={t('nav.filterSidebar')}
+        autocomplete="off"
+      />
+    </div>
+  </div>
+
+  <div class="nlx-sidebar__section-header">{sectionLabel}</div>
+
+  <nav class="nlx-sidebar__tree" id="nlx-sidebar-tree">
+    {sidebarItems.map((item) => (
+      <div class="nlx-nav-group">
+        <SidebarNode item={item} locale={locale} currentSlug={currentSlug} depth={0} />
+      </div>
+    ))}
+  </nav>
+</aside>
+
+<script>
+  function initSidebar() {
+    const activeLink = document.querySelector('.nlx-sidebar .is-active');
+    if (activeLink) {
+      activeLink.scrollIntoView({ block: 'nearest' });
+    }
+
+    const filterInput = document.getElementById('nlx-sidebar-filter') as HTMLInputElement | null;
+    if (!filterInput) return;
+
+    filterInput.addEventListener('input', () => {
+      const q = filterInput.value.trim().toLowerCase();
+      const leaves = document.querySelectorAll<HTMLElement>('[data-nav-leaf]');
+      const groups = document.querySelectorAll<HTMLDetailsElement>('[data-nav-group]');
+
+      if (!q) {
+        leaves.forEach((el) => (el.style.display = ''));
+        groups.forEach((g) => (g.style.display = ''));
+        return;
+      }
+
+      leaves.forEach((el) => {
+        const title = el.getAttribute('data-nav-title') || '';
+        el.style.display = title.includes(q) ? '' : 'none';
+      });
+
+      groups.forEach((g) => {
+        const visibleChild = Array.from(g.querySelectorAll<HTMLElement>('[data-nav-leaf]')).some(
+          (leaf) => leaf.style.display !== 'none'
+        );
+        if (visibleChild) {
+          g.style.display = '';
+          g.open = true;
+        } else {
+          g.style.display = 'none';
+        }
+      });
+    });
+  }
+
+  initSidebar();
+</script>

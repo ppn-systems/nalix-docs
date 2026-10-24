@@ -1,0 +1,22 @@
+{
+  "name": "Nalix Documentation",
+  "short_name": "Nalix Docs",
+  "description": "High-performance .NET 10 real-time networking framework documentation, architecture guides, and API reference.",
+  "start_url": "/en-us",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101214",
+  "theme_color": "#2584f4",
+  "icons": [
+    {
+      "src": "/assets/nalix.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/nalix.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

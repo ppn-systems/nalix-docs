@@ -1,0 +1,86 @@
+---
+import { getNavTitle, type NavItem } from '../config/navigation';
+import { localizePath, type LocaleCode } from '../i18n';
+
+interface Props {
+  item: NavItem;
+  locale: LocaleCode;
+  currentSlug: string;
+  depth?: number;
+}
+
+const { item, locale, currentSlug, depth = 0 } = Astro.props;
+const label = getNavTitle(item, locale);
+
+function containsActiveSlug(node: NavItem, target: string): boolean {
+  if (node.slug === target) return true;
+  if (node.items) {
+    return node.items.some((child) => containsActiveSlug(child, target));
+  }
+  return false;
+}
+
+// If a folder's first child is a generic "Overview" index page, fold its link into the folder header
+// so the sidebar never repeats "Overview" 19 times under every category.
+const rawChildren = Array.isArray(item.items) ? item.items : [];
+const hasOverviewIndexChild =
+  rawChildren.length > 1 &&
+  rawChildren[0]?.title === 'Overview' &&
+  typeof rawChildren[0]?.slug === 'string';
+
+const folderIndexSlug = hasOverviewIndexChild ? rawChildren[0].slug : item.slug;
+const visibleChildren = hasOverviewIndexChild ? rawChildren.slice(1) : rawChildren;
+
+const hasChildren = visibleChildren.length > 0;
+const isCurrent = folderIndexSlug === currentSlug;
+const isActiveBranch = containsActiveSlug(item, currentSlug);
+const shouldOpenByDefault =
+  isActiveBranch ||
+  (depth === 0 &&
+    (item.title === 'Getting Started' || item.title === 'Tutorials' || item.title === 'Core Concepts'));
+---
+
+{hasChildren ? (
+  <details class="nlx-nav-details" open={shouldOpenByDefault} data-nav-group>
+    <summary
+      class:list={[
+        'nlx-nav-summary',
+        { 'nlx-nav-summary--depth-0': depth === 0, 'is-active': isCurrent },
+      ]}
+    >
+      {typeof folderIndexSlug === 'string' ? (
+        <a
+          href={localizePath(folderIndexSlug, locale)}
+          class:list={['nlx-nav-summary__link', { 'is-active': isCurrent }]}
+          data-nav-leaf
+          data-nav-title={label.toLowerCase()}
+          data-astro-prefetch
+          onclick="event.stopPropagation();"
+        >
+          {label}
+        </a>
+      ) : (
+        <span class="nlx-nav-summary__text">{label}</span>
+      )}
+      <svg class="nlx-nav-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="m7.5 5 5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </summary>
+    <div class="nlx-nav-children">
+      {visibleChildren.map((child) => (
+        <Astro.self item={child} locale={locale} currentSlug={currentSlug} depth={depth + 1} />
+      ))}
+    </div>
+  </details>
+) : (
+  <a
+    href={localizePath(folderIndexSlug ?? '', locale)}
+    class:list={['nlx-nav-link', { 'is-active': isCurrent }]}
+    aria-current={isCurrent ? 'page' : undefined}
+    data-nav-leaf
+    data-nav-title={label.toLowerCase()}
+    data-astro-prefetch
+  >
+    {label}
+  </a>
+)}

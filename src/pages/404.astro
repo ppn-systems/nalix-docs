@@ -1,0 +1,33 @@
+---
+import '../styles/nalix.css';
+import { DEFAULT_LOCALE, localizePath } from '../i18n';
+import Header from '../components/Header.astro';
+import SearchModal from '../components/SearchModal.astro';
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page Not Found — Nalix Documentation</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/assets/nalix.svg" />
+  </head>
+  <body>
+    <Header locale={DEFAULT_LOCALE} currentSlug="" activeSectionTitle="Overview" />
+    <main style="max-width: 680px; margin: 14vh auto; padding: 0 24px; text-align: center;">
+      <div class="nlx-hero__eyebrow">404</div>
+      <h1 class="nlx-doc-title" style="margin-bottom: 12px;">The page you’re looking for can’t be found.</h1>
+      <p style="color: var(--text-secondary); margin-bottom: 28px;">
+        Use Quick Search (<kbd>Ctrl K</kbd>) or return to the Nalix documentation overview.
+      </p>
+      <div class="nlx-hero__actions">
+        <a href={localizePath('', DEFAULT_LOCALE)} class="nlx-btn nlx-btn--primary">Back to Overview</a>
+        <a href={localizePath('quickstart', DEFAULT_LOCALE)} class="nlx-btn nlx-btn--secondary">Quick Start</a>
+      </div>
+    </main>
+    <SearchModal locale={DEFAULT_LOCALE} />
+  </body>
+</html>

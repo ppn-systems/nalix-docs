@@ -1,0 +1,169 @@
+---
+title: Custom Packet Router
+description: This guide provides actionable instructions for implementing a custom packet router that leverages Nalix's shard-aware dispatch system to maintain strict sequential processing f...
+section: Guides
+---
+
+This guide provides actionable instructions for implementing a custom packet router that leverages Nalix's shard-aware dispatch system to maintain strict sequential processing for logically related connections (e.g., User, Room, or GameSession).
+
+## 1. Core Concept: Shard-Awareness
+
+Nalix uses **Hashed Connection Affinity**. The `DispatchChannel<T>` (internal to `PacketDispatchChannel`) assigns each `IConnection` instance to a specific internal shard (Worker Loop) using `RuntimeHelpers.GetHashCode(connection)`.
+
+To ensure that different physical connections (e.g., a player connected from both a Phone and Tablet) are processed sequentially by the same worker, you must use a **Shared Shard Proxy**.
+
+## 2. Step 1: Implement a Shard Proxy
+
+A Shard Proxy is a wrapper for `IConnection` that provides a stable object identity for the dispatcher while delegating transmission back to the physical socket.
+
+:::important[Object Identity is Key]
+The dispatcher uses the **Reference Identity** of the `IConnection` object. You **must** return the exact same instance of your proxy for all connections that belong to the same shard.
+:::
+
+```csharp
+using System;
+using Nalix.Abstractions;
+using Nalix.Abstractions.Networking;
+using Nalix.Abstractions.Networking.Protocols;
+using Nalix.Abstractions.Primitives;
+using Nalix.Abstractions.Security;
+
+public sealed class UserShardProxy : IConnection
+{
+    private readonly IConnection _physical;
+    public long UserID { get; }
+
+    public UserShardProxy(long userId, IConnection physical)
+    {
+        UserID = userId;
+        _physical = physical;
+    }
+
+    // --- IDENTITY MEMBERS ---
+    public ulong ConnectionId => _physical.ConnectionId;
+    public string? UserId { get => _physical.UserId; set => _physical.UserId = value; }
+    public INetworkEndpoint NetworkEndpoint => _physical.NetworkEndpoint;
+    public bool IsDisposed => _physical.IsDisposed;
+
+    // --- TRANSMISSION DELEGATION ---
+    public IConnection.ITransport TCP => _physical.TCP;
+    public IConnection.ITransport? UDP => _physical.UDP;
+    public bool IsUdpCreated => _physical.IsUdpCreated;
+    public IOpCodeExtractor PacketClassifier => _physical.PacketClassifier;
+
+    // --- STATE DELEGATION ---
+    public IObjectMap<AttributeKey, object> Attributes => _physical.Attributes;
+    public PermissionLevel Level { get => _physical.Level; set => _physical.Level = value; }
+    public CipherSuiteType Algorithm { get => _physical.Algorithm; set => _physical.Algorithm = value; }
+    public Bytes32 Secret { get => _physical.Secret; set => _physical.Secret = value; }
+    public bool ExcludeFromIdleTimeout { get => _physical.ExcludeFromIdleTimeout; set => _physical.ExcludeFromIdleTimeout = value; }
+
+    // --- METRICS ---
+    public long UpTime => _physical.UpTime;
+    public long BytesSent => _physical.BytesSent;
+    public long BytesReceived => _physical.BytesReceived;
+    public long PacketsDropped => _physical.PacketsDropped;
+    public long LastPingTime => _physical.LastPingTime;
+    public int ErrorCount => _physical.ErrorCount;
+
+    public void UpdateIdleTimeout(int newTimeoutMs) => _physical.UpdateIdleTimeout(newTimeoutMs);
+    public void IncrementBytesSent(int count) => _physical.IncrementBytesSent(count);
+    public void IncrementBytesReceived(int count) => _physical.IncrementBytesReceived(count);
+    public void IncrementPacketsDropped() => _physical.IncrementPacketsDropped();
+    public void IncrementErrorCount() => _physical.IncrementErrorCount();
+
+    // --- LIFECYCLE ---
+    public void Disconnect(string? reason = null) => _physical.Disconnect(reason);
+    public void Dispose() => _physical.Dispose();
+
+    // --- EVENT DELEGATION ---
+    public event EventHandler<IConnectionEventArgs>? ConnectionClosed { add => _physical.ConnectionClosed += value; remove => _physical.ConnectionClosed -= value; }
+    public event EventHandler<IConnectionEventArgs>? MessageProcessing { add => _physical.MessageProcessing += value; remove => _physical.MessageProcessing -= value; }
+    public event EventHandler<IConnectionEventArgs>? MessageProcessed { add => _physical.MessageProcessed += value; remove => _physical.MessageProcessed -= value; }
+}
+```
+
+## 3. Step 2: Implement the Router Middleware
+
+Implement the `IPacketDispatch` interface to intercept incoming packets and resolve the Shard Proxy before passing them to the standard dispatch channel.
+
+```csharp
+using System.Threading;
+using Nalix.Abstractions;
+using Nalix.Abstractions.Networking;
+using Nalix.Runtime.Dispatching;
+
+public sealed class UserBasedRouter : IPacketDispatch
+{
+    private static readonly AttributeKey UserIdKey = new("UserID");
+    private readonly IPacketDispatch _inner; // The default PacketDispatchChannel
+
+    public UserBasedRouter(IPacketDispatch inner)
+    {
+        _inner = inner;
+    }
+
+    public void HandlePacket(IBufferLease? packet, IConnection connection)
+    {
+        // 1. Resolve logical identity (e.g., UserID stored in connection attributes)
+        if (connection.Attributes.TryGetValue(UserIdKey, out object? raw) && raw is long userId)
+        {
+            // 2. Retrieve the shared proxy instance from your session manager.
+            // MUST return the same instance for the same UserID.
+            IConnection shardKey = GlobalSessionManager.GetOrCreateUserProxy(userId, connection);
+
+            // 3. Hand-off to the internal shard-aware channel using the proxy as the key.
+            _inner.HandlePacket(packet, shardKey);
+        }
+        else
+        {
+            // Fallback to standard connection-based sharding for unauthenticated packets.
+            _inner.HandlePacket(packet, connection);
+        }
+    }
+
+    // Delegate lifecycle to inner dispatcher
+    public void Activate(CancellationToken ct = default) => _inner.Activate(ct);
+    public void Deactivate(CancellationToken ct = default) => _inner.Deactivate(ct);
+}
+```
+
+## 4. Step 3: Register the Router
+
+Inject your custom router into the protocol during the application bootstrapping process.
+
+```csharp
+var builder = NetworkApplication.CreateBuilder();
+
+// The builder provides the default PacketDispatchChannel (shard-aware engine)
+// as the 'dispatch' argument in the MapTcp/MapUdp factory.
+builder.MapTcp<GameProtocol>().WithFactory(dispatch => 
+{
+    // Wrap the default shard engine with our custom UserBasedRouter
+    var userRouter = new UserBasedRouter(dispatch);
+    
+    return new GameProtocol(userRouter);
+}).Bind();
+
+var app = builder.Build();
+await app.RunAsync();
+```
+
+## Configuration Parameters
+
+The shard-aware system behavior is influenced by `DispatchOptions`. Ensure these are tuned to handle the expected per-shard load:
+
+| Option | Recommendation |
+| --- | --- |
+| `MaxPerConnectionQueue` | Limits how many packets can be queued for a single shard (`UserShardProxy` instance) before `DropPolicy` (`DropNewest`, `DropOldest`, `Coalesce`, or `Block`) triggers. Default is `4096` (set to `0` for unlimited, or a tighter bound such as `256` in production). |
+| `DropPolicy` | Choose `DropOldest` for real-time state updates or `Block` (with `BlockTimeout`) when backpressure should stall the reader. |
+
+## Why this works
+
+By passing the **Proxy Instance** to `HandlePacket`, the `DispatchChannel<T>` uses that proxy's identity to select a bucket. This effectively groups all physical connections mapped to that proxy into a single serial queue, ensuring that user state updates remain perfectly ordered regardless of which device the packet originated from.
+
+## Related APIs
+
+- [IPacketDispatch](../../api/runtime/routing/packet-dispatch.md)
+- [Dispatch Options](../../api/options/runtime/dispatch-options.md)
+- [IConnection](../../api/abstractions/connection-contracts.md)

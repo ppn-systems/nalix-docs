@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ppn.io.vn/sitemap.xml
+# LLM / AI Documentation Index: https://ppn.io.vn/llms.txt

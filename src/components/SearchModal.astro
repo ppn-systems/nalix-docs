@@ -1,0 +1,207 @@
+---
+import { useTranslations, type LocaleCode } from '../i18n';
+
+interface Props {
+  locale: LocaleCode;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<div
+  class="nlx-search-backdrop"
+  id="nlx-search-backdrop"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Search Documentation"
+  data-locale={locale}
+  data-empty-text={t('search.noResults')}
+  data-initial-hint={t('search.InitialHint')}
+>
+  <div class="nlx-search-dialog">
+    <div class="nlx-search-input-bar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary);">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
+      </svg>
+      <input
+        type="search"
+        id="nlx-search-input"
+        class="nlx-search-input"
+        placeholder={t('search.inputPlaceholder')}
+        autocomplete="off"
+      />
+      <button type="button" class="nlx-copy-btn" id="nlx-search-close">ESC</button>
+    </div>
+
+    <div class="nlx-search-results" id="nlx-search-results">
+      <div style="padding: 24px 16px; text-align: center; color: var(--text-tertiary); font-size: 0.85rem;">
+        {t('search.InitialHint')}
+      </div>
+    </div>
+
+    <div class="nlx-search-footer">
+      <span>↑↓ {t('search.navigateHint')} · ↵ {t('search.selectHint')}</span>
+      <span>ESC {t('search.closeHint')}</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  interface SearchItem {
+    title: string;
+    description: string;
+    section: string;
+    pkg?: string;
+    url: string;
+    locale: string;
+    headings: string[];
+  }
+
+  let cachedIndex: SearchItem[] | null = null;
+  let selectedIdx = 0;
+
+  async function loadSearchIndex(): Promise<SearchItem[]> {
+    if (cachedIndex) return cachedIndex;
+    try {
+      const res = await fetch('/search-index.json');
+      cachedIndex = await res.json();
+      return cachedIndex || [];
+    } catch {
+      return [];
+    }
+  }
+
+  function initSpotlightSearch() {
+    const backdrop = document.getElementById('nlx-search-backdrop');
+    const openBtn = document.getElementById('nlx-search-open');
+    const closeBtn = document.getElementById('nlx-search-close');
+    const input = document.getElementById('nlx-search-input') as HTMLInputElement | null;
+    const resultsContainer = document.getElementById('nlx-search-results');
+
+    if (!backdrop || !input || !resultsContainer) return;
+
+    const currentLocale = backdrop.getAttribute('data-locale') || 'en';
+    const emptyText = backdrop.getAttribute('data-empty-text') || 'No results found.';
+    const initialHint = backdrop.getAttribute('data-initial-hint') || '';
+
+    function openSearch() {
+      backdrop!.classList.add('is-open');
+      input!.focus();
+      loadSearchIndex().then((items) => {
+        if (!input!.value.trim()) {
+          renderItems(items.filter((i) => i.locale === currentLocale).slice(0, 8));
+        }
+      });
+    }
+
+    function closeSearch() {
+      backdrop!.classList.remove('is-open');
+    }
+
+    function renderItems(items: SearchItem[]) {
+      selectedIdx = 0;
+      if (items.length === 0) {
+        resultsContainer!.innerHTML = `<div style="padding: 28px 16px; text-align: center; color: var(--text-tertiary); font-size: 0.86rem;">${emptyText}</div>`;
+        return;
+      }
+
+      resultsContainer!.innerHTML = items
+        .map(
+          (item, i) => `
+          <a href="${item.url}" class="nlx-search-item ${i === 0 ? 'is-selected' : ''}" data-search-idx="${i}">
+            <div class="nlx-search-item__top">
+              <span class="nlx-search-item__title">${item.title}</span>
+              <span class="nlx-search-item__section">${item.pkg ? item.pkg : item.section}</span>
+            </div>
+            <div class="nlx-search-item__desc">${item.description}</div>
+          </a>
+        `
+        )
+        .join('');
+    }
+
+    openBtn?.addEventListener('click', openSearch);
+    closeBtn?.addEventListener('click', closeSearch);
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeSearch();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (backdrop.classList.contains('is-open')) {
+          closeSearch();
+        } else {
+          openSearch();
+        }
+      } else if (e.key === 'Escape' && backdrop.classList.contains('is-open')) {
+        closeSearch();
+      }
+    });
+
+    input.addEventListener('input', async () => {
+      const q = input.value.trim().toLowerCase();
+      const all = (await loadSearchIndex()).filter((i) => i.locale === currentLocale);
+      if (!q) {
+        renderItems(all.slice(0, 8));
+        return;
+      }
+
+      const terms = q.split(/\s+/).filter(Boolean);
+      const scored = all
+        .map((item) => {
+          let score = 0;
+          const tLower = item.title.toLowerCase();
+          const dLower = item.description.toLowerCase();
+          const hLower = item.headings.join(' ').toLowerCase();
+          const pLower = (item.pkg || '').toLowerCase();
+
+          for (const term of terms) {
+            if (tLower === term) score += 100;
+            else if (tLower.startsWith(term)) score += 60;
+            else if (tLower.includes(term)) score += 40;
+
+            if (pLower.includes(term)) score += 25;
+            if (hLower.includes(term)) score += 20;
+            if (dLower.includes(term)) score += 10;
+          }
+          return { item, score };
+        })
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 12)
+        .map((entry) => entry.item);
+
+      renderItems(scored);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      const links = Array.from(resultsContainer.querySelectorAll<HTMLAnchorElement>('.nlx-search-item'));
+      if (links.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        links[selectedIdx]?.classList.remove('is-selected');
+        selectedIdx = (selectedIdx + 1) % links.length;
+        links[selectedIdx]?.classList.add('is-selected');
+        links[selectedIdx]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        links[selectedIdx]?.classList.remove('is-selected');
+        selectedIdx = (selectedIdx - 1 + links.length) % links.length;
+        links[selectedIdx]?.classList.add('is-selected');
+        links[selectedIdx]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const active = links[selectedIdx];
+        if (active) {
+          window.location.href = active.href;
+        }
+      }
+    });
+  }
+
+  initSpotlightSearch();
+</script>

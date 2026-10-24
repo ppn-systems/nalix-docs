@@ -1,0 +1,40 @@
+name: "CI: Test & Build Verification"
+
+on:
+  push:
+    branches: ["main", "master", "feat/**"]
+  pull_request:
+    branches: ["main", "master"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: "Verify Docs Integrity & Astro Build"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite (i18n, navigation, links, C# parity)
+        run: npm test
+
+      - name: Build static site with Astro
+        run: npm run build
+
+      - name: Validate Cloudflare Wrangler packaging (dry-run)
+        run: npx wrangler deploy --dry-run
