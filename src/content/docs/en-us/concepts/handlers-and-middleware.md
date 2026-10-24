@@ -20,7 +20,7 @@ public static class HelloHandlers
         HelloResponsePacket response = lease.Value;
         response.Message = 1;
 
-        await context.Sender.SendAsync(response).ConfigureAwait(false);
+        await context.Sender.ReplyAsync(response).ConfigureAwait(false);
     }
 }
 ```

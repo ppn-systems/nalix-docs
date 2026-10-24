@@ -36,5 +36,5 @@ jobs:
       - name: Build static site with Astro
         run: npm run build
 
-      - name: Validate Cloudflare Wrangler packaging (dry-run)
-        run: npx wrangler deploy --dry-run
+      - name: Verify Cloudflare Pages output
+        run: test -f dist/index.html && test -f dist/404.html

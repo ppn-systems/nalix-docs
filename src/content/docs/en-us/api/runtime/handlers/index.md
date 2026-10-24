@@ -81,7 +81,8 @@ public class MyController
     public async ValueTask HandleRequestAsync(IPacketContext<MyPacket> context)
     {
         // Business logic here
-        await context.Sender.SendAsync(new MyResponse());
+        // ReplyAsync copies the request SequenceId so the client's RequestAsync can match the response.
+        await context.Sender.ReplyAsync(new MyResponse());
     }
 }
 ```
