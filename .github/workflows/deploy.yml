@@ -47,6 +47,18 @@ jobs:
       - name: Build static site with Astro
         run: npm run build
 
+      # `wrangler pages deploy` does not create the project, so create it on the first run.
+      - name: Ensure Cloudflare Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if npx wrangler pages project list | grep -qw "nalix-docs"; then
+            echo "Pages project nalix-docs already exists."
+          else
+            npx wrangler pages project create nalix-docs --production-branch=master
+          fi
+
       - name: Deploy static site to Cloudflare Pages
         id: cf_deploy
         uses: cloudflare/wrangler-action@v3
