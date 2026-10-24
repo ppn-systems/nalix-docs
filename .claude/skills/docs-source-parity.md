@@ -22,17 +22,30 @@
 3. Fix discrepancies; `npm test`.
 
 ## Checklist — syncing after source changes
-1. Pull the latest `../nalix`, then `npm run sync:check`.
-   - Compares `../nalix/src` + `samples` (`.cs`, `.csproj`) against `source-manifest.json` (SHA-256 per file, CRLF-normalized).
+1. `npm run sync:check` — reads `ppn-systems/nalix@HEAD` straight from GitHub (one tarball download, no clone).
+   - Covers `analyzers/` + `samples/` + `src/` (`.cs`, `.csproj`, skipping `bin`/`obj`) and compares against `source-manifest.json`.
+   - Hashes are **semantic**: SHA-256 of the file with comments (`//`, `/* */`, `///`, `<!-- -->`) and formatting whitespace removed. String/char literals (regular, `@"…"`, `$"…{hole}…"`, raw `"""…"""`, `'"'`) are kept verbatim, so `//` inside a string is never treated as a comment. Comment-only or reformat-only commits do not show up.
    - Prints modified / added / removed files and, under each, the pages that mention its type name (`Foo.Types.cs` → `Foo`). Exits `1` when anything changed.
-   - Other location: `--source <path>` or `NALIX_SOURCE=<path>`.
-2. Read each change (`git -C ../nalix diff <manifest nalixCommit> HEAD -- <file>`) and fix the listed pages; `grep` for renamed members the name match misses.
+   - Options: `--ref <branch|tag|sha>`, `--repo <owner/name>`, `--source <local clone>` (or `NALIX_SOURCE`) to hash a working tree instead. Set `GITHUB_TOKEN` if the anonymous API rate limit is hit.
+2. Read each change (`https://github.com/ppn-systems/nalix/compare/<manifest nalixCommit>...<new commit>`) and fix the listed pages; `grep` for renamed members the name match misses.
 3. `npm test`, then `npm run sync:update` to record the new hashes + commit, and commit `source-manifest.json` together with the doc fixes.
+
+## Checklist — automated drift PR (CI)
+`.github/workflows/source-sync.yml` runs daily (01:17 UTC), on demand (**Actions → Source Sync → Run workflow**, optional `ref`), and on a `repository_dispatch` of type `nalix-updated`.
+1. On drift it pushes the updated `source-manifest.json` to `bot/source-sync` and opens (or refreshes) **one** draft PR whose body is the report: compare link, changed files linked to GitHub, and a checklist of pages to review. The full report is also in the run summary and the `source-sync-report` artifact (PR bodies are truncated at 60k chars).
+2. `git fetch origin bot/source-sync && git switch bot/source-sync`, fix the pages, `npm test`, push, mark ready, merge. Merging = docs synced.
+3. While a person has commits on the branch, later runs never force-push: they only add a manifest-bump commit on top (none if nothing changed) and refresh the PR body. With no human commits the branch is rebuilt from the default branch.
+4. A PR closed without merging is recreated on the next drift.
+
+Failure handling: network errors, 5xx and secondary rate limits are retried with backoff; exhausted rate limit, unknown ref (404/422), a corrupt tarball, an empty tree or an invalid manifest fail the job with a clear message (exit `2`) instead of opening a bogus PR.
+
+Repo setup required once: **Settings → Actions → General → Workflow permissions → "Read and write" + "Allow GitHub Actions to create and approve pull requests"**. PRs opened with `GITHUB_TOKEN` do not trigger `ci.yml` until someone pushes to the branch.
 
 ---
 
 ## Gotchas
 - Page matching is by type name only: generic file names (`Program.cs`, `Extensions.cs`) list noisy pages, and pages that never name the type are missed.
+- Behind an HTTPS proxy, Node 22 `fetch` needs `NODE_USE_ENV_PROXY=1`.
 - Never run `sync:update` without fixing the reported pages — it marks them as reviewed.
 - `nalix/.claude/skills/*.md` encode invariants (pipeline order, crypto rules) that docs must not contradict.
 - Sample code in `nalix/samples` may lag `src`; trust `src` when they disagree.

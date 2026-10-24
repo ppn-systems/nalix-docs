@@ -88,6 +88,6 @@ All technical content must match the Nalix source code in [`ppn-systems/nalix`](
 - [`.claude/skills/docs-structure.md`](./.claude/skills/docs-structure.md) — adding/moving pages, navigation sync (R8), i18n
 - [`.claude/skills/docs-source-parity.md`](./.claude/skills/docs-source-parity.md) — verifying pages against source and syncing after source changes
 
-To find pages made stale by source changes: `npm run sync:check` (needs `../nalix`), fix them, then `npm run sync:update`.
+To find pages made stale by source changes: `npm run sync:check` (reads `ppn-systems/nalix` from GitHub; comment/format-only changes are ignored), fix them, then `npm run sync:update`. The `Source Sync` workflow runs this daily and opens a draft PR on `bot/source-sync` when docs need updating.
 
 Every change must pass `npm test` (and `npm run check` before release).
