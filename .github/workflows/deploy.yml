@@ -1,4 +1,4 @@
-name: "Deploy to Cloudflare (Manual)"
+name: "Deploy to Cloudflare Pages (Manual)"
 
 on:
   workflow_dispatch:
@@ -47,10 +47,10 @@ jobs:
       - name: Build static site with Astro
         run: npm run build
 
-      - name: Deploy static assets to Cloudflare
+      - name: Deploy static site to Cloudflare Pages
         id: cf_deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+          command: pages deploy dist --project-name=nalix-docs --branch=master

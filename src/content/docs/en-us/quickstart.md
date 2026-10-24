@@ -137,7 +137,7 @@ public static class HelloHandlers
         HelloResponsePacket response = lease.Value;
         response.Message = 1; // "Hello from Nalix!"
 
-        await context.Sender.SendAsync(response).ConfigureAwait(false);
+        await context.Sender.ReplyAsync(response).ConfigureAwait(false);
     }
 }
 ```
