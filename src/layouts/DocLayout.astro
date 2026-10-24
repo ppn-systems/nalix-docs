@@ -187,13 +187,15 @@ const jsonLdSchema = isLanding
       type="font/woff2"
       crossorigin
     />
-    <link
-      rel="preload"
-      href="/assets/fonts/ibm-plex-mono-latin-400-normal.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    {!isLanding && (
+      <link
+        rel="preload"
+        href="/assets/fonts/ibm-plex-mono-latin-400-normal.woff2"
+        as="font"
+        type="font/woff2"
+        crossorigin
+      />
+    )}
 
     <!-- i18n hreflang alternates -->
     {ENABLED_LOCALES.map((altLocale) => (
