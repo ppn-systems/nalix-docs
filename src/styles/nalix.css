@@ -985,14 +985,14 @@ a:hover {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--toc-width);
   align-items: start;
-  min-height: calc(100vh - var(--header-height));
+  min-height: calc((100vh - var(--header-height)) / var(--dz, 1));
 }
 
 /* Left Sidebar (sidebar.tsx & sidebar-filter.tsx) */
 .nlx-sidebar {
   position: sticky;
-  top: var(--header-height);
-  height: calc(100vh - var(--header-height));
+  top: calc(var(--header-height) / var(--dz, 1));
+  height: calc((100vh - var(--header-height)) / var(--dz, 1));
   overflow-y: auto;
   background-color: var(--bg-paper);
   border-right: 1px solid var(--border-divider);
@@ -1545,8 +1545,8 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
 /* Right Table of Contents */
 .nlx-toc {
   position: sticky;
-  top: var(--header-height);
-  height: calc(100vh - var(--header-height));
+  top: calc(var(--header-height) / var(--dz, 1));
+  height: calc((100vh - var(--header-height)) / var(--dz, 1));
   overflow-y: auto;
   padding: 32px 20px 36px 12px;
   font-size: 0.78rem;
@@ -1933,7 +1933,7 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
   }
   .nlx-sidebar {
     position: fixed;
-    top: var(--header-height);
+    top: calc(var(--header-height) / var(--dz, 1));
     left: 0;
     z-index: 120;
     width: min(290px, 85vw);
@@ -2085,20 +2085,20 @@ details[open] > .nlx-nav-summary .nlx-nav-chevron {
 }
 
 /* Text density (Aa menu in the header); "normal" is the default and sets nothing.
-   Sizes are rem-based, so the root size scales headings, sidebar, TOC and code together. */
+   Only the page below the header is scaled (zoom), so the header keeps its size. */
 html[data-density="dense"] {
-  font-size: 90%;
+  --dz: 0.9;
   --prose-leading: 1.6;
 }
 
 html[data-density="comfortable"] {
-  font-size: 112.5%;
+  --dz: 1.125;
   --prose-leading: 1.9;
 }
 
-/* Keep the tab bar at its normal size so it never collides with the search box */
-html[data-density="comfortable"] .nlx-topnav__link {
-  font-size: 0.75rem;
+.nlx-workspace,
+.nlx-home-wrapper {
+  zoom: var(--dz, 1);
 }
 
 .nlx-density-option {
