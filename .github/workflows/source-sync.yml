@@ -43,17 +43,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 24
+          python-version: "3.12"
 
       - name: Compare Nalix source with manifest
         id: check
         run: |
           REPORT="$RUNNER_TEMP/source-sync-report.md"
           set +e
-          node scripts/source-sync.mjs check --ref "$NALIX_REF" --report "$REPORT" --pr-body "$RUNNER_TEMP/source-sync-pr-body.md" --update
+          python3 tools/run.py sync-check --ref "$NALIX_REF" --report "$REPORT" --pr-body "$RUNNER_TEMP/source-sync-pr-body.md" --update
           code=$?
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
@@ -73,7 +73,7 @@ jobs:
         if: steps.check.outputs.code == '1'
         run: |
           # source-api-index.json was just regenerated for the new commit; findings are informational here.
-          node scripts/docs-audit.mjs --baseline tests/fixtures/docs-audit-baseline.json --markdown "$RUNNER_TEMP/audit.md" || true
+          python3 tools/run.py audit --baseline tools/docs-audit-baseline.json --markdown "$RUNNER_TEMP/audit.md" || true
           cat "$RUNNER_TEMP/audit.md" >> "$GITHUB_STEP_SUMMARY"
           cat "$RUNNER_TEMP/audit.md" >> "$RUNNER_TEMP/source-sync-report.md"
 
@@ -91,7 +91,7 @@ jobs:
           REPORT="$RUNNER_TEMP/source-sync-report.md"
           git config user.name "$BOT_NAME"
           git config user.email "$BOT_EMAIL"
-          commit=$(node -p "require('./source-manifest.json').nalixCommit")
+          commit=$(python3 -c "import json; print(json.load(open('source-manifest.json'))['nalixCommit'])")
           mkdir -p "$RUNNER_TEMP/snapshot"
           cp source-manifest.json source-api-index.json "$RUNNER_TEMP/snapshot/"
 

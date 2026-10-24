@@ -12,26 +12,27 @@ The source of truth for every technical claim is the sibling repository [`ppn-sy
 | `src/config/navigation.ts` | Sidebar tree — every page must be registered here |
 | `src/i18n/` | Locale registry, routing helpers, UI dictionaries |
 | `src/plugins/remark-nalix-docs.ts` | Admonitions, Mermaid, locale-aware link rewriting |
-| `tests/` | Integrity gates (frontmatter, links, navigation, i18n, C# parity) |
-| `scripts/` | Maintenance scripts (Node ESM, no extra deps) |
+| `tests/` | Vitest gates (frontmatter, links, navigation, i18n, remark plugin, C# parity) |
+| `tools/` | Python tools (standard library only): source-sync and docs audit, with `unittest` tests in `tools/tests/` |
+| `scripts/` | One-off Node migration script |
 | `.github/workflows/source-sync.yml` | Daily drift check; opens a draft PR on `bot/source-sync` only when the docs are affected |
 | `source-manifest.json`, `source-api-index.json` | Hashes + public-API snapshot of the `nalix` commit the docs were last synced to |
 
 ## Commands
 
-- `npm test` — all integrity gates (fast, run after every content change)
+- `npm test` — Vitest gates + Python `unittest` (includes the docs-vs-source audit); run after every content change
 - `npm run build` — Astro static build
 - `npm run check` — test + build (what CI runs)
 - `npm run sync:check` / `sync:update` — classify `nalix` source changes (API / behavior / ignored) and record the synced commit
-- `npm run audit` — docs vs source API index (offline); also gated by `tests/docs-audit.test.ts`
+- `npm run audit` — docs vs source API index (offline); also gated by `tools/tests/test_docs_gate.py`
 
-Run `npm test` after any change under `src/`, `tests/` or `scripts/`. Pure `README`/`CLAUDE.md`/skill edits need no validation.
+Run `npm test` after any change under `src/`, `tests/` or `tools/`. Pure `README`/`CLAUDE.md`/skill edits need no validation.
 
 ## Global Rules
 
 - **Accuracy first:** never document an API, option, default value or behavior without reading it in `nalix/src`. If the source is not available, say so instead of guessing.
 - **English canonical:** write in `en-us`; translations never add content that `en-us` lacks.
-- **No new npm dependencies** unless explicitly requested.
+- **No new npm or pip dependencies** unless explicitly requested; `tools/` uses the Python standard library only.
 - **Surgical changes:** touch only the pages the task requires; match the surrounding tone and structure.
 - **Do not rename or move pages** without updating `navigation.ts` and every inbound link (URLs are public).
 - Never commit `dist/`, `.astro/`, `node_modules/`.

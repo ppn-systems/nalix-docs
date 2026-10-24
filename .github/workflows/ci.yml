@@ -27,10 +27,15 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Run test suite (i18n, navigation, links, C# parity)
+      - name: Run test suite (content, navigation, links, tools, docs-vs-source audit)
         run: npm test
 
       - name: Build static site with Astro

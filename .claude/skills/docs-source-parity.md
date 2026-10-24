@@ -4,19 +4,19 @@
 - Documenting or changing any API, option, default value, wire format or behavior
 - The `nalix` repository changed and docs may be stale (a `bot/source-sync` PR appeared)
 - A reviewer questions the accuracy of a page
-- `tests/docs-audit.test.ts` fails
+- `tools/tests/test_docs_gate.py` fails
 
 ---
 
-## The tools (all dependency-free Node ESM in `scripts/`)
+## The tools (`tools/`, Python 3.10+, standard library only)
 
-| Tool | Command | What it answers |
-| :--- | :--- | :--- |
-| `source-sync.mjs` | `npm run sync:check` | What changed in `ppn-systems/nalix` since `source-manifest.json`, **and does it matter to the docs?** |
-| `source-sync.mjs` | `npm run sync:update` | Record the current Nalix commit (hashes + `source-api-index.json`). Only after the docs were fixed. |
-| `docs-audit.mjs` | `npm run audit` | Is anything in the docs wrong or missing compared with the committed API index? Runs offline. |
+| Command | What it answers |
+| :--- | :--- |
+| `npm run sync:check` | What changed in `ppn-systems/nalix` since `source-manifest.json`, **and does it matter to the docs?** |
+| `npm run sync:update` | Record the current Nalix commit (hashes + `source-api-index.json`). Only after the docs were fixed. |
+| `npm run audit` | Is anything in the docs wrong or missing compared with the committed API index? Runs offline. |
 
-`source-api-index.json` = public API snapshot of Nalix (types, namespaces, options + defaults, enum members, identifiers, every repo path). It is what lets the tests run without the network.
+`source-api-index.json` is a public-API snapshot of Nalix (types, namespaces, options + defaults, enum members, identifiers, every repo path). It is what lets the tests run without the network.
 
 ### Change tiers (`sync:check`)
 | | Meaning | Action |
@@ -28,7 +28,7 @@
 
 Hashing ignores `//`, `/* */`, `///` and formatting; literals (`"//"`, `$"{x}"`, `"""raw"""`, `'"'`) are preserved, so the scanner never mistakes them for comments.
 
-### Audit codes (`docs-audit.mjs`)
+### Audit codes
 | Code | Severity | Meaning |
 | :-- | :-- | :-- |
 | A001 | error | A cited `src/…`, `samples/…`, `analyzers/…` path does not exist |
@@ -38,6 +38,22 @@ Hashing ignores `//`, `/* */`, `///` and formatting; literals (`"//"`, `$"{x}"`,
 | A005 | error/warn | Enum section lists a member the enum lacks (warn: omits one) |
 | A006 | error/warn | `Enum.Member` or `Type.Member` that does not exist in the source |
 | A010 | gap | Public type no page mentions |
+
+### Code map
+```text
+tools/run.py                      entry point (sync-check | sync-update | audit)
+tools/docsync/domain/             pure logic, no I/O
+  normalize.py                    comment-free C#/XML views, content hash
+  declarations.py, surface.py     type scan, member signatures, surface diff
+  api_index.py, api_view.py       the API index (build / query)
+  checks/                         one module per audit rule, registered in checks/__init__.py
+  classifier.py, report.py        change tiers and Markdown report
+tools/docsync/application/        use cases (CheckDrift, RecordSnapshot, AuditDocs) and their ports
+tools/docsync/infrastructure/     GitHub client, tarball reader, local clone, JSON stores
+tools/tests/                      unittest suite
+tools/docs-audit-baseline.json    accepted findings, each with a reason
+```
+Add an audit rule: create a module in `checks/` with a `code` and `run(ctx)` returning `Finding`s, register it in `checks/__init__.py`, and add a case to `tools/tests/test_audit_checks.py`.
 
 ---
 
@@ -50,8 +66,8 @@ Hashing ignores `//`, `/* */`, `///` and formatting; literals (`"//"`, `$"{x}"`,
 
 ## Checklist — fixing a finding
 1. Open the page line and the real source (`grep -rn "<Name>" ../nalix/src`).
-2. Decide: real → fix the page; false positive → fix the **tool** (add a test case in `tests/docs-audit.test.ts` / `tests/drift-report.test.ts`) or, if the exception is legitimate, add it to `tests/fixtures/docs-audit-baseline.json` with a reason.
-3. `npm test` (includes the audit gate), then `npm run sync:update` if the Nalix commit moved.
+2. Decide: real → fix the page; false positive → fix the **tool** and add a test case in `tools/tests/`, or, if the exception is legitimate, add it to `tools/docs-audit-baseline.json` with a reason.
+3. `npm test`, then `npm run sync:update` if the Nalix commit moved.
 
 ## Checklist — a `bot/source-sync` PR (CI)
 See [docs-sync-pr](./docs-sync-pr.md).
@@ -59,8 +75,7 @@ See [docs-sync-pr](./docs-sync-pr.md).
 ---
 
 ## Gotchas
-- `A004` compares against the Options class the table is *about* (nearest type above it) — tables for attribute properties that share names with options are skipped on non-dedicated pages.
-- `A006` ignores members shorter than 4 characters (the identifier index cannot hold them) and anything inside paths.
+- A004 compares against the Options class the table is *about* (nearest type above it) — tables for attribute properties that share names with options are skipped on non-dedicated pages.
+- A006 ignores members shorter than 4 characters (the identifier index cannot hold them) and anything inside paths.
 - Page matching for 🟡 uses Source Mapping citations; very broad citations (`src/Nalix.Network`) are ignored on purpose.
-- Behind an HTTPS proxy, Node 22 `fetch` needs `NODE_USE_ENV_PROXY=1`.
 - Never run `sync:update` without fixing the reported pages — it marks them as reviewed.

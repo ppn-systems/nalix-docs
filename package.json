@@ -10,13 +10,13 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "test": "vitest run",
+    "test": "vitest run && python3 -m unittest discover -s tools/tests -t tools",
     "test:watch": "vitest",
     "check": "npm run test && npm run build",
     "deploy": "wrangler pages deploy",
-    "sync:check": "node scripts/source-sync.mjs check",
-    "sync:update": "node scripts/source-sync.mjs update",
-    "audit": "node scripts/docs-audit.mjs --baseline tests/fixtures/docs-audit-baseline.json"
+    "sync:check": "python3 tools/run.py sync-check",
+    "sync:update": "python3 tools/run.py sync-update",
+    "audit": "python3 tools/run.py audit --baseline tools/docs-audit-baseline.json"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.3.4",

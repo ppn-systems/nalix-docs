@@ -1,100 +1,116 @@
-# Nalix Documentation (`nalix-docs`)
+# Nalix Documentation
 
-Official documentation portal for **Nalix** — an enterprise-grade real-time TCP, UDP, and WebSocket networking framework for .NET 10.
+Source of the documentation site for [Nalix](https://github.com/ppn-systems/nalix), a .NET 10 networking framework (TCP, UDP and WebSocket).
 
-Built with **Astro 5**, modeled on the **Unity Documentation (`docs.unity.com/en-us`)** layout and architecture, and equipped with first-class **BCP-47 regional i18n (`en-us` / `vi-vn`)** routing and automated integrity tests.
+Live site: <https://ppn.io.vn>
 
----
+The site is a static [Astro](https://astro.build) project. Pages are Markdown files under `src/content/docs/`, tested with Vitest and deployed to Cloudflare Pages.
 
-## Quick Start
+## Requirements
+
+- Node.js 24 (what CI uses)
+- Python 3.10 or newer, only for the tools in `tools/` and their tests (standard library only, nothing to install)
+
+## Getting started
 
 ```bash
-# Install dependencies
 npm install
-
-# Start local development server (http://localhost:4321/en-us)
-npm run dev
-
-# Run i18n, navigation, and link integrity tests
-npm test
-
-# Run full check (tests + production static build)
-npm run check
+npm run dev      # http://localhost:4321
+npm test         # content, navigation, i18n and link tests + the Python tool tests
+npm run build    # static site into dist/
+npm run check    # test + build, the same as CI
 ```
 
----
+## Writing documentation
 
-## Project Structure
+English pages live in `src/content/docs/en-us/`:
+
+| Folder | Content |
+| :--- | :--- |
+| `index.md`, `installation.md`, `quickstart.md` | Entry pages |
+| `guides/` | Task-oriented walkthroughs |
+| `concepts/` | How Nalix works: handshake, sessions, sharding, guarantees |
+| `api/` | Reference for each package, plus `api/options/` for the `*Options` classes |
+| `packages/` | One overview page per NuGet package |
+| `benchmarks/` | Benchmark results (raw data in `public/benchmarks/`) |
+
+Every page needs this frontmatter:
+
+```yaml
+---
+title: Connection Guard Options   # starts with a capital letter or digit
+description: One sentence.        # quote it if it contains ': '
+section: API Reference
+---
+```
+
+Rules the tests enforce:
+
+- A page is listed in `src/config/navigation.ts`, and every entry there has a file.
+- No `# H1` in the body (the title is rendered from the frontmatter).
+- Every code fence has a language tag.
+- No backticks inside link labels: write `[LiteSerializer](./x.md)`.
+- Links are relative `.md` links and must resolve; they are rewritten per locale at build time.
+- Callouts use `:::note[Title]` (also `tip`, `warning`, `danger`); diagrams use ` ```mermaid `.
+
+Technical statements must match the Nalix source. Read the code before documenting a member, option or default value.
+
+## Translations
+
+`vi-vn` is registered but switched off. To start translating:
+
+1. Add pages under `src/content/docs/vi-vn/` with exactly the same relative paths as in `en-us/`. Pages without a translation fall back to English with a notice.
+2. Set `enabled: true` for `vi-vn` in `src/i18n/config.ts`.
+3. Run `npm test`.
+
+## Keeping the docs accurate
+
+`tools/` contains Python tools (standard library only) that compare the docs with the Nalix source on GitHub:
+
+```bash
+npm run audit         # docs vs the stored API snapshot: wrong paths, namespaces, option defaults, enum members, undocumented types
+npm run sync:check    # what changed in Nalix since the docs were last synced, and which of it matters
+npm run sync:update   # record the current Nalix commit as synced (after fixing the docs)
+```
+
+`sync:check` ignores changes that do not affect the docs: comments, formatting and method bodies are not compared. Each remaining change is reported as one of
+
+- **API change the docs do not show**: a signature diff and the docs lines that mention the changed members,
+- **behavior change in code a page describes**: a line diff to review, which may need no edit,
+- **already documented** or **internal**: nothing to do.
+
+`source-manifest.json` (file hashes) and `source-api-index.json` (public API snapshot) record the Nalix commit the docs match. `npm test` runs the audit against that snapshot, so the docs cannot drift from it unnoticed. Findings that are intentionally accepted are listed with a reason in `tools/docs-audit-baseline.json`.
+
+The workflow `.github/workflows/source-sync.yml` runs the check every day. When Nalix changed in a way that affects the docs, it opens one draft pull request on `bot/source-sync` with the report. Check out that branch, update the listed pages, push and merge.
+
+The repository setting **Allow GitHub Actions to create and approve pull requests** (Settings → Actions → General) must be enabled for the workflow to open that pull request.
+
+## Project structure
 
 ```text
-nalix-docs/
-├── public/
-│   ├── assets/                 # Logos, architecture SVGs, and self-hosted Inter & JetBrains Mono fonts
-│   ├── benchmarks/data/        # Raw JSONL benchmark datasets
-│   └── CNAME                   # Custom domain configuration (ppn.io.vn)
+.
 ├── src/
-│   ├── components/             # Global Header + Subheader, Unity-style Home Portal, Sidebar Filter, TOC, Search
-│   ├── config/
-│   │   └── navigation.ts       # Canonical sidebar tree with i18n section labels
-│   ├── content/
-│   │   └── docs/
-│   │       └── en-us/          # 203 canonical English (en-US) documentation pages
-│   ├── i18n/
-│   │   ├── config.ts           # Locale registry ('en-us' active, 'vi-vn' configured & ready)
-│   │   ├── index.ts            # Locale routing, alias normalization ('en' -> 'en-us', 'vn'/'vi' -> 'vi-vn'), and fallback helpers
-│   │   └── locales/
-│   │       ├── en-us.ts        # English (en-US) UI dictionary
-│   │       └── vi-vn.ts        # Vietnamese (vi-VN) UI dictionary
-│   ├── layouts/
-│   │   └── DocLayout.astro     # Portal Home & 3-column Documentation Reader layout
-│   ├── pages/
-│   │   ├── index.astro         # Root portal entry
-│   │   ├── [locale]/[...slug].astro  # Localized documentation routes (/en-us/...)
-│   │   └── search-index.json.ts      # Build-time search index
-│   ├── plugins/
-│   │   └── remark-nalix-docs.ts      # Custom Remark plugin (admonitions, Mermaid, locale-aware relative links)
-│   └── styles/
-│       └── apple.css           # Unity Docs design tokens, grids, and typography
-└── tests/
-    ├── i18n.test.ts            # Guards i18n dictionaries, 'en-us'/'vi-vn' resolution, and translation parity
-    ├── navigation-sync.test.ts # Guards 1:1 sync between navigation.ts and markdown files (Rule R8)
-    ├── content-and-links.test.ts # Guards frontmatter, markdown rules, and 100% of internal links
-    ├── remark-plugin.test.ts   # Guards AST transformations
-    ├── docs-audit.test.ts      # Guards docs against the Nalix public-API index (paths, namespaces, option defaults, enums)
-    ├── drift-report.test.ts    # Guards the source-sync classifier (API / behavior / ignored)
-    └── api-index.test.ts, line-diff.test.ts, source-sync.test.ts   # C# scanner, diff and hashing
+│   ├── content/docs/en-us/     # the documentation pages
+│   ├── config/navigation.ts    # sidebar tree
+│   ├── components/             # header, sidebar, search, table of contents, home page
+│   ├── layouts/DocLayout.astro # page layout
+│   ├── pages/                  # routes, search index, sitemap, llms.txt
+│   ├── plugins/                # remark plugin: callouts, Mermaid, locale-aware links
+│   ├── i18n/                   # locales and UI strings
+│   └── styles/nalix.css
+├── public/                     # assets, benchmark data, robots.txt, CNAME
+├── tests/                      # Vitest: content, navigation, i18n, links, plugin
+├── tools/                      # Python: audit and source-sync tools, with unittest tests
+├── source-manifest.json        # hashes of the Nalix source the docs were last synced to
+├── source-api-index.json       # public API snapshot of that Nalix commit
+└── .github/workflows/          # ci.yml, deploy.yml, source-sync.yml
 ```
 
----
+## CI and deployment
 
-## How to Add Vietnamese (`vi-vn` / `vn`) Translations Later
+- `ci.yml` runs the tests and the build on pushes and pull requests.
+- `deploy.yml` is started by hand and publishes `dist/` to Cloudflare Pages (project `nalix-docs`).
 
-The project is pre-wired for Vietnamese (`vi-vn`, with automatic alias support for `vi` and `vn`):
+## License
 
-1. **Create the `vi-vn` content directory:**
-   Add translated markdown files under `src/content/docs/vi-vn/` mirroring the exact relative path in `src/content/docs/en-us/` (for example, `src/content/docs/vi-vn/quickstart.md`).
-   - *Note:* Relative links inside markdown files (like `[Installation](./installation.md)`) are automatically rewritten to `/vi-vn/installation` by `remarkNalixDocs`.
-   - *Automatic Fallback:* Any page not yet translated in `src/content/docs/vi-vn/` automatically falls back to the canonical `en-us` version and displays a localized fallback banner (`Đang cập nhật bản dịch`).
-2. **Enable `vi-vn` in `src/i18n/config.ts`:**
-   Set `enabled: true` under `LOCALE_REGISTRY['vi-vn']`.
-3. **Verify with tests:**
-   Run `npm test` to verify there are no orphaned paths, missing frontmatter fields, or broken links.
-
----
-
-## Contributing & Writing Standards
-
-All technical content must match the Nalix source code in [`ppn-systems/nalix`](https://github.com/ppn-systems/nalix). Before contributing, read:
-
-- [`CLAUDE.md`](./CLAUDE.md) — repository layout, commands, and global rules
-- [`.claude/skills/docs-authoring.md`](./.claude/skills/docs-authoring.md) — frontmatter, Markdown rules (R6/R7/R19), callouts, code samples
-- [`.claude/skills/docs-structure.md`](./.claude/skills/docs-structure.md) — adding/moving pages, navigation sync (R8), i18n
-- [`.claude/skills/docs-source-parity.md`](./.claude/skills/docs-source-parity.md) — verifying pages against source and syncing after source changes
-
-### Keeping docs in sync with Nalix
-
-- `npm run sync:check` reads `ppn-systems/nalix` from GitHub and classifies every change since `source-manifest.json`: 🔴 public API the docs do not show (signature diff + `page:line` pointers), 🟡 behavior changed in code a page describes, ✅ API the docs already match, ⚪ internal/cosmetic (comments and formatting are ignored) — only 🔴/🟡 need work.
-- `npm run audit` checks the docs against `source-api-index.json` (cited paths, namespaces, options tables and defaults, enum members, `Type.Member` references, undocumented public types). It also runs inside `npm test`.
-- The `Source Sync` workflow runs daily and opens one draft PR on `bot/source-sync` when the docs are affected; `npm run sync:update` records the synced commit after the pages are fixed.
-
-Every change must pass `npm test` (and `npm run check` before release).
+Apache License 2.0, see [LICENSE](./LICENSE).
