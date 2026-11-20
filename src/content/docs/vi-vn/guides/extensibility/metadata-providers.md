@@ -77,7 +77,7 @@ public sealed class TenantGuardMiddleware<TPacket> : IPacketMiddleware<TPacket>
             return;
         }
 
-        // Replace with your own tenant resolution logic
+        // Thay bằng logic xác định tenant của riêng bạn
         bool allowed = context.Connection.Level >= PermissionLevel.USER;
 
         if (!allowed)

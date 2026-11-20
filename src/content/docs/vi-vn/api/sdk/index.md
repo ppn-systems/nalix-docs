@@ -94,16 +94,16 @@ TransportOptions options = new()
 
 using TcpSession client = new(options);
 
-// 1. Connect and perform authenticated X25519 handshake
+// 1. Kết nối và thực hiện handshake X25519 có xác thực
 await client.ConnectAsync();
 await client.HandshakeAsync();
 
-// 2. Send a correlated request and await the response
+// 2. Gửi một yêu cầu có tương quan và chờ phản hồi
 LoginResponse reply = await client.RequestAsync<LoginResponse>(
     new LoginRequest { Username = "Alice" },
     RequestOptions.Default.WithTimeout(3_000).WithEncrypt());
 
-// 3. Gracefully disconnect
+// 3. Ngắt kết nối êm
 await client.DisconnectGracefullyAsync();
 ```
 

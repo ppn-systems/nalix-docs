@@ -29,8 +29,11 @@ describe('Navigation Tree & Content Synchronization (Rule R8)', () => {
   const diskFiles = walkMdFiles(EN_DOCS_DIR);
   const navFiles = getAllNavFiles(NAVIGATION_TREE);
 
-  it('contains all 207 documentation files in src/content/docs/en', () => {
-    expect(diskFiles.length).toBe(207);
+  it('lists every documentation file of src/content/docs/en in the navigation tree exactly once', () => {
+    expect(diskFiles.length).toBeGreaterThan(0);
+    const listed = Array.from(navFiles);
+    expect(listed.length).toBe(diskFiles.length);
+    expect(new Set(listed).size).toBe(listed.length);
   });
 
   it('ensures every file in NAVIGATION_TREE exists on disk', () => {
@@ -50,7 +53,7 @@ describe('Navigation Tree & Content Synchronization (Rule R8)', () => {
 
   it('provides valid breadcrumbs and prev/next pagination across all pages', () => {
     const flat = getFlatNavigation();
-    expect(flat.length).toBe(207);
+    expect(flat.length).toBe(diskFiles.length);
 
     for (let i = 0; i < flat.length; i++) {
       const item = flat[i];

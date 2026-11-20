@@ -51,7 +51,6 @@ package: Nalix.Environment
 | `RawCapacity` | `int` | Tổng độ dài của `byte[]` bên dưới (bao gồm `Headroom`). |
 | `Headroom` | `int` | Số byte dự trữ phía trước `_start` (`_start`). |
 | `EncryptedOnWire` | `bool` | `true` nếu khung đến từ đường truyền đã được mã hóa (được truyền sang `IPacketContext.EncryptedOnWire`). |
-| `IsReliable` | `bool` | `true` khi khung đến qua transport đáng tin cậy (`TCP` hoặc `WEBSOCKET`, được truyền sang `IPacketContext.IsReliable`). |
 | `ZeroOnDispose` | `bool` | Khi `true`, xóa buffer bằng `MemorySecurity.ZeroMemory` trước khi trả về pool. |
 | `CommitLength(int)` | `void CommitLength(int length)` | Đặt `Length` payload đã cam kết (`0 <= length <= Capacity`). |
 | `TryGetSegmentWithHeader` | `bool TryGetSegmentWithHeader(int headerSize, out ArraySegment<byte> segment)` | Trả về một `ArraySegment<byte>` liền kề bắt đầu tại `_start - headerSize` khi `Headroom >= headerSize` (cho phép ghi tiền tố độ dài TCP không sao chép). |

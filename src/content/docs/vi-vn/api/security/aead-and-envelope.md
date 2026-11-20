@@ -44,6 +44,8 @@ Hiện tại chúng:
 | `ChaCha20Poly1305` | `32` | `12` | `16` |
 | `Salsa20Poly1305` | `16` hoặc `32` | `8` | `16` |
 
+`ChaCha20` (`src/Nalix.Codec/Security/Symmetric/ChaCha20.cs`) còn cung cấp `void GenerateKeyBlock(scoped Span<byte> dst)`: hàm sinh một khối keystream 64 byte tại bộ đếm hiện tại, sao chép `min(dst.Length, 64)` byte vào `dst` và tăng bộ đếm nội bộ lên 1 (RFC 7539). Hàm ném `ObjectDisposedException` khi đối tượng đã bị xóa.
+
 ## EnvelopeCipher
 
 `EnvelopeCipher` là lớp facade mã hóa cấp cao mà mã phía transport sử dụng.

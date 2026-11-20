@@ -88,6 +88,8 @@ byte[] nonce = Csprng.CreateNonce(12);
 int shardIndex = Csprng.GetInt32(0, 8);
 ```
 
+To rebuild a key pair from an existing 32-byte private key, use `X25519.GenerateKeyFromPrivateKey(Bytes32 privateKey)`; it returns an `X25519KeyPair` holding that private key and the public key derived from it.
+
 ## Related APIs
 
 - [Hashing and MAC](./hashing-and-mac.md)

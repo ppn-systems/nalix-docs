@@ -73,8 +73,8 @@ Nalix "nung" các handler và tra cứu gói tin trong lúc khởi động, do `
 using Nalix.Hosting;
 
 var app = NetworkApplication.CreateBuilder()
-    .MapHandlers<GameController>() // invokers generated at build time
-    .Build(); // lookups frozen at startup
+    .MapHandlers<GameController>() // invoker được sinh ra lúc build
+    .Build(); // bảng tra cứu được đóng băng khi khởi động
 ```
 
 Nếu bạn không dùng tầng hosting, hãy điền thủ công các tùy chọn dispatch:
@@ -103,7 +103,7 @@ Dữ liệu đến được lưu trong một `BufferLease` dựa trên `ArrayPoo
 
 ```csharp
 using BufferLease lease = BufferLease.Rent(1024);
-// use lease.Span for zero-copy slicing
+// dùng lease.Span để cắt lát không sao chép
 ```
 
 ### Tạo gói tin đi
@@ -167,7 +167,7 @@ public override void ProcessMessage(object? sender, IConnectionEventArgs args)
     ReadOnlySpan<byte> raw = args.Lease.Span;
     if (raw.AsHeaderRef().OpCode == 0x7001)
     {
-        // Points directly to the pooled IBufferLease.Span with zero deserialization.
+        // Trỏ trực tiếp tới IBufferLease.Span trong pool, không cần giải tuần tự hóa.
         ProcessRawStream(raw, args.Connection);
         return;
     }
@@ -188,9 +188,9 @@ Bỏ qua `PacketDispatchChannel` cũng bỏ qua việc thực thi middleware (`[
 
 ```csharp
 builder.ConfigureDispatchOptions(options => {
-    // Match shards to CPU cores (default: Environment.ProcessorCount)
+    // Khớp số shard với số lõi CPU (mặc định: Environment.ProcessorCount)
     options.WithDispatchLoopCount(Environment.ProcessorCount);
-    // Increase the budget of packets processed per core wake-up
+    // Tăng ngân sách số gói tin xử lý mỗi lần lõi được đánh thức
     options.Drain.MaxDrainPerWakeMultiplier = 12;
 });
 ```
@@ -277,7 +277,7 @@ public readonly bool Equals(Bytes32 other)
 {
     if (Avx2.IsSupported)
     {
-        // 256-bit AVX2 hardware acceleration — compares 32 bytes in a single CPU cycle
+        // Tăng tốc phần cứng AVX2 256-bit — so sánh 32 byte trong một chu kỳ CPU
         Vector256<byte> v = Unsafe.ReadUnaligned<Vector256<byte>>(ref a);
         Vector256<byte> o = Unsafe.ReadUnaligned<Vector256<byte>>(ref b);
         // ...

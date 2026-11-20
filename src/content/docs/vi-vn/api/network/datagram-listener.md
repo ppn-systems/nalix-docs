@@ -94,7 +94,7 @@ public sealed partial class DatagramListener : IListener, IDatagramTicketIssuer
     public void WriteReportData(Utf8JsonWriter writer);
     public void Dispose();
 
-    public sealed class DMetrics { /* counters, see below */ }
+    public sealed class DMetrics { /* các bộ đếm, xem bên dưới */ }
 }
 ```
 

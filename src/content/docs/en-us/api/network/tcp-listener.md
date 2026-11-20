@@ -72,6 +72,8 @@ public abstract partial class TcpListenerBase : IListener
     protected internal static void SafeCloseSocket(Socket socket);
     protected Task AcceptConnectionsAsync(IWorkerContext ctx, CancellationToken cancellationToken);
     protected void DoAccept(IConnection connection);
+    protected internal void DISPATCH_CONNECTION(IConnection connection);
+    protected bool InitializeOptions(Socket socket);
     protected void HandleAccept(SocketAsyncEventArgs args);
     protected void OnSyncAcceptCompleted(object? sender, SocketAsyncEventArgs args);
     protected void AcceptNext(SocketAsyncEventArgs args, CancellationToken cancellationToken);
@@ -85,6 +87,8 @@ public abstract partial class TcpListenerBase : IListener
 | `SafeCloseSocket(Socket)` | `TcpListener.Handle.cs` | Closes a socket that may be in an indeterminate state; exceptions are logged at `Debug` and not rethrown. |
 | `AcceptConnectionsAsync(IWorkerContext, CancellationToken)` | `TcpListener.Handle.cs` | The accept worker loop; forwards each accepted connection for processing. |
 | `DoAccept(IConnection)` | `TcpListener.Handle.cs` | Calls `IProtocol.OnAccept(connection, ct)`. |
+| `DISPATCH_CONNECTION(IConnection)` | `TcpListener.ProcessChannel.cs` | `protected internal`. Writes an accepted connection into the bounded process channel with `TryWrite`. If the channel is not available the connection is disposed; if the channel is full the new connection is dropped, the queue-full rejection metric is recorded and the connection is disconnected. |
+| `InitializeOptions(Socket)` | `TcpListener.SocketConfig.cs` | `protected`. Sets `Blocking = true` and `NoDelay` from `NetworkSocketOptions.NoDelay` on an accepted socket; returns `false` (instead of throwing) when the socket was already aborted, reset or disposed. Throws `ArgumentNullException` for a `null` socket. |
 | `HandleAccept(SocketAsyncEventArgs)`, `OnSyncAcceptCompleted(...)`, `AcceptNext(...)` | `TcpListener.Synchronization.cs` | SAEA accept completion handling and the accept loop; `AcceptNext` pauses 50 ms after an unexpected exception before retrying. |
 
 ## Metrics (`TcpListenerBase.LMetrics`)

@@ -49,12 +49,12 @@ namespace Nalix.Network.Protocols;
 
 public abstract partial class Protocol : IProtocol
 {
-    // Abstract contracts required from derived protocols
+    // Các hợp đồng trừu tượng mà protocol dẫn xuất phải cung cấp
     public abstract IFrameProcessor FrameProcessor { get; }
     public abstract IOpCodeExtractor OpCodeExtractor { get; }
     public abstract void ProcessMessage(object? sender, IConnectionEventArgs args);
 
-    // Configurable properties
+    // Các thuộc tính có thể cấu hình
     public virtual TransportFraming Framing { get; set; } = TransportFraming.UInt16LengthPrefixed;
     public virtual bool KeepConnectionOpen { get; protected set; }
     public bool IsAccepting { get; protected set; }
@@ -63,12 +63,12 @@ public abstract partial class Protocol : IProtocol
     public ulong TotalMessages { get; }
     public ulong TotalErrors { get; }
 
-    // Lifecycle & execution methods
+    // Các phương thức vòng đời và thực thi
     public virtual void OnAccept(IConnection connection, CancellationToken cancellationToken = default);
     public void PostProcessMessage(object? sender, IConnectionEventArgs args);
     public void SetConnectionAcceptance(bool isEnabled);
 
-    // Protected extensibility hooks
+    // Các hook mở rộng protected
     protected virtual bool ValidateConnection(IConnection connection) => true;
     protected virtual void OnPostProcess(IConnectionEventArgs args);
     protected virtual void OnConnectionError(IConnection connection, Exception exception);

@@ -116,6 +116,26 @@ public Task MulticastExceptAsync<TState, TSender>(
 
 `BroadcastAsync(ReadOnlyMemory<byte>, ...)`, `BroadcastWhereAsync(ReadOnlyMemory<byte>, ...)`, `MulticastAsync(..., ReadOnlyMemory<byte>, ...)`, and `MulticastExceptAsync(..., ReadOnlyMemory<byte>, ...)` are marked `[Obsolete(..., DiagnosticId = "NALIX_NET001")]` because sending pre-serialized buffers bypasses per-connection encryption and sequence numbering.
 
+## Group Registry (`IConnectionGroupRegistry`)
+
+`IConnectionGroupRegistry` (`src/Nalix.Abstractions/Networking/IConnectionGroupRegistry.cs`) manages the named groups used by the `MulticastAsync` / `MulticastExceptAsync` calls above. `.UseGroups()` registers `InMemoryGroupStore` (`src/Nalix.Runtime/Groups/InMemoryGroupStore.cs`) as the implementation.
+
+| Member | Signature | Behavior |
+| :--- | :--- | :--- |
+| `AddToGroupAsync` | `Task AddToGroupAsync(string groupName, IConnection connection, CancellationToken cancellationToken = default)` | Adds a connection to the group. `InMemoryGroupStore` throws on a null or empty `groupName` or a null `connection`, returns a canceled task when the token is already canceled, creates the group on first use, and keys members by `ConnectionId`, so adding the same connection twice is idempotent. |
+| `RemoveFromGroupAsync` | `Task RemoveFromGroupAsync(string groupName, IConnection connection, CancellationToken cancellationToken = default)` | Removes a connection from one group. `InMemoryGroupStore` applies the same argument and cancellation checks and drops the group once it has no members. Removing a connection that is not a member is a no-op. |
+| `RemoveFromAllGroupsAsync` | `Task RemoveFromAllGroupsAsync(IConnection connection, CancellationToken cancellationToken = default)` | Removes a connection from every group it belongs to. `InMemoryGroupStore` throws on a null `connection`, returns a canceled task when the token is already canceled, and drops groups left empty. |
+| `GetGroupMembers` | `IReadOnlyCollection<IConnection> GetGroupMembers(string groupName)` | Returns a read-only snapshot of the group's members. `InMemoryGroupStore` throws on a null or empty `groupName` and returns an empty array for an unknown or empty group. |
+
+```csharp
+await groups.AddToGroupAsync("lobby:eu-1", connection, ct);
+
+IReadOnlyCollection<IConnection> members = groups.GetGroupMembers("lobby:eu-1");
+
+await groups.RemoveFromGroupAsync("lobby:eu-1", connection, ct);
+await groups.RemoveFromAllGroupsAsync(connection, ct);
+```
+
 ## Related APIs
 
 - [Connection](./connection.md)

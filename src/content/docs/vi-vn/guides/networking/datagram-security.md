@@ -80,9 +80,9 @@ using TcpSession tcp = new(tcpOptions);
 await tcp.ConnectAsync(host, port);
 await tcp.HandshakeAsync();
 
-// DatagramSession requests the ticket over the stream session and derives its own keys.
+// DatagramSession yêu cầu ticket qua phiên stream và tự dẫn xuất khóa của nó.
 using DatagramSession udp = new(tcp);
-await udp.ConnectAsync();           // host defaults to the stream address, port to ticket.Port
+await udp.ConnectAsync();           // host mặc định là địa chỉ của stream, port mặc định là ticket.Port
 await udp.SendAsync(packet);
 await udp.SendAsync(packet, DeliveryMethod.ReliableOrdered, channel: 0);
 ```

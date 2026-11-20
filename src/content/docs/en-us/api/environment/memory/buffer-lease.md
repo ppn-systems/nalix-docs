@@ -51,7 +51,6 @@ To avoid heap allocations when wrapping rented byte arrays, `BufferLease` recycl
 | `RawCapacity` | `int` | Total length of the underlying `byte[]` (including `Headroom`). |
 | `Headroom` | `int` | Number of reserved prefix bytes before `_start` (`_start`). |
 | `EncryptedOnWire` | `bool` | `true` if the frame arrived encrypted on the wire (propagated to `IPacketContext.EncryptedOnWire`). |
-| `IsReliable` | `bool` | `true` when the frame arrived over a reliable transport (`TCP` or `WEBSOCKET`, propagated to `IPacketContext.IsReliable`). |
 | `ZeroOnDispose` | `bool` | When `true`, scrubs the buffer with `MemorySecurity.ZeroMemory` before returning it to the pool. |
 | `CommitLength(int)` | `void CommitLength(int length)` | Sets the committed payload `Length` (`0 <= length <= Capacity`). |
 | `TryGetSegmentWithHeader` | `bool TryGetSegmentWithHeader(int headerSize, out ArraySegment<byte> segment)` | Returns a contiguous `ArraySegment<byte>` starting at `_start - headerSize` when `Headroom >= headerSize` (enabling zero-copy TCP length-prefix writes). |

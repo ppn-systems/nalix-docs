@@ -90,8 +90,8 @@ using TcpSession client = new(new TransportOptions
     Port = 57206
 });
 
-// Connect and automatically resume if State.SessionToken is populated,
-// or perform a fresh X25519 handshake on first connect:
+// Kết nối và tự động resume nếu State.SessionToken đã có giá trị,
+// hoặc thực hiện handshake X25519 mới ở lần kết nối đầu tiên:
 bool wasResumed = await client.ConnectWithResumeAsync();
 Console.WriteLine(wasResumed ? "Resumed existing session (0-RTT)." : "Established new session.");
 ```

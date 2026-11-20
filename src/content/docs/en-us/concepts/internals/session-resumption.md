@@ -100,7 +100,7 @@ Behind TLS (`wss://` or a TLS-terminating proxy) the request cannot be observed 
 
 ## Sequence Counter Wrap Policy
 
-Each transport direction is protected by a monotonic `SequenceCounter` used as part of the AEAD nonce. `SequenceCounter.Next()` throws `CipherException` if incrementing would wrap past `uint.MaxValue`, refusing to ever reuse a nonce. To avoid hitting that guard as a live failure, every send path (`TcpFrameSender`, `UdpFrameSender`, `WsFrameSender` on the client; `PacketPipeline.ProcessAndSendAsync` on the server) now checks `ISequenceCounter.IsApproachingOverflow(margin: 1_000_000)` **before** reserving the next sequence number:
+Each transport direction is protected by a monotonic `SequenceCounter` used as part of the AEAD nonce. `SequenceCounter.Next()` throws `CipherException` if incrementing would wrap past `uint.MaxValue`, refusing to ever reuse a nonce. To avoid hitting that guard as a live failure, every send path (`TcpFrameSender`, `WsFrameSender` on the client; `PacketPipeline.ProcessAndSendAsync` on the server) now checks `ISequenceCounter.IsApproachingOverflow(margin: 1_000_000)` **before** reserving the next sequence number:
 
 - Client-side: throws `CipherException`, which the existing non-fatal exception handling reports via `OnError` and disconnects — the client is expected to reconnect and re-handshake, or call `RekeyExtensions.RekeyAsync` proactively before this point to rotate the key and reset counters.
 - Server-side: calls `IConnection.Disconnect(...)` directly for a clean close instead of throwing mid-send.

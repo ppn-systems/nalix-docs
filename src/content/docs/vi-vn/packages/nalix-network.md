@@ -60,8 +60,8 @@ public sealed class GameProtocol : Protocol
         this.KeepConnectionOpen = true;
     }
 
-    public override IFrameProcessor FrameProcessor => /* your IFrameProcessor */;
-    public override IOpCodeExtractor OpCodeExtractor => /* your IOpCodeExtractor */;
+    public override IFrameProcessor FrameProcessor => /* IFrameProcessor của bạn */;
+    public override IOpCodeExtractor OpCodeExtractor => /* IOpCodeExtractor của bạn */;
 
     public override void ProcessMessage(object? sender, IConnectionEventArgs args)
         => _dispatch.HandlePacket(args.Lease!, args.Connection);

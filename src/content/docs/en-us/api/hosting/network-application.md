@@ -91,6 +91,7 @@ public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable
 | `UseBufferPoolManager(IBufferPoolManager)` | Registers a custom `IBufferPoolManager` and binds `BufferLease.ByteArrayPool`. |
 | `UseObjectPoolManager(IObjectPoolManager)` | Registers a custom `IObjectPoolManager` and configures `BufferLease`, `PacketRegistry`, and `ObjectPoolManager`. |
 | `RegisterScoped<TService>(Func<IPacketScope, TService>)` | Registers a per-packet scoped service factory (`where TService : class`) in `ScopedServiceRegistry.Instance` for `[FromScope]` handler parameters. |
+| `ScopedServiceRegistry.TryGetFactory(Type, out Func<IPacketScope, object>?)` | Public method of `ScopedServiceRegistry` (not of the builder): looks up the factory registered for a service type; returns `true` and the factory if found, otherwise `false` and `null`. `PacketScope` uses it to resolve `[FromScope]` services. |
 | `MapHandlers<THandler>()` | Validates and registers a `[PacketController]` class constructed via `InstanceManager.Instance.CreateInstanceWithInjection(typeof(THandler))`. |
 | `MapHandlers<THandler>(Func<THandler>)` | Validates and registers a `[PacketController]` class constructed via an explicit factory delegate. |
 | `MapHandlers(Type)` | Validates and registers a `[PacketController]` type directly (supports static handler classes). |

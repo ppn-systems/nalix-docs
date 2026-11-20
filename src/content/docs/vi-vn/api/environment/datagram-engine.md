@@ -210,7 +210,7 @@ sealed class SessionHandler : IDatagramEngineHandler
         // Chuyển việc đi nhanh; handler sở hữu lease.
         using (message)
         {
-            // process the Nalix frame on a worker
+            // xử lý frame Nalix trên một worker
         }
     }
 
@@ -224,24 +224,24 @@ DatagramPeerLimits peer = DatagramPeerLimits.Default;
 using DatagramEngine engine = new(
     options, peer, protection, connectionId, isServer: true, new SessionHandler(), DatagramEngine.NowMicros());
 
-// Inbound datagram from the socket:
+// Datagram đến từ socket:
 engine.Receive(datagram, remoteEndPoint.Serialize(), DatagramEngine.NowMicros());
 
-// Application send on channel 0, reliable and ordered:
+// Ứng dụng gửi trên kênh 0, tin cậy và theo thứ tự:
 engine.TrySend(payload, DeliveryMethod.ReliableOrdered, channel: 0, priority: 0, DatagramEngine.NowMicros());
 
-// Drain output:
+// Lấy hết dữ liệu đầu ra:
 Span<byte> buffer = stackalloc byte[DatagramEngine.MaxDatagramSize];
 int length;
 while ((length = engine.Poll(buffer, DatagramEngine.NowMicros(), out SocketAddress? path)) > 0)
 {
-    // send buffer[..length] to `path` when non-null, otherwise to the active peer
+    // gửi buffer[..length] tới `path` khi không null, nếu không thì gửi tới peer đang hoạt động
 }
 
-// When the timer set for engine.NextTimer fires:
+// Khi bộ hẹn giờ đặt cho engine.NextTimer kích hoạt:
 engine.OnTimer(DatagramEngine.NowMicros());
 
-// Graceful shutdown (then keep calling Poll so the CLOSE frame is sent):
+// Tắt êm (sau đó tiếp tục gọi Poll để frame CLOSE được gửi đi):
 engine.Close(DatagramCloseCode.NoError, "bye", DatagramEngine.NowMicros());
 ```
 

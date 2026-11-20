@@ -91,6 +91,7 @@ public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable
 | `UseBufferPoolManager(IBufferPoolManager)` | Đăng ký `IBufferPoolManager` tùy chỉnh và gắn `BufferLease.ByteArrayPool`. |
 | `UseObjectPoolManager(IObjectPoolManager)` | Đăng ký `IObjectPoolManager` tùy chỉnh và cấu hình `BufferLease`, `PacketRegistry`, và `ObjectPoolManager`. |
 | `RegisterScoped<TService>(Func<IPacketScope, TService>)` | Đăng ký factory dịch vụ theo phạm vi từng packet (`where TService : class`) trong `ScopedServiceRegistry.Instance`, dành cho các tham số handler `[FromScope]`. |
+| `ScopedServiceRegistry.TryGetFactory(Type, out Func<IPacketScope, object>?)` | Phương thức public của `ScopedServiceRegistry` (không thuộc builder): tìm factory đã đăng ký cho một kiểu dịch vụ; trả về `true` cùng factory nếu tìm thấy, ngược lại trả về `false` và `null`. `PacketScope` dùng nó để phân giải các dịch vụ `[FromScope]`. |
 | `MapHandlers<THandler>()` | Kiểm tra và đăng ký một class `[PacketController]`, được tạo qua `InstanceManager.Instance.CreateInstanceWithInjection(typeof(THandler))`. |
 | `MapHandlers<THandler>(Func<THandler>)` | Kiểm tra và đăng ký một class `[PacketController]`, được tạo qua một delegate factory tường minh. |
 | `MapHandlers(Type)` | Kiểm tra và đăng ký trực tiếp một kiểu `[PacketController]` (hỗ trợ các class handler tĩnh). |

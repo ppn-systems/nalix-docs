@@ -166,7 +166,7 @@ Với các máy chủ bạn không hoàn toàn tin cậy, hãy giữ `timeoutMs`
 ## 3. Đăng ký đẩy qua Channel và `IObservable<T>` (`ChannelExtensions` & `ObservableExtensions`)
 
 ```csharp
-// 1. Bounded or unbounded System.Threading.Channels reader
+// 1. Reader System.Threading.Channels có giới hạn hoặc không giới hạn
 ChannelReader<WorldStatePacket> reader = session.SubscribeChannel<WorldStatePacket>(
     boundedCapacity: 64,
     fullMode: BoundedChannelFullMode.DropOldest,
@@ -177,7 +177,7 @@ await foreach (WorldStatePacket update in reader.ReadAllAsync(ct))
     RenderWorld(update);
 }
 
-// 2. Reactive IObservable<TEvent>
+// 2. IObservable<TEvent> theo kiểu reactive
 using IDisposable rxSub = session
     .AsObservable<ChatBroadcastPacket>()
     .Subscribe(pkt => Console.WriteLine($"{pkt.Sender}: {pkt.Message}"));

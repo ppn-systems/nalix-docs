@@ -66,12 +66,14 @@ public abstract partial class TcpListenerBase : IListener
     public void Dispose();
     protected virtual void Dispose(bool disposing);
 
-    // Accept pipeline members available to derived listeners
+    // Các thành viên của pipeline accept dành cho listener dẫn xuất
     protected void ProcessConnection(IConnection connection);
     protected void HandleConnectionClose(object? sender, IConnectionEventArgs args);
     protected internal static void SafeCloseSocket(Socket socket);
     protected Task AcceptConnectionsAsync(IWorkerContext ctx, CancellationToken cancellationToken);
     protected void DoAccept(IConnection connection);
+    protected internal void DISPATCH_CONNECTION(IConnection connection);
+    protected bool InitializeOptions(Socket socket);
     protected void HandleAccept(SocketAsyncEventArgs args);
     protected void OnSyncAcceptCompleted(object? sender, SocketAsyncEventArgs args);
     protected void AcceptNext(SocketAsyncEventArgs args, CancellationToken cancellationToken);
@@ -85,6 +87,8 @@ public abstract partial class TcpListenerBase : IListener
 | `SafeCloseSocket(Socket)` | `TcpListener.Handle.cs` | Đóng một socket có thể đang ở trạng thái không xác định; ngoại lệ được ghi log ở mức `Debug` và không ném lại. |
 | `AcceptConnectionsAsync(IWorkerContext, CancellationToken)` | `TcpListener.Handle.cs` | Vòng lặp worker accept; chuyển từng kết nối đã accept đi xử lý. |
 | `DoAccept(IConnection)` | `TcpListener.Handle.cs` | Gọi `IProtocol.OnAccept(connection, ct)`. |
+| `DISPATCH_CONNECTION(IConnection)` | `TcpListener.ProcessChannel.cs` | `protected internal`. Ghi một kết nối đã accept vào process channel có giới hạn bằng `TryWrite`. Nếu channel không khả dụng thì kết nối bị dispose; nếu channel đầy thì kết nối mới bị loại bỏ, số liệu từ chối do hàng đợi đầy được ghi nhận và kết nối bị ngắt. |
+| `InitializeOptions(Socket)` | `TcpListener.SocketConfig.cs` | `protected`. Đặt `Blocking = true` và `NoDelay` theo `NetworkSocketOptions.NoDelay` trên socket đã accept; trả về `false` (thay vì ném ngoại lệ) khi socket đã bị hủy, reset hoặc dispose. Ném `ArgumentNullException` nếu socket là `null`. |
 | `HandleAccept(SocketAsyncEventArgs)`, `OnSyncAcceptCompleted(...)`, `AcceptNext(...)` | `TcpListener.Synchronization.cs` | Xử lý hoàn tất accept SAEA và vòng lặp accept; `AcceptNext` tạm dừng 50 ms sau một ngoại lệ không mong đợi trước khi thử lại. |
 
 ## Số liệu (`TcpListenerBase.LMetrics`)

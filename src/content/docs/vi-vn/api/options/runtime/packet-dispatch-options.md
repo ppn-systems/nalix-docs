@@ -52,6 +52,7 @@ package: Nalix.Runtime
 | `WithDispatchLoopCount` | `public PacketDispatchOptions<TPacket> WithDispatchLoopCount(int? loopCount)` | Đặt `Drain.Count` (`1..64`, hoặc `null` để tự động tính theo CPU; ném `ArgumentOutOfRangeException` nếu nằm ngoài `1..64`). |
 | `WithErrorHandling` | `public PacketDispatchOptions<TPacket> WithErrorHandling(Action<Exception, ushort> errorHandler)` | Đăng ký callback được gọi với `(exception, opCode)` khi handler ném ngoại lệ không phải teardown, trước khi gửi phản hồi `Directive(FAIL)` tự động. |
 | `WithErrorHandlingMiddleware` | `public PacketDispatchOptions<TPacket> WithErrorHandlingMiddleware(bool continueOnError, Action<Exception, Type>? errorHandler = null)` | Cấu hình việc `MiddlewarePipeline<TPacket>` tiếp tục hay hủy khi một middleware ném lỗi. |
+| `RegisterHandler(...)` | `void IPacketHandlerBuilder<TPacket>.RegisterHandler(ushort opCode, PacketMetadata metadata, string methodName, object? instance, Type returnType, Type? expectedPacketType, Func<object?, PacketContext<TPacket>, ValueTask<object?>> invoker)` | Triển khai interface tường minh (gọi qua `IPacketHandlerBuilder<TPacket>`; được code do source generator sinh ra sử dụng). Lưu handler vào slot của `opCode`; ném `InternalErrorException` khi opcode đó đã được đăng ký. |
 
 ## Ví dụ sử dụng
 

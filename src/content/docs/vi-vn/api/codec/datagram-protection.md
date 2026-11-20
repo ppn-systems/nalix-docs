@@ -206,32 +206,32 @@ using System;
 using Nalix.Abstractions.Primitives;
 using Nalix.Codec.Security.Datagram;
 
-Bytes32 sessionSecret = /* stream session secret snapshotted at ticket issue */;
+Bytes32 sessionSecret = /* secret của phiên stream được chụp lại khi cấp ticket */;
 ulong connectionId = 0x1122334455667788;
-byte[] ticketNonce = /* 16 bytes from the ticket */;
+byte[] ticketNonce = /* 16 byte lấy từ ticket */;
 
 using var client = ChaCha20Poly1305DatagramProtectionFactory.Instance
     .Create(sessionSecret, connectionId, ticketNonce, isServer: false);
 using var server = ChaCha20Poly1305DatagramProtectionFactory.Instance
     .Create(sessionSecret, connectionId, ticketNonce, isServer: true);
 
-byte[] header = new byte[13];                 // cleartext header, authenticated as AAD
+byte[] header = new byte[13];                 // header không mã hóa, được xác thực dưới dạng AAD
 byte[] payload = "hello"u8.ToArray();
 byte[] datagram = new byte[payload.Length + client.TagSize];
 
-ulong packetNumber = 0;                       // never reuse a packet number with the same key
+ulong packetNumber = 0;                       // không bao giờ dùng lại số gói tin với cùng một khóa
 client.Seal(packetNumber, header, payload, datagram);
 
 byte[] plaintext = new byte[payload.Length];
 bool ok = server.TryOpen(packetNumber, client.SendKeyPhase, header, datagram, plaintext);
 
-// Rotate the client send key; the server follows on the first packet with the flipped phase bit.
+// Xoay khóa gửi của client; máy chủ làm theo ở gói tin đầu tiên có bit pha đã đảo.
 client.UpdateSendKey();
 packetNumber++;
 client.Seal(packetNumber, header, payload, datagram);
 ok = server.TryOpen(packetNumber, client.SendKeyPhase, header, datagram, plaintext);
 
-// Once late packets of the old phase can no longer arrive:
+// Khi các gói tin đến muộn của pha cũ không thể đến nữa:
 server.DiscardPreviousReceiveKey();
 ```
 

@@ -84,7 +84,7 @@ public abstract partial class WebSocketListenerBase : TcpListenerBase
         IConnectionHub hub,
         IConnectionGuard guard);
 
-    // Minimal HTTP/1.1 control-plane routing on the WebSocket port
+    // Định tuyến control-plane HTTP/1.1 tối giản trên cổng WebSocket
     public void MapGet(string path, HttpRouteHandler handler);
     public void MapPost(string path, HttpRouteHandler handler);
 

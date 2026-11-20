@@ -110,7 +110,7 @@ public sealed class SampleProtocol : Protocol
 
     protected override bool ValidateConnection(IConnection connection)
     {
-        // Add custom IP blacklisting or state checks here
+        // Thêm danh sách đen IP tùy chỉnh hoặc kiểm tra trạng thái tại đây
         return base.ValidateConnection(connection);
     }
 }
@@ -132,14 +132,14 @@ Khi dùng trực tiếp tầng transport (ngoài Hosting builder), bạn phải 
 | `ObjectPoolManager` | `ObjectPoolManager` | Quản lý buffer/context có thể tái sử dụng |
 
 ```csharp
-// Setup dependencies
+// Thiết lập các phụ thuộc
 InstanceManager.Instance.Register<ILogger>(logger);
 IConnectionHub hub = new ConnectionHub();
 IConnectionGuard guard = new ConnectionGuard();
 InstanceManager.Instance.Register<IConnectionHub>(hub);
 InstanceManager.Instance.Register<IConnectionGuard>(guard);
 
-// Initialize and Activate
+// Khởi tạo và kích hoạt
 SampleTcpListener listener = new(57206, new SampleProtocol(dispatch, logger), hub, guard);
 listener.Activate();
 ```
@@ -152,7 +152,7 @@ Client dùng `Nalix.SDK` để gửi một request có kiểu và chờ phản h
 using Contracts;
 using Nalix.SDK.Transport.Extensions;
 
-// Orchestrated request/response in one line
+// Điều phối yêu cầu/phản hồi chỉ trong một dòng
 Control response = await session.RequestAsync<Control>(
     new Control { Type = ControlType.PING },
     options: RequestOptions.Default.WithTimeout(3_000)

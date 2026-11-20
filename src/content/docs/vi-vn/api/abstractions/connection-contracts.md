@@ -98,6 +98,8 @@ package: Nalix.Abstractions
 | `RuntimeState` | `nalix.connection.runtime_state` | Trạng thái riêng của runtime được lưu trong vòng đời kết nối. |
 | `HandshakeDeadlineExtension` | `nalix.connection.handshake_deadline_extension` | Phần gia hạn một lần, tính bằng mili giây (`int`), mà cổng proof-of-work cấp cho thời hạn trước khi xác thực. Lớp bắt tay đặt tối đa một lần cho mỗi kết nối; lớp transport giới hạn nó ở 60 giây. |
 
+`AttributeKey` (`Nalix.Abstractions`, `src/Nalix.Abstractions/AttributeKey.cs`) được tạo bằng `public static AttributeKey FromName(string name)`, hàm này băm `name` thành khóa 64-bit ổn định (FNV-1a) và ném `ArgumentNullException` khi `name` là `null`. Tên chỉ được giữ lại để chẩn đoán trong bản build DEBUG.
+
 ## Hợp đồng datagram
 
 Không gian tên `Nalix.Abstractions.Networking.Datagrams` (`src/Nalix.Abstractions/Networking/Datagrams/`). Phiên datagram là một phiên UDP có xác thực, được mở bằng ticket do một phiên stream (TCP hoặc WebSocket) đã thiết lập phát hành; xem `NetworkTransport.DATAGRAM` và `DeliveryMethod` trong [Các enumeration dùng chung](./enums.md).

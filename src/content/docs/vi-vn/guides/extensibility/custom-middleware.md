@@ -36,7 +36,7 @@ public sealed class SessionAuthorizationMiddleware : IPacketMiddleware<IPacket>
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(next);
 
-        // 1) Permission gate from packet metadata.
+        // 1) Cổng kiểm tra quyền từ metadata của gói tin.
         if (context.Attributes.Permission is not null &&
             context.Connection.Level < context.Attributes.Permission.Level)
         {
@@ -44,8 +44,8 @@ public sealed class SessionAuthorizationMiddleware : IPacketMiddleware<IPacket>
             return;
         }
 
-        // 2) Session establishment gate: verify that the connection has successfully
-        // completed its handshake or resumption.
+        // 2) Cổng thiết lập phiên: xác minh rằng kết nối đã hoàn tất thành công
+        // handshake hoặc resume.
         if (!context.Connection.GetRuntimeState().HandshakeEstablished)
         {
             context.Connection.Disconnect("Session not established.");
@@ -85,7 +85,7 @@ public sealed class SecureHandlers
     [PacketPermission(PermissionLevel.USER)]
     public ValueTask HandleAsync(IPacketContext<MyPacket> context)
     {
-        // Business logic execution
+        // Thực thi logic nghiệp vụ
         return ValueTask.CompletedTask;
     }
 }

@@ -44,6 +44,8 @@ They currently:
 | `ChaCha20Poly1305` | `32` | `12` | `16` |
 | `Salsa20Poly1305` | `16` or `32` | `8` | `16` |
 
+`ChaCha20` (`src/Nalix.Codec/Security/Symmetric/ChaCha20.cs`) also exposes `void GenerateKeyBlock(scoped Span<byte> dst)`: it generates one 64-byte keystream block at the current counter, copies `min(dst.Length, 64)` bytes into `dst`, and advances the internal counter by 1 (RFC 7539). It throws `ObjectDisposedException` when the instance has been cleared.
+
 ## EnvelopeCipher
 
 `EnvelopeCipher` is the high-level encryption facade used by transport-facing code.

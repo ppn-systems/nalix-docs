@@ -98,6 +98,8 @@ Implemented by `Connection`, `WebSocketConnection`, and `DatagramConnection` to 
 | `RuntimeState` | `nalix.connection.runtime_state` | Runtime-specific state stored during the connection lifecycle. |
 | `HandshakeDeadlineExtension` | `nalix.connection.handshake_deadline_extension` | One-time extension in milliseconds (`int`) that the proof-of-work gate grants to the pre-authentication deadline. Set at most once per connection by the handshake layer; the transport layer clamps it to 60 seconds. |
 
+`AttributeKey` (`Nalix.Abstractions`, `src/Nalix.Abstractions/AttributeKey.cs`) is created with `public static AttributeKey FromName(string name)`, which hashes `name` into a stable 64-bit key (FNV-1a) and throws `ArgumentNullException` when `name` is `null`. The name is kept for diagnostics only in DEBUG builds.
+
 ## Datagram Contracts
 
 Namespace `Nalix.Abstractions.Networking.Datagrams` (`src/Nalix.Abstractions/Networking/Datagrams/`). A datagram session is an authenticated UDP session opened with a ticket issued over an established stream (TCP or WebSocket) session; see `NetworkTransport.DATAGRAM` and `DeliveryMethod` in [Common Enumerations](./enums.md).

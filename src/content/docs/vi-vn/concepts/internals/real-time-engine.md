@@ -115,7 +115,7 @@ Attribute của handler trở thành hành vi lúc chạy thông qua metadata đ
 public ValueTask<PositionAck> HandlePosition(
     IPacketContext<PositionUpdate> context)
 {
-    // Metadata-driven enforcement happens before this code runs
+    // Việc kiểm soát dựa trên metadata diễn ra trước khi đoạn mã này chạy
 }
 ```
 

@@ -1,1 +1,13 @@
 / /en-us 302
+
+# Renamed pages (UDP stack replaced by NDP datagrams)
+/en-us/api/network/udp-listener /en-us/api/network/datagram-listener 301
+/en-us/api/sdk/udp-session /en-us/api/sdk/datagram-session 301
+/en-us/api/options/network/datagram-guard-options /en-us/api/options/network/datagram-options 301
+/en-us/guides/networking/udp-server /en-us/guides/networking/datagram-server 301
+/en-us/guides/networking/udp-security /en-us/guides/networking/datagram-security 301
+/vi-vn/api/network/udp-listener /vi-vn/api/network/datagram-listener 301
+/vi-vn/api/sdk/udp-session /vi-vn/api/sdk/datagram-session 301
+/vi-vn/api/options/network/datagram-guard-options /vi-vn/api/options/network/datagram-options 301
+/vi-vn/guides/networking/udp-server /vi-vn/guides/networking/datagram-server 301
+/vi-vn/guides/networking/udp-security /vi-vn/guides/networking/datagram-security 301

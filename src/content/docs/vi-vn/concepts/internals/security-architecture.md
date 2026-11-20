@@ -90,7 +90,7 @@ public sealed class AccountHandlers
     public ValueTask<AccountResponse> GetProfile(
         IPacketContext<ProfileRequest> context)
     {
-        // Only executed if permission, timeout, and rate limit checks pass
+        // Chỉ được thực thi nếu các kiểm tra quyền, thời gian chờ và giới hạn tốc độ đều đạt
     }
 }
 ```

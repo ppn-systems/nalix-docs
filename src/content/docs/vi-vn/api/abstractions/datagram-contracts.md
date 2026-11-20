@@ -127,15 +127,15 @@ using Nalix.Abstractions.Networking;
 using Nalix.Abstractions.Networking.Datagrams;
 using Nalix.Abstractions.Networking.Packets;
 
-// Handler method: replies are sent unreliably, keeping only the newest, on channel 2.
+// Phương thức handler: phản hồi được gửi không tin cậy, chỉ giữ bản mới nhất, trên kênh 2.
 [PacketDelivery(DeliveryMethod.UnreliableSequenced, channel: 2)]
 public ValueTask<PositionPacket> OnMove(IPacketContext<MovePacket> context) { /* ... */ }
 
-// Issuing a ticket over an established TCP/WebSocket connection.
+// Cấp ticket qua kết nối TCP/WebSocket đã thiết lập.
 static DatagramTicketInfo Open(IDatagramTicketIssuer issuer, IConnection tcp)
-    => issuer.IssueTicket(tcp, onAccepted: datagram => { /* copy runtime state */ });
+    => issuer.IssueTicket(tcp, onAccepted: datagram => { /* sao chép trạng thái runtime */ });
 
-// Sending directly on a datagram connection.
+// Gửi trực tiếp trên kết nối datagram.
 static async ValueTask Send(IConnection datagramConnection, ReadOnlyMemory<byte> frame)
 {
     if (datagramConnection.Transport is IDatagramTransport transport)

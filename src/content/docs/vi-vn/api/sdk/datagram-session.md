@@ -60,8 +60,8 @@ public sealed class DatagramSession : TransportSession
 {
     public DatagramSession(TransportSession stream);
 
-    public override TransportOptions Options { get; }          // the stream session's options
-    public override bool IsConnected { get; }                  // engine is Established
+    public override TransportOptions Options { get; }          // tùy chọn của phiên stream
+    public override bool IsConnected { get; }                  // engine ở trạng thái Established
     public DatagramTicketInfo? Ticket { get; }
     public string? EngineReport { get; }
 
@@ -79,7 +79,7 @@ public sealed class DatagramSession : TransportSession
     public Task SendAsync(IPacket packet, DeliveryMethod method, byte channel = 0, CancellationToken ct = default);
     public Task<bool> SendWithReceiptAsync(IPacket packet, DeliveryMethod method = DeliveryMethod.ReliableOrdered, byte channel = 0);
 
-    public override void ResetSequenceCounters();              // no-op: datagram frames carry no stream sequence numbers
+    public override void ResetSequenceCounters();              // không làm gì: frame datagram không mang số thứ tự của stream
 }
 ```
 

@@ -21,9 +21,9 @@ Nếu bạn định dùng `session.HandshakeAsync()`, **KHÔNG** tự đặt `se
 Client và server **phải** tham chiếu cùng một project chứa các contract gói tin dùng chung. Khi `TransportSession.ConnectAsync()` chạy, nó tự động gọi `PacketRegistry.Build()` nếu chưa có `PacketRegistry` nào được đăng ký, sử dụng `[ModuleInitializer]` được sinh ra lúc biên dịch bởi `PacketRegistryGenerator`:
 
 ```csharp
-// Ensure your client references the shared contracts assembly so its [ModuleInitializer] runs.
-// ConnectAsync() automatically calls PacketRegistry.Build() on first connect,
-// or you can build it explicitly at startup:
+// Đảm bảo client của bạn tham chiếu assembly hợp đồng dùng chung để [ModuleInitializer] của nó chạy.
+// ConnectAsync() tự động gọi PacketRegistry.Build() ở lần kết nối đầu tiên,
+// hoặc bạn có thể build tường minh khi khởi động:
 PacketRegistry.Build();
 ```
 
@@ -35,11 +35,11 @@ PacketRegistry.Build();
 using Nalix.SDK.Options;
 using Nalix.Environment.Configuration;
 
-// OPTION A: Load automatically from the environment's configuration files (Recommended)
-// This binds values from your INI definitions and natively supports hot-reloading.
+// CÁCH A: Tự động nạp từ các tệp cấu hình của môi trường (Khuyến nghị)
+// Cách này gắn giá trị từ các định nghĩa INI của bạn và hỗ trợ sẵn hot-reload.
 TransportOptions options = ConfigurationManager.Instance.Get<TransportOptions>();
 
-// OPTION B: Manual Initialization
+// CÁCH B: Khởi tạo thủ công
 TransportOptions manualOptions = new()
 {
     // Connectivity
@@ -47,15 +47,15 @@ TransportOptions manualOptions = new()
     Port = 57206,
     ConnectTimeoutMillis = 30000,
     
-    // Auto-reconnect configuration (ReconnectSupervisor)
+    // Cấu hình tự động kết nối lại (ReconnectSupervisor)
     AutoReconnectEnabled = true,
     ReconnectBaseDelayMillis = 500,
     ReconnectMaxDelayMillis = 30000,
-    ReconnectMaxAttempts = 0, // 0 = infinite retries
+    ReconnectMaxAttempts = 0, // 0 = thử lại vô hạn
     
-    // Performance tuning
-    NoDelay = true,           // Disable Nagle's algorithm (highly recommended for Games/Real-time)
-    BufferSize = 65536        // Socket send/receive buffer size (default 64 KB)
+    // Tinh chỉnh hiệu năng
+    NoDelay = true,           // Tắt thuật toán Nagle (rất khuyến nghị cho game/thời gian thực)
+    BufferSize = 65536        // Kích thước bộ đệm gửi/nhận của socket (mặc định 64 KB)
 };
 ```
 
@@ -72,10 +72,10 @@ using Nalix.Framework.Memory.Buffers;
 
 async Task ConnectTcpStandardAsync()
 {
-    // The 'using' declaration ensures sockets and background loops are safely tracked
+    // Khai báo 'using' đảm bảo socket và các vòng lặp nền được theo dõi an toàn
     using TcpSession session = new(options);
 
-    // 1. Bind Lifecycle Events
+    // 1. Gắn các sự kiện vòng đời
     session.OnConnected += (_, _) => 
     {
         Console.WriteLine("TCP Connected successfully.");
@@ -83,7 +83,7 @@ async Task ConnectTcpStandardAsync()
 
     session.OnDisconnected += (_, ex) => 
     {
-        // ex contains underlying SocketExceptions or NetworkExceptions
+        // ex chứa các SocketException hoặc NetworkException bên dưới
         Console.WriteLine($"TCP Disconnected. Reason: {ex.Message}");
     };
 
@@ -92,31 +92,31 @@ async Task ConnectTcpStandardAsync()
         Console.WriteLine($"TCP Error observed: {ex.Message}");
     };
 
-    // 2. Bind Message Handlers (Strongly-Typed)
-    // The framework will automatically read the byte stream, deserialize the packet,
-    // and invoke your callback strictly when the matching type is observed.
+    // 2. Gắn các handler thông điệp (kiểu mạnh)
+    // Framework sẽ tự động đọc luồng byte, giải tuần tự hóa gói tin,
+    // và chỉ gọi callback của bạn khi gặp đúng kiểu tương ứng.
     session.On<MyResponsePacket>(packet => 
     {
         Console.WriteLine($"Received strongly-typed data: {packet.StatusMessage}");
     });
 
-    // 3. Connect, try resume, then fall back to handshake when needed
-    // `src/Nalix.SDK/Transport/Extensions/ResumeExtensions.cs` connects first,
-    // attempts resume only when ResumeEnabled + SessionToken + Secret are present,
-    // and reconnects before falling back to HandshakeAsync when configured to do so.
+    // 3. Kết nối, thử resume, rồi quay về handshake khi cần
+    // `src/Nalix.SDK/Transport/Extensions/ResumeExtensions.cs` kết nối trước,
+    // chỉ thử resume khi có đủ ResumeEnabled + SessionToken + Secret,
+    // và kết nối lại trước khi quay về HandshakeAsync khi được cấu hình như vậy.
     Console.WriteLine("Connecting to server...");
     bool resumed = await session.ConnectWithResumeAsync();
     Console.WriteLine(resumed ? "Session resumed." : "Fresh handshake completed.");
     
-    // At this point, `session.State` contains `EncryptionEnabled = true`,
-    // `Secret` (32-byte key), and the 8-byte `SessionToken` assigned by the server.
+    // Đến đây, `session.State` chứa `EncryptionEnabled = true`,
+    // `Secret` (khóa 32 byte) và `SessionToken` 8 byte do máy chủ cấp.
     // ---------------------------------------------------------
 
-    // 4. Ship Payloads
-    // session.SendAsync(...) handles packing, compression, encryption, and dispatch over the wire.
+    // 4. Gửi payload
+    // session.SendAsync(...) lo việc đóng gói, nén, mã hóa và gửi qua đường truyền.
     // await session.SendAsync(new MyCustomPacket());
     
-    // Prevent context from tearing down
+    // Giữ cho ngữ cảnh không bị hủy
     await Task.Delay(-1); 
 }
 ```
@@ -145,7 +145,7 @@ using Nalix.SDK.Transport;
 
 async Task ConnectDatagramAsync(TcpSession tcpSession)
 {
-    // The TCP session must have completed HandshakeAsync() first.
+    // Phiên TCP phải hoàn tất HandshakeAsync() trước.
     using DatagramSession udp = new(tcpSession);
 
     udp.OnConnected += (_, _) => Console.WriteLine("Datagram session established.");
@@ -154,7 +154,7 @@ async Task ConnectDatagramAsync(TcpSession tcpSession)
 
     await udp.ConnectAsync();
 
-    // Every datagram is sealed with ChaCha20-Poly1305 by the session itself.
+    // Mỗi datagram được chính phiên niêm phong bằng ChaCha20-Poly1305.
     // await udp.SendAsync(new PlayerMovementPacket { X = 1, Y = 2, Z = 5 });
     // await udp.SendAsync(packet, DeliveryMethod.ReliableOrdered, channel: 0);
 
@@ -178,22 +178,22 @@ Một datagram dài tối đa `DatagramEngine.MaxDatagramSize` (`1472` byte). Th
 using Nalix.SDK.Options;
 using Nalix.SDK.Transport.Extensions;
 
-// 1. Network Latency Check (Ping)
-// Measures round-trip time (RTT) safely across the protocol
+// 1. Kiểm tra độ trễ mạng (Ping)
+// Đo thời gian khứ hồi (RTT) một cách an toàn qua giao thức
 double rttMs = await session.PingAsync();
 Console.WriteLine($"Current Latency: {rttMs}ms");
 
-// 2. Time Synchronization
-// Re-aligns the client's internal clock offsets against the core server's clock
+// 2. Đồng bộ thời gian
+// Căn chỉnh lại độ lệch đồng hồ nội bộ của client theo đồng hồ của máy chủ lõi
 var sync = await session.SyncTimeAsync();
 Console.WriteLine($"RTT={sync.RttMs}ms Adjusted={sync.AdjustedMs}ms");
 
-// 3. Request-Response Mechanics (RPC via Packets)
-// Send a request packet and cleanly await a strongly-typed response 
+// 3. Cơ chế yêu cầu-phản hồi (RPC qua gói tin)
+// Gửi gói tin yêu cầu và chờ phản hồi kiểu mạnh một cách gọn gàng 
 var response = await session.RequestAsync<MyResponsePacket>(
     request: new MyRequestPacket { UserId = 123 },
-    options: RequestOptions.Default.WithTimeout(3000), // timeout within 3s
-    predicate: p => p.IsSuccess // Optional: Filter exactly which response to accept
+    options: RequestOptions.Default.WithTimeout(3000), // thời gian chờ 3 giây
+    predicate: p => p.IsSuccess // Tùy chọn: lọc chính xác phản hồi nào được chấp nhận
 );
 ```
 
@@ -206,9 +206,9 @@ TransportOptions options = new()
 {
     Address = "127.0.0.1",
     Port = 57206,
-    KeepAliveIntervalMillis = 15_000, // Probe every 15 seconds automatically
-    KeepAliveTimeoutMillis = 5_000,   // Wait up to 5 seconds for PONG
-    KeepAliveMissThreshold = 3        // Fault & trigger ReconnectSupervisor after 3 missed PONGs
+    KeepAliveIntervalMillis = 15_000, // Tự động thăm dò mỗi 15 giây
+    KeepAliveTimeoutMillis = 5_000,   // Chờ tối đa 5 giây để nhận PONG
+    KeepAliveMissThreshold = 3        // Báo lỗi và kích hoạt ReconnectSupervisor sau 3 lần lỡ PONG
 };
 ```
 
@@ -219,10 +219,10 @@ Nếu bạn muốn tự chạy một vòng heartbeat ở tầng ứng dụng (v�
 Luôn thực thi việc gỡ bỏ kỹ lưỡng khi hủy vòng đời kết nối. Việc này thu gọn các cấu trúc vòng lặp bất đồng bộ một cách an toàn và giải phóng ngay các lease bộ nhớ.
 
 ```csharp
-// Inform sockets to shut down and unmanaged handlers to cease executing
+// Báo cho socket tắt và các handler không được quản lý dừng thực thi
 await session.DisconnectAsync();
 
-// Reclaim buffers and class instances
+// Thu hồi bộ đệm và các đối tượng lớp
 session.Dispose();
 ```
 

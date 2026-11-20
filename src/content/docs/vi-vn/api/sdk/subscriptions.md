@@ -127,7 +127,7 @@ using System;
 using Nalix.SDK.Transport;
 using Nalix.SDK.Transport.Extensions;
 
-// 1. Group multiple subscriptions using session.Subscribe(...)
+// 1. Gom nhiều đăng ký bằng session.Subscribe(...)
 using CompositeSubscription subscriptions = session.Subscribe(
     session.On<ChatBroadcastPacket>(pkt =>
         Console.WriteLine($"[{pkt.Channel}] {pkt.Sender}: {pkt.Text}")),
@@ -136,17 +136,17 @@ using CompositeSubscription subscriptions = session.Subscribe(
         SpawnTeammateAvatar(pkt))
 );
 
-// 2. Or add another subscription dynamically
+// 2. Hoặc thêm một đăng ký khác một cách động
 subscriptions.Add(
     session.On(
         predicate: pkt => pkt is WorldEventPacket,
         handler: pkt => HandleWorldEvent((WorldEventPacket)pkt)));
 
-// 2b. Async handler: exceptions are reported, not thrown on the receive loop
+// 2b. Handler async: ngoại lệ được báo cáo, không ném ra trên vòng lặp nhận
 subscriptions.Add(
     session.On<ChatBroadcastPacket>(async pkt => await SaveHistoryAsync(pkt)));
 
-// 3. Unsubscribe all handlers at once on scene teardown
+// 3. Hủy đăng ký tất cả handler cùng lúc khi dỡ bỏ scene
 subscriptions.Dispose();
 ```
 

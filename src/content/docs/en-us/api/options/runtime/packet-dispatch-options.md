@@ -52,6 +52,7 @@ Loaded from `[PacketDrain]` in `default.ini` or configured via `options.Drain`:
 | `WithDispatchLoopCount` | `public PacketDispatchOptions<TPacket> WithDispatchLoopCount(int? loopCount)` | Sets `Drain.Count` (`1..64`, or `null` for automatic CPU-based sizing; throws `ArgumentOutOfRangeException` if outside `1..64`). |
 | `WithErrorHandling` | `public PacketDispatchOptions<TPacket> WithErrorHandling(Action<Exception, ushort> errorHandler)` | Registers a callback invoked with `(exception, opCode)` when a handler throws a non-teardown exception before the automatic `Directive(FAIL)` reply is sent. |
 | `WithErrorHandlingMiddleware` | `public PacketDispatchOptions<TPacket> WithErrorHandlingMiddleware(bool continueOnError, Action<Exception, Type>? errorHandler = null)` | Configures whether `MiddlewarePipeline<TPacket>` continues or aborts when a middleware throws. |
+| `RegisterHandler(...)` | `void IPacketHandlerBuilder<TPacket>.RegisterHandler(ushort opCode, PacketMetadata metadata, string methodName, object? instance, Type returnType, Type? expectedPacketType, Func<object?, PacketContext<TPacket>, ValueTask<object?>> invoker)` | Explicit interface implementation (call it through `IPacketHandlerBuilder<TPacket>`; used by source-generated code). Stores the handler in the slot for `opCode`; throws `InternalErrorException` when that opcode is already registered. |
 
 ## Usage Example
 

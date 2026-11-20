@@ -88,6 +88,8 @@ byte[] nonce = Csprng.CreateNonce(12);
 int shardIndex = Csprng.GetInt32(0, 8);
 ```
 
+Để dựng lại cặp khóa từ một khóa riêng 32 byte có sẵn, dùng `X25519.GenerateKeyFromPrivateKey(Bytes32 privateKey)`; hàm trả về `X25519KeyPair` chứa khóa riêng đó và khóa công khai được suy ra từ nó.
+
 ## API liên quan
 
 - [Băm và MAC](./hashing-and-mac.md)

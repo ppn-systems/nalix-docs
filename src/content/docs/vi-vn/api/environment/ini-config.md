@@ -217,7 +217,7 @@ using Nalix.Environment.Configuration.Binding;
 
 using IniConfig ini = new("config/server.ini");
 
-// Defaults and documentation, only registered for keys that do not exist yet.
+// Giá trị mặc định và tài liệu, chỉ được đăng ký cho các khóa chưa tồn tại.
 ini.WriteComment("Server", null, "Server settings");
 ini.WriteComment("Server", "Port", "Listen port (1..65535)");
 ini.WriteValue("Server", "Port", 57206);
@@ -225,13 +225,13 @@ ini.WriteValue("Server", "Timeout", TimeSpan.FromSeconds(30));
 ini.WriteValue("Server", "EnableTls", true);
 ini.Flush();
 
-// Typed reads: nullable results, so supply your own fallback.
+// Đọc theo kiểu: kết quả nullable, nên hãy tự cung cấp giá trị dự phòng.
 ushort port = ini.GetUInt16("Server", "Port") ?? 57206;
 TimeSpan timeout = ini.GetTimeSpan("Server", "Timeout") ?? TimeSpan.FromSeconds(10);
 bool tls = ini.GetBool("Server", "EnableTls") ?? false;
-string name = ini.GetString("Server", "Name");   // string.Empty when missing
+string name = ini.GetString("Server", "Name");   // string.Empty khi thiếu
 
-// A deployment can override the value without editing the file:
+// Một bản triển khai có thể ghi đè giá trị mà không cần sửa tệp:
 //   NALIX_SERVER_PORT=60000
 ```
 
