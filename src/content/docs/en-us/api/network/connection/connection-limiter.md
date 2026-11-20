@@ -1,6 +1,6 @@
 ---
 title: Connection Limiter
-description: Architectural guide to ConnectionGuard and DatagramGuard — multi-tier per-IP, per-subnet, burst, and UDP source-window rate limiting in Nalix.Network.
+description: Architectural guide to ConnectionGuard — multi-tier per-IP, per-subnet, burst, and progressive-ban admission limiting in Nalix.Network, including how datagram sessions are admitted.
 section: API Reference
 package: Nalix.Network
 ---
@@ -8,10 +8,9 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.RateLimiting`  
 **Assembly:** `Nalix.Network`
 
-`Nalix.Network.RateLimiting` provides two specialized transport admission limiters:
+`Nalix.Network.RateLimiting` provides the transport admission limiter:
 
-1. [ConnectionGuard](./connection-guard.md) (`src/Nalix.Network/RateLimiting/Connection.Guard.cs`): Protects connection-oriented listeners (`TcpListenerBase`, `WebSocketListenerBase`, and `UdpPassthroughListener`).
-2. **`DatagramGuard`** (`src/Nalix.Network/RateLimiting/Datagram.Guard.cs`): Protects `UdpListenerBase` against UDP packet floods using bounded IPv4/IPv6 sliding source windows.
+1. [ConnectionGuard](./connection-guard.md) (`src/Nalix.Network/RateLimiting/Connection.Guard.cs`): Protects connection-oriented listeners (`TcpListenerBase`, `WebSocketListenerBase`, and `DatagramListener` for authenticated datagram sessions).
 
 ## Source Mapping
 
@@ -19,10 +18,9 @@ package: Nalix.Network
 - `src/Nalix.Network/RateLimiting/Connection.Guard.Slot.cs`
 - `src/Nalix.Network/RateLimiting/Connection.Guard.Subnet.cs`
 - `src/Nalix.Network/RateLimiting/Connection.Guard.Cleanup.cs`
-- `src/Nalix.Network/RateLimiting/Datagram.Guard.cs`
 - `src/Nalix.Network/Options/ConnectionQuotaOptions.cs`
 - `src/Nalix.Network/Options/ConnectionGuardOptions.cs`
-- `src/Nalix.Network/Options/DatagramGuardOptions.cs`
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`
 
 ## 1. `ConnectionGuard` Defense Mechanisms
 
@@ -48,19 +46,16 @@ When an endpoint exceeds its rate window:
 
 - Caps tracked IP entries at `ConnectionQuotaOptions.MaxTrackedEndpoints` (`50,000`) and uses $O(1)$ Redis-style random sampling eviction when full, alongside the recurring `"conn.limit"` background cleanup job.
 
-## 2. `DatagramGuard` (`UdpListenerBase` Protection)
+## 2. Datagram Sessions
 
-`DatagramGuard` (`public sealed class DatagramGuard : IDisposable`) enforces per-IP packets-per-second budgets (`ConnectionGuardOptions.MaxPacketPerSecond = 128`) on incoming UDP datagrams:
-
-- Maintains separate bounded maps for IPv4 (`DatagramGuardOptions.IPv4Windows = 65,536`) and IPv6 (`DatagramGuardOptions.IPv6Windows = 16,384`).
-- When a source map is full, `DatagramGuardOptions.FailOpenWhenFull` controls whether unknown sources are dropped (`false`, default) or allowed (`true`).
+`DatagramGuard` and `DatagramGuardOptions` (per-source UDP packet windows) were removed. `DatagramListener` instead admits each datagram session through `IConnectionGuard.TryAccept(remote)` when the first datagram of its ticket authenticates, holds the guard slot while the session lives, and calls `Release` when the session is disposed. A refused session is counted in `DatagramListener.DMetrics.TotalGuardRejections`. Unauthenticated datagrams never reach the guard. See [Datagram Listener](../udp-listener.md).
 
 ## Configuration Summary
 
 | Option Class | Key Settings | Reference |
 | :--- | :--- | :--- |
 | `ConnectionQuotaOptions` | `MaxConnectionsPerIpAddress = 10`, `MaxConnectionsPerWindow = 10`, `ConnectionRateWindow = 5s`, `MaxConnectionsPerSubnet = 50`, `ExemptLoopback = true`, `MaxTrackedEndpoints = 50,000` | [Connection Quota Options](../../options/network/connection-quota-options.md) |
-| `ConnectionGuardOptions` | `MaxConnections = 2000`, `BanDuration = 5m`, `EnableProgressiveBanning = true`, `MaxErrorThreshold = 50`, `MaxPacketPerSecond = 128` | [Connection Guard Options](../../options/network/connection-guard-options.md) |
+| `ConnectionGuardOptions` | `MaxConnections = 2000`, `BanDuration = 5m`, `EnableProgressiveBanning = true`, `MaxErrorThreshold = 50`, `ErrorWindow = 1m`, `MaxPacketPerSecond = 128` | [Connection Guard Options](../../options/network/connection-guard-options.md) |
 | `TrustedProxyOptions` | `StoreFileName = "trusted_proxies.txt"`, `MaxConnectionsPerTrustedProxy = 5000`, `MaxAttemptsPerTrustedProxyWindow = 2000` | [Trusted Proxy Options](../../options/network/trusted-proxy-options.md) |
 
 ## Related APIs
@@ -68,4 +63,4 @@ When an endpoint exceeds its rate window:
 - [Connection Guard API Reference](./connection-guard.md)
 - [Connection Hub](./connection-hub.md)
 - [TCP Listener](../tcp-listener.md)
-- [UDP Listener](../udp-listener.md)
+- [Datagram Listener](../udp-listener.md)

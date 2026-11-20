@@ -1,6 +1,6 @@
 ---
 title: Timing Wheel Options
-description: Reference for Nalix.Network.Options.TimingWheelOptions — bucket count, tick interval, idle timeout threshold, and shutdown drain timeout for TimingWheel.
+description: Reference for Nalix.Network.Options.TimingWheelOptions — bucket count, tick interval, idle timeout threshold, pre-authentication handshake deadline, and shutdown drain timeout for TimingWheel.
 section: API Reference
 package: Nalix.Network
 ---
@@ -25,6 +25,7 @@ Loaded from the `[TimingWheel]` section of `default.ini`:
 | `BucketCount` | `int` | `512` | `[ValueRange(1, int.MaxValue)]` | Number of `TimingWheelBucket` slots in the wheel (power-of-two values enable bitmask indexing). |
 | `TickDuration` | `int` | `1000` | `[ValueRange(1, int.MaxValue)]` | Tick interval in milliseconds for the background `PeriodicTimer` worker loop. |
 | `IdleTimeoutMs` | `int` | `60_000` (`60s`) | `[ValueRange(1, int.MaxValue)]` | Default connection idle threshold in milliseconds before `Disconnect()` is called. |
+| `HandshakeTimeoutMs` | `int` | `15_000` (`15s`) | `[ValueRange(0, 600_000)]` | Maximum time a TCP/WebSocket connection may stay below `PermissionLevel.ESTABLISHED` after accept before it is closed. Frames do not extend it; `0` disables the deadline. A per-connection extension (`ConnectionAttributes.HandshakeDeadlineExtension`, clamped to 60 s) is added once. Connections without a Nalix handshake (`AppliesHandshakeTimeout == false`) are exempt. |
 | `WheelDrainTimeoutMs` | `int` | `5000` (`5s`) | `[ValueRange(0, 60000)]` | Maximum milliseconds to wait for the timing wheel worker to drain gracefully during `Deactivate`. |
 
 `Validate()` runs `this.ValidateDataAnnotations()` and throws `ValidationException` when constraints are violated.
@@ -48,7 +49,7 @@ flowchart LR
 ```
 
 - Each `TimingWheelBucket` uses a doubly-linked list of pooled `TimeoutTask` instances guarded by a per-bucket monitor lock (`lock (bucket)`) for $O(1)$ insertion and removal.
-- `Connection`, `WebSocketConnection`, and `PassthroughConnection` initialize their per-connection `IdleTimeoutMs` from `TimingWheelOptions.IdleTimeoutMs` and can override it dynamically via `connection.UpdateIdleTimeout(newTimeoutMs)`.
+- `Connection` and `WebSocketConnection` initialize their per-connection `IdleTimeoutMs` from `TimingWheelOptions.IdleTimeoutMs` and can override it dynamically via `connection.UpdateIdleTimeout(newTimeoutMs)`.
 
 ## Related APIs
 

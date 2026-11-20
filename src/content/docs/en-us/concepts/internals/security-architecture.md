@@ -9,7 +9,7 @@ This page explains where security decisions happen in Nalix and how the differen
 ## Source Mapping
 
 - `src/Nalix.Network/Protocols/Protocol.PublicMethods.cs`
-- `src/Nalix.Network/Listeners/UdpListener/UdpListener.Receive.cs`
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`
 - `src/Nalix.Runtime/Handlers/HandshakeHandlers.cs`
 - `src/Nalix.Runtime/Handlers/SessionHandlers.cs`
 - `src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs`
@@ -144,10 +144,10 @@ UDP should be treated as an authenticated datagram path, not as a looser copy of
 Requirements for secure UDP traffic:
 
 - Session identity must already be established first
-- Each datagram must include the session token prefix (8 bytes)
-- The connection secret must be initialized
-- `IsAuthenticated(...)` must validate the datagram before processing
-- Replay checks should be enabled
+- The datagram session is created from a ticket issued over that authenticated stream session
+- The stream connection's secret must be initialized (handshake complete)
+- Every datagram is sealed with ChaCha20-Poly1305 and keys are derived per session
+- Datagrams that fail authentication are dropped before they reach the protocol; the session engine enforces replay protection
 
 ## Recommended Security Posture
 

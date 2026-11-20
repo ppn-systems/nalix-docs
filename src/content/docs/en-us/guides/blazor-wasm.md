@@ -266,7 +266,7 @@ Open `http://localhost:5230` in two tabs. Echo replies in upper case, and chat l
 
 **Trimming and AOT.** A Release publish of Blazor WASM trims assemblies. Packets are found at runtime through `PacketRegistry`, so root the contracts assembly with `<TrimmerRootAssembly Include="YourApp.Contracts" />`. The sample publishes trimmed without warnings and runs. WebAssembly AOT (`RunAOTCompilation`) is optional and only affects speed. The SDK's receive loop is async and never blocks a thread, which matters because WASM has only one thread.
 
-**Browser-only API limits.** Use the async APIs only. `WebSocketSession.Send(ReadOnlySpan<byte>, ...)`, `TcpSession`, and `UdpSession` are marked `[UnsupportedOSPlatform("browser")]`. There are no raw sockets, UDP, or TCP in the browser. Background tabs can be throttled, and mobile browsers may freeze them entirely, so expect `OnDisconnected` after a tab wakes up. Handling it is the job of the reconnect loop.
+**Browser-only API limits.** Use the async APIs only. `WebSocketSession.Send(ReadOnlySpan<byte>, ...)`, `TcpSession`, and `DatagramSession` are marked `[UnsupportedOSPlatform("browser")]`. There are no raw sockets, UDP, or TCP in the browser. Background tabs can be throttled, and mobile browsers may freeze them entirely, so expect `OnDisconnected` after a tab wakes up. Handling it is the job of the reconnect loop.
 
 **Threading and rendering.** `On<T>` handlers and `OnDisconnected` are not raised on the renderer's synchronization context. Always call `InvokeAsync(StateHasChanged)` from them. Copy data out of pooled packets before the handler returns.
 

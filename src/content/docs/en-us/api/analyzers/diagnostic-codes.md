@@ -80,7 +80,7 @@ This page lists all **75 active diagnostic descriptors** emitted by `Nalix.Analy
 | `NALIX042` | `NetworkApplicationBuilder` handler type is not constructible | Warning | Usage | No | Controller types passed to `MapHandlers` must be concrete, constructible classes. |
 | `NALIX043` | `NetworkApplicationBuilder` metadata provider type is not constructible | Warning | Usage | No | Metadata provider types must be concrete, constructible classes. |
 | `NALIX044` | `NetworkApplicationBuilder` should configure a TCP binding | Info | Usage | No | Warns when `.Build()` is called without any transport listener binding. |
-| `NALIX045` | `NetworkApplicationBuilder` should configure TCP before UDP | Info | Usage | No | Authenticated UDP listeners rely on sessions established over TCP (`MapTcp` should accompany `MapUdp`). |
+| `NALIX045` | `NetworkApplicationBuilder` should configure TCP with datagram bindings | Info | Usage | No | Datagram (NDP) sessions are bootstrapped over a TCP or WebSocket session, so a `MapDatagram` binding needs a stream binding (`ListenTcp`) in the same builder chain. |
 | `NALIX057` | `RequestOptions` uses infinite timeout with retries | Info | SDK | Yes | Setting `TimeoutMs = 0` with `RetryCount > 0` makes retries unreachable because the first attempt waits indefinitely. |
 
 ## 5. Source Generator Diagnostics (`NALIX059`–`NALIX068`)

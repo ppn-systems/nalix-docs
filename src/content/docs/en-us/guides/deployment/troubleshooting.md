@@ -136,7 +136,7 @@ Start with:
 **Check**
 
 - return type is supported by Nalix return handlers
-- `context.Connection.TCP` is valid
+- `context.Connection.Transport` is valid
 - you are not mixing manual send and expected return-path behavior incorrectly
 
 **Fast fix**

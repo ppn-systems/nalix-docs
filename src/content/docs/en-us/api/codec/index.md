@@ -20,13 +20,14 @@ Nalix uses a source-generated binary serializer (`SerializeFormatterGenerator`) 
 
 - [**Packet Registry**](./packets/packet-registry.md): Process-wide O(1) opcode catalog (`PacketRegistry.Build()`, `TryDeserialize`, `Deserialize`, `IsKnownOpCode`, `IsRegistered<T>()`).
 - [**Frame Model**](./packets/frame-model.md): `FrameBase`, `PacketBase<TSelf>`, `FrameTransformer`, `FrameCipher`, and `FrameCompression`.
-- [**Built-in Frames**](./packets/built-in-frames.md): All 11 built-in system and handshake frames (`Control`, `Directive`, `TimeSync`, `SessionInit`, `SessionChallenge`, `SessionProof`, `SessionEstablished`, `SessionResume`, `SessionTofu`, `ProofOfWorkChallenge`, `ProofOfWorkProof`).
-- [**Fragmentation**](./packets/fragmentation.md): Splitting and reassembling large payloads (`FragmentHeader`, `FragmentAssembler`, `FragmentOptions`, `FragmentStreamId` in `Nalix.Environment.Fragments`).
+- [**Built-in Frames**](./packets/built-in-frames.md): All 12 built-in system, handshake, and datagram frames (`Control`, `Directive`, `TimeSync`, `SessionInit`, `SessionChallenge`, `SessionProof`, `SessionEstablished`, `SessionResume`, `SessionTofu`, `ProofOfWorkChallenge`, `ProofOfWorkProof`, `DatagramTicket`).
+- [**Fragmentation**](./packets/fragmentation.md): Splitting and reassembling large payloads (`FragmentHeader`, `FragmentAssembler`, `FragmentOptions`, `FragmentStreamId` in `Nalix.Environment.Fragments`, and `DatagramEngineOptions`).
 
 ## Frame Transforms & Cryptography (`Nalix.Codec.Transforms` & `Nalix.Codec.Security`)
 
 - [**Frame Pipeline**](./frame-pipeline.md): Fused inbound (decrypt $\rightarrow$ decompress) and outbound (compress $\rightarrow$ encrypt) frame transformation via `FramePipeline`.
 - [**LZ4 Compression**](./lz4.md): Span-based and pooled `BufferLease` block compression/decompression (`LZ4Codec`, `LZ4BlockHeader`, `CompressionOptions`).
+- **Datagram protection** (`Nalix.Codec.Security.Datagram`): `ChaCha20Poly1305DatagramProtection`, `ChaCha20Poly1305DatagramProtectionFactory`, and `DatagramKeySchedule` implement the `IDatagramProtection` / `IDatagramProtectionFactory` contracts from [Nalix.Abstractions](../abstractions/connection-contracts.md); see [Nalix.Codec](../../packages/nalix-codec.md).
 - [**Cryptography Overview**](../security/cryptography.md): `EnvelopeCipher`, `ChaCha20Poly1305`, `Salsa20Poly1305`, `HandshakeX25519`, `ProofOfWork`, `Keccak256`, `HmacKeccak256`, and `Pbkdf2`.
 
 ## Configuration Options (`Nalix.Codec.Options`)

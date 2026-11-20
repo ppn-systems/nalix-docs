@@ -1,147 +1,113 @@
 ---
 title: UDP Security
-description: This guide explains the actual UDP session shape used by UdpListenerBase today, in a client-friendly way.
+description: This guide explains how the Nalix datagram (NDP over UDP) session is authenticated and protected today, in a client-friendly way.
 section: Guides
 ---
 
 :::warning[Advanced Topic]
-This page deals with low-level protocol multiplexing and custom listener implementations.
+This page deals with low-level protocol details of the datagram transport.
 :::
 
-This guide explains the actual UDP session shape used by `UdpListenerBase` today, in a client-friendly way.
+This guide explains the session shape used by `DatagramListener` and `DatagramSession` (the Nalix Datagram Protocol, NDP over UDP) today, in a client-friendly way.
 
 Use it when you already know you need UDP and want to understand the trust and replay rules before implementing a client.
 
+## Source Mapping
+
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.PublicMethods.cs`
+- `src/Nalix.Runtime/Handlers/DatagramTicketHandlers.cs`
+- `src/Nalix.Codec/Security/Datagram/DatagramKeySchedule.cs`
+- `src/Nalix.SDK/Transport/DatagramSession.cs`
+
 ## What the runtime expects
 
-When `UdpListenerBase` receives a datagram, it expects a 12-byte authentication wrapper around the serialized Nalix packet (minimum datagram size is **18 bytes** = `SessionTokenSize (8) + PacketHeader.Size (6) + UdpMacTagSize (4)`):
+A datagram session is bound to an authenticated stream session (TCP or WebSocket) through a one-time **ticket**:
 
-- session token (`Snowflake`, 8 bytes at `[0..8]`)
-- payload (at least the 6-byte Nalix `PacketHeader` at `[8..^4]`: `[OpCode(2), Flags(1), Priority(1), SequenceId(2)]`)
-- `XxHash32` authentication tag (4 bytes at `[^4..^0]`)
+1. The client requests a ticket over the stream session (`DatagramTicket`, stage `REQUEST`). The server refuses with a `ProtocolReason` when the handshake is not complete (`UNAUTHENTICATED`), when the request already arrives on a datagram session (`STATE_VIOLATION`), or when no datagram listener is running (`SERVICE_UNAVAILABLE`).
+2. `IDatagramTicketIssuer.IssueTicket(...)` snapshots the stream connection's user, permission level, algorithm and secret, generates a random 16-byte nonce and returns a `DatagramTicketInfo` (`ConnectionId`, `Nonce`, `Port`, `ExpiresInSeconds`, `IdleTimeoutMs`, `MaxMessageSize`, `ChannelCount`, `ReceiveBufferBytes`, `ChannelReceiveBufferBytes`). One outstanding ticket exists per stream connection: a new request replaces the previous one.
+3. Both sides derive the session keys from the stream secret, the connection id and the ticket nonce with an HKDF built on Keccak-256 (`DatagramKeySchedule`), with separate client-to-server and server-to-client secrets.
+4. Every datagram is sealed with ChaCha20-Poly1305 (`ChaCha20Poly1305DatagramProtection`). Only the connection id travels in cleartext.
+5. The first datagram must authenticate within `DatagramOptions.TicketLifetimeSeconds` (default `10`); then the pending ticket is promoted to a session.
 
-In source (`UdpListener.Receive.cs`), the listener validates:
+In source (`DatagramListener.Receive.cs`) the listener:
 
-- the datagram is at least `18` bytes long (`8` token + `6` `PacketHeader.Size` + `4` `XxHash32` tag)
-- the 8-byte token resolves to an active, non-disposed connection in `ConnectionHub` with a non-zero `Secret`
-- the trailing 4-byte `XxHash32` tag matches `XxHash32.Compute(connection.Secret.AsSpan(), seed: XxHash32.Compute(datagram[..^4]))`
-- the remote endpoint matches the connection's pinned endpoint (`IsPinnedEndpointMatch`)
-- the UDP replay window (`connection.UdpReplayWindow.TryCheck(header.SequenceId)`) accepts the packet sequence
-- your overridden `IsAuthenticated(...)` or hosting predicate returns `true`
+- drops datagrams longer than `DatagramEngine.MaxDatagramSize` (`1472` bytes) or with a malformed header (`DroppedMalformed`)
+- drops datagrams whose connection id is neither a session nor a pending ticket (`DroppedUnknown`)
+- drops datagrams that fail authentication or decryption (`DroppedUnauthenticated`)
+- consults the `ConnectionGuard`, when one is configured, before accepting the session (`TotalGuardRejections`)
+
+Replay protection is part of the session engine (a replay window inside `DatagramEngine`), and long-lived sessions rotate keys after `KeyUpdatePacketInterval` packets or `KeyUpdateIntervalMs` milliseconds.
 
 ## High-level flow
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant TCP as TcpListenerBase
-    participant Hub as ConnectionHub
-    participant UDP as UdpListenerBase
+    participant TCP as Stream listener (TCP / WebSocket)
+    participant UDP as DatagramListener
 
     Client->>TCP: 1. Connect & HandshakeAsync()
-    TCP->>Hub: 2. Store connection (SessionToken + 32B Secret)
-    TCP-->>Client: 3. SessionEstablished (8B SessionToken)
-    Client->>UDP: 4. Datagram [8B Token][Payload][4B XxHash32 MAC]
-    UDP->>Hub: 5. Resolve session by 8B Token & verify 4B XxHash32 MAC
-    UDP->>UDP: 6. Replay check + IsAuthenticated(...)
+    Client->>TCP: 2. DatagramTicket (REQUEST)
+    TCP->>UDP: 3. IssueTicket(streamConnection)
+    TCP-->>Client: 4. DatagramTicket response (ConnectionId, Nonce, Port, limits)
+    Client->>UDP: 5. First sealed datagram (ChaCha20-Poly1305)
+    UDP->>UDP: 6. Authenticate, promote ticket, accept session
 ```
 
 ## Server shape
 
-### 1. Subclass `UdpListenerBase`
+Host the listener with the builder; there is nothing to subclass:
 
-```csharp
-public sealed class SampleUdpListener : UdpListenerBase
-{
-    public SampleUdpListener(IProtocol protocol, IConnectionHub hub) : base(protocol, hub) { }
-
-    public override bool IsAuthenticated(IConnection connection, EndPoint remoteEndPoint, ReadOnlySpan<byte> payload)
-    {
-        // Add your own checks here:
-        // - allowed endpoint
-        // - session state
-        // - region / shard ownership
-        return !connection.Secret.IsZero;
-    }
-}
-```
-
-:::tip[Preferred Modern Pattern]
-Instead of subclassing `UdpListenerBase`, use the hosting predicate before
-calling `Build()`:
 ```csharp
 using var app = NetworkApplication.CreateBuilder()
+    .UseSecureConnections()
     .MapTcp<MyProtocol>().OnPort(57206).Bind()
-    .MapUdp<MyProtocol>().OnPort(57206).WithAuthentication((conn, ep, data) =>
-        conn.Level >= PermissionLevel.USER).Bind()
+    .MapDatagram<MyProtocol>().OnPort(57206).Bind()
     .Build();
 ```
-:::
 
-### 2. Keep TCP and UDP tied to the same session
+`MapDatagram<T>()` also maps `DatagramTicketHandlers`, and can be called once per application.
 
-The UDP path assumes there is already a known connection in `ConnectionHub`.
+### Keep the stream and datagram sessions tied
 
-That means a common pattern is:
+The datagram session lives on its own once accepted: closing the stream connection does not close it. Each `DatagramConnection` exposes `StreamConnectionId`, so a kick or a permission change must also disconnect the datagram connections whose `StreamConnectionId` matches.
 
-1. authenticate or handshake on TCP first
-2. create/populate the connection secret
-3. store the session in `ConnectionHub`
-4. allow UDP packets to reference that session ID
-
-## Conceptual client packet layout
-
-The listener validates these three parts:
-
-```text
-[8-byte session-token][payload (>= 6B PacketHeader)][4-byte XxHash32 MAC]
-```
-
-The token is the `Snowflake` session ID assigned to the connection after TCP handshake, and the trailing 4-byte tag is computed over `[session-token][payload]` seeded with the 32-byte `connection.Secret`.
-
-## Pseudocode for client-side send
+## Client shape
 
 ```csharp
-// Using Nalix.SDK UdpSession handles this automatically:
-await using var udp = new UdpSession(udpOptions, tcpSession.State);
-await udp.ConnectAsync(host, port);
-await udp.SendAsync(packet);
+using TcpSession tcp = new(tcpOptions);
+await tcp.ConnectAsync(host, port);
+await tcp.HandshakeAsync();
 
-// Or manually constructing the wire datagram:
-uint bodyHash = XxHash32.Compute(tokenAndPayload, seed: 0);
-uint macTag = XxHash32.Compute(sharedSecret.AsSpan(), seed: bodyHash);
+// DatagramSession requests the ticket over the stream session and derives its own keys.
+using DatagramSession udp = new(tcp);
+await udp.ConnectAsync();           // host defaults to the stream address, port to ticket.Port
+await udp.SendAsync(packet);
+await udp.SendAsync(packet, DeliveryMethod.ReliableOrdered, channel: 0);
 ```
+
+`ConnectAsync` throws `NetworkException` when the ticket is refused or the session is not established before the ticket expires. The `encrypt` arguments of the send methods are ignored because every datagram is already sealed by the session.
 
 ## Transport rules
 
-The runtime uses an 8-byte `SessionToken` prefix and a trailing 4-byte `XxHash32` authentication tag keyed by the 32-byte X25519 session secret established through TCP.
-
 For clients, that means:
 
-- send the 8-byte session token first and append the 4-byte `XxHash32` tag last (or use `UdpSession` which does both automatically)
-- keep the total datagram small enough to fit `MaxUdpDatagramSize` (`1440` bytes default)
-- treat UDP as a fast datagram path bound to an established TCP session, not a standalone authentication protocol
+- complete the stream handshake first; the datagram secret is derived from it
+- keep each datagram within `DatagramEngine.MaxDatagramSize` (`1472` bytes); larger messages are fragmented by the engine up to the ticket's `MaxMessageSize`
+- pick a `DeliveryMethod` and channel per message when you need reliability or ordering
+- treat UDP as a fast datagram path bound to an established stream session, not a standalone authentication protocol
 
 ## What happens on failure
 
 The listener records diagnostics for:
 
-- short packets
+- malformed datagrams
 - unknown sessions
-- unauthenticated packets
+- unauthenticated datagrams
 - receive errors
 
-Invalid packets are dropped before they reach your protocol logic.
-
-## Recommended rollout
-
-For a simple deployment:
-
-1. establish session over TCP
-2. assign/store session secret
-3. return session ID to the client
-4. let the client send UDP datagrams prefixed with the session token
-5. verify in `IsAuthenticated(...)` that the session is ready for UDP
+Invalid datagrams are dropped before they reach your protocol logic.
 
 ## Related pages
 

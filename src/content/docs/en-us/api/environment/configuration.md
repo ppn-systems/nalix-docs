@@ -78,6 +78,25 @@ public sealed partial class ServerRoomOptions : ConfigurationLoader, IValidatabl
 }
 ```
 
+## `IniConfig`
+
+`IniConfig` (`public sealed class IniConfig : IDisposable`, namespace `Nalix.Environment.Configuration.Binding`) is the low-level `.ini` reader/writer used by `ConfigurationManager` and by code emitted by `ConfigurationGenerator`. It is hidden from IntelliSense (`EditorBrowsable.Never`) and is rarely used directly.
+
+| Member | Signature | Description |
+| :--- | :--- | :--- |
+| `IniConfig(string)` | `public IniConfig(string path)` | Resolves `path` with `Path.GetFullPath` and loads the file if it exists. Throws `ArgumentNullException` for `null` and `ArgumentException` for empty or invalid paths. |
+| `ExistsFile` | `public bool ExistsFile { get; }` | `true` if the file exists on disk. |
+| `FilePath` | `public string FilePath { get; }` | Absolute path to the `.ini` file. |
+| `Reload` | `public void Reload()` | Reloads the file from disk, discarding unsaved changes. |
+| `WriteValue` | `public void WriteValue(string section, string key, object value)` | Sets the value for `[section]` / `key` in memory (written to disk by `Flush`). `section` must not contain newline, `[` or `]`; `key` must not contain newline or `=`. |
+| `WriteComment` | `public void WriteComment(string section, string? key, string? comment)` | Registers a comment above a section (`key` is `null` or empty) or a key. Comments are kept in memory and written on the next flush; they are never read back from disk. A `null` or whitespace `comment` is a no-op. |
+| `Flush` | `public void Flush()` | Writes pending changes to disk when the instance is dirty. |
+| `Dispose` | `public void Dispose()` | Disposes the internal file lock. |
+
+Typed getters (`GetString`, `GetInt32`, ... see [Supported Property Types](#supported-property-types-iniconfig)) return the empty string (`GetString`) or `null` (nullable getters) when the key is missing or cannot be parsed. `GetString` also honors a `NALIX_<SECTION>_<KEY>` environment-variable override.
+
+Source: `src/Nalix.Environment/Configuration/Binding/IniConfig.cs` (class at L26, `ExistsFile` L75, `FilePath` L80, `Reload` L151, `WriteValue` L162, `WriteComment` L279, `Flush` L995).
+
 ## Related APIs
 
 - [Configuration Generator](../analyzers/autogen/configuration-generator.md)

@@ -8,7 +8,7 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Protocols`  
 **Assembly:** `Nalix.Network`
 
-`Protocol` (`public abstract partial class Protocol : IProtocol`) is the abstract base class consumed by `TcpListenerBase`, `UdpListenerBase`, and `WebSocketListenerBase`. It defines the connection acceptance workflow (`OnAccept`, `ValidateConnection`), wire framing selection (`Framing`), inbound transform/opcode hooks (`FrameProcessor`, `OpCodeExtractor`), message processing (`ProcessMessage`, `PostProcessMessage`), and protocol-level error/message metrics.
+`Protocol` (`public abstract partial class Protocol : IProtocol`) is the abstract base class consumed by `TcpListenerBase`, `DatagramListener`, and `WebSocketListenerBase`. It defines the connection acceptance workflow (`OnAccept`, `ValidateConnection`), wire framing selection (`Framing`), inbound transform/opcode hooks (`FrameProcessor`, `OpCodeExtractor`), message processing (`ProcessMessage`, `PostProcessMessage`), and protocol-level error/message metrics.
 
 ## Source Mapping
 
@@ -27,8 +27,8 @@ flowchart TD
         CheckAcc -->|No| Disc["connection.Disconnect()"]
         CheckAcc -->|Yes| Val{"ValidateConnection(connection)?"}
         Val -->|No| Disc
-        Val -->|Yes| Frame["connection.TCP.UseFraming(Framing)"]
-        Frame --> Begin["connection.TCP.BeginReceive(ct)"]
+        Val -->|Yes| Frame["connection.Transport.UseFraming(Framing)"]
+        Frame --> Begin["connection.Transport.BeginReceive(ct)"]
     end
 
     subgraph MessagePhase["2. Inbound Message Loop"]
@@ -118,6 +118,6 @@ public sealed class GameProtocol(IPacketDispatch dispatcher) : Protocol
 ## Related APIs
 
 - [TCP Listener](./tcp-listener.md)
-- [UDP Listener](./udp-listener.md)
+- [Datagram Listener](./udp-listener.md)
 - [Connection](./connection/connection.md)
 - [Packet Dispatch Channel & Router](../runtime/routing/dispatch-channel-and-router.md)

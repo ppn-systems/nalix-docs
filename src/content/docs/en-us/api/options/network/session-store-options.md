@@ -51,7 +51,7 @@ flowchart TD
 When `SessionFactory.CreateSession(IConnection connection)` snapshots a closing connection into a pooled `SessionEntry`:
 - `SessionToken` is set to `connection.ConnectionId`.
 - `CreatedAtUnixMilliseconds` and `ExpiresAtUnixMilliseconds` (`now + (long)_options.SessionTtl.TotalMilliseconds`) are recorded using `Clock.UnixMillisecondsNow()`.
-- `Secret`, `Algorithm`, `Level`, and TCP/UDP sequence counters are copied from the connection.
+- `Secret`, `Algorithm`, `Level`, and the transport send/receive sequence counters (`ConnectionSequenceState.TcpSendSequence` / `TcpReceiveSequence`, taken from `connection.Transport`) are copied from the connection.
 - `connection.Attributes` are copied into a pooled `ObjectMap<AttributeKey, object>`.
 
 ## Automatic Persistence Policy (`DefaultSessionPersistencePolicy`)
@@ -62,6 +62,8 @@ When `SessionFactory.CreateSession(IConnection connection)` snapshots a closing 
 3. **Policy 3 (Attribute Count Fallback)**: Otherwise returns `connection.Attributes.Count > _options.MinAttributesForPersistence` (default `10`).
 
 ## `InMemorySessionStore` Mechanics
+
+`InMemorySessionStore` (`src/Nalix.Runtime/Sessions/InMemorySessionStore.cs`, `public sealed class InMemorySessionStore : ISessionStore, IWorker, IReportable`) is the default store; it is also an `IReportable` (`GenerateReport()` / `WriteReportData(Utf8JsonWriter)`).
 
 When no custom `ISessionStore` is injected into `SessionService`, it creates an `InMemorySessionStore` (default capacity `MaxSessions = 65_536`) and schedules it as an `IWorker` on `TaskManager`:
 - **Minute-Bucketed Expiration**: Sessions are indexed in a `ConcurrentDictionary<ulong, SessionEntry>` alongside 1-minute expiry buckets (`BucketSpanMilliseconds = 60_000`) so the background `IWorker` scavenger only inspects buckets whose timestamp has elapsed.

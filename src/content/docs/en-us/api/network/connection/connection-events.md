@@ -15,6 +15,8 @@ Network events on `IConnection` (`MessageProcessing`, `MessageProcessed`, and `C
 - `src/Nalix.Abstractions/Networking/IConnectionEventArgs.cs`
 - `src/Nalix.Network/Connections/Connection.EventArgs.cs`
 - `src/Nalix.Network/Connections/Connection.cs`
+- `src/Nalix.Network/Connections/WebSocketConnection.cs`
+- `src/Nalix.Network/Connections/DatagramConnection.cs`
 - `src/Nalix.Network/Internal/Transport/AsyncCallback.cs`
 - `src/Nalix.Network/Options/NetworkCallbackOptions.cs`
 
@@ -22,7 +24,7 @@ Network events on `IConnection` (`MessageProcessing`, `MessageProcessed`, and `C
 
 ```mermaid
 sequenceDiagram
-    participant S as SocketConnection / UdpListenerBase
+    participant S as SocketConnection / WebSocketConnection / DatagramConnection
     participant C as Connection (LocalPool)
     participant AC as AsyncCallback
     participant TP as ThreadPool
@@ -65,6 +67,7 @@ public sealed class ConnectionEventArgs : EventArgs, IConnectionEventArgs, IPool
 ```
 
 - **`ExchangeLease(newLease)`**: Atomically swaps the underlying `IBufferLease?` (used by `TcpListenerBase` / `WebSocketListenerBase` after `FramePipeline.ProcessInbound` decrypts or decompresses an inbound frame in place) and returns the previous lease so the caller can dispose it.
+- **Connection Types**: The same three events exist on `Connection` (TCP), `WebSocketConnection`, and `DatagramConnection`; all three implement `IConnection`. `DatagramListener` subscribes `MessageProcessing` to `IFrameProcessor.ProcessFrame` and `MessageProcessed` to `IProtocol.PostProcessMessage` on each accepted `DatagramConnection`.
 - **Two-Tier Pooling**: `Connection` and `WebSocketConnection` maintain an 8-slot lock-free `LocalPool` for `ConnectionEventArgs` and `PooledConnectEventContext`, falling back to `ObjectPoolManager.Shared` when the per-connection local pool is full.
 
 :::warning[Never Retain `ConnectionEventArgs`]

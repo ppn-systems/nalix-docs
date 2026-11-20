@@ -41,7 +41,7 @@ Also make sure the server and client agree on packet catalog and registry assump
 
 Before launch, check:
 
-- `TcpListenerBase` or `UdpListenerBase` starts cleanly
+- `TcpListenerBase` or `DatagramListener` starts cleanly
 - `GenerateReport()` works
 - listen port and backlog are correct
 - `TimingWheelOptions.IdleTimeoutMs` (and `connection.ExcludeFromIdleTimeout` for exempt connections) match your real idle behavior expectations
@@ -147,11 +147,10 @@ If debugging requires attaching a debugger just to learn basic system state, obs
 
 If UDP is enabled, confirm:
 
-- session identity is established before UDP traffic is trusted
-- connection secret is initialized
-- replay window assumptions are acceptable
-- `IsAuthenticated(...)` performs the right checks
-- unauthenticated and unknown-session drops are visible in diagnostics
+- the stream handshake completes before a datagram ticket is issued
+- `DatagramOptions` (`TicketLifetimeSeconds`, `MaxSessions`, `ReceiveWorkers`) and `DatagramEngineOptions` match your traffic
+- kicking a user also disconnects the `DatagramConnection` instances with the matching `StreamConnectionId`
+- unauthenticated and unknown-session drops (`DroppedUnauthenticated`, `DroppedUnknown`) are visible in diagnostics
 
 ## 12. Failure drills
 

@@ -25,7 +25,7 @@ flowchart LR
 The runtime starts with a listener:
 
 - `TcpListenerBase` for reliable ordered traffic
-- `UdpListenerBase` for authenticated low-latency datagrams
+- `DatagramListener` for authenticated low-latency datagrams
 
 The listener accepts traffic and forwards it into the active protocol.
 

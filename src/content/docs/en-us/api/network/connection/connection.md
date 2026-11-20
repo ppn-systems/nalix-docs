@@ -8,7 +8,7 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Connections`  
 **Assembly:** `Nalix.Network`
 
-`Connection` (`public sealed partial class Connection : IConnection, IConnectionErrorTracked, IConnectionTrafficMetrics, IPooledConnectContextPool, TimingWheel.ITimeoutTrackedConnection`) is the server-side representation of a connected client session. It owns the underlying `SocketConnection`, TCP and optional UDP transports, cryptographic state (`Secret`, `Algorithm`, `Level`), pooled `Attributes`, and dual-lane `AsyncCallback` event bridges.
+`Connection` (`public sealed partial class Connection : IConnection, IConnectionErrorTracked, IConnectionTrafficMetrics, IPooledConnectContextPool, TimingWheel.ITimeoutTrackedConnection`) is the server-side representation of a connected client session. It owns the underlying `SocketConnection`, acts as its own TCP transport (`IConnection.ITransport`, `IConnection.ISocketTransport`), and holds cryptographic state (`Secret`, `Algorithm`, `Level`), pooled `Attributes`, and dual-lane `AsyncCallback` event bridges.
 
 ## Source Mapping
 
@@ -65,9 +65,7 @@ flowchart TD
 | `UserId` | `string?` | Optional application user identifier (populated by `ConnectionUserExtensions.MapToUserAsync`). |
 | `NetworkEndpoint` | `INetworkEndpoint` | Remote client endpoint (`SocketEndpoint` snapshot; preserves real client IP when behind PROXY Protocol). |
 | `PacketClassifier` | `IOpCodeExtractor` | Opcode extractor bound by the listener's `IProtocol`. |
-| `TCP` | `IConnection.ITransport` | Primary reliable transport (`SocketTcpTransport`). Throws `ObjectDisposedException` if disposed. |
-| `UDP` | `IConnection.ITransport?` | Companion UDP transport (`SocketUdpTransport`), or `null` when UDP has not been established for this connection. |
-| `IsUdpCreated` | `bool` | `true` when `UDP` is non-null. |
+| `Transport` | `IConnection.ITransport` | The connection's transport: the `Connection` itself (`Connection.Transport.cs`). Throws `ObjectDisposedException` if disposed. Replaces the former `TCP` / `UDP` / `IsUdpCreated` members; a datagram session is a separate `DatagramConnection`. |
 | `Attributes` | `IObjectMap<AttributeKey, object>` | Lazily rented, pooled attribute map (`ObjectMap<AttributeKey, object>`) for per-connection state. |
 | `RateLimitCache` | `ConcurrentDictionary<ushort, object>` | Per-connection `ScopedEndpoint` cache used by `PolicyRateLimiter`. |
 | `Level` | `PermissionLevel` | Current authorization level (defaults to `PermissionLevel.NONE`). |
@@ -79,7 +77,7 @@ flowchart TD
 | `ExcludeFromIdleTimeout` | `bool` | When `true`, exempts this connection from `TimingWheel` idle reaping. |
 | `PendingPackets` | `int` | Number of packets currently pending in `CallbackLane.Process`. |
 | `ErrorCount` | `int` | Cumulative protocol/transport errors recorded via `IncrementErrorCount()`. |
-| `BytesSent` / `BytesReceived` | `long` | Combined wire bytes transmitted across TCP and UDP. |
+| `BytesSent` / `BytesReceived` | `long` | Raw wire bytes: the TCP `SocketConnection` counters plus bytes added through `IncrementBytesSent` / `IncrementBytesReceived`. |
 | `PacketsDropped` | `long` | Total packets dropped for this connection due to backpressure or validation failures. |
 | `IsDisposed` | `bool` | `true` once the connection backing has been disposed and returned to the pool. |
 | `MessageProcessing` | `event EventHandler<IConnectionEventArgs>` | Raised via `OnFrameReceived` (`CallbackLane.Process` or `InvokeInline`) when an inbound frame arrives. |
@@ -100,6 +98,8 @@ flowchart TD
 ## Related APIs
 
 - [Socket Connection](../socket-connection.md)
+- [Datagram Listener](../udp-listener.md) (`DatagramConnection`)
+- [WebSocket Connection](../websocket-connection.md)
 - [Connection Hub](./connection-hub.md)
 - [Connection Events](./connection-events.md)
 - [Connection Extensions](./connection-extensions.md)

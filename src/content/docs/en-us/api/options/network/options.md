@@ -22,7 +22,7 @@ flowchart LR
         CGO["ConnectionGuardOptions"]
         TPO["TrustedProxyOptions"]
         CBSO["ConnectionBanStoreOptions / ConnectionBlacklistStoreOptions"]
-        DGO["DatagramGuardOptions"]
+        DGO["DatagramOptions"]
         NCO["NetworkCallbackOptions"]
         CHO["ConnectionHubOptions"]
         TWO["TimingWheelOptions"]
@@ -33,7 +33,7 @@ flowchart LR
         TCP["TcpListenerBase / SocketConnection"]
         WS["WebSocketListenerBase"]
         CG["ConnectionGuard"]
-        DG["DatagramGuard"]
+        DG["DatagramListener"]
         AC["AsyncCallback"]
         Hub["ConnectionHub"]
         TW["TimingWheel"]
@@ -58,19 +58,19 @@ flowchart LR
 
 | Option Type | Namespace / Package | INI Section | Primary Role |
 | :--- | :--- | :--- | :--- |
-| [NetworkSocketOptions](./network-socket-options.md) | `Nalix.Network.Options` | `[NetworkSocket]` | Port (`57206`), backlog (`512`), dual-stack IPv6 (`EnableDualStack = true`), buffers (`65536`), accept parallelism, and UDP datagram cap (`1440`). |
+| [NetworkSocketOptions](./network-socket-options.md) | `Nalix.Network.Options` | `[NetworkSocket]` | Port (`57206`), backlog (`512`), dual-stack IPv6 (`EnableDualStack = true`), buffers (`65536`), accept parallelism, and accept parallelism. |
 | `NetworkWebSocketOptions` | `Nalix.Network.Options` | `[NetworkWebSocket]` | WebSocket port (`57207`), path (`"/ws/"`), subprotocol (`"nalix.v1"`), DevOps endpoints (`/healthz`, `/version`, `/metrics`), and CSWSH `AllowedOrigins`. |
 | `ProxyProtocolOptions` | `Nalix.Network.Options` | `[ProxyProtocol]` | HAProxy / AWS NLB PROXY Protocol v1/v2 real client IP extraction (`Enabled`, `RequireTrustedProxy`, `HeaderTimeoutMs = 2000`, `MaxPendingProxyConnections = 1024`). |
 | `ForwardedHeadersOptions` | `Nalix.Network.Options` | `[ForwardedHeaders]` | L7 HTTP proxy header parsing for `WebSocketListenerBase` (precedence: `CF-Connecting-IP`, `X-Real-IP`, `X-Forwarded-For`; the proxy must clear client-supplied values). |
 | `VarIntFramingOptions` | `Nalix.Network.Options` | `[VarIntFraming]` | Maximum VarInt-framed payload size (`MaxPayloadSize = 131_072`). |
 | [ConnectionQuotaOptions](./connection-quota-options.md) | `Nalix.Network.Options` | `[ConnectionQuota]` | Per-IP (`10`) and per-subnet (`50`) concurrency caps, rate windows (`5s`), burst detection, and adaptive Proof-of-Work (`AdaptivePowMinDifficulty = 12`). |
-| [ConnectionGuardOptions](./connection-guard-options.md) | `Nalix.Network.Options` | `[ConnectionGuard]` | Global connection ceiling (`MaxConnections = 2000`), progressive banning (`EnableProgressiveBanning = true`), error threshold (`50`), and UDP packet rate (`128` pkt/s). |
+| [ConnectionGuardOptions](./connection-guard-options.md) | `Nalix.Network.Options` | `[ConnectionGuard]` | Global connection ceiling (`MaxConnections = 2000`), progressive banning (`EnableProgressiveBanning = true`), error threshold (`50`) with `ErrorWindow` (`1m`), and per-connection packet rate (`128` pkt/s). |
 | [TrustedProxyOptions](./trusted-proxy-options.md) | `Nalix.Network.Options` | `[TrustedProxy]` | Trusted reverse proxy / CDN allowlist (`"trusted_proxies.txt"`) and elevated connection ceilings (`5000`). |
 | [ConnectionBanStoreOptions](./connection-ban-store-options.md) | `Nalix.Network.Options` | `[ConnectionBanStore]` | Disk persistence (`"banned_ips.bin"`) and 7-day decay window for dynamic IP bans. |
 | [ConnectionBlacklistStoreOptions](./connection-blacklist-store-options.md) | `Nalix.Network.Options` | `[ConnectionBlacklistStore]` | Permanent IP/CIDR blocklist loaded from `"blacklist.txt"`. |
-| `DatagramGuardOptions` | `Nalix.Network.Options` | `[DatagramGuard]` | Bounded IPv4 (`65,536`) / IPv6 (`16,384`) UDP source windows and replay window size (`UdpReplayWindowSize = 512` bits). |
+| [DatagramOptions](./datagram-guard-options.md) | `Nalix.Network.Options` | `[Datagram]` | Datagram (NDP) listener: ticket lifetime (`10` s), session limit (`100,000`), receive workers (`1`), and socket buffers (`4 MiB`). |
 | [ConnectionHubOptions](./connection-hub-options.md) | `Nalix.Network.Options` | `[ConnectionHub]` | Shard count (`max(1, ProcessorCount)`), broadcast batching, bulk disconnect parallelism, and latency logging. |
-| [TimingWheelOptions](./timing-wheel-options.md) | `Nalix.Network.Options` | `[TimingWheel]` | Bucket count (`512`), tick interval (`1000` ms), and connection idle timeout (`60,000` ms). |
+| [TimingWheelOptions](./timing-wheel-options.md) | `Nalix.Network.Options` | `[TimingWheel]` | Bucket count (`512`), tick interval (`1000` ms), connection idle timeout (`60,000` ms), and handshake timeout (`15,000` ms). |
 | [NetworkCallbackOptions](./network-callback-options.md) | `Nalix.Network.Options` | `[NetworkCallback]` | Per-connection pending packet cap (`16`), `OverflowPolicy`, global/per-IP callback caps (`10,000` / `64`), and `FairnessMapSize` (`16,384`). |
 | [SessionStoreOptions](./session-store-options.md) | `Nalix.Runtime.Options` | `[SessionStore]` | Disconnected session resume TTL (`SessionTtl = 5m`) and `MinAttributesForPersistence` (`10`). |
 | [CompressionOptions](./compression-options.md) | `Nalix.Codec.Options` | `[Compression]` | Outbound LZ4 compression threshold (`MinSizeToCompress = 512`) and inbound zip-bomb guard (`MaxDecompressedSize = 32 MB`). |

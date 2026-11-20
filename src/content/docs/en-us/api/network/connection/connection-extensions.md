@@ -8,7 +8,7 @@ package: Nalix.Runtime
 **Namespace:** `Nalix.Runtime.Extensions`  
 **Assembly:** `Nalix.Runtime`
 
-`ConnectionExtensions` (`public static partial class ConnectionExtensions`) and `ConnectionUserExtensions` (`public static class ConnectionUserExtensions`) provide high-level extension methods on `IConnection`, `IPacketSender`, `IConnectionBroadcaster`, and `IConnectionGroupRegistry` for sending typed packets, emitting control-plane `Directive` frames, broadcasting pre-compressed frames, and routing packets by `UserId`.
+`ConnectionExtensions` (`public static partial class ConnectionExtensions`, `src/Nalix.Runtime/Extensions/ConnectionExtensions.cs` and `.Broadcast.cs`) and `ConnectionUserExtensions` (`public static class ConnectionUserExtensions`, `src/Nalix.Runtime/Extensions/ConnectionUserExtensions.cs`) provide high-level extension methods on `IConnection`, `IPacketSender`, `IConnectionBroadcaster`, and `IConnectionGroupRegistry` for sending typed packets, emitting control-plane `Directive` frames, broadcasting pre-compressed frames, and routing packets by `UserId`.
 
 ## Source Mapping
 
@@ -28,7 +28,6 @@ public static partial class ConnectionExtensions
     public static ValueTask SendAsync<TPacket>(
         this IConnection connection,
         TPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken ct = default)
         where TPacket : IPacket;
@@ -50,7 +49,7 @@ public readonly record struct ControlDirectiveOptions(
 ```
 
 - **`connection.GetHub()`**: Retrieves the owning `IConnectionHub` stored under `ConnectionAttributes.OwnerHub` in `connection.Attributes` (or `null` if not registered).
-- **`connection.SendAsync(packet, transport, enableEncrypt, ct)`**: Serializes `packet`, applies outbound compression (`CompressionOptions`) and encryption (`enableEncrypt`), and transmits over `connection.TCP` (for `TCP`/`WEBSOCKET`) or `connection.UDP` (throwing `InvalidOperationException` if `UDP` is `null`).
+- **`connection.SendAsync(packet, enableEncrypt, ct)`**: Serializes `packet`, applies outbound compression (`CompressionOptions`) and encryption (`enableEncrypt`), and transmits over `connection.Transport`. The former `NetworkTransport transport` parameter was removed (the source suppression note reads "only the UDP transport parameter was removed"); a `DatagramConnection` is reached through its own `Transport` (`ReliableOrdered`, channel 0) or `IDatagramTransport.SendAsync(message, method, channel)`.
 - **`sender.SendAsync(controlType, reason, action, options)`**: Rents a pooled `Directive` (`0x0008`) via `PacketFactory<Directive>.Acquire()`, initializes it with `ControlDirectiveOptions`, and sends it through `IPacketSender.SendAsync`.
 
 ## 2. Packet Broadcast & Group Multicast Extensions (`ConnectionExtensions.Broadcast.cs`)
@@ -61,7 +60,6 @@ public static partial class ConnectionExtensions
     public static Task BroadcastAsync(
         this IConnectionBroadcaster hub,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 
@@ -70,7 +68,6 @@ public static partial class ConnectionExtensions
         IConnectionGroupRegistry groupProvider,
         string groupName,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 
@@ -80,7 +77,6 @@ public static partial class ConnectionExtensions
         string groupName,
         IConnection excludedConnection,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 }
@@ -110,7 +106,6 @@ public static class ConnectionUserExtensions
         IConnectionGroupRegistry registry,
         string userId,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 
@@ -120,13 +115,12 @@ public static class ConnectionUserExtensions
         string userId,
         IConnection excludedConnection,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 }
 ```
 
-- Sets `connection.UserId = userId` and maps the connection into the internal group `"__user_:" + userId` inside `IConnectionGroupRegistry`.
+- `MapToUserAsync` sets `connection.UserId = userId` and maps the connection into the internal group `"__user_:" + userId` inside `IConnectionGroupRegistry`.
 
 ## Usage Example
 
@@ -145,7 +139,7 @@ await context.Sender.SendAsync(
         SequenceId: context.Packet.Header.SequenceId));
 
 // 2. Send a packet directly on IConnection
-await context.Connection.SendAsync(notificationPacket, NetworkTransport.TCP, enableEncrypt: true);
+await context.Connection.SendAsync(notificationPacket, enableEncrypt: true);
 ```
 
 ## Related APIs

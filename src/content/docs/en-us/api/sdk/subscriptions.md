@@ -30,6 +30,11 @@ public static class TransportSessionSubscriptions
         bool disposeAfter = true)
         where TPacket : class, IPacket, IPacketStaticOpcode;
 
+    public static IDisposable On<TPacket>(
+        this ITransportSession client,
+        Func<TPacket, Task> handler)
+        where TPacket : class, IPacket, IPacketStaticOpcode;
+
     public static IDisposable OnExact<TPacket>(
         this ITransportSession client,
         Action<TPacket> handler)
@@ -39,6 +44,11 @@ public static class TransportSessionSubscriptions
         this ITransportSession client,
         Func<IPacket, bool> predicate,
         Action<IPacket> handler);
+
+    public static IDisposable On(
+        this ITransportSession client,
+        Func<IPacket, bool> predicate,
+        Func<IPacket, Task> handler);
 
     [Obsolete("Use PacketAwaiter instead for single-use packet awaiting.")]
     public static IDisposable OnOnce<TPacket>(
@@ -107,6 +117,7 @@ flowchart LR
 
 - **Fast Static OpCode Pre-Filter**: `On<TPacket>` and `OnExact<TPacket>` check `lease.Span.AsHeaderRef().OpCode == TPacket.StaticOpCode` before calling `PacketRegistry.Deserialize(lease.Span)`, avoiding deserialization allocations for unrelated packets.
 - **Automatic Pool Return (`disposeAfter`)**: When `disposeAfter == true` (the default on `On<TPacket>`), if `TPacket` implements `IPoolable`, the deserialized packet is automatically returned to `ObjectPoolManager` inside a `finally` block after `handler(typed)` completes.
+- **Asynchronous handlers**: `On<TPacket>(Func<TPacket, Task>)` and `On(predicate, Func<IPacket, Task>)` are the overloads C# picks for an `async` lambda, so it is no longer an `async void` lambda: an exception thrown by the handler (or a faulted/canceled task) is reported through `DiagnosticsEvents.Subscriptions.HandlerFailed` / `HandlerCanceled` instead of crashing the process. The handler runs on the receive loop until its first `await`, so packets are delivered in order and handlers of consecutive packets can overlap. For `On<TPacket>(Func<TPacket, Task>)` the packet is disposed only after the returned task completes; to keep it longer, use the synchronous overload with `disposeAfter: false`.
 - **Grouped Disposal (`CompositeSubscription`)**: Collects multiple `IDisposable` handles returned by `On<TPacket>`, `OnExact<TPacket>`, `On(predicate, handler)`, or `AsObservable` and unsubscribes all of them atomically when a screen, scene, or view model is destroyed.
 
 ## Usage Example
@@ -130,6 +141,10 @@ subscriptions.Add(
     session.On(
         predicate: pkt => pkt is WorldEventPacket,
         handler: pkt => HandleWorldEvent((WorldEventPacket)pkt)));
+
+// 2b. Async handler: exceptions are reported, not thrown on the receive loop
+subscriptions.Add(
+    session.On<ChatBroadcastPacket>(async pkt => await SaveHistoryAsync(pkt)));
 
 // 3. Unsubscribe all handlers at once on scene teardown
 subscriptions.Dispose();

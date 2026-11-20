@@ -51,7 +51,7 @@ public async ValueTask BroadcastUpdate(IConnection connection, GameUpdate packet
     // 4. SEND: Pass the ReadOnlyMemory<byte> to the transport.
     // The transport will transmit the data. The 'using' block 
     // ensures the buffer returns to the pool even if sending fails.
-    await connection.TCP.SendAsync(lease.Memory);
+    await connection.Transport.SendAsync(lease.Memory);
 }
 ```
 

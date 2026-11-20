@@ -27,6 +27,7 @@ package: Nalix.Network
 | :--- | :--- | ---: | :--- | :--- |
 | `MaxPerConnectionPendingPackets` | `int` | `16` | `1..1024` | Layer 1 cap for receive-path packets queued for one connection (`MessageProcessing`) but not yet completed. |
 | `MaxPerConnectionOpenFragmentStreams` | `int` | `4` | `1..256` | Layer 1 cap for concurrently open fragmented packet streams on a single connection. |
+| `MinFragmentPermissionLevel` | `PermissionLevel` | `ESTABLISHED` | any `PermissionLevel` | Layer 1 gate: a fragmented frame from a connection whose `Level` is below this value is rejected before any reassembly state is allocated (`SocketConnection.cs`, `REJECT_UNAUTHORIZED_FRAGMENT`). |
 | `OverflowPolicy` | `NetworkOverflowPolicy` | `DropPacket` (`0`) | `DropPacket` (`0`), `Disconnect` (`1`) | Action taken when a connection exceeds `MaxPerConnectionPendingPackets`: drop the incoming packet (`DropPacket`) or immediately close the connection (`Disconnect`). |
 | `MaxPendingNormalCallbacks` | `int` | `10_000` | `100..1_000_000` | Layer 2 global cap for inbound processing callbacks (`CallbackLane.Process`) pending in `AsyncCallback`. |
 | `CallbackWarningThreshold` | `int` | `5_000` | `0..1_000_000` | Emits backpressure warnings every `1,000` callbacks once pending normal callbacks reach this threshold (`0` disables warnings). |
@@ -64,6 +65,8 @@ When a complete frame is assembled in `SocketConnection.PROCESS_FRAME_FROM_BUFFE
   When the callback finishes executing, `PooledConnectEventContext` notifies the connection (`ReleasePendingPacket()`) to decrement `backing.PendingProcessCallbacks`.
 
 ### Fragment Stream Cap
+
+Fragmented frames are first checked against `MinFragmentPermissionLevel` (default `ESTABLISHED`): a connection below that level has the frame rejected, because reassembly state is allocated per connection and only peers that completed the handshake may use it.
 
 When a fragmented frame arrives and opens a new stream in `FragmentAssembler`, `SocketConnection` enforces `MaxPerConnectionOpenFragmentStreams`. If the count exceeds `MaxPerConnectionOpenFragmentStreams`, the stream is rejected and the frame is dropped. Expired fragment streams are periodically evicted via `FragmentAssembler.EvictExpired(...)`.
 
@@ -105,6 +108,7 @@ flowchart TD
 [NetworkCallback]
 MaxPerConnectionPendingPackets = 16
 MaxPerConnectionOpenFragmentStreams = 4
+MinFragmentPermissionLevel = ESTABLISHED
 OverflowPolicy = DropPacket
 MaxPendingNormalCallbacks = 10000
 CallbackWarningThreshold = 5000

@@ -8,13 +8,14 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Options`  
 **Assembly:** `Nalix.SDK`
 
-`RequestOptions` (`public sealed record RequestOptions`) configures per-call timeout, retry, and frame encryption behavior for `RequestAsync<TResponse>`, `TryRequestAsync<TResponse>`, `StreamAsync`, `RequestWithStreamAsync`, and `CreateRpcClient<T>`. `RequestOutcome<T>` (`public readonly struct RequestOutcome<T>`) and `RequestOutcomeKind` represent the non-throwing result returned by `TryRequestAsync<TResponse>`.
+`RequestOptions` (`public sealed record RequestOptions`) configures per-call timeout, retry, overall deadline, retry delay, and frame encryption behavior for `RequestAsync<TResponse>`, `TryRequestAsync<TResponse>`, `StreamAsync`, `RequestWithStreamAsync`, and `CreateRpcClient<T>`. `RequestOutcome<T>` (`public readonly struct RequestOutcome<T>`) and `RequestOutcomeKind` represent the non-throwing result returned by `TryRequestAsync<TResponse>`.
 
 ## Source Mapping
 
 - `src/Nalix.SDK/Options/RequestOptions.cs`
 - `src/Nalix.SDK/Options/RequestOutcome.cs`
 - `src/Nalix.SDK/Transport/Extensions/RequestExtensions.cs`
+- `src/Nalix.SDK/Options/TransportOptions.cs`
 
 ## 1. `RequestOptions` Reference
 
@@ -28,13 +29,17 @@ public sealed record RequestOptions
 
     public int TimeoutMs { get; init; } = DefaultTimeoutMs;
     public int RetryCount { get; init; }
-    public bool Encrypt { get; init; }
+    public int DeadlineMs { get; init; }
+    public int RetryDelayMs { get; init; }
+    public bool? Encrypt { get; init; }
 
     public void Validate();
 
     public RequestOptions WithTimeout(int ms);
     public RequestOptions WithRetry(int count);
-    public RequestOptions WithEncrypt(bool encrypt = true);
+    public RequestOptions WithDeadline(int ms);
+    public RequestOptions WithRetryDelay(int ms);
+    public RequestOptions WithEncrypt(bool? encrypt = true);
 }
 ```
 
@@ -44,10 +49,16 @@ public sealed record RequestOptions
 | :--- | :--- | ---: | :--- | :--- |
 | `TimeoutMs` | `int` | `5_000` (`5s`) | `>= 0` (`ArgumentOutOfRangeException`) | Milliseconds to wait for a response on each attempt (`0` waits indefinitely). |
 | `RetryCount` | `int` | `0` | `>= 0` (`ArgumentOutOfRangeException`) | Number of additional attempts immediately following a `TimeoutException` (`0` = single attempt; total budget is at most `TimeoutMs * (RetryCount + 1)`). |
-| `Encrypt` | `bool` | `false` | — | When `true`, forces outbound frame encryption (`client.SendAsync(request, encrypt: true, ct)`) across any `ITransportSession` (`TcpSession`, `UdpSession`, or `WebSocketSession`). |
+| `DeadlineMs` | `int` | `0` (none) | `>= 0` (`ArgumentOutOfRangeException`) | Overall budget in milliseconds for the whole call: waiting for a reconnect, every attempt and every retry delay. Each attempt waits at most `min(TimeoutMs, time left)`; no attempt starts once the budget is spent. |
+| `RetryDelayMs` | `int` | `0` (immediate) | `>= 0` (`ArgumentOutOfRangeException`) | Base delay in milliseconds before a retry. Doubles on each further retry with ±20% jitter and never runs past `DeadlineMs`. |
+| `Encrypt` | `bool?` | `null` | — | `true` always encrypts (requires a completed handshake); `false` never encrypts (for example when the transport is wrapped in TLS); `null` follows `TransportOptions.EncryptRequestsByDefault` (when that is `true` the request follows the session's encryption state, otherwise it is not encrypted). Applies to any `ITransportSession` (`TcpSession`, `DatagramSession`, or `WebSocketSession`); a `DatagramSession` ignores it because every datagram is already sealed. |
 
 :::warning[Idempotency & Retries]
 Configuring `RetryCount > 0` is safe only for **idempotent** requests (annotated with `[PacketIdempotent]`). A client-side timeout does not prove the server did not receive or execute the previous attempt.
+:::
+
+:::note[Retry semantics]
+Only a `TimeoutException` triggers a retry; a dropped connection or send failure propagates immediately. When the session is not connected but `AutoReconnectEnabled` is set (or a reconnect is running), the request first waits for the `ReconnectSupervisor` to be ready within the remaining attempt budget (otherwise it throws `NetworkException`).
 :::
 
 ## 2. `RequestOutcome<T>` & `RequestOutcomeKind` Reference
@@ -91,6 +102,8 @@ using Nalix.SDK.Transport.Extensions;
 RequestOptions options = RequestOptions.Default
     .WithTimeout(3_000)
     .WithRetry(2)
+    .WithRetryDelay(200)
+    .WithDeadline(10_000)
     .WithEncrypt();
 
 RequestOutcome<PingReplyPacket> result = await session.TryRequestAsync<PingReplyPacket>(

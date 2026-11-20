@@ -59,9 +59,9 @@ flowchart TD
 | **2** | [**Nalix.Codec**](./nalix-codec.md) | Compile-time binary serialization, LZ4 compression, AEAD encryption, and packet catalog | `LiteSerializer`, `PacketRegistry`, `LZ4Codec`, `EnvelopeCipher`, `FramePipeline`, `PacketBase<TSelf>`, `PacketFactory<T>` |
 | **2** | [**Nalix.Framework**](./nalix-framework.md) | Singleton/service registry, background worker scheduling, Snowflake IDs, and resource pools | `InstanceManager`, `TaskManager`, `Snowflake`, `BufferPoolManager`, `ObjectPoolManager`, `ObjectMap<TKey, TValue>` |
 | **3** | [**Nalix.Runtime**](./nalix-runtime.md) | Server-side sharded packet dispatch, middleware pipeline, rate limiting, and session resume | `PacketDispatchChannel`, `PermissionMiddleware`, `RateLimitMiddleware`, `TimeoutMiddleware`, `SessionService` |
-| **3** | [**Nalix.Network**](./nalix-network.md) | TCP, UDP, and WebSocket listeners, socket connections, admission guard, and connection hub | `TcpListenerBase`, `UdpListenerBase`, `WebSocketListenerBase`, `Protocol`, `ConnectionHub`, `ConnectionGuard`, `SocketConnection` |
-| **3** | [**Nalix.SDK**](./nalix-sdk.md) | Client-side TCP/UDP sessions, X25519 handshakes, auto-reconnect, and correlated requests | `TransportSession`, `TcpSession`, `UdpSession`, `SessionState`, `TransportOptions`, `RequestOptions` |
-| **4** | [**Nalix.Hosting**](./nalix-hosting.md) | Fluent server builder, protocol mapping (`MapTcp`/`MapUdp`/`MapWebSocket`), and host lifecycle | `NetworkApplication`, `INetworkApplicationBuilder`, `DefaultProtocol`, `Bootstrap` |
+| **3** | [**Nalix.Network**](./nalix-network.md) | TCP, UDP, and WebSocket listeners, socket connections, admission guard, and connection hub | `TcpListenerBase`, `DatagramListener`, `WebSocketListenerBase`, `Protocol`, `ConnectionHub`, `ConnectionGuard`, `SocketConnection` |
+| **3** | [**Nalix.SDK**](./nalix-sdk.md) | Client-side TCP/datagram sessions, X25519 handshakes, auto-reconnect, and correlated requests | `TransportSession`, `TcpSession`, `DatagramSession`, `SessionState`, `TransportOptions`, `RequestOptions` |
+| **4** | [**Nalix.Hosting**](./nalix-hosting.md) | Fluent server builder, protocol mapping (`MapTcp`/`MapDatagram`/`MapWebSocket`), and host lifecycle | `NetworkApplication`, `INetworkApplicationBuilder`, `DefaultProtocol`, `Bootstrap` |
 
 ## Compile-Time Tooling (Roslyn Analyzers & Generators)
 

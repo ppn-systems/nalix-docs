@@ -61,12 +61,13 @@ sequenceDiagram
 
 When a `SessionResume` (`0x0002`, `SESSION_SIGNAL`) request arrives at `SessionHandlers.HandleAsync`:
 
+0. Datagram connections (`context.Connection.Transport is IDatagramTransport`) are ignored: session control runs on the stream connection only. A missing `ISessionService` is answered with `SERVICE_UNAVAILABLE`, and a request on a connection whose handshake is already established with `STATE_VIOLATION`.
 1. The incoming packet is validated to ensure the `Stage` (`SessionResumeStage.REQUEST`), `SessionToken`, and `Proof` fields are structurally sound.
 2. The server calls `ISessionService.ConsumeAsync(packet.SessionToken, entry => ...)` to atomically validate and consume the stored `SessionEntry`.
 3. Inside the predicate, it verifies `Proof` in constant time using `HmacKeccak256.Compute` over the 16-byte buffer `SessionToken (8B LE) || TimeWindow (8B LE, UnixSeconds / 30)` across the `[t - 1, t, t + 1]` time windows (30-second buckets).
-4. If validation succeeds, the runtime restores the connection's `Secret`, `Algorithm`, `Level`, and saved state, and marks the handshake state as established.
+4. If validation succeeds, the runtime restores the connection's `Secret`, `Algorithm`, `Level`, and saved attributes, marks the handshake state as established, and restores the transport sequence state from the snapshot (`SendSequence.Reset(TcpSendSequence)` and a receive counter restored to `TcpReceiveSequence` with the 32-slot reorder window re-marked as seen), so frames recorded before the resume cannot be replayed.
 5. The runtime persists the live connection under its new `ConnectionId` (`newToken`) via `ISessionService.SaveSessionAsync(connection)`, computes a server response proof (`HmacKeccak256` over `newToken (8B LE) || TimeWindow (8B LE)`), and sends `SessionResume` (`Stage = RESPONSE`, `SessionToken = newToken`, `Reason = ProtocolReason.NONE`, `Proof = responseProof`).
-6. If validation, token lookup, or proof verification fails, the server sends a `SessionResume` (`Stage = RESPONSE`) with the failure `ProtocolReason` and closes the connection.
+6. If validation, token lookup, or proof verification fails (`MALFORMED_PACKET`, `SESSION_EXPIRED`, ...), the server sends a `SessionResume` (`Stage = RESPONSE`, `SessionToken = 0`) with the failure `ProtocolReason`, waits `50` ms, and closes the connection.
 
 ---
 

@@ -1,114 +1,66 @@
 ---
-title: Datagram Guard Options
-description: DatagramGuardOptions configures the bounded source-window tracking used by the UDP listener's DatagramGuard. The guard limits per-source packet rate through ConnectionGuardOptio...
+title: Datagram Options
+description: DatagramOptions configures the datagram (NDP over UDP) listener of Nalix.Network, covering ticket lifetime, session limit, receive workers and socket buffer sizes. It replaces the removed DatagramGuardOptions.
 section: API Reference
-package: Nalix.Network / Nalix.Runtime
+package: Nalix.Network
 ---
 
-`DatagramGuardOptions` configures the bounded source-window tracking used by the UDP
-listener's `DatagramGuard`. The guard limits per-source packet rate through
-`ConnectionGuardOptions.MaxPacketPerSecond`, while this options type controls how
-many IPv4/IPv6 source windows can be tracked and how stale windows are cleaned up.
+`DatagramOptions` (`public sealed partial class DatagramOptions : ConfigurationLoader, IValidatableConfiguration`, namespace `Nalix.Network.Options`) holds the settings of the [Datagram Listener](../../network/udp-listener.md). The per-session settings (channels, idle timeout, message size, buffers) are in `DatagramEngineOptions` (`Nalix.Environment.Options`).
+
+:::note[Page location]
+This page keeps its historical `datagram-guard-options` URL. `DatagramGuardOptions` and `DatagramGuard` (IPv4/IPv6 source windows, `FailOpenWhenFull`, `UdpReplayWindowSize`) no longer exist in the source. Per-source rate limiting is no longer done by a UDP-specific guard: an authenticated datagram session is admitted through `IConnectionGuard` when its first datagram authenticates.
+:::
 
 ## Source Mapping
 
-- `src/Nalix.Network/Options/DatagramGuardOptions.cs`
-- `src/Nalix.Network/RateLimiting/Datagram.Guard.cs`
-- `src/Nalix.Network/Listeners/UdpListener/UdpListener.Core.cs`
+- `src/Nalix.Network/Options/DatagramOptions.cs`
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.Core.cs`
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.SocketConfig.cs`
+- `src/Nalix.Environment/Options/DatagramEngineOptions.cs`
 
-## UDP Listener Wiring
+## Options
 
-`UdpListenerBase` loads and validates these options in its static constructor:
+| Property | Type | Default | Validation | Used for |
+| :--- | :--- | ---: | :--- | :--- |
+| `TicketLifetimeSeconds` | `int` | `10` | `[ValueRange(1, 300)]` | Seconds within which the first datagram of a ticket must arrive; also advertised to the client as `DatagramTicketInfo.ExpiresInSeconds`. |
+| `MaxSessions` | `int` | `100_000` | `[ValueRange(1, int.MaxValue)]` | Largest number of established sessions plus pending tickets; `IssueTicket` throws `InvalidOperationException` beyond it. |
+| `ReceiveWorkers` | `int` | `1` | `[ValueRange(1, 64)]` | Number of workers reading the UDP socket. |
+| `SocketReceiveBufferSize` | `int` | `4194304` (4 MiB) | `[ValueRange(65_536, int.MaxValue)]` | UDP socket `ReceiveBufferSize`. |
+| `SocketSendBufferSize` | `int` | `4194304` (4 MiB) | `[ValueRange(65_536, int.MaxValue)]` | UDP socket `SendBufferSize`. |
+
+`Validate()` runs DataAnnotation validation (`this.ValidateDataAnnotations()`) and throws `ValidationException` when a constraint fails. `DatagramListener` validates both `DatagramOptions` and `DatagramEngineOptions` in its constructor.
+
+## Configuration
+
+The class is loaded through `ConfigurationManager.Instance.Get<DatagramOptions>()` and written into `server.ini` by the hosting bootstrap (`Bootstrap.cs`). Its INI section comment reads "Datagram listener (NDP over UDP) — tickets, session limit and socket buffers".
 
 ```csharp
-s_datagramGuardOptions = ConfigurationManager.Instance.Get<DatagramGuardOptions>();
-s_datagramGuardOptions.Validate();
+using Nalix.Hosting;
+using Nalix.Hosting.Protocols;
+using Nalix.Network.Options;
+
+NetworkApplication app = NetworkApplication.CreateBuilder()
+    .Configure<DatagramOptions>(opt =>
+    {
+        opt.ReceiveWorkers = 4;
+        opt.MaxSessions = 20_000;
+    })
+    .UseSecureConnections()
+    .MapTcp<DefaultProtocol>().OnPort(57206).Bind()
+    .MapDatagram<DefaultProtocol>().OnPort(57207).Bind()
+    .Build();
 ```
-
-Each listener instance then constructs a `DatagramGuard` with:
-
-- `ConnectionGuardOptions.MaxPacketPerSecond`
-- `DatagramGuardOptions.IPv4Windows`
-- `DatagramGuardOptions.IPv6Windows`
-- `DatagramGuardOptions.CleanupInterval`
-- `DatagramGuardOptions.IdleTimeout`
-- `DatagramGuardOptions.IPv4Capacity`
-- `DatagramGuardOptions.IPv6Capacity`
-
-```mermaid
-flowchart LR
-    A["UdpListenerBase"] --> B["ConnectionGuardOptions.MaxPacketPerSecond"]
-    A --> C["DatagramGuardOptions"]
-    B --> D["DatagramGuard"]
-    C --> D
-    D --> E["TryAccept(IPEndPoint)"]
-    E --> F["IPv4/IPv6 source window"]
-    F --> G["CAS packet count per second"]
-```
-
-## Defaults and Validation
-
-| Property | Default | Valid range | Source behavior |
-| --- | ---: | --- | --- |
-| `IPv4Windows` | `65_536` | `1..10_000_000` | Maximum number of IPv4 source windows tracked at once. |
-| `IPv6Windows` | `16_384` | `1..10_000_000` | Maximum number of IPv6 source windows tracked at once. |
-| `IPv4Capacity` | `1024` | `1..10_000_000` | Initial capacity hint for the IPv4 source map. |
-| `IPv6Capacity` | `64` | `1..10_000_000` | Initial capacity hint for the IPv6 source map. |
-| `CleanupInterval` | `00:01:00` | `00:00:01..01:00:00` | Delay between stale-window eviction passes. |
-| `IdleTimeout` | `00:00:10` | `00:00:01..01:00:00` | Inactive source-window retention before eviction. |
-| `FailOpenWhenFull` | `false` | Boolean | When `true`, allows packets through when the tracking map is full, preventing legitimate-user lockout during spoofed-source floods. When `false` (default), the guard rejects incoming packets when the map is full (fail-closed). |
-| `UdpReplayWindowSize` | `512` | `64..65536` | Bit-size of the UDP replay-protection sliding window; larger windows use more memory but tolerate more out-of-order arrival. |
-
-`Validate()` runs DataAnnotation validation and throws `ValidationException` when constraints are violated.
-
-## Runtime Behavior
-
-`DatagramGuard.TryAccept(IPEndPoint)` returns `false` when:
-
-- the guard has been disposed;
-- the endpoint is `null`;
-- the IPv4 or IPv6 source-window map has reached its configured limit;
-- the source has already reached `MaxPacketPerSecond` in the current second.
-
-The guard stores each source in a `WindowSlot` with a single packed `long`:
-
-| Packed field | Meaning |
-| --- | --- |
-| high 32 bits | current second token from `Environment.TickCount64 / 1000` |
-| low 32 bits | packet count in that second |
-
-Updates use `Interlocked.CompareExchange`, so the hot path avoids locks while still
-preserving a precise one-second packet counter per source.
-
-## IPv4 and IPv6 Tracking
-
-| Address family | Key type | Source note |
-| --- | --- | --- |
-| IPv4 | `uint` from `IPAddress.Address` | Chosen to avoid `IPAddress` key allocations and hashing overhead. |
-| IPv6 | `string` from `IPAddress.ToString()` | Used as the less-common fallback path for UDP DDoS scenarios. |
-
-## Cleanup and Disposal
-
-The constructor starts `CleanupLoopAsync` immediately. The loop waits for
-`CleanupInterval`, then evicts windows whose last-seen second is older than
-`IdleTimeout`.
-
-`Dispose()` marks the guard disposed, cancels and disposes the cleanup token source,
-and clears both IPv4 and IPv6 maps.
 
 ## Operational Guidance
 
-- Increase `IPv4Windows` / `IPv6Windows` only when legitimate source cardinality is
-  high enough to require it.
-
-- Keep `IdleTimeout` short for public UDP endpoints under spoofed-source pressure.
-- Tune `ConnectionGuardOptions.MaxPacketPerSecond` separately; it is the per-source
-  packet-rate limit consumed by `DatagramGuard`.
+- Raise `ReceiveWorkers` only when a single worker cannot drain the socket; each worker owns a pinned buffer of `DatagramEngine.MaxDatagramSize + 1` (1473) bytes.
+- Keep `TicketLifetimeSeconds` short: a pending ticket keeps the session secret in memory until it is promoted, replaced or swept.
+- `MaxSessions` counts pending tickets as well, so a client that requests tickets without using them can only hold one per stream connection (a new request replaces the old ticket).
+- The shared socket policy (`EnableDualStack`, `DualMode`) comes from [Network Socket Options](./network-socket-options.md); the socket buffer sizes do **not**.
 
 ## Related APIs
 
 - [Network Options](./options.md)
-- [Connection Quota Options](./connection-quota-options.md)
 - [Connection Guard Options](./connection-guard-options.md)
-- [Trusted Proxy Options](./trusted-proxy-options.md)
-- [UDP Listener](../../network/udp-listener.md)
+- [Network Socket Options](./network-socket-options.md)
+- [Datagram Listener](../../network/udp-listener.md)

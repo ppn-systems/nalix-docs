@@ -8,7 +8,7 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Connections`  
 **Assembly:** `Nalix.Network`
 
-`ConnectionHub` (`public sealed partial class ConnectionHub : IConnectionHub, IConnectionBroadcaster`) is the central thread-safe registry for all active client connections. It delegates storage to a sharded `ConnectionRegistry`, tracks 1-second rolling ingress/egress throughput (`"hub.throughput"`), and provides zero-allocation snapshot broadcasting.
+`ConnectionHub` (`public sealed partial class ConnectionHub : IConnectionHub, IConnectionBroadcaster`, declared across `ConnectionHub.cs` and `ConnectionHub.Broadcast.cs`) is the central thread-safe registry for all active client connections. It registers any `IConnection`: the TCP `Connection`, `WebSocketConnection`, and `DatagramConnection` (registered by `DatagramListener` once its first datagram authenticates). It delegates storage to a sharded `ConnectionRegistry`, tracks 1-second rolling ingress/egress throughput (`"hub.throughput"`), and provides zero-allocation snapshot broadcasting.
 
 ## Source Mapping
 
@@ -54,7 +54,7 @@ flowchart TD
 | `RegisterConnection` | `public void RegisterConnection(IConnection connection)` | Registers `connection`, sets `ConnectionAttributes.OwnerHub`, and subscribes to `connection.ConnectionClosed`. Throws `ObjectDisposedException` if the hub is disposed or `InternalErrorException` on duplicate `ConnectionId`. |
 | `UnregisterConnection` | `public void UnregisterConnection(IConnection connection)` | Removes `connection` from its shard and endpoint index, detaches `ConnectionClosed`, and fires `ConnectionUnregistered`. |
 | `GetConnection(ulong)` | `public IConnection? GetConnection(ulong id)` | $O(1)$ shard lookup by 64-bit `ConnectionId`. |
-| `GetConnection(ReadOnlySpan<byte>)` | `public IConnection? GetConnection(ReadOnlySpan<byte> id)` | Reads an 8-byte little-endian `ulong` (`BinaryPrimitives.ReadUInt64LittleEndian(id)`) and looks up the connection (used on the UDP datagram hot path). |
+| `GetConnection(ReadOnlySpan<byte>)` | `public IConnection? GetConnection(ReadOnlySpan<byte> id)` | Reads an 8-byte little-endian `ulong` (`BinaryPrimitives.ReadUInt64LittleEndian(id)`) and looks up the connection (for callers that hold the 8 raw bytes of an identifier). |
 | `ListConnections()` | `public IReadOnlyCollection<IConnection> ListConnections()` | Returns a point-in-time snapshot of all active connections. |
 | `ListConnections(INetworkEndpoint)` | `public IReadOnlyCollection<IConnection> ListConnections(INetworkEndpoint networkEndpoint)` | Returns active connections matching `networkEndpoint` via the secondary IP index. |
 | `GenerateReport` / `WriteReportData` | `public string GenerateReport()` / `public void WriteReportData(Utf8JsonWriter writer)` | Emits connection counts, shard count, ingress/egress B/s, cipher/permission breakdowns, `AsyncCallback` queue stats, and `TimingWheel` stats. |
@@ -74,13 +74,13 @@ IConnectionHub hub = /* resolved from InstanceManager */;
 IConnectionGroupRegistry groups = /* resolved when .UseGroups() is enabled */;
 
 // 1. Broadcast to all active connections
-await hub.BroadcastAsync(serverNoticePacket, NetworkTransport.TCP, enableEncrypt: true, ct);
+await hub.BroadcastAsync(serverNoticePacket, enableEncrypt: true, ct);
 
 // 2. Multicast to a named group
-await hub.MulticastAsync(groups, "lobby:eu-1", roomStatePacket, NetworkTransport.TCP, enableEncrypt: true, ct);
+await hub.MulticastAsync(groups, "lobby:eu-1", roomStatePacket, enableEncrypt: true, ct);
 
 // 3. Multicast to a group excluding the sender
-await hub.MulticastExceptAsync(groups, "lobby:eu-1", senderConnection, chatPacket, NetworkTransport.TCP, enableEncrypt: true, ct);
+await hub.MulticastExceptAsync(groups, "lobby:eu-1", senderConnection, chatPacket, enableEncrypt: true, ct);
 ```
 
 ### 2. Zero-Allocation Struct Sender (`IConnectionSender<TState>`)

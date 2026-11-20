@@ -1,12 +1,22 @@
 ---
 title: UDP Server
-description: This guide shows when to use UdpListenerBase and what to implement first.
+description: This guide shows how to host the Nalix datagram (NDP over UDP) listener with MapDatagram and what to configure first.
 section: Guides
 ---
 
-This guide shows when to use `UdpListenerBase` and what to implement first.
+This guide shows how to host the datagram listener (`DatagramListener`, the Nalix Datagram Protocol over UDP) and what to configure first.
 
 Use it when you have already decided UDP is the right transport, but want the safest minimal server shape before layering in more game or telemetry logic.
+
+## Source Mapping
+
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.Core.cs`
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.PublicMethods.cs`
+- `src/Nalix.Network/Options/DatagramOptions.cs`
+- `src/Nalix.Environment/Options/DatagramEngineOptions.cs`
+- `src/Nalix.Hosting/NetworkApplicationBuilder.cs`
+- `src/Nalix.Runtime/Handlers/DatagramTicketHandlers.cs`
 
 ## When UDP makes sense
 
@@ -17,127 +27,98 @@ Choose UDP when you care more about:
 - lightweight datagrams
 - telemetry, state sync, discovery, or custom real-time protocols
 
-Choose TCP when you need ordered, reliable byte streams by default.
+Choose TCP when you need ordered, reliable byte streams by default. A datagram session can also send reliably: each message is sent with a `DeliveryMethod` (`Unreliable`, `UnreliableSequenced`, `ReliableUnordered`, `ReliableOrdered`, `ReliableSequenced`) on one of the session's channels.
 
 ## Minimal shape
 
 ```csharp
-public sealed class SampleUdpListener : UdpListenerBase
-{
-    public SampleUdpListener(ushort port, IProtocol protocol, IConnectionHub hub)
-        : base(port, protocol, hub) { }
+await using NetworkApplication app = NetworkApplication.CreateBuilder()
+    .UseSecureConnections()
+    .MapHandlers(typeof(MyHandlers))
+    .MapTcp<DefaultProtocol>().OnPort(57206).Bind()
+    .MapDatagram<DefaultProtocol>().OnPort(57206).Bind()
+    .Build();
 
-    public override bool IsAuthenticated(IConnection connection, EndPoint remoteEndPoint, ReadOnlySpan<byte> payload)
-        => true;
-}
+await app.RunAsync(cts.Token);
 ```
 
-Current `UdpListenerBase` constructors require the `IConnectionHub` that owns the
-session map used by UDP token resolution. The hosting builder wires this for you;
-manual low-level servers must pass it explicitly.
+`MapDatagram<TProtocol>()` creates a `DatagramListener` and maps the ticket handlers (`DatagramTicketHandlers`) for you. It can be called once per application, because tickets are issued by a single listener; a second call throws `InvalidOperationException`. There is no subclass to write and no `IsAuthenticated(...)` hook: authentication is part of the protocol (see [UDP Security](./udp-security.md)).
 
-That is the minimum surface, but a real UDP server still needs a session story, an authentication story, and a diagnostics story.
+A datagram session is always created from an established TCP or WebSocket session. The client asks for a ticket over that stream (the handshake must be complete), then opens a UDP socket and sends its first datagram within the ticket lifetime.
+
+:::note
+A datagram session copies the user, permission level and secret of its stream connection when the ticket is issued and then lives on its own: disconnecting the stream connection does not close it. To kick a user, also disconnect the `DatagramConnection` instances whose `StreamConnectionId` matches.
+:::
 
 ## What you must decide
 
-### 1. Authentication
+### 1. Session story
 
-`IsAuthenticated(...)` is the first application-level UDP policy hook after the
-runtime has resolved the connection from the 8-byte session token.
+Use the stream connection to establish identity (handshake, login, permissions) and the datagram session to carry fast traffic. The datagram connection inherits the completed handshake of its stream connection.
 
-Use it to:
+### 2. Delivery method per handler
 
-- validate source identity
-- reject spoofed or malformed datagrams
-- gate traffic until a handshake token or session secret is known
-
-:::tip
-If you are using `NetworkApplication` (Hosting layer), you don't need to subclass `UdpListenerBase` just for authentication. Provide a predicate while configuring the builder, before `Build()`:
-```csharp
-using var app = NetworkApplication.CreateBuilder()
-    .MapTcp<MyProtocol>().OnPort(57206).Bind()
-    .MapUdp<MyProtocol>().OnPort(57206).WithAuthentication((connection, endpoint, payload) =>
-        connection.Level >= PermissionLevel.USER).Bind()
-    .Build();
-```
-:::
-
-### 2. Protocol behavior
-
-Decide whether your protocol:
-
-- handles datagrams directly
-- forwards decoded messages into your own game or app logic
-- shares some semantics with your TCP protocol
-
-For most teams, the easiest model is:
-
-- use TCP to establish session state
-- use UDP to carry fast authenticated datagrams
-- keep both paths tied to the same `ConnectionHub`
-
-The current runtime expects UDP datagrams to reference an existing `ConnectionHub` connection, carry an 8-byte session token prefix, and end with a 4-byte `XxHash32` authentication tag validated against `connection.Secret`.
+A handler can declare how its responses travel on a datagram session with `PacketDeliveryAttribute` (`DeliveryMethod method, byte channel = 0`). Without the attribute the session's own transport is used as is.
 
 ### 3. Runtime tuning
 
-Start with:
+`DatagramOptions` (listener, in `Nalix.Network.Options`):
 
-- `NetworkSocketOptions.Port`
-- `NetworkSocketOptions.BufferSize`
-- `NetworkSocketOptions.MaxParallelUDP`
-- `NetworkSocketOptions.MaxUdpDatagramSize` (default `1440` bytes)
+| Property | Default | Meaning |
+| :--- | :--- | :--- |
+| `TicketLifetimeSeconds` | `10` | Seconds within which the first datagram of a ticket must arrive (1-300) |
+| `MaxSessions` | `100000` | Largest number of sessions plus pending tickets |
+| `ReceiveWorkers` | `1` | Receive workers reading the UDP socket (1-64) |
+| `SocketReceiveBufferSize` | `4194304` | UDP socket receive buffer, bytes |
+| `SocketSendBufferSize` | `4194304` | UDP socket send buffer, bytes |
 
-Also decide intentionally how you configure `DatagramGuardOptions` (`MaxPacketPerSecond`, `IPv4Windows`, `IPv6Windows`) and idle timeout behavior (`TimingWheelOptions`) for this deployment.
+`DatagramEngineOptions` (per session, in `Nalix.Environment.Options`) includes `ChannelCount` (default `8`, max `64`), `IdleTimeoutMs` (`15000`), `MaxAckDelayMs` (`25`), `UnreliableExpiryMs` (`100`), `MaxMessageSize` (`1048576`), `EnableMtuProbing` (`true`) and the receive/send buffer budgets and key-update intervals. `DatagramEngineOptions.Validate()` rejects budgets that cannot hold one maximum-size message.
+
+Per-IP admission is handled by the `ConnectionGuard` the host passes to the listener: it is consulted when a session is promoted, and a rejection is counted in `TotalGuardRejections`.
 
 ## Recommended startup order
 
-The safest startup order is:
-
 1. Initialize core managers (`ObjectPoolManager`, `BufferPoolManager`)
-2. Validate socket and dispatch options
+2. Validate options
 3. Register logger and build `PacketRegistry`
-4. Build dispatch channel (`PacketDispatchChannel`)
-5. Build protocol handler
-6. Build `UdpListenerBase`
+4. Build the dispatch channel (`PacketDispatchChannel`)
+5. Build the protocol handler
+6. Build `DatagramListener` (the hosting builder does this for `MapDatagram`)
 7. Activate dispatch, then activate the listener
 
 That keeps transport setup and application setup aligned.
 
 ## Diagnostics you get for free
 
-`UdpListenerBase.GenerateReport()` already tracks:
+`DatagramListener.Metrics` (`DMetrics`) and `GenerateReport()` track:
 
-- received packets and bytes
-- short packet drops (`DroppedShort`)
-- unauthenticated drops (`DroppedUnauth`)
-- unknown session token drops (`DroppedUnknown`)
-- rate-limited and oversize drops (`DroppedRateLimited`, `DroppedOversize`)
-- receive errors (`ReceiveErrors`)
+- datagrams and bytes received (`DatagramsReceived`, `BytesReceived`)
+- malformed drops (`DroppedMalformed`)
+- unknown connection-id drops (`DroppedUnknown`)
+- unauthenticated drops (`DroppedUnauthenticated`)
+- tickets issued and expired (`TicketsIssued`, `TicketsExpired`)
+- accepted sessions, guard rejections and errors (`TotalAccepted`, `TotalGuardRejections`, `TotalErrors`)
+
+`SessionCount` and `PendingTicketCount` show the live session and ticket tables.
 
 ## Common pattern
 
-For client-friendly docs, the easiest mental model is:
-
 ```text
-receive datagram (minimum 18 bytes: 8B SessionToken + 6B PacketHeader + 4B XxHash32 MAC)
-  -> rate-limit by remote IP (DatagramGuard)
-  -> copy socket buffer into a BufferLease (lease.IsReliable = false)
-  -> require 8-byte SessionToken prefix and at least 6-byte PacketHeader
-  -> resolve the connection through IConnectionHub
-  -> verify non-zero connection.Secret and 4-byte trailing XxHash32 MAC tag
-  -> strip 4-byte MAC tag and verify pinned endpoint (IsPinnedEndpointMatch)
-  -> check the UDP replay window sequence (UdpReplayWindow.TryCheck)
-  -> run IsAuthenticated(...) or the Hosting WithAuthentication predicate
-  -> bind UDP transport and dispatch payload to the protocol
+receive datagram (at most DatagramEngine.MaxDatagramSize = 1472 bytes)
+  -> read the connection id from the cleartext datagram header
+  -> known session  -> authenticate and decrypt it in the session's engine
+  -> pending ticket -> authenticate the first datagram, then promote it to a session
+  -> unknown id     -> drop (DroppedUnknown)
+  -> failed check   -> drop (DroppedUnauthenticated)
+  -> accepted session -> hand the message to the protocol and dispatch
 ```
 
 ## What teams often miss
 
-- UDP should not invent a second identity model separate from TCP sessions
-- unauthenticated drops should be visible in diagnostics
-- `IsAuthenticated(...)` should stay fast and deterministic
-- the datagram layout is `[8-byte SessionToken][Payload][4-byte XxHash32 MAC]` (minimum **18 bytes**: `SessionTokenSize (8) + PacketHeader.Size (6) + UdpMacTagSize (4)`)
-- Payload starts with the standard 6-byte Nalix `PacketHeader` format (`[OpCode(2), Flags(1), Priority(1), SequenceId(2)]`) or a 1-byte `FramePipeline` transform flag followed by the transformed payload
+- UDP does not invent a second identity model: the ticket is issued over an authenticated stream session
+- unauthenticated and unknown drops should be visible in diagnostics
+- the largest datagram is `DatagramEngine.MaxDatagramSize` (`1472` bytes); larger messages are fragmented by the engine up to `MaxMessageSize`
+- every datagram is sealed with ChaCha20-Poly1305, so frames are not encrypted a second time
 
 ## Related APIs
 

@@ -1,6 +1,6 @@
 ---
 title: SDK Overview
-description: Reference for Nalix.SDK — client-side transport sessions (TcpSession, UdpSession, WebSocketSession), X25519 handshakes, 0-RTT session resumption, RPC proxies, and async streaming.
+description: Reference for Nalix.SDK — client-side transport sessions (TcpSession, DatagramSession, WebSocketSession), X25519 handshakes, 0-RTT session resumption, RPC proxies, and async streaming.
 section: API Reference
 package: Nalix.SDK
 ---
@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespaces:** `Nalix.SDK`, `Nalix.SDK.Transport`, `Nalix.SDK.Transport.Extensions`, `Nalix.SDK.Extensions`, `Nalix.SDK.Options`  
 **Assembly:** `Nalix.SDK`
 
-`Nalix.SDK` is the client-side transport and protocol package for Nalix. It provides concrete client sessions (`TcpSession`, `UdpSession`, `WebSocketSession`), an abstract/interface session contract (`TransportSession` / `ITransportSession`), X25519 handshakes with TOFU/pinning and Proof-of-Work solving, 0-RTT session resumption, HKDF key rotation (`RekeyAsync`), correlated request/response helpers (`RequestAsync` / `TryRequestAsync`), streaming (`StreamAsync` / `RequestWithStreamAsync`), and source-generated RPC client proxies (`CreateRpcClient<T>`).
+`Nalix.SDK` is the client-side transport and protocol package for Nalix. It provides concrete client sessions (`TcpSession`, `DatagramSession`, `WebSocketSession`), an abstract/interface session contract (`TransportSession` / `ITransportSession`), X25519 handshakes with TOFU/pinning and Proof-of-Work solving, 0-RTT session resumption, HKDF key rotation (`RekeyAsync`), correlated request/response helpers (`RequestAsync` / `TryRequestAsync`), streaming (`StreamAsync` / `RequestWithStreamAsync`), and source-generated RPC client proxies (`CreateRpcClient<T>`).
 
 :::important[Client-Side Package Only]
 `Nalix.SDK` is designed exclusively for client applications (desktop, mobile, Unity, Godot, Blazor WASM, console clients). Server applications should use `Nalix.Hosting`, `Nalix.Runtime`, and `Nalix.Network`.
@@ -16,11 +16,11 @@ package: Nalix.SDK
 
 ## Source Mapping
 
-- `src/Nalix.SDK/Transport/` (`ITransportSession.cs`, `TransportSession.cs`, `SessionState.cs`, `TcpSession.cs`, `UdpSession.cs`, `WebSocketSession.cs`)
+- `src/Nalix.SDK/Transport/` (`ITransportSession.cs`, `TransportSession.cs`, `SessionState.cs`, `TcpSession.cs`, `DatagramSession.cs`, `WebSocketSession.cs`)
 - `src/Nalix.SDK/Transport/Extensions/` (`HandshakeExtensions.cs`, `ResumeExtensions.cs`, `CipherExtensions.cs`, `RekeyExtensions.cs`, `RequestExtensions.cs`, `StreamExtensions.cs`, `HeaderStreamExtensions.cs`, `ChannelExtensions.cs`, `ObservableExtensions.cs`, `RpcExtensions.cs`, `PingExtensions.cs`, `DisconnectExtensions.cs`, `TimeSyncExtensions.cs`, `ControlExtensions.cs`, `TransportSessionSubscriptions.cs`)
 - `src/Nalix.SDK/Extensions/` (`ProtocolStringExtensions.cs`, `SubscriptionExtensions.cs`)
 - `src/Nalix.SDK/Options/` (`TransportOptions.cs`, `WebSocketTransportOptions.cs`, `RequestOptions.cs`, `RequestOutcome.cs`)
-- `src/Nalix.SDK/IThreadDispatcher.cs`, `src/Nalix.SDK/InlineDispatcher.cs`, `src/Nalix.SDK/TimeSyncCalculator.cs`
+- `src/Nalix.SDK/IThreadDispatcher.cs`, `src/Nalix.SDK/InlineDispatcher.cs`, `src/Nalix.SDK/TimeSyncCalculator.cs`, `src/Nalix.SDK/DiagnosticsEvents.cs`, `src/Nalix.SDK/SdkTelemetry.cs`
 
 ## Client Architecture
 
@@ -36,19 +36,19 @@ flowchart TD
         State["SessionState (Secret, SessionToken, EncryptionEnabled, LocalPort)"]
         Sup["ReconnectSupervisor + KeepAlive Monitor"]
         TCP["TcpSession"]
-        UDP["UdpSession"]
+        UDP["DatagramSession"]
         WS["WebSocketSession"]
     end
 
     subgraph Framers["Internal Framers + FramePipeline"]
         TF["TcpFrameSender / TcpFrameReader"]
-        UF["UdpFrameSender / UdpFrameReader"]
+        DE["DatagramEngine (NDP)"]
         WF["WsFrameSender / WsFrameReader"]
     end
 
     App --> Session
     TCP --> TF
-    UDP --> UF
+    UDP --> DE
     WS --> WF
 ```
 
@@ -57,9 +57,9 @@ flowchart TD
 ### Transport Sessions
 - [Transport Session (ITransportSession & TransportSession)](./transport-session.md): Base contract, `SessionState`, `ReconnectSupervisor`, keepalive probing, and direct pending-request dispatch.
 - [TCP Session (TcpSession)](./tcp-session.md): Framed reliable stream client with `ConnectWithProxyAsync` and synchronous `Send`.
-- [UDP Session (UdpSession)](./udp-session.md): Authenticated datagram client (`[8B SessionToken][Payload][4B XxHash32 MAC]`) with companion TCP port pinning.
+- [Datagram Session (DatagramSession)](./udp-session.md): NDP-over-UDP client that bootstraps from an established stream session with a ticket, seals every datagram with ChaCha20-Poly1305, and supports delivery methods and channels.
 - [WebSocket Session (WebSocketSession)](./websocket-session.md): `ws://` and `wss://` binary WebSocket client (compatible with desktop and Blazor WASM).
-- [Frame Reader and Sender](./frame-reader-and-sender.md): Internal TCP, UDP, and WebSocket framing, fragmentation, and sequence tracking.
+- [Frame Reader and Sender](./frame-reader-and-sender.md): Internal TCP and WebSocket framing, fragmentation, and sequence tracking.
 
 ### Security, Control & Request Extensions
 - [Session Extensions Overview](./tcp-session-extensions.md): Complete guide to `RequestExtensions`, `StreamExtensions`, `HeaderStreamExtensions`, `ChannelExtensions`, `ObservableExtensions`, `RpcExtensions`, and `RekeyExtensions`.
@@ -72,7 +72,7 @@ flowchart TD
 ### Utilities & Options
 - [Thread Dispatching (IThreadDispatcher, InlineDispatcher)](./thread-dispatching.md): UI/main-thread marshalling for Unity, MAUI, WPF, and Godot.
 - [Protocol String Extensions (ToDisplayString)](./protocol-string-extensions.md): Human-readable UI descriptions for `ProtocolReason` and `ProtocolAdvice`.
-- [Session Diagnostics](./diagnostics.md): Client lifecycle and error observability patterns.
+- [Session Diagnostics](./diagnostics.md): Client lifecycle and error observability patterns, `DiagnosticsEvents`, and `SdkTelemetry` tracing and metrics.
 - [Transport Options](../options/sdk/transport-options.md)
 - [WebSocket Transport Options](../options/sdk/websocket-transport-options.md)
 - [Request Options & RequestOutcome&lt;T&gt;](../options/sdk/request-options.md)

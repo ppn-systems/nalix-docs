@@ -1043,8 +1043,8 @@ export const NAVIGATION_TREE: NavItem[] = [
             "file": "api/network/tcp-listener.md"
           },
           {
-            "title": "UDP Listener",
-            "titles": { "vi-vn": "UDP Listener" },
+            "title": "Datagram Listener",
+            "titles": { "vi-vn": "Datagram Listener" },
             "slug": "api/network/udp-listener",
             "file": "api/network/udp-listener.md"
           },
@@ -1173,7 +1173,7 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/sdk/tcp-session.md"
               },
               {
-                "title": "UDP Session",
+                "title": "Datagram Session",
                 "titles": { "vi-vn": "Phiên UDP" },
                 "slug": "api/sdk/udp-session",
                 "file": "api/sdk/udp-session.md"
@@ -1347,8 +1347,8 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "file": "api/options/network/websocket-options.md"
               },
               {
-                "title": "Datagram Guard",
-                "titles": { "vi-vn": "Datagram Guard" },
+                "title": "Datagram Options",
+                "titles": { "vi-vn": "Datagram Options" },
                 "slug": "api/options/network/datagram-guard-options",
                 "file": "api/options/network/datagram-guard-options.md"
               },

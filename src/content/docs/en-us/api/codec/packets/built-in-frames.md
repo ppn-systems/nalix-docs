@@ -1,6 +1,6 @@
 ---
 title: Built-in Frames
-description: Reference for all 11 built-in system, handshake, session resumption, and Proof-of-Work protocol frames in Nalix.Codec.ProtocolFrames.
+description: Reference for all 12 built-in system, handshake, session resumption, Proof-of-Work, and datagram ticket protocol frames in Nalix.Codec.ProtocolFrames.
 section: API Reference
 package: Nalix.Codec
 ---
@@ -8,7 +8,7 @@ package: Nalix.Codec
 **Namespace:** `Nalix.Codec.ProtocolFrames`  
 **Assembly:** `Nalix.Codec`
 
-`Nalix.Codec` ships **11 fixed-size built-in protocol frames** in `namespace Nalix.Codec.ProtocolFrames` occupying reserved system opcodes `0x0000` through `0x000B` (with `ProtocolOpCode.SESSION_REKEY = 0x0009` carried via `Control`). All 11 frames inherit from `PacketBase<TSelf>`, implement `IFixedSizeSerializable` and `IPacketStaticOpcode`, and are pre-registered in `PacketRegistry` with a pool capacity of `128` each.
+`Nalix.Codec` ships **12 fixed-size built-in protocol frames** in `namespace Nalix.Codec.ProtocolFrames` occupying reserved system opcodes `0x0000` through `0x000C` (with `ProtocolOpCode.SESSION_REKEY = 0x0009` carried via `Control`). All 12 frames inherit from `PacketBase<TSelf>`, implement `IFixedSizeSerializable` and `IPacketStaticOpcode`. The first 11 are pre-registered in `PacketRegistry` with a pool capacity of `128` each; `DatagramTicket` has no explicit pool capacity (`PacketRegistry.cs` sets it only for the other 11).
 
 ## Source Mapping
 
@@ -23,6 +23,7 @@ package: Nalix.Codec
 - `src/Nalix.Codec/ProtocolFrames/Session/SessionTofu.cs`
 - `src/Nalix.Codec/ProtocolFrames/Security/ProofOfWorkChallenge.cs`
 - `src/Nalix.Codec/ProtocolFrames/Security/ProofOfWorkProof.cs`
+- `src/Nalix.Codec/ProtocolFrames/Datagram/DatagramTicket.cs`
 
 ## Built-in Protocol Frames Summary
 
@@ -39,6 +40,7 @@ package: Nalix.Codec
 | `Directive` | `SYSTEM_DIRECTIVE` | `0x0008` | `21` bytes | Server-to-client structured feedback (`Type`, `Reason`, `Action`, `Control`, `Arg0`, `Arg1`, `Arg2`). |
 | `ProofOfWorkChallenge` | `POW_CHALLENGE` | `0x000A` | `79` bytes | Server-issued stateless PoW puzzle (`Nonce`, `Difficulty`, `TimestampTicks`, `Mac`). |
 | `ProofOfWorkProof` | `POW_PROOF` | `0x000B` | `87` bytes | Client-submitted PoW solution (`Nonce`, `Difficulty`, `TimestampTicks`, `Mac`, `Solution`). |
+| `DatagramTicket` | `DATAGRAM_TICKET` | `0x000C` | `62` bytes | Datagram session ticket exchanged over an established stream session (`Stage`, `Reason`, `ConnectionId`, nonce, `Port`, limits). |
 
 ---
 
@@ -153,6 +155,28 @@ All session frames implement `IPacketValidatable` (`bool Validate(out string? re
   - `Bytes32 Mac { get; set; }` (`[SerializeOrder(3)]`)
   - `long Solution { get; set; }` (`[SerializeOrder(4)]`) — 8-byte counter solved by `ProofOfWorkSolver.SolveChallenge`
 - **Method**: `void Initialize(Bytes32 nonce, byte difficulty, long timestampTicks, Bytes32 mac, long solution, PacketFlags flags = PacketFlags.SYSTEM)`
+
+---
+
+## 4. Datagram Ticket Frame
+
+### `DatagramTicket` (`0x000C`, 62 bytes)
+
+`public sealed partial class DatagramTicket : PacketBase<DatagramTicket>, IFixedSizeSerializable, IPacketValidatable, IPacketStaticOpcode` (`[Packet]`, `[GenerateFormatter]`, `[SerializePackable(SerializeLayout.Explicit)]`) is exchanged over an established stream (TCP or WebSocket) session: the client sends a `DatagramTicketStage.REQUEST`, and the server answers with a `RESPONSE` that carries the ticket (`DatagramTicketInfo`) or a `Reason`. The `62`-byte size is the 6-byte header plus the 56 bytes of the fields below. `ResetForPool()` sets `Priority = PacketPriority.URGENT` and `Flags = PacketFlags.SYSTEM`.
+
+- **Properties** (`get; set;`):
+  - `DatagramTicketStage Stage` (`[SerializeOrder(0)]`) — `NONE = 0x00`, `REQUEST = 0x01`, `RESPONSE = 0x02` (`enum DatagramTicketStage : byte`)
+  - `ProtocolReason Reason` (`[SerializeOrder(1)]`) — reason a request was refused (responses only)
+  - `ulong ConnectionId` (`[SerializeOrder(2)]`) — datagram connection identifier
+  - `ulong NonceLow`, `ulong NonceHigh` (`[SerializeOrder(3)]`, `[SerializeOrder(4)]`) — low and high 8 bytes of the ticket nonce
+  - `ushort Port` (`[SerializeOrder(5)]`) — UDP port to send to
+  - `ushort ExpiresInSeconds` (`[SerializeOrder(6)]`) — seconds within which the first datagram must arrive
+  - `int IdleTimeoutMs` (`[SerializeOrder(7)]`), `int MaxMessageSize` (`[SerializeOrder(8)]`)
+  - `byte ChannelCount` (`[SerializeOrder(9)]`)
+  - `long ReceiveBufferBytes` (`[SerializeOrder(10)]`), `long ChannelReceiveBufferBytes` (`[SerializeOrder(11)]`)
+  - `UInt128 Nonce` (`[SerializeIgnore]`, read-only) — the nonce as one 128-bit value
+- **Methods**: `InitializeRequest()`, `InitializeResponse(in DatagramTicketInfo ticket)`, `InitializeRefusal(ProtocolReason reason)`, `DatagramTicketInfo ToTicketInfo()`, `bool Validate(out string? failureReason)`.
+- **Validation**: a `REQUEST` is always valid; a `RESPONSE` is valid when `Reason != NONE`, or when `ConnectionId`, `Port`, `IdleTimeoutMs`, `MaxMessageSize`, `ReceiveBufferBytes`, and `ChannelReceiveBufferBytes` are non-zero and `ChannelCount` is `1..64`. Any other stage is invalid.
 
 ---
 

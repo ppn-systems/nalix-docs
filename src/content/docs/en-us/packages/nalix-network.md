@@ -1,21 +1,21 @@
 ---
 title: Nalix.Network
-description: Level 3 server transport package providing TCP, UDP, and WebSocket listeners, socket connections, ConnectionHub, ConnectionGuard, and timing-wheel idle management.
+description: Level 3 server transport package providing TCP, datagram (NDP over UDP), and WebSocket listeners, socket connections, ConnectionHub, ConnectionGuard, and timing-wheel idle management.
 section: Packages
 package: Nalix.Network
 ---
 
-`Nalix.Network` is the **Level 3** server transport layer. It provides high-performance TCP, UDP, and WebSocket listeners, framed socket receive/send loops, connection admission control (`ConnectionGuard`), active connection tracking (`ConnectionHub`), proxy-protocol/forwarded-header parsing, and timing-wheel idle eviction.
+`Nalix.Network` is the **Level 3** server transport layer. It provides high-performance TCP, datagram (NDP over UDP), and WebSocket listeners, framed socket receive/send loops, connection admission control (`ConnectionGuard`), active connection tracking (`ConnectionHub`), proxy-protocol/forwarded-header parsing, and timing-wheel idle eviction.
 
 :::note[For most projects, start with `Nalix.Hosting`]
-`Nalix.Hosting` wraps `Nalix.Network` with a fluent builder (`MapTcp<TProtocol>()`, `MapUdp<TProtocol>()`, `MapWebSocket<TProtocol>()`) that manages listener and protocol lifecycles automatically. Use `Nalix.Network` directly when building a custom server host.
+`Nalix.Hosting` wraps `Nalix.Network` with a fluent builder (`MapTcp<TProtocol>()`, `MapDatagram<TProtocol>()`, `MapWebSocket<TProtocol>()`) that manages listener and protocol lifecycles automatically. Use `Nalix.Network` directly when building a custom server host.
 :::
 
 ## Where It Fits
 
 ```mermaid
 flowchart LR
-    A["TcpListenerBase / UdpListenerBase / WebSocketListenerBase"] --> B["ConnectionGuard & ConnectionHub"]
+    A["TcpListenerBase / DatagramListener / WebSocketListenerBase"] --> B["ConnectionGuard & ConnectionHub"]
     B --> C["Protocol (IProtocol)"]
     C --> D["IPacketDispatch (Nalix.Runtime)"]
 ```
@@ -27,10 +27,10 @@ flowchart LR
 | Listener | Transport | Description |
 | :--- | :--- | :--- |
 | `TcpListenerBase` | TCP | High-throughput socket listener using pooled `SocketAsyncEventArgs`, framed length-prefix receive loops, and optional PROXY protocol / forwarded headers support. |
-| `UdpListenerBase` | UDP | Low-latency datagram listener with `DatagramGuard` source rate limiting and 8-byte session-token authentication. |
+| `DatagramListener` | UDP (NDP) | Sealed datagram listener (`Nalix.Network.Listeners.Datagram`) that issues tickets to established TCP/WebSocket connections and routes AEAD-protected datagrams to `DatagramConnection` sessions, admitted through `IConnectionGuard`. It replaces the removed `UdpListenerBase` / `UdpPassthroughListener`. |
 | `WebSocketListenerBase` | WebSocket | RFC 6455 WebSocket listener supporting path routing, subprotocol negotiation, and binary frame streaming. |
 
-All listeners implement `IListener`, `IActivatable`, and `IReportable`:
+All listeners implement `IListener` (which combines `IActivatable` and `IReportable`):
 
 - `Activate(CancellationToken)` / `Deactivate(CancellationToken)`
 - `GenerateReport()` / `WriteReportData(Utf8JsonWriter)` for live diagnostics
@@ -39,7 +39,7 @@ All listeners implement `IListener`, `IActivatable`, and `IReportable`:
 
 The `Protocol` abstract class (`Nalix.Network.Protocols.Protocol`) bridges raw transport connections to your packet dispatcher:
 
-- **Frame processor & opcode extractor** — Exposes `abstract IFrameProcessor FrameProcessor { get; }` and `abstract IOpCodeExtractor OpCodeExtractor { get; }` (implemented automatically by `ApplicationProtocol` / `DefaultProtocol` in `Nalix.Hosting`).
+- **Frame processor & opcode extractor** — Exposes `abstract IFrameProcessor FrameProcessor { get; }` and `abstract IOpCodeExtractor OpCodeExtractor { get; }` (implemented by `DefaultProtocol` in `Nalix.Hosting`, or by your own `Protocol` subclass).
 - **Connection acceptance** — `ValidateConnection(IConnection)` gates newly accepted connections before registration.
 - **Post-accept lifecycle** — `OnAccept(IConnection, CancellationToken)` runs after admission and hub registration.
 - **Message processing** — `ProcessMessage(object? sender, IConnectionEventArgs args)` forwards framed `IBufferLease` payloads to `IPacketDispatch.HandlePacket(...)`.
@@ -47,12 +47,24 @@ The `Protocol` abstract class (`Nalix.Network.Protocols.Protocol`) bridges raw t
 
 ```csharp
 using Nalix.Abstractions.Networking;
-using Nalix.Hosting.Protocols;
+using Nalix.Network.Protocols;
 
-public sealed class GameProtocol : ApplicationProtocol
+public sealed class GameProtocol : Protocol
 {
+    private readonly IPacketDispatch _dispatch;
+
+    public GameProtocol(IPacketDispatch dispatch)
+    {
+        _dispatch = dispatch;
+        this.IsAccepting = true;
+        this.KeepConnectionOpen = true;
+    }
+
+    public override IFrameProcessor FrameProcessor => /* your IFrameProcessor */;
+    public override IOpCodeExtractor OpCodeExtractor => /* your IOpCodeExtractor */;
+
     public override void ProcessMessage(object? sender, IConnectionEventArgs args)
-        => this.Dispatch.HandlePacket(args.Lease, args.Connection);
+        => _dispatch.HandlePacket(args.Lease!, args.Connection);
 
     protected override bool ValidateConnection(IConnection connection)
         => true;
@@ -61,9 +73,9 @@ public sealed class GameProtocol : ApplicationProtocol
 
 ### 3. Connections, Hub & Admission Guard
 
-- **`SocketConnection` & `WebSocketConnection`** — Concrete `IConnection` implementations managing framed TCP/UDP/WebSocket transmission (`IConnectionTransmission`), sequence states, and pooled buffer leases.
+- **`Connection`, `WebSocketConnection` & `DatagramConnection`** — Concrete `IConnection` implementations for TCP, WebSocket and datagram (NDP) sessions. Each is its own `IConnection.ITransport` (`connection.Transport`); `Connection` sits on the internal framed `SocketConnection`.
 - **`ConnectionHub`** — Sharded in-memory registry of active connections supporting lookup by `ISnowflake` ID, broadcast helpers, and diagnostic snapshots.
-- **`ConnectionGuard`** — Multi-tier admission and abuse guard enforcing global connection ceilings, per-IP concurrent connection quotas, slowloris/error thresholds, and persistent bans (`FileBanStore`, `FileBlacklistStore`).
+- **`ConnectionGuard`** — Multi-tier admission and abuse guard enforcing global connection ceilings, per-IP concurrent connection quotas, slowloris/error thresholds, and persistent bans (configured through `ConnectionBanStoreOptions` and `ConnectionBlacklistStoreOptions`).
 - **`TimingWheel`** — Hierarchical O(1) timer wheel that evicts idle connections without per-connection timer allocations.
 
 ## Configuration Options (`Nalix.Network.Options`)
@@ -77,7 +89,7 @@ public sealed class GameProtocol : ApplicationProtocol
 | `ConnectionBanStoreOptions` | File persistence and retention policies for dynamic IP bans |
 | `ConnectionBlacklistStoreOptions` | Static/dynamic IP and CIDR blacklist file policies |
 | `ConnectionHubOptions` | Sharding and capacity settings for `ConnectionHub` |
-| `DatagramGuardOptions` | UDP per-endpoint packet rate limiting and state table eviction |
+| `DatagramOptions` | Datagram listener ticket lifetime, session limit, receive workers, and socket buffers |
 | `TimingWheelOptions` | Tick resolution, wheel slots, and idle connection timeout thresholds |
 | `NetworkCallbackOptions` | Concurrency and flood protection thresholds for connection event callbacks |
 | `TrustedProxyOptions` | Trusted proxy CIDR ranges for real client IP resolution |
@@ -88,7 +100,8 @@ public sealed class GameProtocol : ApplicationProtocol
 
 - [Protocol](../api/network/protocol.md)
 - [TCP Listener](../api/network/tcp-listener.md)
-- [UDP Listener](../api/network/udp-listener.md)
+- [Datagram Listener](../api/network/udp-listener.md)
+- [Datagram Options](../api/options/network/datagram-guard-options.md)
 - [WebSocket Listener](../api/network/websocket-listener.md)
 - [Connection](../api/network/connection/connection.md)
 - [Connection Guard](../api/network/connection/connection-guard.md)

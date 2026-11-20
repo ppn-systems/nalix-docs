@@ -25,8 +25,9 @@ The options map to the `[NetworkWebSocket]` INI configuration section:
 | `Path` | `string` | `"/ws/"` | — | The URL path prefix mapped to the WebSocket upgrade handler. |
 | `Host` | `string` | `"*"` | — | The host address to bind to (e.g., `*` for all interfaces, `+`, or `localhost`). |
 | `SubProtocol` | `string` | `"nalix.v1"` | — | The server-side subprotocol negotiated during WebSocket upgrade (`Sec-WebSocket-Protocol`). |
-| `ServerVersion` | `string` | `"1.0.0"` | — | Custom server version string exposed via the `/version` HTTP endpoint. |
-| `EnableDevOpsEndpoints` | `bool` | `true` | — | Enables native HTTP endpoints (`/healthz`, `/version`, `/metrics`) on the WebSocket listener port. |
+| `ServerVersion` | `string` | `"1.0.0"` | — | Custom server version string exposed via the `/version` HTTP endpoint (only served when `DevOpsBearerToken` is set). |
+| `EnableDevOpsEndpoints` | `bool` | `true` | — | Enables native HTTP endpoints on the WebSocket listener port. The health routes (`/healthz`, `/health`, `/livez`, `/readyz`, `/startupz`, `/ping`) are always registered when `true`; `/version` and `/metrics` additionally require `DevOpsBearerToken`. |
+| `DevOpsBearerToken` | `string` | `""` (endpoints disabled) | `Validate()` throws `ValidationException` when set but shorter than 16 characters | Bearer token required for `/version` and `/metrics`. Empty (the default) fails closed: both endpoints are not served. Requests present `Authorization: Bearer <token>` (scheme matched case-insensitively, token compared in constant time); a missing or wrong token gets `401 Unauthorized` with `WWW-Authenticate: Bearer`. |
 | `HandshakeTimeoutMs` | `int` | `5000` (ms) | `[ValueRange(500, 30000)]` | Maximum time in milliseconds to wait for the HTTP upgrade handshake to complete before closing the socket. |
 | `MaxUpgradeRequestSize` | `int` | `8192` (bytes) | `[ValueRange(1024, 65536)]` | Maximum size in bytes for the HTTP upgrade request headers. |
 | `MaxMessageSize` | `int` | `1_048_576` (1 MB) | `[ValueRange(1, int.MaxValue)]` | The maximum permitted size of a single inbound WebSocket message payload in bytes. |
@@ -80,6 +81,7 @@ Host = *
 SubProtocol = nalix.v1
 ServerVersion = 1.0.0
 EnableDevOpsEndpoints = true
+DevOpsBearerToken =
 HandshakeTimeoutMs = 5000
 MaxUpgradeRequestSize = 8192
 MaxMessageSize = 1048576

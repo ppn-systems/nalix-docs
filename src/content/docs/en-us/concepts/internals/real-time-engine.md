@@ -71,7 +71,7 @@ For client applications, the simplest mental model is:
 
 ## Low-Latency Datagrams (UDP)
 
-Nalix supports a UDP runtime through `UdpListenerBase` for use cases where reliability is not required:
+Nalix supports a datagram runtime (the Nalix Datagram Protocol, NDP over UDP) through `DatagramListener` for use cases where reliability is not required:
 
 | Use case | Why UDP |
 | :--- | :--- |
@@ -82,12 +82,12 @@ Nalix supports a UDP runtime through `UdpListenerBase` for use cases where relia
 
 The UDP path still requires session identity and authentication. Think of it as the same application logic, but with a different transport characteristic:
 
-- Session must be established over TCP first
-- Each datagram includes a session token prefix
-- Connection secret must be initialized
-- `IsAuthenticated(...)` can apply application-specific datagram checks after token, endpoint, and replay validation
+- A stream session (TCP or WebSocket) must be established and handshaken first
+- The client requests a ticket over that session; the datagram keys are derived from the stream secret
+- Every datagram is sealed with ChaCha20-Poly1305 and carries the connection id in cleartext
+- Each message can choose a `DeliveryMethod` (unreliable, sequenced or reliable) and a channel
 
-These points reflect the built-in listener flow in `src/Nalix.Network/Listeners/UdpListener/UdpListener.Receive.cs`, where datagrams are resolved by token first and then checked against the live connection state.
+These points reflect the built-in listener flow in `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`, where datagrams are resolved by connection id first and then authenticated by the session engine.
 
 ## Throttling and Protection
 
@@ -96,7 +96,7 @@ Real-time systems fail fastest when they do not control pressure. Nalix integrat
 | Component | Layer | Purpose |
 | :--- | :--- | :--- |
 | `ConnectionGuard` | Socket | Reject endpoints before resource allocation |
-| `DatagramGuard` | Transport | Lock-free per-IP UDP packet throttling (UDP Flood protection) |
+| `ConnectionGuard` (datagram sessions) | Transport | Per-endpoint admission checked when a datagram session is accepted |
 | `TokenBucketLimiter` | Dispatch | Protect against request spikes with burst budgets |
 | `PolicyRateLimiter` | Dispatch | Per-opcode and per-endpoint rate limiting |
 | `TimingWheel` | Transport | O(1) idle timeout management for connection cleanup |

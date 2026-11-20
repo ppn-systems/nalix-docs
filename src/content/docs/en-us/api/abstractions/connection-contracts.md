@@ -28,7 +28,7 @@ package: Nalix.Abstractions
 
 ## `IConnection`
 
-`public interface IConnection : IConnectionErrorTracked, IDisposable` represents an active client connection (TCP, UDP, or WebSocket).
+`public interface IConnection : IConnectionErrorTracked, IDisposable` represents an active client connection (TCP, WebSocket, or datagram session).
 
 | Member | Type | Description |
 | --- | --- | --- |
@@ -43,10 +43,8 @@ package: Nalix.Abstractions
 | `Level` | `PermissionLevel` | Current authorization level (`NONE`, `POW_VERIFIED`, `ESTABLISHED`, `USER`, etc.). |
 | `Algorithm` | `CipherSuiteType` | Negotiated symmetric/AEAD cipher suite (`Chacha20Poly1305`, `Salsa20Poly1305`, etc.). |
 | `Secret` | `Bytes32` | Negotiated 32-byte session secret key (`Bytes32`, wiped on close). |
-| `IsUdpCreated` | `bool` | `true` once the connection has an active UDP transport binding. |
 | `PacketClassifier` | `IOpCodeExtractor` | Classifier used to extract 16-bit opcodes from raw inbound frames. |
-| `TCP` | `IConnection.ITransport` | Stream/TCP (or WebSocket) transport interface. |
-| `UDP` | `IConnection.ITransport?` | Datagram/UDP transport interface (`null` until UDP is bound). |
+| `Transport` | `IConnection.ITransport` | The transport of this connection: the TCP stream, the WebSocket, or the datagram session (`src/Nalix.Abstractions/Networking/IConnection.Transmission.cs`). Cast to `IConnection.ISocketTransport` for socket access, or to `IDatagramTransport` on a datagram connection. |
 | `ErrorCount` | `int` | Inherited from `IConnectionErrorTracked` — total protocol/framing errors recorded on this connection. |
 | `IncrementErrorCount()` | `void` | Atomically increments `ErrorCount` (checked by `ConnectionGuard`). |
 | `OnCloseEvent` | `event EventHandler<IConnectionEventArgs>` | Fired when the connection closes. |
@@ -74,7 +72,7 @@ package: Nalix.Abstractions
 
 ## `IConnectionTrafficMetrics`
 
-Implemented by `Connection`, `WebSocketConnection`, and `PassthroughConnection` to expose atomic traffic counters:
+Implemented by `Connection`, `WebSocketConnection`, and `DatagramConnection` to expose atomic traffic counters:
 
 | Member | Type | Description |
 | --- | --- | --- |
@@ -87,7 +85,64 @@ Implemented by `Connection`, `WebSocketConnection`, and `PassthroughConnection` 
 
 ## `ConnectionSequenceState`
 
-`public sealed class ConnectionSequenceState` (`Nalix.Abstractions.Networking`, `src/Nalix.Abstractions/Networking/ConnectionSequenceState.cs`) is a pooled holder of per-connection sequence numbers used for session resume. Properties (`uint`, get/set): `TcpSendSequence`, `TcpReceiveSequence`, `UdpSendSequence`, `UdpReceiveSequence`. `ResetForPool()` sets all four to `0`.
+`public sealed class ConnectionSequenceState` (`Nalix.Abstractions.Networking`, `src/Nalix.Abstractions/Networking/ConnectionSequenceState.cs`) is a pooled holder of per-connection sequence numbers used for session resume. Properties (`uint`, get/set): `TcpSendSequence`, `TcpReceiveSequence`. `ResetForPool()` sets both to `0`. The `Udp*` sequence properties are removed.
+
+## `ConnectionAttributes`
+
+`public static class ConnectionAttributes` (`Nalix.Abstractions.Networking`, `src/Nalix.Abstractions/Networking/ConnectionAttributes.cs`) holds the well-known `AttributeKey` values stored in `IConnection.Attributes`:
+
+| Field | Key name | Description |
+| --- | --- | --- |
+| `OwnerHub` | `nalix.owner_hub` | The connection hub that owns this connection. |
+| `SequenceState` | `nalix.connection.sequence_state` | The shared sequence-number state (`ConnectionSequenceState`) stored during the connection lifecycle. |
+| `RuntimeState` | `nalix.connection.runtime_state` | Runtime-specific state stored during the connection lifecycle. |
+| `HandshakeDeadlineExtension` | `nalix.connection.handshake_deadline_extension` | One-time extension in milliseconds (`int`) that the proof-of-work gate grants to the pre-authentication deadline. Set at most once per connection by the handshake layer; the transport layer clamps it to 60 seconds. |
+
+## Datagram Contracts
+
+Namespace `Nalix.Abstractions.Networking.Datagrams` (`src/Nalix.Abstractions/Networking/Datagrams/`). A datagram session is an authenticated UDP session opened with a ticket issued over an established stream (TCP or WebSocket) session; see `NetworkTransport.DATAGRAM` and `DeliveryMethod` in [Common Enumerations](./enums.md).
+
+### `IDatagramTransport`
+
+`public interface IDatagramTransport : IConnection.ITransport` is the transport of a datagram session. Sends through `IConnection.ITransport` use `DeliveryMethod.ReliableOrdered` on channel `0`. Every datagram is protected by the session AEAD and replay window, so received frames are treated as encrypted on the wire and their inner sequence numbers are not checked again.
+
+| Member | Signature | Description |
+| --- | --- | --- |
+| `SendAsync` | `ValueTask SendAsync(ReadOnlyMemory<byte> message, DeliveryMethod method, byte channel, CancellationToken cancellationToken = default)` | Sends a Nalix frame with a delivery method on a channel; the message is copied before the call returns. |
+| `WithDelivery` | `IConnection.ITransport WithDelivery(DeliveryMethod method, byte channel)` | Returns a cached view whose sends use `method` on `channel`. Throws `ArgumentOutOfRangeException` if the method is unknown or the channel is not below the session's channel count. |
+
+### `IDatagramTicketIssuer` and `DatagramTicketInfo`
+
+`public interface IDatagramTicketIssuer` is implemented by the datagram listener. `DatagramTicketInfo IssueTicket(IConnection streamConnection, Action<IConnection>? onAccepted = null)` issues a single-use ticket; the stream connection's secret, identity and permission level are snapshotted at that moment. `onAccepted` runs on the new datagram connection once its first datagram authenticated, before it is registered and dispatched.
+
+`public readonly record struct DatagramTicketInfo` carries the ticket values:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `ConnectionId` | `ulong` | Datagram connection identifier (from the CSPRNG). |
+| `Nonce` | `UInt128` | 16-byte ticket nonce that makes the session keys fresh. |
+| `Port` | `ushort` | UDP port to send to; the host is the stream session's host. |
+| `ExpiresInSeconds` | `ushort` | Seconds within which the first datagram must arrive. |
+| `IdleTimeoutMs` | `int` | Idle timeout of the session. |
+| `MaxMessageSize` | `int` | Largest message either side accepts. |
+| `ChannelCount` | `byte` | Number of channels. |
+| `ReceiveBufferBytes` | `long` | Total bytes the server buffers for ordering and reassembly. |
+| `ChannelReceiveBufferBytes` | `long` | Bytes the server buffers per channel. |
+
+### `IDatagramProtection` and `IDatagramProtectionFactory`
+
+`public interface IDatagramProtection : IDisposable` seals and opens the datagrams of one session with an AEAD. Each direction has an independent key, updated separately and signaled with the key phase bit. Implementations are not thread-safe, and a packet number is sealed at most once per key.
+
+| Member | Description |
+| --- | --- |
+| `int TagSize { get; }` | Size in bytes of the authentication tag appended to every sealed payload. |
+| `bool SendKeyPhase { get; }` | Key phase of the current send key; flips on every `UpdateSendKey()`. |
+| `void Seal(ulong packetNumber, ReadOnlySpan<byte> header, ReadOnlySpan<byte> plaintext, Span<byte> destination)` | Encrypts `plaintext`, authenticating it with `header` as associated data; `destination` receives ciphertext plus tag and must not overlap `plaintext`. |
+| `bool TryOpen(ulong packetNumber, bool keyPhase, ReadOnlySpan<byte> header, ReadOnlySpan<byte> ciphertextAndTag, Span<byte> plaintext)` | Authenticates and decrypts a payload; returns `true` when it is authentic. A payload with the other key phase is opened with the previous or next key. |
+| `void UpdateSendKey()` | Replaces the send key with the next one in the key schedule. |
+| `void DiscardPreviousReceiveKey()` | Wipes the previous receive key. |
+
+`public interface IDatagramProtectionFactory` creates the protection of a session: `IDatagramProtection Create(Bytes32 sessionSecret, ulong connectionId, ReadOnlySpan<byte> ticketNonce, bool isServer)`. The caller disposes the result. The default implementation is `ChaCha20Poly1305DatagramProtectionFactory` in `Nalix.Codec` (see [Nalix.Codec](../../packages/nalix-codec.md)).
 
 ## `IConnectionHub`
 

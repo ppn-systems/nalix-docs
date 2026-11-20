@@ -8,10 +8,10 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Internal.Transport`  
 **Assembly:** `Nalix.Network`
 
-`SocketConnection` (`internal sealed partial class SocketConnection : IDisposable, IPoolable`) is the internal framed TCP transport engine backing `Connection.TCP` (`SocketTcpTransport`). It uses pooled `PooledSocketReceiveContext` (`SocketAsyncEventArgs`) instances, `BufferLease` byte-array pools, and multi-mode framing to sustain 10,000+ concurrent connections with zero per-packet heap allocations.
+`SocketConnection` (`internal sealed partial class SocketConnection : IDisposable, IPoolable`) is the internal framed TCP transport engine backing the TCP transport of `Connection` (`Connection.Transport`, implemented in `Connection.Transport.cs`; there is no separate `SocketTcpTransport` type). It uses pooled `PooledSocketReceiveContext` (`SocketAsyncEventArgs`) instances, `BufferLease` byte-array pools, and multi-mode framing to sustain 10,000+ concurrent connections with zero per-packet heap allocations.
 
 :::warning[Internal Implementation Type]
-`SocketConnection` is `internal sealed` and is not directly referenced by application code. Application code interacts with TCP sockets through `IConnection` and `connection.TCP` (`IConnection.ITransport`).
+`SocketConnection` is `internal sealed` and is not directly referenced by application code. Application code interacts with TCP sockets through `IConnection` and `connection.Transport` (`IConnection.ITransport`).
 :::
 
 ## Source Mapping
@@ -21,7 +21,7 @@ package: Nalix.Network
 - `src/Nalix.Network/Internal/Transport/SocketConnection.Receive.VarInt.cs`
 - `src/Nalix.Network/Internal/Transport/SocketConnection.Send.cs`
 - `src/Nalix.Network/Internal/Transport/SocketConnection.Send.VarInt.cs`
-- `src/Nalix.Network/Internal/Transport/SocketTcpTransport.cs`
+- `src/Nalix.Network/Connections/Connection.Transport.cs`
 - `src/Nalix.Network/Options/NetworkCallbackOptions.cs`
 - `src/Nalix.Network/Options/VarIntFramingOptions.cs`
 
@@ -55,7 +55,7 @@ flowchart TD
 
 ### 1. Multi-Mode Transport Framing (`TransportFraming`)
 
-Configured via `connection.TCP.UseFraming(this.Framing)` during `Protocol.OnAccept` (locked once `BeginReceive` starts):
+Configured via `connection.Transport.UseFraming(this.Framing)` during `Protocol.OnAccept` (locked once `BeginReceive` starts):
 
 | Mode | Wire Prefix | Max Frame Size | Source File |
 | :--- | :--- | :--- | :--- |

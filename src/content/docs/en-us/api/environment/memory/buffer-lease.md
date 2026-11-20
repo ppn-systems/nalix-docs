@@ -27,7 +27,7 @@ To avoid heap allocations when wrapping rented byte arrays, `BufferLease` recycl
 - `public static readonly int StackAllocThreshold;` — Cutoff between `stackalloc` and `BufferLease.Rent` (fixed at `512` bytes; not configurable through `MemoryOptions`).
 - `public const int TransportHeadroom = sizeof(ushort);` (`2` bytes) — Headroom constant for reserving 2 bytes at the start of rented buffers so TCP can prepend the 2-byte frame length without copying the payload.
 - `public static void Configure(IObjectPoolManager poolManager)` — Binds `BufferLease` shell pooling to an external `IObjectPoolManager`.
-- `BufferLease.ByteArrayPool` — Static helper (`Rent(int)`, `Return(byte[], bool)`, `Configure(IBufferPoolManager)`) backed by `ArrayPool<byte>.Shared` or a configured `IBufferPoolManager`.
+- `BufferLease.ByteArrayPool` — Nested `public static class` (`BufferLease.cs#L143`) backed by `ArrayPool<byte>.Shared` or a configured `IBufferPoolManager`: `Configure(IBufferPoolManager manager)`, `Rent(int capacity = 256)`, `Return(byte[] array)` (returns the buffer **without** clearing it), and `Return(byte[] array, bool clearArray)` (clears the whole array first when `clearArray` is `true`). Pooled arrays are not scrubbed on every return, so buffers holding secrets must be cleared with `clearArray: true`, cleared by their owner, or rented as a lease with `zeroOnDispose: true`.
 
 ## Factory Methods
 

@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Options`  
 **Assembly:** `Nalix.SDK`
 
-`TransportOptions` (`public sealed partial class TransportOptions : ConfigurationLoader`) configures client-side connectivity, socket buffers, AEAD cipher suite, LZ4 compression, X25519 server key pinning / Trust-On-First-Use (TOFU), 0-RTT session resumption, `ReconnectSupervisor` backoff, keepalive probing, and clock synchronization across [TcpSession](../../sdk/tcp-session.md), [UdpSession](../../sdk/udp-session.md), and [WebSocketSession](../../sdk/websocket-session.md).
+`TransportOptions` (`public sealed partial class TransportOptions : ConfigurationLoader`) configures client-side connectivity, socket buffers, AEAD cipher suite, LZ4 compression, X25519 server key pinning / Trust-On-First-Use (TOFU), 0-RTT session resumption, `ReconnectSupervisor` backoff, keepalive probing, and clock synchronization across [TcpSession](../../sdk/tcp-session.md), [DatagramSession](../../sdk/udp-session.md), and [WebSocketSession](../../sdk/websocket-session.md).
 
 ## Source Mapping
 
@@ -31,7 +31,6 @@ Loaded from the `[Transport]` section of `default.ini` via `ConfigurationManager
 | `ConnectTimeoutMillis` | `int` | `30000` (`30s`) | `[ValueRange(0, int.MaxValue)]` | Timeout in milliseconds for socket/WebSocket connect attempts (`0` = no timeout). |
 | `NoDelay` | `bool` | `true` | — | Controls `Socket.NoDelay` (`TCP_NODELAY`) on `TcpSession`. |
 | `BufferSize` | `int` | `65536` (`64 KB`) | `[ValueRange(2048, 1048576)]` | Socket send and receive buffer size in bytes (`2 KB..1 MB`). |
-| `MaxUdpDatagramSize` | `int` | `1400` | `[ValueRange(64, 65507)]` | Maximum allowed UDP datagram size in bytes (including the 8-byte `SessionToken` and 4-byte `XxHash32` MAC trailer). |
 | `AsyncQueueCapacity` | `int` | `1024` | `[ValueRange(1, 65536)]` | `[Reserved]` Asynchronous message processing queue capacity (currently not consumed). |
 
 ### 2. Encryption, Compression & Server Identity (TOFU / Pinning)
@@ -41,6 +40,7 @@ Loaded from the `[Transport]` section of `default.ini` via `ConfigurationManager
 | `Algorithm` | `CipherSuiteType` | `CipherSuiteType.Chacha20Poly1305` | — | Symmetric cipher suite used when encrypting frames after `HandshakeAsync`. |
 | `CompressionEnabled` | `bool` | `true` | — | Enables automatic LZ4 compression on outbound frames meeting `CompressionThreshold`. |
 | `CompressionThreshold` | `int` | `512` | — | Minimum payload size in bytes before outbound LZ4 compression is applied. |
+| `EncryptRequestsByDefault` | `bool` | `false` | — | Encrypts requests that do not set `RequestOptions.Encrypt` once the handshake completed (see [Request Options](./request-options.md)). Keep `false` when the transport is wrapped in TLS. |
 | `ServerPublicKey` | `string?` | `null` | — | Hex-encoded 32-byte static X25519 server identity public key for MitM-proof authentication during `HandshakeAsync`. |
 | `AllowTofu` | `bool` | `true` | — | Allows Trust-On-First-Use (`PUBLIC_KEY_REQUEST` $\rightarrow$ `SessionTofu`) discovery when `ServerPublicKey` is null or empty. |
 | `PersistTofuKey` | `bool` | `false` | — | When `true`, persists a TOFU-fetched `ServerPublicKey` to configuration storage after a verified handshake. |
@@ -106,7 +106,7 @@ BufferSize = 65536
 Algorithm = Chacha20Poly1305
 CompressionEnabled = true
 CompressionThreshold = 512
-MaxUdpDatagramSize = 1400
+EncryptRequestsByDefault = false
 AllowTofu = true
 PersistTofuKey = false
 ResumeEnabled = true

@@ -56,7 +56,7 @@ If you want to know how Nalix works internally — wire formats, sharding, memor
 | [**Nalix.Hosting**](./packages/nalix-hosting.md) | Fluent builder (`NetworkApplication.CreateBuilder()`) and application lifecycle for server bootstrap |
 | [**Nalix.Network**](./packages/nalix-network.md) | TCP, UDP, and WebSocket listeners, connections, connection hub, and transport guard |
 | [**Nalix.Runtime**](./packages/nalix-runtime.md) | Multi-threaded packet dispatch (`PacketDispatchChannel`), middleware pipeline, and session service |
-| [**Nalix.SDK**](./packages/nalix-sdk.md) | Client-side transport sessions (`TcpSession`, `UdpSession`), handshakes, and request/response correlation |
+| [**Nalix.SDK**](./packages/nalix-sdk.md) | Client-side transport sessions (`TcpSession`, `DatagramSession`), handshakes, and request/response correlation |
 | [**Nalix.Codec**](./packages/nalix-codec.md) | Compile-time binary serialization (`LiteSerializer`), LZ4 compression, AEAD encryption, and `PacketRegistry` |
 | [**Nalix.Framework**](./packages/nalix-framework.md) | Dependency injection (`InstanceManager`), background workers (`TaskManager`), `Snowflake` IDs, and object/buffer pools |
 | [**Nalix.Environment**](./packages/nalix-environment.md) | Zero-allocation memory (`BufferLease`, `DataReader`, `DataWriter`), INI configuration, `Clock`, `TimingScope`, and `Csprng` |

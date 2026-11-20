@@ -1,6 +1,6 @@
 ---
 title: Connection Guard Options
-description: Reference for Nalix.Network.Options.ConnectionGuardOptions — global connection ceiling, ban duration, progressive banning toggle, per-connection error threshold, and UDP packet rate limits.
+description: Reference for Nalix.Network.Options.ConnectionGuardOptions — global connection ceiling, ban duration, progressive banning toggle, per-connection error threshold and window, and the packet-rate setting.
 section: API Reference
 package: Nalix.Network
 ---
@@ -8,14 +8,14 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Options`  
 **Assembly:** `Nalix.Network`
 
-`ConnectionGuardOptions` (`public sealed partial class ConnectionGuardOptions : ConfigurationLoader, IValidatableConfiguration`) configures global connection capacity, base ban duration, progressive banning escalation, DDoS log suppression, per-connection error disconnection (`SEC-54`), and per-endpoint UDP packet rate limits (`SEC-55`).
+`ConnectionGuardOptions` (`public sealed partial class ConnectionGuardOptions : ConfigurationLoader, IValidatableConfiguration`) configures global connection capacity, base ban duration, progressive banning escalation, DDoS log suppression, per-connection error disconnection (`SEC-54`, counted within `ErrorWindow`), and the `MaxPacketPerSecond` setting (`SEC-55`).
 
 ## Source Mapping
 
 - `src/Nalix.Network/Options/ConnectionGuardOptions.cs`
 - `src/Nalix.Network/RateLimiting/Connection.Guard.cs`
 - `src/Nalix.Network/RateLimiting/Connection.Guard.Slot.cs`
-- `src/Nalix.Network/RateLimiting/Datagram.Guard.cs`
+- `src/Nalix.Network/Connections/WebSocketConnection.cs`
 - `src/Nalix.Network/Connections/Connection.cs`
 - `src/Nalix.Network/Internal/Initialization/NetworkPoolInitializer.cs`
 
@@ -28,8 +28,9 @@ Loaded from the `[ConnectionGuard]` section of `default.ini`:
 | `MaxConnections` | `int` | `2_000` (`2000`) | `[ValueRange(1, int.MaxValue)]` | Global concurrent connection ceiling in `ConnectionGuard`, and baseline pool capacity in `NetworkPoolInitializer`. |
 | `BanDuration` | `TimeSpan` | `00:05:00` (`5m`) | `[DurationRange("00:00:01", "1.00:00:00")]` | Static ban duration used when `EnableProgressiveBanning` is `false`. |
 | `DDoSLogSuppressWindow` | `TimeSpan` | `00:00:20` (`20s`) | `[DurationRange("00:00:01", "01:00:00")]` | Per-endpoint suppression window for throttled reject/DDoS diagnostic logs (`ThrottledEventGate`). |
-| `MaxErrorThreshold` | `int` | `50` | `[ValueRange(1, int.MaxValue)]` | Cumulative error limit per connection (`Connection.IncrementErrorCount()`); reaching this threshold disconnects the client immediately (`SEC-54`). |
-| `MaxPacketPerSecond` | `int` | `128` | `[ValueRange(1, 10_000_000)]` | Per-IP packets-per-second budget enforced by `DatagramGuard` on UDP listeners (`SEC-55`). |
+| `MaxErrorThreshold` | `int` | `50` | `[ValueRange(1, int.MaxValue)]` | Errors a connection may accumulate within `ErrorWindow` (`Connection.IncrementErrorCount()`, `DatagramConnection`, `WebSocketConnection`); reaching this threshold disconnects the client (`SEC-54`). |
+| `ErrorWindow` | `TimeSpan` | `00:01:00` (`1m`) | `[DurationRange("00:00:01", "24:00:00")]` | Window over which a connection's errors are counted against `MaxErrorThreshold`; when it elapses the count restarts, so a long-lived connection with an occasional error is not disconnected cumulatively. |
+| `MaxPacketPerSecond` | `int` | `128` | `[ValueRange(1, 10_000_000)]` | Maximum packets per second from a single connection (`SEC-55`). `DatagramGuard`, its former consumer, was removed; the current source has no reader of this property. |
 | `EnableProgressiveBanning` | `bool` | `true` | — | Enables progressive ban escalation (`1m` $\rightarrow$ `5m` $\rightarrow$ `15m` $\rightarrow$ `1h` $\rightarrow$ `6h` $\rightarrow$ `24h`) on repeated rate-window violations. |
 
 `Validate()` runs `this.ValidateDataAnnotations()` and throws `ValidationException` when constraints are violated.

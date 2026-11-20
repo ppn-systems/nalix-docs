@@ -68,6 +68,8 @@ $$\text{ID} = (\text{Type} \ll 56) \mid (\text{Timestamp} \ll 24) \mid (\text{Se
 | `TryWriteBytes(Span<byte>, out int)` | `public bool TryWriteBytes(Span<byte> destination, out int bytesWritten)` | Writes 8 little-endian bytes into `destination` without allocation; returns `false` if `destination.Length < 8`. |
 | `TryWriteBytes(Span<byte>)` | `public bool TryWriteBytes(Span<byte> destination)` | Writes 8 little-endian bytes into `destination`; returns `false` if `destination.Length < 8`. |
 | `ToString()` | `public override string ToString()` | Returns the 16-character uppercase hexadecimal representation of the 8 little-endian bytes. |
+| `Equals(object?)` | `public override bool Equals(object? obj)` | `true` when `obj` is a `Snowflake` equal to this instance (delegates to `Equals(Snowflake)`). |
+| `GetHashCode()` | `public override int GetHashCode()` | Mixes the underlying 64-bit value into a 32-bit hash suitable for hash-based collections. |
 
 ## `SnowflakeOptions` (`Nalix.Framework.Options`)
 

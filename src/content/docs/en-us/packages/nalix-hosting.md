@@ -5,7 +5,7 @@ section: Packages
 package: Nalix.Hosting
 ---
 
-`Nalix.Hosting` is the **Level 4** application host package for Nalix servers. It provides an ASP.NET Core–style fluent builder (`NetworkApplication.CreateBuilder()`) that wires `PacketRegistry`, `PacketDispatchChannel`, `InstanceManager`, configuration files (`server.ini`), security handshakes, sessions, and TCP/UDP/WebSocket listeners into a unified lifecycle.
+`Nalix.Hosting` is the **Level 4** application host package for Nalix servers. It provides an ASP.NET Core–style fluent builder (`NetworkApplication.CreateBuilder()`) that wires `PacketRegistry`, `PacketDispatchChannel`, `InstanceManager`, configuration files (`server.ini`), security handshakes, sessions, and TCP, datagram (NDP over UDP) and WebSocket listeners into a unified lifecycle.
 
 ## Source Mapping
 
@@ -26,7 +26,7 @@ flowchart LR
         A["NetworkApplication.CreateBuilder()"] --> B["Configure<TOptions>() / UseLogger()"]
         B --> C["UseSecureConnections() / UseSessions() / UseGroups()"]
         C --> D["MapHandlers<THandler>()"]
-        D --> E["MapTcp / MapUdp / MapWebSocket"]
+        D --> E["MapTcp / MapDatagram / MapWebSocket"]
     end
 
     subgraph Runtime ["Execution Phase"]
@@ -40,7 +40,7 @@ flowchart LR
 
 ### `NetworkApplication`
 
-The runnable server host implementing `IActivatableAsync`, `IReportable`, `IDisposable`, and `IAsyncDisposable`.
+The runnable server host implementing `IActivatableAsync` and `IAsyncDisposable` (`public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable`).
 
 - `NetworkApplication.CreateBuilder()` — Creates a new `INetworkApplicationBuilder`.
 - `ActivateAsync(CancellationToken)` / `DeactivateAsync(CancellationToken)` — Starts or stops the dispatcher and all bound listeners without blocking.
@@ -61,15 +61,16 @@ The runnable server host implementing `IActivatableAsync`, `IReportable`, `IDisp
 | `RegisterScoped<TService>(Func<IPacketScope, TService>)` | Registers a per-packet scoped service factory for `[FromScope]` handler parameters. |
 | `MapHandlers<THandler>()` / `MapHandlers(Type)` | Registers a `[PacketHandler]` controller class (instance, factory, or `static` class). |
 | `MapTcp<TProtocol>()` | Returns an `IProtocolBindingBuilder` (`OnPort(ushort)`, `WithFactory(...)`, `Bind()`) for TCP. |
-| `MapUdp<TProtocol>()` | Returns an `IProtocolBindingBuilder` (`OnPort(ushort)`, `WithMode(OperatingMode)`, `WithAuthentication(Func<IConnection, EndPoint, ReadOnlySpan<byte>, bool>)`, `Bind()`) for UDP. |
+| `MapDatagram<TProtocol>()` | Returns an `IProtocolBindingBuilder` (`OnPort(ushort)`, `WithFactory(...)`, `Bind()`) for the datagram (NDP over UDP) listener and maps `DatagramTicketHandlers`. May be called once per application. |
+| `AddListener(Func<IListener>)` | Adds a custom `IListener` that is activated and deactivated together with the protocol listeners. |
 | `MapWebSocket<TProtocol>()` | Returns an `IWebSocketBindingBuilder` (`OnPort(ushort)`, `WithPath(string)`, `MapGet(...)`, `MapPost(...)`, `Bind()`) for WebSocket. |
 | `UseSecureConnections(string? certificatePath = null)` | *(Extension)* Enables X25519 handshake (`HandshakeHandlers`), Proof-of-Work (`ProofOfWorkHandlers`), `SystemControlHandlers`, and `FileCertificateStore`. |
 | `UseSessions()` | *(Extension)* Enables stateless session resumption (`SessionHandlers`, `SessionService`, and `SessionPersistenceObserver`). |
 | `UseGroups()` | *(Extension)* Registers `IConnectionGroupRegistry` (`InMemoryGroupStore`) and automatic disconnect cleanup (`GroupMembershipObserver`). |
 | `UseSystemControl()` / `UseTimeSync()` | *(Extension)* Enables `SystemControlHandlers` or `SystemTimeSyncHandlers`. |
 
-:::note[`MapTcp` / `MapUdp` / `MapWebSocket` replace `Listen*`]
-`MapTcp<TProtocol>()`, `MapUdp<TProtocol>()`, and `MapWebSocket<TProtocol>()` are the canonical binding methods. The older `ListenTcp<TProtocol>()`, `ListenUdp<TProtocol>()`, and `ListenWebSocket<TProtocol>()` methods are marked `[Obsolete]` and delegate to `Map*`.
+:::note[`MapTcp` / `MapWebSocket` replace `Listen*`]
+`MapTcp<TProtocol>()`, `MapDatagram<TProtocol>()`, and `MapWebSocket<TProtocol>()` are the canonical binding methods. The older `ListenTcp<TProtocol>()` and `ListenWebSocket<TProtocol>()` methods are marked `[Obsolete]` and delegate to `Map*`. The UDP bindings (`MapUdp`, `ListenUdp`) were removed.
 :::
 
 ### `Bootstrap` (Module Initializer)

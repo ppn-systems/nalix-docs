@@ -54,10 +54,10 @@ sequenceDiagram
 
     alt Session Valid (Response.Reason == ProtocolReason.NONE)
         S-->>C: SessionResume (Stage = RESPONSE, Reason = NONE, NewSessionToken, ServerProof [32B])
-        Note over C: Verify ServerProof == HmacKeccak256.Compute(State.Secret, [NewSessionToken || timeWindow])<br/>State.SessionToken = NewSessionToken<br/>State.EncryptionEnabled = true<br/>ResetSequenceCounters() + NotifyReady() -> Return ProtocolReason.NONE
+        Note over C: Verify ServerProof == HmacKeccak256.Compute(State.Secret, [NewSessionToken || timeWindow])<br/>State.SessionToken = NewSessionToken<br/>State.EncryptionEnabled = true<br/>NotifyReady() -> Return ProtocolReason.NONE
     else Session Expired / Unknown / Invalid Proof
-        S-->>C: SessionResume (Stage = RESPONSE, Reason = SESSION_EXPIRED / SESSION_NOT_FOUND)
-        Note over C: Clear State.SessionToken = 0, State.Secret = Zero, EncryptionEnabled = false<br/>Return response.Reason (ConnectWithResumeAsync falls back to HandshakeAsync)
+        S-->>C: SessionResume (Stage = RESPONSE, Reason = SESSION_EXPIRED / ...)
+        Note over C: Return response.Reason (State is left untouched; ConnectWithResumeAsync reconnects and falls back to HandshakeAsync)
     end
 ```
 
@@ -65,14 +65,15 @@ sequenceDiagram
 
 1. **Client Proof**: `ResumeSessionAsync` constructs a 16-byte buffer containing `SessionToken` (`ulong`, little-endian at `0..8`) and the 30-second time bucket `Clock.UnixSecondsNow() / 30` (`long`, little-endian at `8..16`), and computes a 32-byte `HmacKeccak256.Compute(session.State.Secret.AsSpan(), proofData)` without exposing `Secret` on the wire.
 2. **Mutual Server Proof Verification**: When the server accepts the resume request (`response.Reason == ProtocolReason.NONE`), it rotates the token to a new `SessionToken` and signs `[NewSessionToken (8B LE) || (UnixSecondsNow / 30) (8B LE)]` with the same `Secret`. The client verifies `response.Proof` in constant time (`CryptographicOperations.FixedTimeEquals`) before enabling encryption.
-3. **Sequence Reset**: Because the server resets its transport sequence counters on a new connection, `ResumeSessionAsync` calls `session.ResetSequenceCounters()` upon successful verification so client and server sequence windows remain synchronized.
+3. **Sequence Continuation**: A resume does not reset the client's sequence counters (a full handshake does). The server restores its send/receive sequence state from the stored snapshot instead of restarting at `0`, so both windows continue where the previous connection stopped.
+4. **Failure mapping**: `ResumeSessionAsync` returns `SESSION_NOT_FOUND` when `State.SessionToken` is `0` or `State.Secret` is zero, the server's `Reason` when it declines, and `CANCELLED`, `TIMEOUT`, `NETWORK_ERROR` or `STATE_VIOLATION` when the exchange is cancelled, times out, hits a `NetworkException` or an `InvalidOperationException`. Declines, failures and fallbacks are reported through `DiagnosticsEvents.Resumption.*`.
 
 ## Method Comparison
 
 | Method | Return Type | Behavior |
 | :--- | :--- | :--- |
 | `ResumeSessionAsync` | `ValueTask<ProtocolReason>` | Assumes socket is already connected (`session.IsConnected == true`). Returns `ProtocolReason.NONE` if the session was resumed, or the failure `ProtocolReason` (`UNAUTHENTICATED`, `SESSION_EXPIRED`, `INTERNAL_ERROR`, etc.). |
-| `ConnectWithResumeAsync` | `ValueTask<bool>` | Calls `ConnectAsync`, attempts `ResumeSessionAsync` (returning `true` when `ProtocolReason.NONE`), and automatically falls back to `HandshakeAsync` (returning `false`) when `Options.ResumeFallbackToHandshake` is `true`. |
+| `ConnectWithResumeAsync` | `ValueTask<bool>` | Calls `ConnectAsync`, attempts `ResumeSessionAsync` (returning `true` when `ProtocolReason.NONE`), and when it fails reconnects the socket and falls back to `HandshakeAsync` (returning `false`) if `Options.ResumeFallbackToHandshake` is `true`; otherwise throws `NetworkException("Session resume failed: ...")`. When `Options.ResumeEnabled` is `false` no resume is attempted (reason `LOCAL_POLICY`) and the handshake runs directly. |
 | `ConnectWithResumeDetailedAsync` | `ValueTask<ProtocolReason>` | Identical to `ConnectWithResumeAsync`, returning `ProtocolReason.NONE` when the existing session was resumed or the underlying `ProtocolReason` why resumption failed before `HandshakeAsync` fallback. Used internally by `ReconnectSupervisor`. |
 
 ## Usage Example

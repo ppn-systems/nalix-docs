@@ -60,12 +60,12 @@ If `TransportOptions.ServerPublicKey` is `null` or empty and `TransportOptions.A
 | Step | Method | HKDF Construction | Inputs |
 | --- | --- | --- | --- |
 | **Transcript Hash** | `ComputeTranscriptHash` | `Keccak256.HashDataToFixed(144-byte length-prefixed transcript)` | `clientPublicKey`, `clientNonce`, `serverPublicKey`, `serverNonce` |
-| **Master Secret** | `ComputeMasterSecret` | `Hkdf.Extract(salt: Empty, ikm: sharedSecretEE \|\| sharedSecretSE)` | `sharedSecretEE`, `sharedSecretSE` (64 bytes total) |
-| **Server Proof** | `ComputeServerProof` | `Hkdf.Expand(masterSecret, "nalix-handshake/server-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
-| **Client Proof** | `ComputeClientProof` | `Hkdf.Expand(masterSecret, "nalix-handshake/client-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
-| **Server Finish Proof** | `ComputeServerFinishProof` | `Hkdf.Expand(masterSecret, "nalix-handshake/server-finish" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
-| **Session Key** | `DeriveSessionKey` | `Hkdf.Expand(masterSecret, "nalix-handshake/session" \|\| clientNonce \|\| serverNonce \|\| transcriptHash)` | `masterSecret`, `clientNonce`, `serverNonce`, `transcriptHash` |
-| **Rekey Secret** | `DeriveRekeySecret` | `Hkdf.Expand(currentSecret, "nalix-session/rekey")` | `currentSecret` |
+| **Master Secret** | `ComputeMasterSecret` | `HkdfKeccak256.Extract(salt: Empty, ikm: sharedSecretEE \|\| sharedSecretSE)` | `sharedSecretEE`, `sharedSecretSE` (64 bytes total) |
+| **Server Proof** | `ComputeServerProof` | `HkdfKeccak256.Expand(masterSecret, "nalix-handshake/server-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
+| **Client Proof** | `ComputeClientProof` | `HkdfKeccak256.Expand(masterSecret, "nalix-handshake/client-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
+| **Server Finish Proof** | `ComputeServerFinishProof` | `HkdfKeccak256.Expand(masterSecret, "nalix-handshake/server-finish" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
+| **Session Key** | `DeriveSessionKey` | `HkdfKeccak256.Expand(masterSecret, "nalix-handshake/session" \|\| clientNonce \|\| serverNonce \|\| transcriptHash)` | `masterSecret`, `clientNonce`, `serverNonce`, `transcriptHash` |
+| **Rekey Secret** | `DeriveRekeySecret` | `HkdfKeccak256.Expand(currentSecret, "nalix-session/rekey")` | `currentSecret` |
 
 ### Public Methods on `HandshakeX25519`
 
