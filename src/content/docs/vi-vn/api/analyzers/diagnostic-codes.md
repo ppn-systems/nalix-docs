@@ -80,7 +80,7 @@ Trang này liệt kê tất cả **75 mô tả chẩn đoán đang hoạt độn
 | `NALIX042` | Kiểu handler của `NetworkApplicationBuilder` không thể khởi tạo | Cảnh báo | Usage | Không | Các kiểu controller truyền vào `MapHandlers` phải là lớp cụ thể, có thể khởi tạo. |
 | `NALIX043` | Kiểu metadata provider của `NetworkApplicationBuilder` không thể khởi tạo | Cảnh báo | Usage | Không | Các kiểu metadata provider phải là lớp cụ thể, có thể khởi tạo. |
 | `NALIX044` | `NetworkApplicationBuilder` nên cấu hình một binding TCP | Thông tin | Usage | Không | Cảnh báo khi `.Build()` được gọi mà không có binding listener transport nào. |
-| `NALIX045` | `NetworkApplicationBuilder` nên cấu hình TCP trước UDP | Thông tin | Usage | Không | Các listener UDP đã xác thực dựa vào phiên được thiết lập qua TCP (`MapTcp` nên đi cùng `MapUdp`). |
+| `NALIX045` | `NetworkApplicationBuilder` nên cấu hình TCP cùng với binding datagram | Thông tin | Usage | Không | Phiên datagram (NDP) được khởi tạo qua phiên TCP hoặc WebSocket, nên binding `MapDatagram` cần một binding luồng (`ListenTcp`) trong cùng chuỗi builder. |
 | `NALIX057` | `RequestOptions` dùng timeout vô hạn với retry | Thông tin | SDK | Có | Đặt `TimeoutMs = 0` với `RetryCount > 0` làm cho các lần retry không bao giờ xảy ra vì lần thử đầu tiên chờ vô hạn. |
 
 ## 5. Chẩn đoán của Source Generator (`NALIX059`–`NALIX068`)

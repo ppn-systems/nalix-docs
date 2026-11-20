@@ -76,7 +76,8 @@ sequenceDiagram
 ```
 
 - **Dẫn xuất khóa**: Cả client và server đều dẫn xuất `newKey` qua `HandshakeX25519.DeriveRekeySecret(currentSecret)`.
-- **Đặt lại bộ đếm sequence & hoàn tác**: Ngay sau khi gửi `SESSION_REKEY`, cập nhật `session.State.Secret = newKey` và gọi `session.ResetSequenceCounters()`, rồi chờ `Control(ControlType.SESSION_REKEY_ACK, SequenceId == seqId)` (hoàn tác `session.State.Secret = previousKey` khi hết thời gian chờ hoặc gặp lỗi).
+- **Đặt lại bộ đếm sequence**: Ngay sau khi `SESSION_REKEY` được ghi (trên TCP và WebSocket là dưới khóa gửi, nên không khung nào mã hóa bằng khóa cũ có thể theo sau nó), cập nhật `session.State.Secret = newKey` và gọi `session.ResetSequenceCounters()`, rồi chờ `Control(ControlType.SESSION_REKEY_ACK, SequenceId == seqId)` trong `Options.ConnectTimeoutMillis` (`5000` ms khi là `0`).
+- **Xử lý lỗi**: Nếu yêu cầu chưa được gửi đi, không có gì thay đổi. Nếu nó đã được ghi trên transport có thứ tự (TCP, WebSocket) và chỉ có xác nhận đến muộn hoặc bị mất, khóa mới được giữ lại (máy chủ chuyển khóa ngay khi đọc yêu cầu). Trên transport không có thứ tự, khóa trước đó được khôi phục. Máy chủ bỏ qua `SESSION_REKEY` trên phiên datagram.
 
 ## Ví dụ sử dụng
 

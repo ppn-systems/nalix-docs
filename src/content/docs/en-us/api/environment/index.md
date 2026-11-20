@@ -16,6 +16,8 @@ package: Nalix.Environment
 
 ## Configuration (`Nalix.Environment.Configuration`)
 
+- [**IniConfig**](./ini-config.md) — Low-level `.ini` reader/writer with typed getters and `NALIX_<SECTION>_<KEY>` overrides.
+- [**Datagram Engine**](./datagram-engine.md) — The socket-free NDP session engine, its state, close codes and `DatagramEngineOptions`.
 - [**Configuration (ConfigurationManager & ConfigurationLoader)**](./configuration.md) — Thread-safe `.ini` configuration binding, live file watching, and validation.
 
 ## Platform, Time, Random & Sequencing

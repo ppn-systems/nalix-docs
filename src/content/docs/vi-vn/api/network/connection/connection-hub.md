@@ -8,7 +8,7 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Connections`  
 **Assembly:** `Nalix.Network`
 
-`ConnectionHub` (`public sealed partial class ConnectionHub : IConnectionHub, IConnectionBroadcaster`) là registry trung tâm an toàn đa luồng cho mọi kết nối client đang hoạt động. Nó ủy thác lưu trữ cho một `ConnectionRegistry` phân mảnh, theo dõi thông lượng vào/ra trượt trong 1 giây (`"hub.throughput"`), và cung cấp broadcast snapshot zero-allocation.
+`ConnectionHub` (`public sealed partial class ConnectionHub : IConnectionHub, IConnectionBroadcaster`, được khai báo trong `ConnectionHub.cs` và `ConnectionHub.Broadcast.cs`) là registry trung tâm an toàn đa luồng cho mọi kết nối client đang hoạt động. Nó đăng ký bất kỳ `IConnection` nào: `Connection` TCP, `WebSocketConnection` và `DatagramConnection` (được `DatagramListener` đăng ký khi datagram đầu tiên của nó được xác thực). Nó ủy thác lưu trữ cho một `ConnectionRegistry` phân mảnh, theo dõi thông lượng vào/ra trượt trong 1 giây (`"hub.throughput"`), và cung cấp broadcast snapshot zero-allocation.
 
 ## Nguồn mã
 
@@ -54,7 +54,7 @@ flowchart TD
 | `RegisterConnection` | `public void RegisterConnection(IConnection connection)` | Đăng ký `connection`, đặt `ConnectionAttributes.OwnerHub` và đăng ký vào `connection.ConnectionClosed`. Ném `ObjectDisposedException` nếu hub đã bị dispose hoặc `InternalErrorException` khi trùng `ConnectionId`. |
 | `UnregisterConnection` | `public void UnregisterConnection(IConnection connection)` | Xóa `connection` khỏi shard và chỉ mục endpoint, hủy đăng ký `ConnectionClosed` và phát `ConnectionUnregistered`. |
 | `GetConnection(ulong)` | `public IConnection? GetConnection(ulong id)` | Tra cứu shard theo `ConnectionId` 64-bit trong $O(1)$. |
-| `GetConnection(ReadOnlySpan<byte>)` | `public IConnection? GetConnection(ReadOnlySpan<byte> id)` | Đọc `ulong` little-endian 8 byte (`BinaryPrimitives.ReadUInt64LittleEndian(id)`) và tra cứu kết nối (dùng trên đường nóng của datagram UDP). |
+| `GetConnection(ReadOnlySpan<byte>)` | `public IConnection? GetConnection(ReadOnlySpan<byte> id)` | Đọc `ulong` little-endian 8 byte (`BinaryPrimitives.ReadUInt64LittleEndian(id)`) và tra cứu kết nối (dành cho bên gọi giữ 8 byte thô của một định danh). |
 | `ListConnections()` | `public IReadOnlyCollection<IConnection> ListConnections()` | Trả về snapshot tại một thời điểm của tất cả kết nối đang hoạt động. |
 | `ListConnections(INetworkEndpoint)` | `public IReadOnlyCollection<IConnection> ListConnections(INetworkEndpoint networkEndpoint)` | Trả về các kết nối khớp với `networkEndpoint` qua chỉ mục IP phụ. |
 | `GenerateReport` / `WriteReportData` | `public string GenerateReport()` / `public void WriteReportData(Utf8JsonWriter writer)` | Xuất số lượng kết nối, số shard, B/s vào/ra, thống kê theo cipher và quyền, trạng thái hàng đợi `AsyncCallback` và thống kê `TimingWheel`. |
@@ -74,13 +74,13 @@ IConnectionHub hub = /* resolved from InstanceManager */;
 IConnectionGroupRegistry groups = /* resolved when .UseGroups() is enabled */;
 
 // 1. Broadcast tới tất cả kết nối đang hoạt động
-await hub.BroadcastAsync(serverNoticePacket, NetworkTransport.TCP, enableEncrypt: true, ct);
+await hub.BroadcastAsync(serverNoticePacket, enableEncrypt: true, ct);
 
 // 2. Multicast tới một nhóm có tên
-await hub.MulticastAsync(groups, "lobby:eu-1", roomStatePacket, NetworkTransport.TCP, enableEncrypt: true, ct);
+await hub.MulticastAsync(groups, "lobby:eu-1", roomStatePacket, enableEncrypt: true, ct);
 
 // 3. Multicast tới một nhóm, loại trừ người gửi
-await hub.MulticastExceptAsync(groups, "lobby:eu-1", senderConnection, chatPacket, NetworkTransport.TCP, enableEncrypt: true, ct);
+await hub.MulticastExceptAsync(groups, "lobby:eu-1", senderConnection, chatPacket, enableEncrypt: true, ct);
 ```
 
 ### 2. Sender dạng struct zero-allocation (`IConnectionSender<TState>`)

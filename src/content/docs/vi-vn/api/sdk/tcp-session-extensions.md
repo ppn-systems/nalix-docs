@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport.Extensions`  
 **Assembly:** `Nalix.SDK`
 
-Mọi tiện ích yêu cầu, truyền luồng, phản ứng, RPC và bảo mật cấp cao trong `Nalix.SDK` đều được cài đặt dưới dạng extension method trên **`ITransportSession`**, nghĩa là chúng hoạt động giống hệt nhau trên [TcpSession](./tcp-session.md), [UdpSession](./udp-session.md) và [WebSocketSession](./websocket-session.md).
+Mọi tiện ích yêu cầu, truyền luồng, phản ứng, RPC và bảo mật cấp cao trong `Nalix.SDK` đều được cài đặt dưới dạng extension method trên **`ITransportSession`**, nghĩa là chúng hoạt động giống hệt nhau trên [TcpSession](./tcp-session.md), [DatagramSession](./datagram-session.md) và [WebSocketSession](./websocket-session.md).
 
 ## Ánh xạ mã nguồn
 
@@ -20,6 +20,14 @@ Mọi tiện ích yêu cầu, truyền luồng, phản ứng, RPC và bảo mậ
 - `src/Nalix.SDK/Transport/Extensions/RpcExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/RekeyExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/TimeSyncExtensions.cs`
+- `src/Nalix.SDK/Transport/DatagramSession.cs`
+- `src/Nalix.SDK/Transport/TcpSession.cs`
+- `src/Nalix.SDK/Transport/TransportSession.cs`
+- `src/Nalix.SDK/Transport/WebSocketSession.cs`
+- `src/Nalix.SDK/DiagnosticsEvents.cs`
+- `src/Nalix.SDK/SdkTelemetry.cs`
+- `src/Nalix.SDK/Options/TransportOptions.cs`
 - `src/Nalix.SDK/Options/RequestOptions.cs`
 - `src/Nalix.SDK/Options/RequestOutcome.cs`
 
@@ -67,7 +75,10 @@ public static class RequestExtensions
 ```
 
 - **Tương quan theo Sequence**: Nếu `request.SequenceId == 0`, `RequestAsync` gán số sequence không bằng 0 tiếp theo từ phiên (`client.NextSequenceId()`) và chờ `TResponse` có `SequenceId` khớp qua `PacketAwaiter.AwaitAsync`.
-- **Tự động thử lại khi hết thời gian chờ**: Khi `options.RetryCount > 0`, `RequestAsync` thử lại ngay khi gặp `TimeoutException`, tối đa `options.RetryCount` lần bổ sung (mỗi lần chờ tối đa `options.TimeoutMs`).
+- **Tự động thử lại khi hết thời gian chờ**: Khi `options.RetryCount > 0`, `RequestAsync` thử lại ngay khi gặp `TimeoutException`, tối đa `options.RetryCount` lần bổ sung (mỗi lần chờ tối đa `options.TimeoutMs`). `options.RetryDelayMs` thêm độ trễ tăng theo cấp số nhân, có jitter, trước mỗi lần thử lại, và `options.DeadlineMs` giới hạn toàn bộ lời gọi (chờ kết nối lại, mọi lần thử và mọi độ trễ); khi hết ngân sách, lời gọi ném `TimeoutException`.
+- **Chờ kết nối lại**: Khi `!client.IsConnected` nhưng `AutoReconnectEnabled` được bật (hoặc đang kết nối lại), yêu cầu chờ `ReconnectSupervisor` sẵn sàng; nếu không, nó ném `NetworkException`.
+- **Mã hóa**: `options.Encrypt` (`bool?`) được xác định cho từng yêu cầu; `null` thì theo `TransportOptions.EncryptRequestsByDefault`.
+- **Telemetry**: Mỗi lời gọi tạo một activity `nalix.request`, các metric thời lượng/thử lại ([SdkTelemetry](./diagnostics.md)) và các sự kiện `DiagnosticsEvents.Requests.*`.
 - **`TryRequestAsync` không ném ngoại lệ**: Bắt `NetworkException` (trả về `RequestOutcomeKind.NotConnected` khi `!client.IsConnected`, hoặc `RequestOutcomeKind.Failed` trong trường hợp khác) và `TimeoutException` (trả về `RequestOutcomeKind.TimedOut`), đồng thời ném lại `OperationCanceledException` khi `ct` bị hủy.
 
 ```csharp
@@ -76,7 +87,7 @@ using Nalix.SDK.Transport.Extensions;
 
 RequestOutcome<InventoryResponse> outcome = await session.TryRequestAsync<InventoryResponse>(
     new GetInventoryPacket { CharacterId = 42 },
-    RequestOptions.Default.WithTimeout(3_000).WithRetry(2).WithEncrypt());
+    RequestOptions.Default.WithTimeout(3_000).WithRetry(2).WithRetryDelay(200).WithDeadline(10_000).WithEncrypt());
 
 if (outcome.Kind == RequestOutcomeKind.Ok)
 {
@@ -155,7 +166,7 @@ Với các máy chủ bạn không hoàn toàn tin cậy, hãy giữ `timeoutMs`
 ## 3. Đăng ký đẩy qua Channel và `IObservable<T>` (`ChannelExtensions` & `ObservableExtensions`)
 
 ```csharp
-// 1. ChannelReader của System.Threading.Channels có hoặc không có giới hạn
+// 1. Bounded or unbounded System.Threading.Channels reader
 ChannelReader<WorldStatePacket> reader = session.SubscribeChannel<WorldStatePacket>(
     boundedCapacity: 64,
     fullMode: BoundedChannelFullMode.DropOldest,
@@ -166,7 +177,7 @@ await foreach (WorldStatePacket update in reader.ReadAllAsync(ct))
     RenderWorld(update);
 }
 
-// 2. IObservable<TEvent> theo kiểu reactive
+// 2. Reactive IObservable<TEvent>
 using IDisposable rxSub = session
     .AsObservable<ChatBroadcastPacket>()
     .Subscribe(pkt => Console.WriteLine($"{pkt.Sender}: {pkt.Message}"));
@@ -216,7 +227,22 @@ public static class RekeyExtensions
 }
 ```
 
-`RekeyAsync` yêu cầu `session.State.Secret` đang hoạt động. Nó dẫn xuất khóa 32 byte mới qua `HandshakeX25519.DeriveRekeySecret(session.State.Secret.AsSpan())`, gửi khung `Control(ControlType.SESSION_REKEY, seqId, PacketFlags.SYSTEM, ProtocolReason.NONE)`, cập nhật `session.State.Secret = newKey` và gọi `session.ResetSequenceCounters()`, rồi chờ `Control(ControlType.SESSION_REKEY_ACK, SequenceId == seqId)` (khôi phục về `previousKey` nếu thất bại).
+`RekeyAsync` yêu cầu `session.State.Secret` đang hoạt động. Nó dẫn xuất khóa 32 byte mới qua `HandshakeX25519.DeriveRekeySecret(session.State.Secret.AsSpan())`, gửi khung `Control(ControlType.SESSION_REKEY, seqId, PacketFlags.SYSTEM, ProtocolReason.NONE)`, cập nhật `session.State.Secret = newKey` và gọi `session.ResetSequenceCounters()` (trên TCP và WebSocket, dưới khóa gửi, ngay sau khi yêu cầu được ghi), rồi chờ `Control(ControlType.SESSION_REKEY_ACK, SequenceId == seqId)` trong `Options.ConnectTimeoutMillis` (`5000` ms khi là `0`). Nếu yêu cầu chưa rời đi, không có gì thay đổi; nếu nó đã được ghi trên transport có thứ tự (TCP, WebSocket) và chỉ phần xác nhận thất bại, khóa mới được giữ lại; trên transport không có thứ tự, khóa được khôi phục về `previousKey`. `DiagnosticsEvents.Rekey.Started` / `Completed` / `Failed` được phát ra trong quá trình này.
+
+## Các kiểu phiên và kiểu hỗ trợ
+
+Các tiện ích ở trên hoạt động trên mọi `ITransportSession`; các kiểu cụ thể mà chúng được dùng cùng được mô tả trong trang riêng:
+
+| Kiểu | Loại | Trang |
+| :--- | :--- | :--- |
+| `TransportSession` | `public abstract class : IDisposable, IAsyncDisposable, ITransportSession` | [Transport Session](./transport-session.md) |
+| `TcpSession` | `public class : TransportSession` | [TCP Session](./tcp-session.md) |
+| `WebSocketSession` | `public class : TransportSession` | [WebSocket Session](./websocket-session.md) |
+| `DatagramSession` | `public sealed class : TransportSession` | [Datagram Session](./datagram-session.md) |
+| `TransportOptions` | `public sealed partial class : ConfigurationLoader` | [Transport Options](../options/sdk/transport-options.md) |
+| `RequestOptions` | `public sealed record` | [Request Options & RequestOutcome&lt;T&gt;](../options/sdk/request-options.md) |
+| `TimeSyncExtensions` / `TimeSyncBuilder` | `public static class` / nested `readonly ref struct` | [Control Utilities](./control-utilities.md) |
+| `DiagnosticsEvents` (`Session`, `Handshake`, `Resumption`, `Reconnect`, `KeepAlive`, `Rekey`, `Requests`, `Frames`, `Subscriptions`) và `SdkTelemetry` | `public static class` | [Session Diagnostics](./diagnostics.md) |
 
 ## API liên quan
 

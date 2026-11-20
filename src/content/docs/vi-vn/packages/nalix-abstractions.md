@@ -35,7 +35,7 @@ Các kiểu này định nghĩa gói tin trên đường truyền và chỉ dẫ
 - `PacketAttribute` — Đánh dấu một lớp gói tin để tự động đăng ký lúc biên dịch vào `PacketRegistry`.
 - `GenerateFormatterAttribute` — Chỉ dẫn `SerializeFormatterGenerator` sinh một formatter nhị phân có kiểu rõ ràng.
 - `SerializePackableAttribute`, `SerializeOrderAttribute`, `SerializeIgnoreAttribute`, `SerializeHeaderAttribute`, `SerializeDynamicSizeAttribute` — Các điều khiển bố cục nhị phân chi tiết (`SerializeLayout.Explicit` hoặc `SerializeLayout.Sequential`).
-- `PacketHeader` & `PacketFlags` — Header 6 byte trên đường truyền (`OpCode`, `Flags`, `Priority`, `SequenceId`) và các cờ bit (`NONE`, `COMPRESSED`, `ENCRYPTED`, `ALERT`, `FRAGMENTED`, `SYSTEM`).
+- `PacketHeader` & `PacketFlags` — Header 6 byte trên đường truyền (`OpCode`, `Flags`, `Priority`, `SequenceId`) và các cờ bit (`NONE`, `COMPRESSED`, `ENCRYPTED`, `FRAGMENTED`, `SYSTEM`).
 
 ### 2. Contract handler & middleware
 
@@ -45,8 +45,8 @@ Dùng ở phía máy chủ để định tuyến gói tin đến đến các met
 
 - `PacketHandlerAttribute` — Đánh dấu một lớp là controller handler gói tin, được `PacketHandlerGenerator` phát hiện.
 - `PacketOpcodeAttribute` — Gắn một method handler với một opcode 16 bit cụ thể.
-- `PacketTransportAttribute` — Giới hạn một method handler trong một `NetworkTransport` cụ thể (`TCP`, `UDP`, `WEBSOCKET`).
-- `PacketPermissionAttribute` — Khai báo `PermissionLevel` yêu cầu (`NONE`, `POW_VERIFIED`, `ESTABLISHED`, `GUEST`, `READ_ONLY`, `USER`, `SUPERVISOR`, `TENANT_ADMINISTRATOR`, `SYSTEM_ADMINISTRATOR`, `OWNER`) và `PermissionEvaluation` (`MinimumLevel` hoặc `StrictMatch`).
+- `PacketDeliveryAttribute` — Chọn `DeliveryMethod` và kênh mà các phản hồi của handler dùng trên kết nối datagram (`PacketDeliveryAttribute(DeliveryMethod method, byte channel = 0)`); kết nối stream bỏ qua attribute này.
+- `PacketPermissionAttribute` — Khai báo `PermissionLevel` yêu cầu (`NONE`, `POW_VERIFIED`, `ESTABLISHED`, `OBSERVER`, `GUEST`, `READ_ONLY`, `USER`, `SUPERVISOR`, `TENANT_ADMINISTRATOR`, `SYSTEM_ADMINISTRATOR`, `OWNER`) và `PermissionEvaluation` (`MinimumLevel` hoặc `StrictMatch`).
 - `PacketRateLimitAttribute` — Gắn giới hạn tốc độ theo endpoint (`RequestsPerSecond`, `Burst`) vào một handler.
 - `PacketTimeoutAttribute` — Áp dụng timeout thực thi (tính bằng mili giây) cho một method handler.
 - `PacketEncryptionAttribute` — Yêu cầu gói tin đến phải đã được mã hóa trên đường truyền (`EncryptedOnWire`).
@@ -55,7 +55,7 @@ Dùng ở phía máy chủ để định tuyến gói tin đến đến các met
 - `IPacketMiddleware<TPacket>` — Contract interceptor của pipeline (`InvokeAsync`), sắp xếp theo `[MiddlewareOrder]` và `[MiddlewareStage]`.
 
 ```csharp
-using Nalix.Abstractions.Networking;
+using Nalix.Abstractions.Networking.Datagrams;
 using Nalix.Abstractions.Networking.Packets;
 using Nalix.Abstractions.Security;
 
@@ -63,7 +63,7 @@ using Nalix.Abstractions.Security;
 public sealed class SamplePingHandlers
 {
     [PacketOpcode(0x1001)]
-    [PacketTransport(NetworkTransport.TCP)]
+    [PacketDelivery(DeliveryMethod.ReliableOrdered)]
     [PacketPermission(PermissionLevel.GUEST)]
     public ValueTask HandlePingAsync(IPacketContext<PingPacket> context)
         => context.Sender.SendAsync(context.Packet);
@@ -78,7 +78,11 @@ public sealed class SamplePingHandlers
 
 **Thành phần chính**
 
-- `IConnection` — Contract kết nối tổng hợp, cung cấp định danh (`ConnectionId`, `NetworkEndpoint`, `UserId`), transport (`TCP`, `UDP`, `WEBSOCKET`), `Attributes` (`IObjectMap<AttributeKey, object>`), `Level` (`PermissionLevel`), `Algorithm` (`CipherSuiteType`), `Secret`, theo dõi lỗi (`IConnectionErrorTracked`), giới hạn tốc độ và số liệu lưu lượng (`IConnectionTrafficMetrics`).
+- `IConnection` — Contract kết nối tổng hợp, cung cấp định danh (`ConnectionId`, `NetworkEndpoint`, `UserId`), `Transport` (`IConnection.ITransport`: TCP, WebSocket hoặc phiên datagram), `Attributes` (`IObjectMap<AttributeKey, object>`), `Level` (`PermissionLevel`), `Algorithm` (`CipherSuiteType`), `Secret`, theo dõi lỗi (`IConnectionErrorTracked`), giới hạn tốc độ và số liệu lưu lượng (`IConnectionTrafficMetrics`).
+- `IDatagramTransport` — `IConnection.ITransport` của một phiên datagram, bổ sung `SendAsync(message, DeliveryMethod, channel, ct)` và `WithDelivery(DeliveryMethod, channel)`.
+- `DeliveryMethod` — `Unreliable`, `UnreliableSequenced`, `ReliableUnordered`, `ReliableOrdered`, `ReliableSequenced` (`Nalix.Abstractions.Networking.Datagrams`).
+- `IDatagramTicketIssuer` và `DatagramTicketInfo` — Cấp và mô tả ticket dùng một lần để mở phiên datagram trên một phiên stream đã thiết lập.
+- `IDatagramProtection` và `IDatagramProtectionFactory` — Contract AEAD seal/open cho datagram và factory dẫn xuất khóa từ bí mật phiên và các giá trị ticket (được triển khai trong `Nalix.Codec`).
 - `IConnectionHub` — Registry toàn máy chủ để theo dõi, truy vấn và phát tin tới các kết nối đang hoạt động.
 - `IConnectionGuard` — Kiểm soát chấp nhận ở tầng socket, thực thi hạn ngạch và cấm IP tăng dần.
 - `IConnectionGroupRegistry` — Quản lý các nhóm kết nối có tên để phát tin có mục tiêu.

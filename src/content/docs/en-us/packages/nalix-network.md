@@ -100,8 +100,8 @@ public sealed class GameProtocol : Protocol
 
 - [Protocol](../api/network/protocol.md)
 - [TCP Listener](../api/network/tcp-listener.md)
-- [Datagram Listener](../api/network/udp-listener.md)
-- [Datagram Options](../api/options/network/datagram-guard-options.md)
+- [Datagram Listener](../api/network/datagram-listener.md)
+- [Datagram Options](../api/options/network/datagram-options.md)
 - [WebSocket Listener](../api/network/websocket-listener.md)
 - [Connection](../api/network/connection/connection.md)
 - [Connection Guard](../api/network/connection/connection-guard.md)

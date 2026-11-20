@@ -22,7 +22,7 @@ flowchart LR
         CGO["ConnectionGuardOptions"]
         TPO["TrustedProxyOptions"]
         CBSO["ConnectionBanStoreOptions / ConnectionBlacklistStoreOptions"]
-        DGO["DatagramGuardOptions"]
+        DGO["DatagramOptions"]
         NCO["NetworkCallbackOptions"]
         CHO["ConnectionHubOptions"]
         TWO["TimingWheelOptions"]
@@ -33,7 +33,7 @@ flowchart LR
         TCP["TcpListenerBase / SocketConnection"]
         WS["WebSocketListenerBase"]
         CG["ConnectionGuard"]
-        DG["DatagramGuard"]
+        DG["DatagramListener"]
         AC["AsyncCallback"]
         Hub["ConnectionHub"]
         TW["TimingWheel"]
@@ -58,19 +58,19 @@ flowchart LR
 
 | Loại tùy chọn | Namespace / Package | Mục INI | Vai trò chính |
 | :--- | :--- | :--- | :--- |
-| [NetworkSocketOptions](./network-socket-options.md) | `Nalix.Network.Options` | `[NetworkSocket]` | Cổng (`57206`), backlog (`512`), IPv6 dual-stack (`EnableDualStack = true`), buffer (`65536`), mức song song khi accept, và giới hạn datagram UDP (`1440`). |
+| [NetworkSocketOptions](./network-socket-options.md) | `Nalix.Network.Options` | `[NetworkSocket]` | Cổng (`57206`), backlog (`512`), IPv6 dual-stack (`EnableDualStack = true`), buffer (`65536`) và mức song song khi accept. |
 | `NetworkWebSocketOptions` | `Nalix.Network.Options` | `[NetworkWebSocket]` | Cổng WebSocket (`57207`), đường dẫn (`"/ws/"`), subprotocol (`"nalix.v1"`), endpoint DevOps (`/healthz`, `/version`, `/metrics`), và `AllowedOrigins` chống CSWSH. |
 | `ProxyProtocolOptions` | `Nalix.Network.Options` | `[ProxyProtocol]` | Lấy IP client thật từ PROXY Protocol v1/v2 của HAProxy / AWS NLB (`Enabled`, `RequireTrustedProxy`, `HeaderTimeoutMs = 2000`, `MaxPendingProxyConnections = 1024`). |
 | `ForwardedHeadersOptions` | `Nalix.Network.Options` | `[ForwardedHeaders]` | Phân tích header proxy ở tầng L7 cho `WebSocketListenerBase` (thứ tự ưu tiên: `CF-Connecting-IP`, `X-Real-IP`, `X-Forwarded-For`; proxy phải xóa các giá trị do client gửi lên). |
 | `VarIntFramingOptions` | `Nalix.Network.Options` | `[VarIntFraming]` | Kích thước payload tối đa của khung VarInt (`MaxPayloadSize = 131_072`). |
 | [ConnectionQuotaOptions](./connection-quota-options.md) | `Nalix.Network.Options` | `[ConnectionQuota]` | Giới hạn đồng thời theo IP (`10`) và theo subnet (`50`), cửa sổ tốc độ (`5s`), phát hiện bùng phát, và Proof-of-Work thích ứng (`AdaptivePowMinDifficulty = 12`). |
-| [ConnectionGuardOptions](./connection-guard-options.md) | `Nalix.Network.Options` | `[ConnectionGuard]` | Trần kết nối toàn cục (`MaxConnections = 2000`), cấm lũy tiến (`EnableProgressiveBanning = true`), ngưỡng lỗi (`50`), và tốc độ gói UDP (`128` gói/s). |
+| [ConnectionGuardOptions](./connection-guard-options.md) | `Nalix.Network.Options` | `[ConnectionGuard]` | Trần kết nối toàn cục (`MaxConnections = 2000`), cấm lũy tiến (`EnableProgressiveBanning = true`), ngưỡng lỗi (`50`) với `ErrorWindow` (`1m`), và tốc độ gói mỗi kết nối (`128` gói/s). |
 | [TrustedProxyOptions](./trusted-proxy-options.md) | `Nalix.Network.Options` | `[TrustedProxy]` | Danh sách cho phép các reverse proxy / CDN đáng tin cậy (`"trusted_proxies.txt"`) và trần kết nối nới lỏng (`5000`). |
 | [ConnectionBanStoreOptions](./connection-ban-store-options.md) | `Nalix.Network.Options` | `[ConnectionBanStore]` | Lưu bền vững xuống đĩa (`"banned_ips.bin"`) và cửa sổ suy giảm 7 ngày cho các lệnh cấm IP động. |
 | [ConnectionBlacklistStoreOptions](./connection-blacklist-store-options.md) | `Nalix.Network.Options` | `[ConnectionBlacklistStore]` | Danh sách chặn IP/CIDR cố định, nạp từ `"blacklist.txt"`. |
-| `DatagramGuardOptions` | `Nalix.Network.Options` | `[DatagramGuard]` | Cửa sổ nguồn UDP IPv4 (`65,536`) / IPv6 (`16,384`) có giới hạn và kích thước cửa sổ chống phát lại (`UdpReplayWindowSize = 512` bit). |
+| [DatagramOptions](./datagram-options.md) | `Nalix.Network.Options` | `[Datagram]` | Datagram (NDP) listener: thời hạn ticket (`10` s), giới hạn phiên (`100,000`), số worker nhận (`1`), và bộ đệm socket (`4 MiB`). |
 | [ConnectionHubOptions](./connection-hub-options.md) | `Nalix.Network.Options` | `[ConnectionHub]` | Số shard (`max(1, ProcessorCount)`), gom lô broadcast, mức song song khi ngắt kết nối hàng loạt, và ghi log độ trễ. |
-| [TimingWheelOptions](./timing-wheel-options.md) | `Nalix.Network.Options` | `[TimingWheel]` | Số bucket (`512`), chu kỳ tick (`1000` ms), và thời gian chờ không hoạt động của kết nối (`60,000` ms). |
+| [TimingWheelOptions](./timing-wheel-options.md) | `Nalix.Network.Options` | `[TimingWheel]` | Số bucket (`512`), chu kỳ tick (`1000` ms), thời gian chờ không hoạt động của kết nối (`60,000` ms), và thời gian chờ handshake (`15,000` ms). |
 | [NetworkCallbackOptions](./network-callback-options.md) | `Nalix.Network.Options` | `[NetworkCallback]` | Số gói đang chờ tối đa trên mỗi kết nối (`16`), `OverflowPolicy`, giới hạn callback toàn cục/theo IP (`10,000` / `64`), và `FairnessMapSize` (`16,384`). |
 | [SessionStoreOptions](./session-store-options.md) | `Nalix.Runtime.Options` | `[SessionStore]` | TTL để tiếp tục phiên sau khi ngắt kết nối (`SessionTtl = 5m`) và `MinAttributesForPersistence` (`10`). |
 | [CompressionOptions](./compression-options.md) | `Nalix.Codec.Options` | `[Compression]` | Ngưỡng nén LZ4 khi gửi (`MinSizeToCompress = 512`) và chốt chặn zip-bomb khi nhận (`MaxDecompressedSize = 32 MB`). |

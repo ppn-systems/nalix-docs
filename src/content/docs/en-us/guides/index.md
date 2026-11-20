@@ -20,9 +20,9 @@ These guides walk through real, runnable samples — start with the one closest 
 ## Networking
 
 - [Client Session Guide](./networking/connecting-clients.md) — connecting TCP/UDP sessions with `Nalix.SDK`
-- [UDP Server Guide](./networking/udp-server.md) — building low-latency datagram services
+- [UDP Server Guide](./networking/datagram-server.md) — building low-latency datagram services
 - [TCP Patterns Guide](./networking/tcp-patterns.md) — request/response and manual listener wiring
-- [UDP Security Guide](./networking/udp-security.md) — secure session handover for UDP
+- [UDP Security Guide](./networking/datagram-security.md) — secure session handover for UDP
 - [Idle Timeout Configuration](./networking/idle-timeout-configuration.md) — tuning connection timeouts
 
 ## Extensibility

@@ -8,7 +8,7 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Connections`  
 **Assembly:** `Nalix.Network`
 
-`Connection` (`public sealed partial class Connection : IConnection, IConnectionErrorTracked, IConnectionTrafficMetrics, IPooledConnectContextPool, TimingWheel.ITimeoutTrackedConnection`) là đại diện phía máy chủ cho một phiên client đã kết nối. Nó sở hữu `SocketConnection` bên dưới, các transport TCP và UDP tùy chọn, trạng thái mật mã (`Secret`, `Algorithm`, `Level`), `Attributes` lấy từ pool, và các cầu nối sự kiện `AsyncCallback` hai làn.
+`Connection` (`public sealed partial class Connection : IConnection, IConnectionErrorTracked, IConnectionTrafficMetrics, IPooledConnectContextPool, TimingWheel.ITimeoutTrackedConnection`) là đại diện phía máy chủ cho một phiên client đã kết nối. Nó sở hữu `SocketConnection` bên dưới, đóng vai trò transport TCP của chính nó (`IConnection.ITransport`, `IConnection.ISocketTransport`), trạng thái mật mã (`Secret`, `Algorithm`, `Level`), `Attributes` lấy từ pool, và các cầu nối sự kiện `AsyncCallback` hai làn.
 
 ## Nguồn mã
 
@@ -65,9 +65,7 @@ flowchart TD
 | `UserId` | `string?` | Mã người dùng ứng dụng tùy chọn (được điền bởi `ConnectionUserExtensions.MapToUserAsync`). |
 | `NetworkEndpoint` | `INetworkEndpoint` | Endpoint client từ xa (ảnh chụp `SocketEndpoint`; giữ IP client thật khi đứng sau PROXY Protocol). |
 | `PacketClassifier` | `IOpCodeExtractor` | Bộ trích xuất opcode được gắn bởi `IProtocol` của listener. |
-| `TCP` | `IConnection.ITransport` | Transport tin cậy chính (`SocketTcpTransport`). Ném `ObjectDisposedException` nếu đã dispose. |
-| `UDP` | `IConnection.ITransport?` | Transport UDP đi kèm (`SocketUdpTransport`), hoặc `null` khi UDP chưa được thiết lập cho kết nối này. |
-| `IsUdpCreated` | `bool` | `true` khi `UDP` đã được tạo. |
+| `Transport` | `IConnection.ITransport` | Transport của kết nối: chính `Connection` (`Connection.Transport.cs`). Ném `ObjectDisposedException` nếu đã dispose. Thay thế các thành phần `TCP` / `UDP` / `IsUdpCreated` trước đây; một phiên datagram là một `DatagramConnection` riêng. |
 | `Attributes` | `IObjectMap<AttributeKey, object>` | Bản đồ attribute lấy từ pool, được thuê khi cần (`ObjectMap<AttributeKey, object>`) để lưu trạng thái theo kết nối. |
 | `RateLimitCache` | `ConcurrentDictionary<ushort, object>` | Bộ đệm `ScopedEndpoint` theo kết nối, được `PolicyRateLimiter` dùng. |
 | `Level` | `PermissionLevel` | Mức ủy quyền hiện tại (mặc định là `PermissionLevel.NONE`). |
@@ -79,7 +77,7 @@ flowchart TD
 | `ExcludeFromIdleTimeout` | `bool` | Khi là `true`, miễn kết nối này khỏi việc thu hồi nhàn rỗi của `TimingWheel`. |
 | `PendingPackets` | `int` | Số gói đang chờ trong `CallbackLane.Process`. |
 | `ErrorCount` | `int` | Tổng số lỗi protocol/transport được ghi nhận qua `IncrementErrorCount()`. |
-| `BytesSent` / `BytesReceived` | `long` | Tổng byte trên dây đã truyền qua TCP và UDP. |
+| `BytesSent` / `BytesReceived` | `long` | Byte thô trên dây: bộ đếm của `SocketConnection` TCP cộng với byte được thêm qua `IncrementBytesSent` / `IncrementBytesReceived`. |
 | `PacketsDropped` | `long` | Tổng số gói bị loại của kết nối do backpressure hoặc kiểm tra hợp lệ thất bại. |
 | `IsDisposed` | `bool` | `true` khi backing của kết nối đã được dispose và trả về pool. |
 | `MessageProcessing` | `event EventHandler<IConnectionEventArgs>` | Được phát qua `OnFrameReceived` (`CallbackLane.Process` hoặc `InvokeInline`) khi có khung đến. |
@@ -100,6 +98,8 @@ flowchart TD
 ## API liên quan
 
 - [Socket Connection](../socket-connection.md)
+- [Datagram Listener](../datagram-listener.md) (`DatagramConnection`)
+- [WebSocket Connection](../websocket-connection.md)
 - [Connection Hub](./connection-hub.md)
 - [Connection Events](./connection-events.md)
 - [Connection Extensions](./connection-extensions.md)

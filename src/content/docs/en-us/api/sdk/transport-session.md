@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport`  
 **Assembly:** `Nalix.SDK`
 
-`ITransportSession` and its abstract base implementation `TransportSession` (`public abstract class TransportSession : IDisposable, IAsyncDisposable, ITransportSession`) define the unified client session contract across [TcpSession](./tcp-session.md), [DatagramSession](./udp-session.md), and [WebSocketSession](./websocket-session.md). Ephemeral security and connection state (`Secret`, `SessionToken`, `EncryptionEnabled`, `LocalPort`) is stored in `SessionState`, allowing a `DatagramSession` to derive its keys from the `Secret` of the stream session it is bound to.
+`ITransportSession` and its abstract base implementation `TransportSession` (`public abstract class TransportSession : IDisposable, IAsyncDisposable, ITransportSession`) define the unified client session contract across [TcpSession](./tcp-session.md), [DatagramSession](./datagram-session.md), and [WebSocketSession](./websocket-session.md). Ephemeral security and connection state (`Secret`, `SessionToken`, `EncryptionEnabled`, `LocalPort`) is stored in `SessionState`, allowing a `DatagramSession` to derive its keys from the `Secret` of the stream session it is bound to.
 
 ## Source Mapping
 
@@ -83,7 +83,7 @@ public class SessionState
 | `LocalPort` | `int` | `0` | Local TCP socket port recorded by `TcpSession.ConnectAsync` and `ConnectWithProxyAsync`; cleared by `Reset()`. |
 
 :::tip[Datagram sessions]
-A `DatagramSession` is constructed from an established `TransportSession` (`new DatagramSession(stream)`) and shares that session's `State`, so it derives its datagram keys from `State.Secret`. See [DatagramSession](./udp-session.md).
+A `DatagramSession` is constructed from an established `TransportSession` (`new DatagramSession(stream)`) and shares that session's `State`, so it derives its datagram keys from `State.Secret`. See [DatagramSession](./datagram-session.md).
 :::
 
 ## `ITransportSession` & `TransportSession` Members
@@ -139,7 +139,7 @@ When `Options.KeepAliveIntervalMillis > 0`, `TransportSession` runs a background
 ## Related APIs
 
 - [TCP Session](./tcp-session.md)
-- [Datagram Session](./udp-session.md)
+- [Datagram Session](./datagram-session.md)
 - [WebSocket Session](./websocket-session.md)
 - [Session Extensions](./tcp-session-extensions.md)
 - [Transport Options](../options/sdk/transport-options.md)

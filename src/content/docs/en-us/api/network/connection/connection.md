@@ -98,7 +98,7 @@ flowchart TD
 ## Related APIs
 
 - [Socket Connection](../socket-connection.md)
-- [Datagram Listener](../udp-listener.md) (`DatagramConnection`)
+- [Datagram Listener](../datagram-listener.md) (`DatagramConnection`)
 - [WebSocket Connection](../websocket-connection.md)
 - [Connection Hub](./connection-hub.md)
 - [Connection Events](./connection-events.md)

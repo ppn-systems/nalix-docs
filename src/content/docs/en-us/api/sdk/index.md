@@ -57,7 +57,7 @@ flowchart TD
 ### Transport Sessions
 - [Transport Session (ITransportSession & TransportSession)](./transport-session.md): Base contract, `SessionState`, `ReconnectSupervisor`, keepalive probing, and direct pending-request dispatch.
 - [TCP Session (TcpSession)](./tcp-session.md): Framed reliable stream client with `ConnectWithProxyAsync` and synchronous `Send`.
-- [Datagram Session (DatagramSession)](./udp-session.md): NDP-over-UDP client that bootstraps from an established stream session with a ticket, seals every datagram with ChaCha20-Poly1305, and supports delivery methods and channels.
+- [Datagram Session (DatagramSession)](./datagram-session.md): NDP-over-UDP client that bootstraps from an established stream session with a ticket, seals every datagram with ChaCha20-Poly1305, and supports delivery methods and channels.
 - [WebSocket Session (WebSocketSession)](./websocket-session.md): `ws://` and `wss://` binary WebSocket client (compatible with desktop and Blazor WASM).
 - [Frame Reader and Sender](./frame-reader-and-sender.md): Internal TCP and WebSocket framing, fragmentation, and sequence tracking.
 

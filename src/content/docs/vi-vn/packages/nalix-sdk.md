@@ -1,11 +1,11 @@
 ---
 title: Nalix.SDK
-description: Gói transport phía client cấp 3 để kết nối ứng dụng .NET với máy chủ Nalix qua TCP hoặc UDP, với bắt tay X25519, tiếp tục phiên và ghép cặp request/response.
+description: Gói transport phía client cấp 3 để kết nối ứng dụng .NET với máy chủ Nalix qua TCP, WebSocket hoặc datagram (NDP qua UDP), với bắt tay X25519, tiếp tục phiên và ghép cặp request/response.
 section: Packages
 package: Nalix.SDK
 ---
 
-`Nalix.SDK` là gói transport phía client **cấp 3** để kết nối các ứng dụng .NET 10 (console, desktop, di động, hoặc client Unity/Godot) với máy chủ Nalix qua TCP hoặc UDP.
+`Nalix.SDK` là gói transport phía client **cấp 3** để kết nối các ứng dụng .NET 10 (console, desktop, di động, hoặc client Unity/Godot) với máy chủ Nalix qua các phiên TCP, WebSocket hoặc datagram (NDP qua UDP).
 
 :::tip[Bắt đầu với `TcpSession`]
 `TcpSession` là kiểu phiên client chính. Nó quản lý kết nối socket, các vòng lặp nhận frame chạy nền, các probe keepalive PING/PONG tự động, kết nối lại theo backoff lũy thừa (`ReconnectSupervisor`), bắt tay X25519, và ghép cặp request/response không có race condition.
@@ -15,7 +15,8 @@ package: Nalix.SDK
 
 ```mermaid
 flowchart TD
-    A["TransportOptions"] --> B["TcpSession / UdpSession"]
+    A["TransportOptions"] --> B["TcpSession / WebSocketSession"]
+    B --> B2["DatagramSession (ticket over the stream session)"]
     B --> C["ConnectAsync()"]
     C --> D["ConnectWithResumeAsync() / HandshakeAsync()"]
     D --> E["OnReady Fired & KeepAlive Started"]
@@ -26,17 +27,19 @@ flowchart TD
 
 - **`TransportSession`** — Lớp cơ sở trừu tượng triển khai `ITransportSession`, `State` (`SessionState`), `WaitUntilReadyAsync`, `OnConnected`, `OnReady`, `OnDisconnected`, `OnMessageReceived`, `OnError`, probe keepalive và ghép cặp các request đang chờ.
 - **`TcpSession`** — Phiên client TCP có khung, dùng pool `SocketAsyncEventArgs` và hỗ trợ kết nối lại tự động.
-- **`UdpSession`** — Phiên datagram UDP đi kèm hoặc độc lập, tự động thêm token phiên 8 byte (`SessionToken`) đã thương lượng qua TCP.
+- **`WebSocketSession`** — Phiên client WebSocket nhị phân (cũng dùng được trên Blazor WASM).
+- **`DatagramSession`** — Phiên NDP qua UDP được tạo từ một phiên stream đã thiết lập (`new DatagramSession(stream)`); nó yêu cầu ticket qua stream, tự suy ra khóa riêng từ `State.Secret`, niêm phong mỗi datagram bằng ChaCha20-Poly1305, và hỗ trợ `DeliveryMethod` cùng các kênh.
 - **`SessionState`** — Trạng thái runtime tạm thời (`Secret`, `SessionToken`, `EncryptionEnabled`, `LocalPort`), tách khỏi `TransportOptions` bền vững.
 - **Mở rộng transport (`Nalix.SDK.Transport.Extensions`)**:
   - `HandshakeExtensions` (`HandshakeAsync`)
   - `ResumeExtensions` (`ResumeSessionAsync`, `ConnectWithResumeAsync`)
-  - `RequestExtensions` (`RequestAsync<TResponse>`, `TryRequestAsync<TResponse>`, `CallAsync<TResponse>`)
+  - `RequestExtensions` (`RequestAsync<TResponse>`, `TryRequestAsync<TResponse>`)
   - `StreamExtensions` (`StreamAsync<TResponse>`)
   - `ControlExtensions` & `PingExtensions` (`NewControl`, `SendControlAsync`, `AwaitControlAsync`, `PingAsync`, `SyncTimeAsync`)
   - `CipherExtensions` & `RekeyExtensions` (`UpdateCipherAsync`, `RekeyAsync`)
   - `TransportSessionSubscriptions` (`On<TPacket>`, `OnExact<TPacket>`, `Subscribe(params IDisposable[])`)
-- **Phân phối luồng (`Nalix.SDK.Dispatch`)** — `IThreadDispatcher` và `InlineDispatcher` để chuyển gói tin nhận được sang luồng chính của game engine hoặc UI.
+- **Khả năng quan sát** — `DiagnosticsEvents` (`DiagnosticListener` tên `"SDK"`) và `SdkTelemetry` (`ActivitySource` / `Meter` tên `"Nalix.SDK"`), xem [Chẩn đoán phiên](../api/sdk/diagnostics.md).
+- **Phân phối luồng (`Nalix.SDK`)** — `IThreadDispatcher` và `InlineDispatcher` để chuyển gói tin nhận được sang luồng chính của game engine hoặc UI.
 - **Sinh client RPC có kiểu (`[RpcService]`)** — `RpcClientGenerator` tự động sinh các triển khai `<ServiceName>_RpcClient` được phân giải qua `session.CreateRpcClient<TService>()` cho các interface có chú thích `[RpcService]`.
 
 ## Ví dụ nhanh
@@ -83,7 +86,7 @@ await client.DisconnectAsync();
 | `CompressionEnabled` | `true` | Bật nén LZ4 cho các frame đi ra vượt quá `CompressionThreshold`. |
 | `CompressionThreshold` | `512` | Kích thước payload tối thiểu (byte) để kích hoạt nén LZ4. |
 | `AsyncQueueCapacity` | `1024` | `[ValueRange(1, 65536)]` Cài đặt dung lượng dành trước (dự phòng). |
-| `MaxUdpDatagramSize` | `1400` | `[ValueRange(64, 65507)]` Kích thước datagram UDP tối đa tính cả token phiên 8 byte. |
+| `EncryptRequestsByDefault` | `false` | Mã hóa các yêu cầu không đặt `RequestOptions.Encrypt` sau khi bắt tay hoàn tất. Giữ `false` khi transport đã được bọc trong TLS. |
 | `ServerPublicKey` | `null` | Khóa công khai X25519 của máy chủ dạng HEX được ghim, tùy chọn, để chống tấn công MitM. |
 | `AllowTofu` | `true` | Cho phép khám phá khóa công khai theo Trust-On-First-Use (TOFU) khi chưa đặt `ServerPublicKey`. |
 | `PersistTofuKey` | `false` | Lưu `ServerPublicKey` được khám phá qua TOFU vào kho cấu hình sau khi xác minh. |
@@ -110,12 +113,16 @@ Các giá trị phiên tạm thời — `Secret` (`Bytes32`), `SessionToken` (`u
 | :--- | ---: | :--- |
 | `TimeoutMs` | `5000` | Phải `>= 0`; `0` chờ vô thời hạn. Cấu hình qua `.WithTimeout(ms)`. |
 | `RetryCount` | `0` | Phải `>= 0`; việc thử lại **chỉ** xảy ra khi có `TimeoutException`. Cấu hình qua `.WithRetry(count)`. |
-| `Encrypt` | `false` | Mã hóa frame yêu cầu đi ra. Cấu hình qua `.WithEncrypt(bool)`. |
+| `DeadlineMs` | `0` | Phải `>= 0`; ngân sách tổng cho toàn bộ lời gọi (`0` = không có). Cấu hình qua `.WithDeadline(ms)`. |
+| `RetryDelayMs` | `0` | Phải `>= 0`; độ trễ cơ sở trước một lần thử lại, nhân đôi sau mỗi lần thử lại tiếp theo kèm jitter. Cấu hình qua `.WithRetryDelay(ms)`. |
+| `Encrypt` | `null` | `bool?`: `true` luôn mã hóa, `false` không bao giờ, `null` theo `TransportOptions.EncryptRequestsByDefault`. Cấu hình qua `.WithEncrypt(bool?)`. |
 
 ## Trang API chính
 
 - [Transport Session](../api/sdk/transport-session.md)
 - [TCP Session](../api/sdk/tcp-session.md)
+- [WebSocket Session](../api/sdk/websocket-session.md)
+- [Datagram Session](../api/sdk/datagram-session.md)
 - [Handshake Extensions](../api/sdk/handshake-extensions.md)
 - [Resume Extensions](../api/sdk/resume-extensions.md)
 - [Session Extensions](../api/sdk/tcp-session-extensions.md)

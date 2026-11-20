@@ -13,7 +13,7 @@ package: Nalix.Codec
 - **Catalog gói tin (`Nalix.Codec.DataFrames`)**: Các lớp gói tin cơ sở (`FrameBase`, `PacketBase<TSelf>`) và bảng tra cứu `PacketRegistry` đã đóng băng.
 - **Pooling gói tin (`Nalix.Codec.Pooling`)**: `PacketFactory<TPacket>`, `PacketScope<TPacket>` và `PacketBatchScope<TPacket>` để thuê gói tin không cấp phát bộ nhớ.
 - **Nén (`Nalix.Codec.LZ4`)**: Nén và giải nén khối LZ4 có pool, không cấp phát bộ nhớ qua `LZ4Codec`.
-- **Mật mã (`Nalix.Codec.Security`)**: `EnvelopeCipher` (`ChaCha20Poly1305`, `Salsa20Poly1305`, `ChaCha20`, `Salsa20`), `HandshakeX25519`, `ProofOfWork`, `Keccak256`, `HmacKeccak256` và `Pbkdf2`.
+- **Mật mã (`Nalix.Codec.Security`)**: `EnvelopeCipher` (`ChaCha20Poly1305`, `Salsa20Poly1305`, `ChaCha20`, `Salsa20`), `HandshakeX25519`, `ProofOfWork`, `Keccak256`, `HmacKeccak256` và `Pbkdf2`. Namespace `Nalix.Codec.Security.Datagram` bổ sung AEAD cho phiên datagram (xem bên dưới).
 - **Biến đổi frame (`Nalix.Codec.Transforms`)**: `FramePipeline`, `FrameCipher`, `FrameCompression` và `FrameTransformer` để xử lý frame đến và đi.
 
 ## Vị trí trong kiến trúc
@@ -69,9 +69,18 @@ Bộ máy tuần tự hóa. Với các lớp gói tin có chú thích `[Generate
 - **Bắt tay X25519**: `SessionTofu`, `SessionInit`, `SessionChallenge`, `SessionProof`, `SessionEstablished`.
 - **Tiếp tục phiên**: `SessionResume` (một frame thống nhất dùng `SessionResumeStage` cho `REQUEST` và `RESPONSE`).
 - **Proof-of-Work**: `ProofOfWorkChallenge`, `ProofOfWorkProof`.
+- **Ticket datagram**: `DatagramTicket` (`ProtocolOpCode.DATAGRAM_TICKET = 0x000C`, `Nalix.Codec.ProtocolFrames`) cùng `DatagramTicketStage` (`NONE`, `REQUEST`, `RESPONSE`): lượt trao đổi trên phiên stream để cấp cho client ticket phiên datagram (xem [Frame có sẵn](../api/codec/packets/built-in-frames.md)).
+
+### Bảo vệ datagram (`Nalix.Codec.Security.Datagram`)
+
+Triển khai các contract `IDatagramProtection` và `IDatagramProtectionFactory` từ `Nalix.Abstractions` (`src/Nalix.Codec/Security/Datagram/`):
+
+- `ChaCha20Poly1305DatagramProtection` — lớp sealed seal và open datagram bằng ChaCha20-Poly1305 (`TagSize = ChaCha20Poly1305.TagSize`). Nó có khóa gửi và khóa nhận độc lập, hỗ trợ cập nhật khóa được báo hiệu bằng bit key phase (`UpdateSendKey()`, `DiscardPreviousReceiveKey()`), và được tạo trực tiếp từ hai bí mật theo từng hướng (`new(Bytes32 sendSecret, Bytes32 receiveSecret)`) hoặc qua `Create(Bytes32 sessionSecret, ulong connectionId, ReadOnlySpan<byte> ticketNonce, bool isServer)`. Các instance không an toàn đa luồng.
+- `ChaCha20Poly1305DatagramProtectionFactory` — factory sealed không trạng thái với một `Instance` dùng chung; `Create(...)` ủy quyền cho `ChaCha20Poly1305DatagramProtection.Create`.
+- `DatagramKeySchedule` — lịch khóa HKDF-Keccak256 tĩnh: `TicketNonceSize = 16`, `IvSize = 12`, `DeriveDirectionSecrets(sessionSecret, connectionId, ticketNonce, out clientToServer, out serverToClient)` (ném `ArgumentException` trừ khi nonce dài 16 byte), `DeriveKey`, `DeriveIv`, `DeriveNextSecret` (dùng cho cập nhật khóa) và `BuildNonce(iv, packetNumber, nonce)` (XOR số gói tin vào IV).
 
 :::note[Nguyên thủy bộ nhớ và phân mảnh]
-Trong khi `Nalix.Codec` thực hiện tuần tự hóa và biến đổi frame, các nguyên thủy bộ nhớ bên dưới (`BufferLease`, `DataReader`, `DataWriter`) và các kiểu phân mảnh (`FragmentHeader`, `FragmentAssembler`, `FragmentOptions`) nằm trong **[Nalix.Environment](./nalix-environment.md)**.
+Trong khi `Nalix.Codec` thực hiện tuần tự hóa và biến đổi frame, các nguyên thủy bộ nhớ bên dưới (`BufferLease`, `DataReader`, `DataWriter`) và các kiểu phân mảnh (`FragmentHeader`, `FragmentAssembler`, `FragmentOptions`, `DatagramEngineOptions`) nằm trong **[Nalix.Environment](./nalix-environment.md)**.
 :::
 
 ## Ví dụ nhanh

@@ -39,7 +39,7 @@ package: Nalix.Codec
 | **Hashing and MAC** | `Keccak256` (and its nested `Sponge`), `HmacKeccak256`, `HkdfKeccak256`, `Poly1305`, `Pbkdf2`, `SecurityOptions` | [Hashing and MAC](./hashing-and-mac.md) |
 | **AEAD and Envelope Encryption** | `EnvelopeCipher`, `AeadEngine`, `SymmetricEngine`, `ChaCha20Poly1305`, `Salsa20Poly1305`, `ChaCha20`, `Salsa20` | [AEAD and Envelope](./aead-and-envelope.md) |
 | **X25519 Handshake Protocol** | `X25519`, `HandshakeX25519`, `HandshakeHandlers`, `HandshakeExtensions` | [Handshake Protocol](./handshake.md) |
-| **Datagram (NDP) Protection** | `DatagramKeySchedule`, `ChaCha20Poly1305DatagramProtection`, `ChaCha20Poly1305DatagramProtectionFactory` | [Datagram Session](../sdk/udp-session.md) |
+| **Datagram (NDP) Protection** | `DatagramKeySchedule`, `ChaCha20Poly1305DatagramProtection`, `ChaCha20Poly1305DatagramProtectionFactory` | [Datagram Session](../sdk/datagram-session.md) |
 | **Proof-of-Work (Anti-DDoS)** | `ProofOfWork`, `ProofOfWorkSolver`, `IProofOfWorkPolicy`, `ProofOfWorkHandlers` | [Proof-of-Work](./proof-of-work.md) |
 | **Session Resumption** | `SessionResume`, `SessionHandlers`, `SessionService`, `ResumeExtensions` | [Session Resumption](./session-resume.md) |
 | **Session Rekey & Cipher Rotation** | `HandshakeX25519.DeriveRekeySecret`, `SystemControlHandlers`, `RekeyExtensions`, `CipherExtensions` | [Session Rekey](./session-rekey.md) |
@@ -61,7 +61,7 @@ Datagram (NDP) sessions do not reuse the stream's frame encryption. `DatagramKey
 - `static void DeriveDirectionSecrets(Bytes32 sessionSecret, ulong connectionId, ReadOnlySpan<byte> ticketNonce, out Bytes32 clientToServer, out Bytes32 serverToClient)` — the ticket nonce must be `TicketNonceSize` (`16`) bytes; labels are `nalix-dgram/v1`, `nalix-dgram/c2s`, `nalix-dgram/s2c`.
 - `static Bytes32 DeriveKey(Bytes32 secret)`, `static void DeriveIv(Bytes32 secret, Span<byte> iv)` (`IvSize = 12`), `static void BuildNonce(ReadOnlySpan<byte> iv, ulong packetNumber, Span<byte> nonce)`, and `static Bytes32 DeriveNextSecret(Bytes32 secret)` (key update, label `nalix-dgram/ku`).
 
-`ChaCha20Poly1305DatagramProtection` (`sealed class`, implements `IDatagramProtection`) seals and opens datagrams with those keys: `Create(Bytes32 sessionSecret, ulong connectionId, ReadOnlySpan<byte> ticketNonce, bool isServer)`, `Seal(packetNumber, header, plaintext, destination)`, `TryOpen(packetNumber, keyPhase, header, ciphertextAndTag, plaintext)`, `UpdateSendKey()`, `DiscardPreviousReceiveKey()`, `SendKeyPhase`, and `TagSize`. `ChaCha20Poly1305DatagramProtectionFactory.Instance` implements `IDatagramProtectionFactory`. See [Datagram Session](../sdk/udp-session.md).
+`ChaCha20Poly1305DatagramProtection` (`sealed class`, implements `IDatagramProtection`) seals and opens datagrams with those keys: `Create(Bytes32 sessionSecret, ulong connectionId, ReadOnlySpan<byte> ticketNonce, bool isServer)`, `Seal(packetNumber, header, plaintext, destination)`, `TryOpen(packetNumber, keyPhase, header, ciphertextAndTag, plaintext)`, `UpdateSendKey()`, `DiscardPreviousReceiveKey()`, `SendKeyPhase`, and `TagSize`. `ChaCha20Poly1305DatagramProtectionFactory.Instance` implements `IDatagramProtectionFactory`. See [Datagram Session](../sdk/datagram-session.md).
 
 ## Quick Example
 
@@ -94,4 +94,4 @@ int shardIndex = Csprng.GetInt32(0, 8);
 - [AEAD and Envelope](./aead-and-envelope.md)
 - [Handshake Protocol](./handshake.md)
 - [Random (Csprng)](../environment/random.md)
-- [UDP Security Guide](../../guides/networking/udp-security.md)
+- [UDP Security Guide](../../guides/networking/datagram-security.md)

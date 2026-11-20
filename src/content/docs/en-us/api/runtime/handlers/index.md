@@ -88,7 +88,7 @@ Issues **datagram session tickets** over an established stream connection (`[Pac
 | The request itself arrived over an `IDatagramTransport` | `STATE_VIOLATION` |
 | No `IDatagramTicketIssuer` registered, or `IssueTicket` throws `InvalidOperationException` | `SERVICE_UNAVAILABLE` |
 
-The datagram connection inherits the completed handshake of the stream connection (`HandshakeEstablished = true`). Source: `src/Nalix.Runtime/Handlers/DatagramTicketHandlers.cs`. The client side is [DatagramSession](../../sdk/udp-session.md).
+The datagram connection inherits the completed handshake of the stream connection (`HandshakeEstablished = true`). Source: `src/Nalix.Runtime/Handlers/DatagramTicketHandlers.cs`. The client side is [DatagramSession](../../sdk/datagram-session.md).
 
 ### Static configuration (`HandshakeHandlers`)
 

@@ -59,9 +59,9 @@ flowchart TD
 | **2** | [**Nalix.Codec**](./nalix-codec.md) | Tuần tự hóa nhị phân lúc biên dịch, nén LZ4, mã hóa AEAD và danh mục gói tin | `LiteSerializer`, `PacketRegistry`, `LZ4Codec`, `EnvelopeCipher`, `FramePipeline`, `PacketBase<TSelf>`, `PacketFactory<T>` |
 | **2** | [**Nalix.Framework**](./nalix-framework.md) | Registry singleton/dịch vụ, lập lịch worker nền, ID Snowflake và pool tài nguyên | `InstanceManager`, `TaskManager`, `Snowflake`, `BufferPoolManager`, `ObjectPoolManager`, `ObjectMap<TKey, TValue>` |
 | **3** | [**Nalix.Runtime**](./nalix-runtime.md) | Điều phối gói tin phía máy chủ theo shard, chuỗi middleware, giới hạn tốc độ và tiếp tục phiên | `PacketDispatchChannel`, `PermissionMiddleware`, `RateLimitMiddleware`, `TimeoutMiddleware`, `SessionService` |
-| **3** | [**Nalix.Network**](./nalix-network.md) | Listener TCP, UDP và WebSocket, kết nối socket, bảo vệ khi chấp nhận kết nối và connection hub | `TcpListenerBase`, `UdpListenerBase`, `WebSocketListenerBase`, `Protocol`, `ConnectionHub`, `ConnectionGuard`, `SocketConnection` |
-| **3** | [**Nalix.SDK**](./nalix-sdk.md) | Phiên TCP/UDP phía client, bắt tay X25519, tự động kết nối lại và request có ghép cặp | `TransportSession`, `TcpSession`, `UdpSession`, `SessionState`, `TransportOptions`, `RequestOptions` |
-| **4** | [**Nalix.Hosting**](./nalix-hosting.md) | Bộ dựng máy chủ kiểu fluent, ánh xạ giao thức (`MapTcp`/`MapUdp`/`MapWebSocket`) và vòng đời host | `NetworkApplication`, `INetworkApplicationBuilder`, `DefaultProtocol`, `Bootstrap` |
+| **3** | [**Nalix.Network**](./nalix-network.md) | Listener TCP, UDP và WebSocket, kết nối socket, bảo vệ khi chấp nhận kết nối và connection hub | `TcpListenerBase`, `DatagramListener`, `WebSocketListenerBase`, `Protocol`, `ConnectionHub`, `ConnectionGuard`, `SocketConnection` |
+| **3** | [**Nalix.SDK**](./nalix-sdk.md) | Phiên TCP/UDP phía client, bắt tay X25519, tự động kết nối lại và request có ghép cặp | `TransportSession`, `TcpSession`, `DatagramSession`, `SessionState`, `TransportOptions`, `RequestOptions` |
+| **4** | [**Nalix.Hosting**](./nalix-hosting.md) | Bộ dựng máy chủ kiểu fluent, ánh xạ giao thức (`MapTcp`/`MapDatagram`/`MapWebSocket`) và vòng đời host | `NetworkApplication`, `INetworkApplicationBuilder`, `DefaultProtocol`, `Bootstrap` |
 
 ## Công cụ lúc biên dịch (Roslyn Analyzers & Generators)
 

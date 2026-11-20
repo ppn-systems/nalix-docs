@@ -116,7 +116,7 @@ sequenceDiagram
 ### 1. Transport và listener
 
 - **`TcpListenerBase`**: Listener TCP có đồng thời cao, dùng `SocketAsyncEventArgs`. Xử lý việc chấp nhận socket, kiểm soát truy cập và chuỗi bắt đầu nhận thông qua `Protocol.OnAccept(...)`.
-- **`UdpListenerBase`**: Listener datagram không trạng thái, có sẵn ánh xạ session đã xác thực và giới hạn tốc độ không khóa.
+- **`DatagramListener`** — Listener datagram (NDP qua UDP): ticket được cấp qua phiên luồng đã xác thực, bảo vệ AEAD theo từng phiên và các phương thức phân phối có thể chọn.
 - **Connection guard**: Kiểm soát truy cập ở giai đoạn sớm, từ chối endpoint ngay ở mức socket trước khi cấp phát bất kỳ tài nguyên ứng dụng nào.
 
 ### 2. Protocol (cầu nối)

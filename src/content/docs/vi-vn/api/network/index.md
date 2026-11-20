@@ -1,11 +1,11 @@
 ---
 title: Tham chiếu API Network
-description: Tham chiếu cho Nalix.Network — listener TCP, UDP và WebSocket phía máy chủ, transport socket có khung, registry phân mảnh ConnectionHub, ConnectionGuard chống DDoS và quản lý nhàn rỗi bằng TimingWheel.
+description: Tham chiếu cho Nalix.Network — listener TCP, datagram (NDP qua UDP) và WebSocket phía máy chủ, transport socket có khung, registry phân mảnh ConnectionHub, ConnectionGuard chống DDoS và quản lý nhàn rỗi bằng TimingWheel.
 section: API Reference
 package: Nalix.Network
 ---
 
-**Namespaces:** `Nalix.Network.Connections`, `Nalix.Network.Listeners.Tcp`, `Nalix.Network.Listeners.Udp`, `Nalix.Network.Listeners.Web`, `Nalix.Network.Protocols`, `Nalix.Network.RateLimiting`, `Nalix.Network.Options`  
+**Namespaces:** `Nalix.Network.Connections`, `Nalix.Network.Listeners.Tcp`, `Nalix.Network.Listeners.Datagram`, `Nalix.Network.Listeners.Web`, `Nalix.Network.Protocols`, `Nalix.Network.RateLimiting`, `Nalix.Network.Options`  
 **Assembly:** `Nalix.Network`
 
 `Nalix.Network` là bộ máy transport phía máy chủ. Nó quản lý socket TCP, UDP và WebSocket thô, thực thi kiểm soát chấp nhận nhiều lớp và backpressure của callback, duy trì registry kết nối phân mảnh, và chuyển các payload đã đóng khung vào `IProtocol`.
@@ -16,25 +16,24 @@ package: Nalix.Network
 flowchart TD
     subgraph Listeners["Layer 1: Listeners"]
         TCP["TcpListenerBase"]
-        UDP["UdpListenerBase / UdpPassthroughListener"]
+        UDP["DatagramListener"]
         WS["WebSocketListenerBase"]
     end
 
     subgraph Core["Layer 2: Connection & Registry"]
-        Conn["Connection / WebSocketConnection / PassthroughConnection"]
+        Conn["Connection / WebSocketConnection / DatagramConnection"]
         Hub["ConnectionHub (Sharded ConnectionRegistry)"]
     end
 
     subgraph Transport["Layer 3: Framed Socket I/O"]
         SC["SocketConnection (SAEA + Framing + Fragmentation)"]
-        STCP["SocketTcpTransport"]
-        SUDP["SocketUdpTransport"]
-        WST["WebSocketTransport"]
+        WST["WebSocketConnection transport"]
+        DGE["Datagram engine (AEAD, channels)"]
     end
 
     subgraph Support["Layer 4: Guards & Timers"]
         TW["TimingWheel"]
-        Lim["ConnectionGuard / DatagramGuard"]
+        Lim["ConnectionGuard"]
         AC["AsyncCallback (Process / Post / High-Priority Lanes)"]
     end
 
@@ -42,9 +41,8 @@ flowchart TD
     Listeners -->|Accept / Resolve| Conn
     Conn -->|Registers in| Hub
     Conn -->|Owns| SC
-    SC -->|Wrapped by| STCP
-    Conn -->|Optional companion| SUDP
     Conn -->|WebSocket framing| WST
+    Conn -->|Datagram session| DGE
     SC -->|Dispatches via| AC
     TW -.->|Reaps idle| Conn
     Lim -.->|Gatekeeps| Listeners
@@ -53,7 +51,7 @@ flowchart TD
 ## Thứ tự đọc từ đầu
 
 1. [Socket Connection](./socket-connection.md) — Bộ máy nhận và gửi SAEA nội bộ, khung độ dài/VarInt, phân mảnh và giới hạn gói chờ ở Layer 1.
-2. [TCP Listener](./tcp-listener.md) và [UDP Listener](./udp-listener.md) — Kích hoạt socket, kiểm soát chấp nhận qua `ConnectionGuard` / `DatagramGuard`, phân tích PROXY protocol, và xác thực UDP bằng 8-byte token + 4-byte MAC.
+2. [TCP Listener](./tcp-listener.md) và [Datagram Listener](./datagram-listener.md) — Kích hoạt socket, kiểm soát chấp nhận qua `ConnectionGuard`, phân tích PROXY protocol, và ticket NDP cùng các phiên datagram được bảo vệ bằng AEAD.
 3. [Connection](./connection/connection.md) — Triển khai `IConnection` mức cao, sở hữu định danh (`ConnectionId`), ngữ cảnh mật mã (`Secret`, `Algorithm`), `Attributes` và các cầu nối sự kiện.
 4. [Connection Hub](./connection/connection-hub.md) — `ConnectionRegistry` phân mảnh (băm phân mảnh `MIX64`), broadcast snapshot zero-allocation và telemetry `IReportable`.
 5. [Timing Wheel](./time/timing-wheel.md) — Bộ hẹn giờ hashed wheel để thu hồi kết nối nhàn rỗi với chi phí thấp.
@@ -74,7 +72,9 @@ flowchart TD
 - [Protocol](./protocol.md)
 - [Socket Connection](./socket-connection.md)
 - [TCP Listener](./tcp-listener.md)
-- [UDP Listener](./udp-listener.md)
+- [Datagram Listener](./datagram-listener.md)
+- [WebSocket Listener](./websocket-listener.md)
+- [WebSocket Connection](./websocket-connection.md)
 - [Session Store & Service](./session-store.md)
 - [Timing Wheel](./time/timing-wheel.md)
 
@@ -82,6 +82,7 @@ flowchart TD
 
 - [Options Overview](../options/network/options.md)
 - [Network Socket Options](../options/network/network-socket-options.md)
+- [Datagram Options](../options/network/datagram-options.md)
 - [Connection Quota Options](../options/network/connection-quota-options.md)
 - [Connection Guard Options](../options/network/connection-guard-options.md)
 - [Trusted Proxy Options](../options/network/trusted-proxy-options.md)

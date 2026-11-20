@@ -26,8 +26,8 @@ Trang này mô tả các API trợ giúp mức thấp xung quanh `DataReader`, `
 
 | Kiểu | Thành viên công khai |
 |---|---|
-| `DataReaderExtensions` | `ReadByte`, `ReadSByte`, `ReadInt16`, `ReadUInt16`, `ReadInt32`, `ReadUInt32`, `ReadInt64`, `ReadUInt64`, `ReadChar`, `ReadSingle`, `ReadDouble`, `ReadBoolean`, `ReadEnumByte`, `ReadEnumSByte`, `ReadEnumInt16`, `ReadEnumUInt16`, `ReadEnumInt32`, `ReadEnumUInt32`, `ReadBytes`, `ReadRemainingBytes`, `ReadUnmanaged`, `Remaining` |
-| `DataWriterExtensions` | Các overload `Write`, `WriteEnum`, `WriteUnmanaged` cho giá trị nguyên thủy, span, enum (1/2/4 byte) và giá trị không quản lý |
+| `DataReaderExtensions` | `ReadByte`, `ReadSByte`, `ReadInt16`, `ReadUInt16`, `ReadInt32`, `ReadUInt32`, `ReadInt64`, `ReadUInt64`, `ReadChar`, `ReadSingle`, `ReadDouble`, `ReadBoolean`, `ReadEnumByte`, `ReadEnumSByte`, `ReadEnumInt16`, `ReadEnumUInt16`, `ReadEnumInt32`, `ReadEnumUInt32`, `ReadEnumInt64`, `ReadEnumUInt64`, `ReadBytes`, `ReadRemainingBytes`, `ReadUnmanaged`, `Remaining` |
+| `DataWriterExtensions` | Các overload `Write`, `WriteEnum`, `WriteUnmanaged` cho giá trị nguyên thủy, span, enum (1/2/4/8 byte) và giá trị không quản lý |
 | `HeaderExtensions` | Các overload `AsHeaderRef` cho `Span<byte>` và `ReadOnlySpan<byte>` |
 
 ## Khi nào dùng các hàm trợ giúp này
@@ -64,6 +64,8 @@ Một số phương thức hữu ích:
 - `ReadEnumUInt16<TEnum>()`
 - `ReadEnumInt32<TEnum>()`
 - `ReadEnumUInt32<TEnum>()`
+- `ReadEnumInt64<TEnum>()`
+- `ReadEnumUInt64<TEnum>()`
 - `ReadBytes(count)`
 - `ReadRemainingBytes()`
 - `ReadUnmanaged<T>()`
@@ -89,7 +91,7 @@ Một số phương thức hữu ích:
 - `Write(bool)`
 - `Write(byte[])`
 - `Write(ReadOnlySpan<byte>)`
-- `WriteEnum<TEnum>(value)` (hỗ trợ kiểu enum nền 1, 2 và 4 byte; ném `NotSupportedException` với enum 8 byte)
+- `WriteEnum<TEnum>(value)` (hỗ trợ kiểu enum nền 1, 2, 4 và 8 byte; ném `NotSupportedException` với mọi kích thước khác)
 - `WriteUnmanaged<T>(value)`
 
 ## HeaderExtensions

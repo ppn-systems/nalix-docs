@@ -46,9 +46,7 @@ public sealed class UserShardProxy : IConnection
     public bool IsDisposed => _physical.IsDisposed;
 
     // --- TRANSMISSION DELEGATION ---
-    public IConnection.ITransport TCP => _physical.TCP;
-    public IConnection.ITransport? UDP => _physical.UDP;
-    public bool IsUdpCreated => _physical.IsUdpCreated;
+    public IConnection.ITransport Transport => _physical.Transport;
     public IOpCodeExtractor PacketClassifier => _physical.PacketClassifier;
 
     // --- STATE DELEGATION ---

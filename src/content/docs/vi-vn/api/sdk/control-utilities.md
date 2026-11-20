@@ -37,7 +37,7 @@ public static class PingExtensions
 ```
 
 - Gửi một gói `TimeSync` (`session.NewTimeSync(ControlType.PING).WithSeq(seq).Build()`) và chờ một `TimeSync` khớp (`Type == ControlType.PONG && SequenceId == seq`).
-- Tính độ trễ khứ hồi (RTT) theo mili giây bằng `Stopwatch.GetElapsedTime(startTicks).TotalMilliseconds`.
+- Tính độ trễ khứ hồi (RTT) theo mili giây từ `Clock.MonoTicksNow()` trừ đi `MonoTicks` của gói ping (`Clock.MonoTicksToMilliseconds`). Yêu cầu được gửi với `RequestOptions.Default.WithTimeout(timeoutMs).WithEncrypt(false)`.
 - Được `TransportSession` tự động dùng khi `TransportOptions.KeepAliveIntervalMillis > 0`.
 
 ### 2. `DisconnectExtensions` (`DisconnectGracefullyAsync`)
@@ -64,6 +64,13 @@ namespace Nalix.SDK.Transport.Extensions;
 
 public static class TimeSyncExtensions
 {
+    public readonly ref struct TimeSyncBuilder(TimeSync t)
+    {
+        public TimeSyncBuilder WithSeq(ushort seq);
+        public TimeSyncBuilder StampNow();   // MonoTicks = Clock.MonoTicksNow(), Timestamp = Clock.UnixMillisecondsNow()
+        public TimeSync Build();
+    }
+
     public static TimeSyncBuilder NewTimeSync(
         this ITransportSession _,
         ControlType type);
@@ -74,6 +81,8 @@ public static class TimeSyncExtensions
         CancellationToken ct = default);
 }
 ```
+
+`TimeSyncExtensions.TimeSyncBuilder` là một `readonly ref struct` lồng bên trong. `NewTimeSync(type)` tạo một `TimeSync` có pool với `sequenceId: 0` và `PacketFlags.SYSTEM`; nối tiếp `WithSeq(...)` / `StampNow()` và kết thúc bằng `Build()`.
 
 ```csharp
 namespace Nalix.SDK;
@@ -91,7 +100,7 @@ public static class TimeSyncCalculator
 - **Công thức độ lệch đồng hồ**:
   - `SyncTimeAsync` gửi `TimeSync(ControlType.TIMESYNCREQUEST)` và chờ `TimeSync(ControlType.TIMESYNCRESPONSE)`.
   - Gọi `TimeSyncCalculator.CalculateOffsetMs(pong.Timestamp, rttMs)` để tính độ lệch đồng hồ đã được giới hạn.
-  - Khi `session.Options.TimeSyncEnabled` là `true`, cập nhật `session.Options.TimeOffsetMs` bằng Trung bình động lũy tiến (EMA) (`(TimeOffsetMs * 0.9) + (offset * 0.1)`, hoặc gán trực tiếp ở lần đồng bộ đầu tiên) và trả về `(RttMs, AdjustedMs: session.Options.TimeOffsetMs)`.
+  - Khi `session.Options.TimeSyncEnabled` là `true`, cập nhật `session.Options.TimeOffsetMs` bằng Trung bình động lũy tiến (EMA) (`(TimeOffsetMs * 0.9) + (offset * 0.1)`) và trả về `(RttMs, AdjustedMs: session.Options.TimeOffsetMs)`; khi là `false`, `AdjustedMs` bằng `0`. Yêu cầu được gửi với `WithEncrypt(false)`.
 
 ### 4. `ControlExtensions` (`NewControl`, `SendControlAsync`, `AwaitControlAsync`)
 

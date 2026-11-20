@@ -68,6 +68,8 @@ $$\text{ID} = (\text{Type} \ll 56) \mid (\text{Timestamp} \ll 24) \mid (\text{Se
 | `TryWriteBytes(Span<byte>, out int)` | `public bool TryWriteBytes(Span<byte> destination, out int bytesWritten)` | Ghi 8 byte little-endian vào `destination` mà không cấp phát; trả về `false` nếu `destination.Length < 8`. |
 | `TryWriteBytes(Span<byte>)` | `public bool TryWriteBytes(Span<byte> destination)` | Ghi 8 byte little-endian vào `destination`; trả về `false` nếu `destination.Length < 8`. |
 | `ToString()` | `public override string ToString()` | Trả về biểu diễn hexadecimal 16 ký tự viết hoa của 8 byte little-endian. |
+| `Equals(object?)` | `public override bool Equals(object? obj)` | `true` khi `obj` là một `Snowflake` bằng với thực thể này (ủy quyền cho `Equals(Snowflake)`). |
+| `GetHashCode()` | `public override int GetHashCode()` | Trộn giá trị 64-bit bên dưới thành mã băm 32-bit phù hợp cho các collection dựa trên băm. |
 
 ## `SnowflakeOptions` (`Nalix.Framework.Options`)
 

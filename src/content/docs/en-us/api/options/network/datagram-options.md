@@ -5,10 +5,10 @@ section: API Reference
 package: Nalix.Network
 ---
 
-`DatagramOptions` (`public sealed partial class DatagramOptions : ConfigurationLoader, IValidatableConfiguration`, namespace `Nalix.Network.Options`) holds the settings of the [Datagram Listener](../../network/udp-listener.md). The per-session settings (channels, idle timeout, message size, buffers) are in `DatagramEngineOptions` (`Nalix.Environment.Options`).
+`DatagramOptions` (`public sealed partial class DatagramOptions : ConfigurationLoader, IValidatableConfiguration`, namespace `Nalix.Network.Options`) holds the settings of the [Datagram Listener](../../network/datagram-listener.md). The per-session settings (channels, idle timeout, message size, buffers) are in `DatagramEngineOptions` (`Nalix.Environment.Options`).
 
 :::note[Page location]
-This page keeps its historical `datagram-guard-options` URL. `DatagramGuardOptions` and `DatagramGuard` (IPv4/IPv6 source windows, `FailOpenWhenFull`, `UdpReplayWindowSize`) no longer exist in the source. Per-source rate limiting is no longer done by a UDP-specific guard: an authenticated datagram session is admitted through `IConnectionGuard` when its first datagram authenticates.
+`DatagramGuardOptions` and `DatagramGuard` (IPv4/IPv6 source windows, `FailOpenWhenFull`, `UdpReplayWindowSize`) no longer exist in the source. Per-source rate limiting is no longer done by a UDP-specific guard: an authenticated datagram session is admitted through `IConnectionGuard` when its first datagram authenticates.
 :::
 
 ## Source Mapping
@@ -63,4 +63,4 @@ NetworkApplication app = NetworkApplication.CreateBuilder()
 - [Network Options](./options.md)
 - [Connection Guard Options](./connection-guard-options.md)
 - [Network Socket Options](./network-socket-options.md)
-- [Datagram Listener](../../network/udp-listener.md)
+- [Datagram Listener](../../network/datagram-listener.md)

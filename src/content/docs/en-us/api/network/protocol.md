@@ -118,6 +118,6 @@ public sealed class GameProtocol(IPacketDispatch dispatcher) : Protocol
 ## Related APIs
 
 - [TCP Listener](./tcp-listener.md)
-- [Datagram Listener](./udp-listener.md)
+- [Datagram Listener](./datagram-listener.md)
 - [Connection](./connection/connection.md)
 - [Packet Dispatch Channel & Router](../runtime/routing/dispatch-channel-and-router.md)

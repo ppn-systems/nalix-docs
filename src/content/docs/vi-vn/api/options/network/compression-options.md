@@ -30,7 +30,7 @@ package: Nalix.Codec
 
 ## Hành vi pipeline gửi và nhận (`FramePipeline` và `PacketPipeline`)
 
-`PacketPipeline.ProcessAndSendAsync` (khi gửi đi) và `TcpListenerBase`/`UdpListenerBase`/`WebSocketListenerBase` (khi nhận) thực thi các phép biến đổi khung thông qua `FramePipeline`:
+`PacketPipeline.ProcessAndSendAsync` (khi gửi đi) và `TcpListenerBase`/`WebSocketListenerBase` (khi nhận) thực thi các phép biến đổi khung thông qua `FramePipeline`:
 
 ```mermaid
 flowchart LR

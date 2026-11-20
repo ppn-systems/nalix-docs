@@ -37,7 +37,7 @@ flowchart LR
 `HandlePacket(IBufferLease lease, IConnection connection)` chạy trên luồng nhận của transport:
 
 1. Dispose `lease` và trả về ngay nếu `lease` hoặc `connection` là `null`.
-2. Nếu `connection.TCP.Framing == TransportFraming.UInt16LengthPrefixed` và `lease.Length < PacketConstants.HeaderSize` (`6` byte), dispose `lease`, gọi `connection.IncrementErrorCount()` rồi trả về.
+2. Nếu `connection.Transport.Framing == TransportFraming.UInt16LengthPrefixed` và `lease.Length < PacketConstants.HeaderSize` (`6` byte), dispose `lease`, gọi `connection.IncrementErrorCount()` rồi trả về.
 3. Gọi `lease.Retain()` để tăng số tham chiếu của buffer trước khi bàn giao bất đồng bộ.
 4. Đưa vào hàng đợi qua `_dispatch.PushCore(connection, lease, out bool readyEmitted, noBlock: true)`. Nếu hàng đợi từ chối gói tin (đầy hoặc kết nối đã đóng), dispose `lease` đã retain và tăng `_totalDropped`.
 5. Nếu `readyEmitted` là `true` (kết nối vừa trở thành có thể claim), gọi `RequestWake()` để đánh thức một worker đang chờ.
@@ -70,13 +70,13 @@ Mỗi worker sở hữu một `WorkerWakeSignal` không cấp phát bộ nhớ (
 
 Với mỗi `IBufferLease` được rút ra khỏi hàng đợi:
 
-1. **Trích xuất OpCode**: Gọi `connection.PacketClassifier.Extract(lease.Span)` và đọc `lease.IsReliable` cùng `lease.EncryptedOnWire`.
+1. **Trích xuất OpCode**: Gọi `connection.PacketClassifier.Extract(lease.Span)` và đọc `lease.EncryptedOnWire`.
 2. **Tra cứu handler sớm**: Gọi `Options.TryResolveHandler(opcode, out handler)` **trước** khi giải tuần tự. Nếu không có handler nào đăng ký cho `opcode`, ghi một cảnh báo đã được throttle, dispose `lease`, gọi `connection.IncrementErrorCount()` và bỏ qua hoàn toàn việc giải tuần tự.
 3. **Giải tuần tự / đường nhanh `MemoryPacket`**:
    - Nếu `handler.ExpectedPacketType == typeof(MemoryPacket)`, bọc trực tiếp `lease.Memory` trong một `MemoryPacket` mà không gọi `PacketRegistry`.
    - Ngược lại gọi `PacketRegistry.TryDeserialize(lease.Span, out IPacket? deserialized)`. Nếu thất bại, tăng `_deserializationErrors`, dispose `lease` và gọi `connection.IncrementErrorCount()`.
 4. **Hoàn tất đồng bộ hay bất đồng bộ**:
-   - Gọi `Options.ExecuteResolvedHandlerAsync(in handler, packet, connection, isReliable, encryptedOnWire, ct)`.
+   - Gọi `Options.ExecuteResolvedHandlerAsync(in handler, packet, connection, encryptedOnWire, ct)`.
    - Nếu `ValueTask` hoàn tất đồng bộ (`IsCompletedSuccessfully`), dispose `lease` ngay trên vòng lặp worker mà không cấp phát continuation.
    - Nếu handler chờ I/O bất đồng bộ, thuê một `DispatchContinuation` có pool từ `ObjectPoolManager.Shared` (`workItem.Initialize(connection, lease, pending.AsTask(), ct)`) để vòng lặp worker không bị chặn, và `lease` được dispose khi task kết thúc.
 

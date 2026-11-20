@@ -266,7 +266,7 @@ Mở `http://localhost:5230` trong hai tab. Echo trả về chữ in hoa, và c�
 
 **Trimming và AOT.** Bản publish Release của Blazor WASM cắt bớt assembly. Các gói tin được tìm thấy lúc chạy qua `PacketRegistry`, nên hãy gắn gốc (root) assembly contracts bằng `<TrimmerRootAssembly Include="YourApp.Contracts" />`. Mẫu publish cắt bớt không có cảnh báo và chạy được. Biên dịch AOT của WebAssembly (`RunAOTCompilation`) là tùy chọn và chỉ ảnh hưởng đến tốc độ. Vòng nhận của SDK là bất đồng bộ và không bao giờ chặn một luồng, điều này quan trọng vì WASM chỉ có một luồng.
 
-**Giới hạn API của trình duyệt.** Chỉ dùng các API bất đồng bộ. `WebSocketSession.Send(ReadOnlySpan<byte>, ...)`, `TcpSession` và `UdpSession` được đánh dấu `[UnsupportedOSPlatform("browser")]`. Trong trình duyệt không có socket thô, UDP hay TCP. Các tab chạy nền có thể bị điều tiết, và trình duyệt di động có thể đóng băng hoàn toàn chúng, nên hãy chờ `OnDisconnected` sau khi tab được đánh thức. Xử lý việc này là nhiệm vụ của vòng lặp kết nối lại.
+**Giới hạn API của trình duyệt.** Chỉ dùng các API bất đồng bộ. `WebSocketSession.Send(ReadOnlySpan<byte>, ...)`, `TcpSession` và `DatagramSession` được đánh dấu `[UnsupportedOSPlatform("browser")]`. Trong trình duyệt không có socket thô, UDP hay TCP. Các tab chạy nền có thể bị điều tiết, và trình duyệt di động có thể đóng băng hoàn toàn chúng, nên hãy chờ `OnDisconnected` sau khi tab được đánh thức. Xử lý việc này là nhiệm vụ của vòng lặp kết nối lại.
 
 **Luồng và render.** Các handler `On<T>` và `OnDisconnected` không được gọi trên synchronization context của renderer. Luôn gọi `InvokeAsync(StateHasChanged)` từ chúng. Sao chép dữ liệu ra khỏi gói tin có pool trước khi handler trả về.
 

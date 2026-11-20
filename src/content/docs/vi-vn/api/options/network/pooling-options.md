@@ -20,11 +20,10 @@ Cả `Nalix.Network` và `Nalix.Runtime` đều không cung cấp lớp `Pooling
 
 ## Cách kích thước pool mạng
 
-`NetworkPoolInitializer` cấu hình dung lượng và số lượng cấp phát trước của [ObjectPoolManager](../../framework/memory/object-pooling.md) qua ba giai đoạn:
+`NetworkPoolInitializer` cấu hình dung lượng và số lượng cấp phát trước của [ObjectPoolManager](../../framework/memory/object-pooling.md) qua hai giai đoạn:
 
 1. **Static constructor (`static NetworkPoolInitializer()`)**: Đọc `ConnectionGuardOptions.MaxConnections` (mặc định `2000`) và `NetworkSocketOptions.MaxParallel` (mặc định `1`), thực hiện tất cả các đăng ký `SetMaxCapacity<T>` cho mọi kiểu pool mạng, và cấp phát trước `PooledAcceptContext` (`MaxParallel`), `PooledSocketAsyncEventArgs` (`MaxParallel * 4`), `TimingWheel.TimeoutTask` (`128`), `ConnectionBacking` (`128`), `ConnectionEventArgs` (`256`) và `PooledConnectEventContext` (`256`).
-2. **Khởi tạo TCP (`NetworkPoolInitializer.InitializeTcp()`)**: Được `static Connection()` gọi (không tham số) để cấp phát trước `SocketConnection` (`128`), `SocketUdpTransport` (`64`), `SocketTcpTransport` (`128`), `ProxyHeaderContext` (`128`) và `PooledSocketReceiveContext` (`128`).
-3. **Khởi tạo WebSocket (`NetworkPoolInitializer.InitializeWebSocket()`)**: Được `static WebSocketConnection()` gọi để cấp phát trước `WebSocketTransport` (`128`).
+2. **Khởi tạo TCP (`NetworkPoolInitializer.InitializeTcp()`)**: Được `static Connection()` gọi (không tham số) để cấp phát trước `SocketConnection` (`128`), `ProxyHeaderContext` (`128`) và `PooledSocketReceiveContext` (`128`). Các kiểu pool `SocketTcpTransport`, `SocketUdpTransport` và `WebSocketTransport` trước đây cùng `InitializeWebSocket()` không còn tồn tại: một `Connection` tự là transport của chính nó.
 
 ### Ma trận dung lượng và cấp phát trước
 
@@ -32,9 +31,6 @@ Cả `Nalix.Network` và `Nalix.Runtime` đều không cung cấp lớp `Pooling
 | :--- | :--- | :--- | :--- |
 | `SocketConnection` | `MaxConnections` (`2000`) | `128` | `InitializeTcp()` |
 | `ConnectionBacking` | `MaxConnections` (`2000`) | `128` | Static constructor |
-| `SocketTcpTransport` | `MaxConnections` (`2000`) | `128` | `InitializeTcp()` |
-| `SocketUdpTransport` | `MaxConnections` (`2000`) | `64` | `InitializeTcp()` |
-| `WebSocketTransport` | `MaxConnections` (`2000`) | `128` | `InitializeWebSocket()` |
 | `ProxyHeaderContext` | `MaxConnections` (`2000`) | `128` | `InitializeTcp()` |
 | `TimingWheel.TimeoutTask` | `MaxConnections` (`2000`) | `128` | Static constructor |
 | `PooledSocketReceiveContext` | `MaxConnections` (`2000`) | `128` | `InitializeTcp()` |

@@ -25,7 +25,7 @@ flowchart LR
 Runtime bắt đầu với một listener:
 
 - `TcpListenerBase` cho lưu lượng đáng tin cậy, có thứ tự
-- `UdpListenerBase` cho datagram độ trễ thấp, có xác thực
+- `DatagramListener` cho datagram độ trễ thấp, có xác thực
 
 Listener chấp nhận lưu lượng và chuyển nó vào protocol đang hoạt động.
 

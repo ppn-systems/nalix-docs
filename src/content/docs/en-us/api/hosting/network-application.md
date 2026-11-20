@@ -227,6 +227,6 @@ public static class Program
 - [Hosting Options](../options/hosting/hosting-options.md)
 - [Protocol](../network/protocol.md)
 - [TCP Listener](../network/tcp-listener.md)
-- [Datagram Listener](../network/udp-listener.md)
+- [Datagram Listener](../network/datagram-listener.md)
 - [Packet Dispatch Channel & Router](../runtime/routing/dispatch-channel-and-router.md)
 - [Packet Dispatch Options](../options/runtime/packet-dispatch-options.md)

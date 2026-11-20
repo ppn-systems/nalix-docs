@@ -1,10 +1,10 @@
 ---
 title: Phiên kết nối Client
-description: "Hướng dẫn này trình bày cách tạo, cấu hình và kết nối một phiên client bằng Nalix.SDK. Nó tập trung vào bề mặt SDK thực tế trong cây mã nguồn hiện tại: TransportOptions, TcpSession, UdpSession và các extension method của transport được xây dựng trên chúng..."
+description: "Hướng dẫn này trình bày cách tạo, cấu hình và kết nối một phiên client bằng Nalix.SDK. Nó tập trung vào bề mặt SDK thực tế trong cây mã nguồn hiện tại: TransportOptions, TcpSession, DatagramSession và các extension method của transport được xây dựng trên chúng..."
 section: Guides
 ---
 
-Hướng dẫn này trình bày cách tạo, cấu hình và kết nối một phiên client bằng `Nalix.SDK`. Nó tập trung vào bề mặt SDK thực tế trong cây mã nguồn hiện tại: `TransportOptions`, `TcpSession`, `UdpSession` và các extension method của transport được xây dựng trên chúng.
+Hướng dẫn này trình bày cách tạo, cấu hình và kết nối một phiên client bằng `Nalix.SDK`. Nó tập trung vào bề mặt SDK thực tế trong cây mã nguồn hiện tại: `TransportOptions`, `TcpSession`, `DatagramSession` và các extension method của transport được xây dựng trên chúng.
 
 Nếu bạn chưa làm, hãy bắt đầu với [Máy chủ đầu tiên](../getting-started/your-first-server.md) — trang đó đề cập đến đường `session.RequestAsync<T>()` đơn giản hơn mà hướng dẫn này xây dựng trên đó.
 
@@ -55,8 +55,7 @@ TransportOptions manualOptions = new()
     
     // Performance tuning
     NoDelay = true,           // Disable Nagle's algorithm (highly recommended for Games/Real-time)
-    BufferSize = 65536,       // Socket send/receive buffer size (default 64 KB)
-    MaxUdpDatagramSize = 1400 // UDP limit including 8-byte SessionToken and 4-byte XxHash32 MAC
+    BufferSize = 65536        // Socket send/receive buffer size (default 64 KB)
 };
 ```
 
@@ -130,40 +129,41 @@ Extension `On<T>` được thiết kế để tối đa hóa tốc độ phát t
 Mặc dù SDK phần lớn không phụ thuộc nền tảng, các socket option chuyên biệt như `TCP_NODELAY` được bật mặc định cho khối lượng công việc game.
 :::
 
-## 4. Tạo và kết nối một UDP Session (Kênh phụ)
+## 4. Tạo và kết nối một Datagram (UDP) Session (Kênh phụ)
 
 :::note[TCP là chính, UDP là kênh phụ]
-Trong kiến trúc Nalix, **TCP thường là kết nối có trạng thái chính**. `UdpSession` đóng vai trò kênh phụ cho dữ liệu tần suất cao, không đáng tin cậy. Trong luồng bảo mật phổ biến, UDP session chia sẻ `SessionState` (`SessionToken` và `Secret`) được thiết lập bởi handshake hoặc đường resume của TCP.
+Trong kiến trúc Nalix, **TCP (hoặc WebSocket) thường là kết nối có trạng thái chính**. `DatagramSession` đóng vai trò kênh phụ cho dữ liệu tần suất cao (NDP qua UDP). Nó được tạo từ một stream session đã thiết lập và hoàn tất handshake, rồi tự dẫn xuất khóa riêng từ secret của session đó.
 :::
 
-`UdpSession` tuân theo cùng hợp đồng transport cơ sở, nhưng xử lý datagram thay vì các luồng TCP có khung. Truyền `tcpSession.State` vào constructor của `UdpSession` để cả hai session cùng dùng `SessionToken` và `Secret` 32 byte đã được thương lượng.
+`DatagramSession` nhận stream session trong constructor. `ConnectAsync()` yêu cầu một ticket qua stream session đó, mở socket UDP và chờ đến khi máy chủ xác thực datagram đầu tiên; host mặc định là địa chỉ của stream session và cổng lấy từ ticket.
 
 ```csharp
 using System;
 using System.Threading.Tasks;
+using Nalix.Abstractions.Networking.Datagrams;
 using Nalix.SDK.Transport;
 
-async Task ConnectUdpStandardAsync(TcpSession tcpSession)
+async Task ConnectDatagramAsync(TcpSession tcpSession)
 {
-    // Pass `tcpSession.State` so UdpSession shares the negotiated SessionToken and Secret
-    using UdpSession udp = new(options, tcpSession.State);
+    // The TCP session must have completed HandshakeAsync() first.
+    using DatagramSession udp = new(tcpSession);
 
-    udp.OnConnected += (_, _) => Console.WriteLine("UDP socket bound and active.");
-    udp.OnDisconnected += (_, ex) => Console.WriteLine($"UDP Disconnected: {ex?.Message}");
-    udp.OnError += (_, ex) => Console.WriteLine($"UDP Error: {ex.Message}");
+    udp.OnConnected += (_, _) => Console.WriteLine("Datagram session established.");
+    udp.OnDisconnected += (_, ex) => Console.WriteLine($"Datagram Disconnected: {ex?.Message}");
+    udp.OnError += (_, ex) => Console.WriteLine($"Datagram Error: {ex.Message}");
 
-    // Connect to setup targeted UDP Socket (binding against Server IP and Port)
     await udp.ConnectAsync();
 
-    // UDP internally wraps outbound datagrams with the 8-byte SessionToken and 4-byte XxHash32 MAC.
+    // Every datagram is sealed with ChaCha20-Poly1305 by the session itself.
     // await udp.SendAsync(new PlayerMovementPacket { X = 1, Y = 2, Z = 5 });
-    
+    // await udp.SendAsync(packet, DeliveryMethod.ReliableOrdered, channel: 0);
+
     await Task.Delay(-1);
 }
 ```
 
-:::danger[Ràng buộc kích thước datagram UDP]
-Payload UDP cộng với lớp bọc 12 byte (tiền tố `SessionToken` `8`-byte + trailer MAC `XxHash32` `4`-byte) không được vượt quá `TransportOptions.MaxUdpDatagramSize` (mặc định `1400` byte). Dữ liệu lớn phải được đi qua giao thức TCP. Vi phạm MTU sẽ gây ra lỗi `NetworkException` cục bộ.
+:::danger[Kích thước datagram]
+Một datagram dài tối đa `DatagramEngine.MaxDatagramSize` (`1472` byte). Thông điệp lớn hơn được engine phân mảnh, tối đa đến `MaxMessageSize` của ticket (mặc định của máy chủ là `1048576`). Ticket bị từ chối hoặc session không được thiết lập trước khi ticket hết hạn sẽ gây ra `NetworkException`.
 :::
 
 :::note
@@ -232,5 +232,5 @@ session.Dispose();
 - [Tổng quan SDK](../../api/sdk/index.md)
 - [Hướng dẫn Transport Session](../../api/sdk/transport-session.md)
 - [Hướng dẫn TCP Session](../../api/sdk/tcp-session.md)
-- [Hướng dẫn UDP Session](../../api/sdk/udp-session.md)
+- [Hướng dẫn UDP Session](../../api/sdk/datagram-session.md)
 - [Tài liệu Transport Options đầy đủ](../../api/options/sdk/transport-options.md)

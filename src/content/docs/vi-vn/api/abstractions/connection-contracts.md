@@ -28,7 +28,7 @@ package: Nalix.Abstractions
 
 ## `IConnection`
 
-`public interface IConnection : IConnectionErrorTracked, IDisposable` biểu diễn một kết nối client đang hoạt động (TCP, UDP hoặc WebSocket).
+`public interface IConnection : IConnectionErrorTracked, IDisposable` biểu diễn một kết nối client đang hoạt động (TCP, WebSocket hoặc phiên datagram).
 
 | Thành phần | Kiểu | Mô tả |
 | --- | --- | --- |
@@ -43,10 +43,8 @@ package: Nalix.Abstractions
 | `Level` | `PermissionLevel` | Mức ủy quyền hiện tại (`NONE`, `POW_VERIFIED`, `ESTABLISHED`, `USER`, v.v.). |
 | `Algorithm` | `CipherSuiteType` | Bộ mật mã đối xứng/AEAD đã thương lượng (`Chacha20Poly1305`, `Salsa20Poly1305`, v.v.). |
 | `Secret` | `Bytes32` | Khóa bí mật phiên 32 byte đã thương lượng (`Bytes32`, bị xóa khi đóng). |
-| `IsUdpCreated` | `bool` | `true` khi kết nối đã có binding transport UDP đang hoạt động. |
 | `PacketClassifier` | `IOpCodeExtractor` | Bộ phân loại dùng để trích opcode 16-bit từ khung đầu vào thô. |
-| `TCP` | `IConnection.ITransport` | Giao diện transport Stream/TCP (hoặc WebSocket). |
-| `UDP` | `IConnection.ITransport?` | Giao diện transport Datagram/UDP (`null` cho đến khi UDP được gắn). |
+| `Transport` | `IConnection.ITransport` | Transport của kết nối này: luồng TCP, WebSocket hoặc phiên datagram (`src/Nalix.Abstractions/Networking/IConnection.Transmission.cs`). Ép kiểu sang `IConnection.ISocketTransport` để truy cập socket, hoặc sang `IDatagramTransport` trên kết nối datagram. |
 | `ErrorCount` | `int` | Kế thừa từ `IConnectionErrorTracked` — tổng số lỗi protocol/framing đã ghi nhận trên kết nối này. |
 | `IncrementErrorCount()` | `void` | Tăng nguyên tử `ErrorCount` (được `ConnectionGuard` kiểm tra). |
 | `OnCloseEvent` | `event EventHandler<IConnectionEventArgs>` | Được kích hoạt khi kết nối đóng. |
@@ -74,7 +72,7 @@ package: Nalix.Abstractions
 
 ## `IConnectionTrafficMetrics`
 
-Được `Connection`, `WebSocketConnection` và `PassthroughConnection` triển khai để cung cấp các bộ đếm lưu lượng nguyên tử:
+Được `Connection`, `WebSocketConnection` và `DatagramConnection` triển khai để cung cấp các bộ đếm lưu lượng nguyên tử:
 
 | Thành phần | Kiểu | Mô tả |
 | --- | --- | --- |
@@ -87,7 +85,64 @@ package: Nalix.Abstractions
 
 ## `ConnectionSequenceState`
 
-`public sealed class ConnectionSequenceState` (`Nalix.Abstractions.Networking`, `src/Nalix.Abstractions/Networking/ConnectionSequenceState.cs`) là đối tượng giữ số thứ tự của từng kết nối, có pool, dùng cho việc tiếp tục phiên. Các thuộc tính (`uint`, get/set): `TcpSendSequence`, `TcpReceiveSequence`, `UdpSendSequence`, `UdpReceiveSequence`. `ResetForPool()` đặt cả bốn về `0`.
+`public sealed class ConnectionSequenceState` (`Nalix.Abstractions.Networking`, `src/Nalix.Abstractions/Networking/ConnectionSequenceState.cs`) là đối tượng giữ số thứ tự của từng kết nối, có pool, dùng cho việc tiếp tục phiên. Các thuộc tính (`uint`, get/set): `TcpSendSequence`, `TcpReceiveSequence`. `ResetForPool()` đặt cả hai về `0`. Các thuộc tính sequence `Udp*` đã bị loại bỏ.
+
+## `ConnectionAttributes`
+
+`public static class ConnectionAttributes` (`Nalix.Abstractions.Networking`, `src/Nalix.Abstractions/Networking/ConnectionAttributes.cs`) chứa các giá trị `AttributeKey` đã biết được lưu trong `IConnection.Attributes`:
+
+| Trường | Tên khóa | Mô tả |
+| --- | --- | --- |
+| `OwnerHub` | `nalix.owner_hub` | Connection hub sở hữu kết nối này. |
+| `SequenceState` | `nalix.connection.sequence_state` | Trạng thái số thứ tự dùng chung (`ConnectionSequenceState`) được lưu trong vòng đời kết nối. |
+| `RuntimeState` | `nalix.connection.runtime_state` | Trạng thái riêng của runtime được lưu trong vòng đời kết nối. |
+| `HandshakeDeadlineExtension` | `nalix.connection.handshake_deadline_extension` | Phần gia hạn một lần, tính bằng mili giây (`int`), mà cổng proof-of-work cấp cho thời hạn trước khi xác thực. Lớp bắt tay đặt tối đa một lần cho mỗi kết nối; lớp transport giới hạn nó ở 60 giây. |
+
+## Hợp đồng datagram
+
+Không gian tên `Nalix.Abstractions.Networking.Datagrams` (`src/Nalix.Abstractions/Networking/Datagrams/`). Phiên datagram là một phiên UDP có xác thực, được mở bằng ticket do một phiên stream (TCP hoặc WebSocket) đã thiết lập phát hành; xem `NetworkTransport.DATAGRAM` và `DeliveryMethod` trong [Các enumeration dùng chung](./enums.md).
+
+### `IDatagramTransport`
+
+`public interface IDatagramTransport : IConnection.ITransport` là transport của một phiên datagram. Các lượt gửi qua `IConnection.ITransport` dùng `DeliveryMethod.ReliableOrdered` trên kênh `0`. Mọi datagram đều được bảo vệ bởi AEAD của phiên và cửa sổ chống phát lại, nên các khung nhận được được coi là đã mã hóa trên dây và số thứ tự bên trong của chúng không được kiểm tra lại.
+
+| Thành phần | Chữ ký | Mô tả |
+| --- | --- | --- |
+| `SendAsync` | `ValueTask SendAsync(ReadOnlyMemory<byte> message, DeliveryMethod method, byte channel, CancellationToken cancellationToken = default)` | Gửi một khung Nalix với phương thức chuyển trên một kênh; thông điệp được sao chép trước khi lời gọi trả về. |
+| `WithDelivery` | `IConnection.ITransport WithDelivery(DeliveryMethod method, byte channel)` | Trả về một view được cache, trong đó các lượt gửi dùng `method` trên `channel`. Ném `ArgumentOutOfRangeException` nếu phương thức không hợp lệ hoặc kênh không nhỏ hơn số kênh của phiên. |
+
+### `IDatagramTicketIssuer` và `DatagramTicketInfo`
+
+`public interface IDatagramTicketIssuer` được datagram listener triển khai. `DatagramTicketInfo IssueTicket(IConnection streamConnection, Action<IConnection>? onAccepted = null)` phát hành ticket dùng một lần; secret, danh tính và mức quyền của kết nối stream được chụp lại (snapshot) tại thời điểm đó. `onAccepted` chạy trên kết nối datagram mới sau khi datagram đầu tiên của nó được xác thực, trước khi nó được đăng ký và điều phối.
+
+`public readonly record struct DatagramTicketInfo` mang các giá trị của ticket:
+
+| Trường | Kiểu | Mô tả |
+| --- | --- | --- |
+| `ConnectionId` | `ulong` | Mã định danh kết nối datagram (từ CSPRNG). |
+| `Nonce` | `UInt128` | Nonce ticket 16 byte giúp khóa phiên luôn mới. |
+| `Port` | `ushort` | Cổng UDP để gửi tới; host là host của phiên stream. |
+| `ExpiresInSeconds` | `ushort` | Số giây mà datagram đầu tiên phải đến nơi. |
+| `IdleTimeoutMs` | `int` | Idle timeout của phiên. |
+| `MaxMessageSize` | `int` | Thông điệp lớn nhất mà mỗi bên chấp nhận. |
+| `ChannelCount` | `byte` | Số kênh. |
+| `ReceiveBufferBytes` | `long` | Tổng số byte máy chủ đệm cho việc sắp thứ tự và ghép lại. |
+| `ChannelReceiveBufferBytes` | `long` | Số byte máy chủ đệm cho mỗi kênh. |
+
+### `IDatagramProtection` và `IDatagramProtectionFactory`
+
+`public interface IDatagramProtection : IDisposable` niêm phong và mở các datagram của một phiên bằng AEAD. Mỗi chiều có khóa độc lập, được cập nhật riêng và báo hiệu bằng bit key phase. Các triển khai không an toàn đa luồng, và một packet number chỉ được niêm phong tối đa một lần cho mỗi khóa.
+
+| Thành phần | Mô tả |
+| --- | --- |
+| `int TagSize { get; }` | Kích thước tính bằng byte của tag xác thực gắn vào mọi payload đã niêm phong. |
+| `bool SendKeyPhase { get; }` | Key phase của khóa gửi hiện tại; đảo mỗi lần `UpdateSendKey()`. |
+| `void Seal(ulong packetNumber, ReadOnlySpan<byte> header, ReadOnlySpan<byte> plaintext, Span<byte> destination)` | Mã hóa `plaintext`, xác thực nó với `header` làm dữ liệu liên kết; `destination` nhận ciphertext cộng tag và không được chồng lấn với `plaintext`. |
+| `bool TryOpen(ulong packetNumber, bool keyPhase, ReadOnlySpan<byte> header, ReadOnlySpan<byte> ciphertextAndTag, Span<byte> plaintext)` | Xác thực và giải mã một payload; trả về `true` khi payload xác thực hợp lệ. Payload có key phase khác được mở bằng khóa trước hoặc khóa kế tiếp. |
+| `void UpdateSendKey()` | Thay khóa gửi bằng khóa kế tiếp trong lịch khóa. |
+| `void DiscardPreviousReceiveKey()` | Xóa sạch khóa nhận trước đó. |
+
+`public interface IDatagramProtectionFactory` tạo cơ chế bảo vệ của một phiên: `IDatagramProtection Create(Bytes32 sessionSecret, ulong connectionId, ReadOnlySpan<byte> ticketNonce, bool isServer)`. Bên gọi chịu trách nhiệm dispose kết quả. Triển khai mặc định là `ChaCha20Poly1305DatagramProtectionFactory` trong `Nalix.Codec` (xem [Nalix.Codec](../../packages/nalix-codec.md)).
 
 ## `IConnectionHub`
 

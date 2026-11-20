@@ -124,7 +124,7 @@ When `ProxyProtocolOptions.Enabled` is `true`:
 
 ## Related APIs
 
-- [Datagram Listener](./udp-listener.md)
+- [Datagram Listener](./datagram-listener.md)
 - [WebSocket Binding](../hosting/websocket-binding.md)
 - [Protocol](./protocol.md)
 - [Network Socket Options](../options/network/network-socket-options.md)

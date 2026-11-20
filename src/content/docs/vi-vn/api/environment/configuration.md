@@ -78,6 +78,25 @@ public sealed partial class ServerRoomOptions : ConfigurationLoader, IValidatabl
 }
 ```
 
+## `IniConfig`
+
+`IniConfig` (`public sealed class IniConfig : IDisposable`, không gian tên `Nalix.Environment.Configuration.Binding`) là bộ đọc/ghi `.ini` mức thấp được `ConfigurationManager` và mã do `ConfigurationGenerator` sinh ra sử dụng. Lớp này bị ẩn khỏi IntelliSense (`EditorBrowsable.Never`) và hiếm khi được dùng trực tiếp.
+
+| Thành viên | Chữ ký | Mô tả |
+| :--- | :--- | :--- |
+| `IniConfig(string)` | `public IniConfig(string path)` | Phân giải `path` bằng `Path.GetFullPath` và nạp file nếu nó tồn tại. Ném `ArgumentNullException` với `null` và `ArgumentException` với đường dẫn rỗng hoặc không hợp lệ. |
+| `ExistsFile` | `public bool ExistsFile { get; }` | `true` nếu file tồn tại trên đĩa. |
+| `FilePath` | `public string FilePath { get; }` | Đường dẫn tuyệt đối tới file `.ini`. |
+| `Reload` | `public void Reload()` | Nạp lại file từ đĩa, bỏ các thay đổi chưa lưu. |
+| `WriteValue` | `public void WriteValue(string section, string key, object value)` | Đặt giá trị cho `[section]` / `key` trong bộ nhớ (được ghi xuống đĩa bởi `Flush`). `section` không được chứa ký tự xuống dòng, `[` hoặc `]`; `key` không được chứa ký tự xuống dòng hoặc `=`. |
+| `WriteComment` | `public void WriteComment(string section, string? key, string? comment)` | Đăng ký một chú thích phía trên một section (`key` là `null` hoặc rỗng) hoặc một khóa. Chú thích được giữ trong bộ nhớ và ghi ở lần flush kế tiếp; khi load, các dòng chú thích `;` nằm ngay trên header `[section]` được đọc lại thành chú thích của section đó (`IniConfig.cs:1160-1182`); xem [IniConfig](./ini-config.md). `comment` là `null` hoặc chỉ gồm khoảng trắng thì không làm gì. |
+| `Flush` | `public void Flush()` | Ghi các thay đổi đang chờ xuống đĩa khi instance đã bị thay đổi. |
+| `Dispose` | `public void Dispose()` | Giải phóng khóa file nội bộ. |
+
+Các getter có kiểu (`GetString`, `GetInt32`, ... xem [Kiểu thuộc tính được hỗ trợ](#kiểu-thuộc-tính-được-hỗ-trợ-iniconfig)) trả về chuỗi rỗng (`GetString`) hoặc `null` (các getter nullable) khi khóa bị thiếu hoặc không phân tích được. `GetString` cũng tôn trọng giá trị ghi đè qua biến môi trường `NALIX_<SECTION>_<KEY>`.
+
+Nguồn: `src/Nalix.Environment/Configuration/Binding/IniConfig.cs` (lớp ở L26, `ExistsFile` L75, `FilePath` L80, `Reload` L151, `WriteValue` L162, `WriteComment` L279, `Flush` L995).
+
 ## API liên quan
 
 - [Trình sinh cấu hình](../analyzers/autogen/configuration-generator.md)

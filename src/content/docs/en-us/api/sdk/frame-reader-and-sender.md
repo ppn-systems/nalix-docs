@@ -11,7 +11,7 @@ package: Nalix.SDK
 Each concrete session in `Nalix.SDK` delegates low-level wire I/O, fragmentation, `FramePipeline` transforms (LZ4 compression and AEAD encryption), and replay window validation to an internal reader/sender pair plus a lock-free `SequenceCounter`.
 
 :::warning[Internal Transport Machinery]
-`TcpFrameReader`, `TcpFrameSender`, `WsFrameReader`, and `WsFrameSender` are `internal sealed` types. Application code interacts with them through [TcpSession](./tcp-session.md) and [WebSocketSession](./websocket-session.md). [DatagramSession](./udp-session.md) does not use them: it frames datagrams with the datagram engine instead.
+`TcpFrameReader`, `TcpFrameSender`, `WsFrameReader`, and `WsFrameSender` are `internal sealed` types. Application code interacts with them through [TcpSession](./tcp-session.md) and [WebSocketSession](./websocket-session.md). [DatagramSession](./datagram-session.md) does not use them: it frames datagrams with the datagram engine instead.
 :::
 
 ## Source Mapping
@@ -56,7 +56,7 @@ flowchart LR
 ## Related APIs
 
 - [TCP Session](./tcp-session.md)
-- [Datagram Session](./udp-session.md)
+- [Datagram Session](./datagram-session.md)
 - [WebSocket Session](./websocket-session.md)
 - [Packet Compression](../codec/frame-pipeline.md)
 - [AEAD Ciphers](../security/aead-and-envelope.md)

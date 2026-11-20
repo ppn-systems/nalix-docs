@@ -26,6 +26,7 @@ Nalix uses a source-generated binary serializer (`SerializeFormatterGenerator`) 
 ## Frame Transforms & Cryptography (`Nalix.Codec.Transforms` & `Nalix.Codec.Security`)
 
 - [**Frame Pipeline**](./frame-pipeline.md): Fused inbound (decrypt $\rightarrow$ decompress) and outbound (compress $\rightarrow$ encrypt) frame transformation via `FramePipeline`.
+- [**Datagram Protection**](./datagram-protection.md): `ChaCha20Poly1305DatagramProtection`, its factory and the `DatagramKeySchedule`.
 - [**LZ4 Compression**](./lz4.md): Span-based and pooled `BufferLease` block compression/decompression (`LZ4Codec`, `LZ4BlockHeader`, `CompressionOptions`).
 - **Datagram protection** (`Nalix.Codec.Security.Datagram`): `ChaCha20Poly1305DatagramProtection`, `ChaCha20Poly1305DatagramProtectionFactory`, and `DatagramKeySchedule` implement the `IDatagramProtection` / `IDatagramProtectionFactory` contracts from [Nalix.Abstractions](../abstractions/connection-contracts.md); see [Nalix.Codec](../../packages/nalix-codec.md).
 - [**Cryptography Overview**](../security/cryptography.md): `EnvelopeCipher`, `ChaCha20Poly1305`, `Salsa20Poly1305`, `HandshakeX25519`, `ProofOfWork`, `Keccak256`, `HmacKeccak256`, and `Pbkdf2`.

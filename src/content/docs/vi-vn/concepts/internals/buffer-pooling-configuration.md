@@ -69,7 +69,7 @@ public async ValueTask HandleLargeData(IPacketContext<MyPacket> context)
     int written = DoWork(lease.SpanFull);
     lease.CommitLength(written);
 
-    await context.Connection.TCP.SendAsync(lease.Memory);
+    await context.Connection.Transport.SendAsync(lease.Memory);
 }
 ```
 

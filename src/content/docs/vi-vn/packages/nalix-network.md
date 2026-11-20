@@ -1,21 +1,21 @@
 ---
 title: Nalix.Network
-description: Gói transport máy chủ cấp 3 cung cấp listener TCP, UDP và WebSocket, kết nối socket, ConnectionHub, ConnectionGuard và quản lý nhàn rỗi bằng timing wheel.
+description: Gói transport máy chủ cấp 3 cung cấp listener TCP, datagram (NDP qua UDP) và WebSocket, kết nối socket, ConnectionHub, ConnectionGuard và quản lý nhàn rỗi bằng timing wheel.
 section: Packages
 package: Nalix.Network
 ---
 
-`Nalix.Network` là tầng transport máy chủ **cấp 3**. Nó cung cấp các listener TCP, UDP và WebSocket hiệu năng cao, vòng lặp nhận/gửi frame trên socket, kiểm soát chấp nhận kết nối (`ConnectionGuard`), theo dõi kết nối đang hoạt động (`ConnectionHub`), phân tích proxy-protocol/forwarded-header, và loại bỏ kết nối nhàn rỗi bằng timing wheel.
+`Nalix.Network` là tầng transport máy chủ **cấp 3**. Nó cung cấp các listener TCP, datagram (NDP qua UDP) và WebSocket hiệu năng cao, vòng lặp nhận/gửi frame trên socket, kiểm soát chấp nhận kết nối (`ConnectionGuard`), theo dõi kết nối đang hoạt động (`ConnectionHub`), phân tích proxy-protocol/forwarded-header, và loại bỏ kết nối nhàn rỗi bằng timing wheel.
 
 :::note[Với đa số dự án, hãy bắt đầu với `Nalix.Hosting`]
-`Nalix.Hosting` bao bọc `Nalix.Network` bằng một builder kiểu fluent (`MapTcp<TProtocol>()`, `MapUdp<TProtocol>()`, `MapWebSocket<TProtocol>()`) để tự động quản lý vòng đời listener và protocol. Chỉ dùng `Nalix.Network` trực tiếp khi bạn xây dựng một host máy chủ tùy chỉnh.
+`Nalix.Hosting` bao bọc `Nalix.Network` bằng một builder kiểu fluent (`MapTcp<TProtocol>()`, `MapDatagram<TProtocol>()`, `MapWebSocket<TProtocol>()`) để tự động quản lý vòng đời listener và protocol. Chỉ dùng `Nalix.Network` trực tiếp khi bạn xây dựng một host máy chủ tùy chỉnh.
 :::
 
 ## Vị trí trong kiến trúc
 
 ```mermaid
 flowchart LR
-    A["TcpListenerBase / UdpListenerBase / WebSocketListenerBase"] --> B["ConnectionGuard & ConnectionHub"]
+    A["TcpListenerBase / DatagramListener / WebSocketListenerBase"] --> B["ConnectionGuard & ConnectionHub"]
     B --> C["Protocol (IProtocol)"]
     C --> D["IPacketDispatch (Nalix.Runtime)"]
 ```
@@ -27,10 +27,10 @@ flowchart LR
 | Listener | Transport | Mô tả |
 | :--- | :--- | :--- |
 | `TcpListenerBase` | TCP | Listener socket thông lượng cao, dùng `SocketAsyncEventArgs` có pool, vòng lặp nhận theo khung có tiền tố độ dài, và hỗ trợ tùy chọn PROXY protocol / forwarded header. |
-| `UdpListenerBase` | UDP | Listener datagram độ trễ thấp, có giới hạn tốc độ nguồn `DatagramGuard` và xác thực token phiên 8 byte. |
+| `DatagramListener` | UDP (NDP) | Listener datagram sealed (`Nalix.Network.Listeners.Datagram`) cấp ticket cho các kết nối TCP/WebSocket đã thiết lập và định tuyến các datagram được bảo vệ bằng AEAD tới các phiên `DatagramConnection`, được chấp nhận qua `IConnectionGuard`. Nó thay thế `UdpListenerBase` / `UdpPassthroughListener` đã bị loại bỏ. |
 | `WebSocketListenerBase` | WebSocket | Listener WebSocket theo RFC 6455, hỗ trợ định tuyến theo đường dẫn, thương lượng subprotocol và stream frame nhị phân. |
 
-Mọi listener đều triển khai `IListener`, `IActivatable` và `IReportable`:
+Mọi listener đều triển khai `IListener` (kết hợp `IActivatable` và `IReportable`):
 
 - `Activate(CancellationToken)` / `Deactivate(CancellationToken)`
 - `GenerateReport()` / `WriteReportData(Utf8JsonWriter)` để chẩn đoán trực tiếp
@@ -39,7 +39,7 @@ Mọi listener đều triển khai `IListener`, `IActivatable` và `IReportable`
 
 Lớp trừu tượng `Protocol` (`Nalix.Network.Protocols.Protocol`) nối các kết nối transport thô với bộ điều phối gói tin:
 
-- **Bộ xử lý frame & bộ trích xuất opcode** — Cung cấp `abstract IFrameProcessor FrameProcessor { get; }` và `abstract IOpCodeExtractor OpCodeExtractor { get; }` (được `ApplicationProtocol` / `DefaultProtocol` trong `Nalix.Hosting` triển khai tự động).
+- **Bộ xử lý frame & bộ trích xuất opcode** — Cung cấp `abstract IFrameProcessor FrameProcessor { get; }` và `abstract IOpCodeExtractor OpCodeExtractor { get; }` (được `DefaultProtocol` trong `Nalix.Hosting` triển khai, hoặc bởi lớp con `Protocol` của riêng bạn).
 - **Chấp nhận kết nối** — `ValidateConnection(IConnection)` kiểm soát các kết nối mới trước khi đăng ký.
 - **Vòng đời sau chấp nhận** — `OnAccept(IConnection, CancellationToken)` chạy sau khi đã qua kiểm soát và đăng ký vào hub.
 - **Xử lý thông điệp** — `ProcessMessage(object? sender, IConnectionEventArgs args)` chuyển các payload `IBufferLease` đã đóng khung tới `IPacketDispatch.HandlePacket(...)`.
@@ -47,12 +47,24 @@ Lớp trừu tượng `Protocol` (`Nalix.Network.Protocols.Protocol`) nối các
 
 ```csharp
 using Nalix.Abstractions.Networking;
-using Nalix.Hosting.Protocols;
+using Nalix.Network.Protocols;
 
-public sealed class GameProtocol : ApplicationProtocol
+public sealed class GameProtocol : Protocol
 {
+    private readonly IPacketDispatch _dispatch;
+
+    public GameProtocol(IPacketDispatch dispatch)
+    {
+        _dispatch = dispatch;
+        this.IsAccepting = true;
+        this.KeepConnectionOpen = true;
+    }
+
+    public override IFrameProcessor FrameProcessor => /* your IFrameProcessor */;
+    public override IOpCodeExtractor OpCodeExtractor => /* your IOpCodeExtractor */;
+
     public override void ProcessMessage(object? sender, IConnectionEventArgs args)
-        => this.Dispatch.HandlePacket(args.Lease, args.Connection);
+        => _dispatch.HandlePacket(args.Lease!, args.Connection);
 
     protected override bool ValidateConnection(IConnection connection)
         => true;
@@ -61,9 +73,9 @@ public sealed class GameProtocol : ApplicationProtocol
 
 ### 3. Kết nối, hub & bảo vệ chấp nhận
 
-- **`SocketConnection` & `WebSocketConnection`** — Các triển khai `IConnection` cụ thể, quản lý việc truyền frame TCP/UDP/WebSocket (`IConnectionTransmission`), trạng thái số thứ tự và lease bộ đệm có pool.
+- **`Connection`, `WebSocketConnection` & `DatagramConnection`** — Các triển khai `IConnection` cụ thể cho phiên TCP, WebSocket và datagram (NDP). Mỗi lớp là `IConnection.ITransport` của chính nó (`connection.Transport`); `Connection` nằm trên `SocketConnection` nội bộ có đóng khung.
 - **`ConnectionHub`** — Registry kết nối đang hoạt động trong bộ nhớ, được phân mảnh (sharded), hỗ trợ tra cứu theo ID `ISnowflake`, các hàm phát tin và ảnh chụp chẩn đoán.
-- **`ConnectionGuard`** — Bộ bảo vệ chấp nhận và chống lạm dụng nhiều tầng, thực thi trần kết nối toàn cục, hạn ngạch kết nối đồng thời theo IP, ngưỡng slowloris/lỗi, và cấm vĩnh viễn (`FileBanStore`, `FileBlacklistStore`).
+- **`ConnectionGuard`** — Bộ bảo vệ chấp nhận và chống lạm dụng nhiều tầng, thực thi trần kết nối toàn cục, hạn ngạch kết nối đồng thời theo IP, ngưỡng slowloris/lỗi, và cấm vĩnh viễn (cấu hình qua `ConnectionBanStoreOptions` và `ConnectionBlacklistStoreOptions`).
 - **`TimingWheel`** — Timer wheel phân cấp với độ phức tạp O(1), loại bỏ các kết nối nhàn rỗi mà không cấp phát timer riêng cho từng kết nối.
 
 ## Tùy chọn cấu hình (`Nalix.Network.Options`)
@@ -77,7 +89,7 @@ public sealed class GameProtocol : ApplicationProtocol
 | `ConnectionBanStoreOptions` | Chính sách lưu file và giữ lại các lệnh cấm IP động |
 | `ConnectionBlacklistStoreOptions` | Chính sách file blacklist IP và CIDR tĩnh/động |
 | `ConnectionHubOptions` | Cài đặt phân mảnh và sức chứa cho `ConnectionHub` |
-| `DatagramGuardOptions` | Giới hạn tốc độ gói UDP theo endpoint và loại bỏ bảng trạng thái |
+| `DatagramOptions` | Thời hạn ticket của listener datagram, giới hạn số phiên, worker nhận và bộ đệm socket |
 | `TimingWheelOptions` | Độ phân giải tick, số slot của wheel và ngưỡng timeout kết nối nhàn rỗi |
 | `NetworkCallbackOptions` | Ngưỡng đồng thời và chống flood cho các callback sự kiện kết nối |
 | `TrustedProxyOptions` | Dải CIDR proxy đáng tin cậy để xác định IP client thật |
@@ -88,7 +100,8 @@ public sealed class GameProtocol : ApplicationProtocol
 
 - [Protocol](../api/network/protocol.md)
 - [TCP Listener](../api/network/tcp-listener.md)
-- [UDP Listener](../api/network/udp-listener.md)
+- [Datagram Listener](../api/network/datagram-listener.md)
+- [Tùy chọn Datagram](../api/options/network/datagram-options.md)
 - [WebSocket Listener](../api/network/websocket-listener.md)
 - [Connection](../api/network/connection/connection.md)
 - [Connection Guard](../api/network/connection/connection-guard.md)

@@ -9,7 +9,7 @@ Trang này giải thích các quyết định bảo mật được đưa ra ở 
 ## Ánh xạ mã nguồn
 
 - `src/Nalix.Network/Protocols/Protocol.PublicMethods.cs`
-- `src/Nalix.Network/Listeners/UdpListener/UdpListener.Receive.cs`
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`
 - `src/Nalix.Runtime/Handlers/HandshakeHandlers.cs`
 - `src/Nalix.Runtime/Handlers/SessionHandlers.cs`
 - `src/Nalix.SDK/Transport/Extensions/HandshakeExtensions.cs`
@@ -144,10 +144,10 @@ Hãy coi UDP là một đường datagram đã được xác thực, chứ khôn
 Yêu cầu cho lưu lượng UDP an toàn:
 
 - Định danh phiên phải được thiết lập trước
-- Mỗi datagram phải có tiền tố session token (8 byte)
-- Connection secret phải được khởi tạo
-- `IsAuthenticated(...)` phải xác thực datagram trước khi xử lý
-- Nên bật kiểm tra chống phát lại
+- Phiên datagram được tạo từ một ticket do phiên stream đã xác thực cấp
+- Secret của kết nối stream phải được khởi tạo (handshake hoàn tất)
+- Mỗi datagram được niêm phong bằng ChaCha20-Poly1305 và khóa được dẫn xuất theo từng phiên
+- Datagram không qua được xác thực sẽ bị loại bỏ trước khi đến protocol; session engine thực thi chống phát lại
 
 ## Tư thế bảo mật được khuyến nghị
 
@@ -167,5 +167,5 @@ Với hầu hết các triển khai production:
 - [Session Resumption](./session-resumption.md) — Tham chiếu giao thức resume
 - [Permission Levels](../../api/security/permission-level.md) — Tham chiếu enum quyền
 - [AEAD and Envelope](../../api/security/aead-and-envelope.md) — API mã hóa
-- [UDP Auth Flow](../../guides/networking/udp-security.md) — Hướng dẫn xác thực UDP
+- [UDP Auth Flow](../../guides/networking/datagram-security.md) — Hướng dẫn xác thực UDP
 - [Custom Middleware](../../guides/extensibility/custom-middleware.md) — Xây dựng middleware bảo mật

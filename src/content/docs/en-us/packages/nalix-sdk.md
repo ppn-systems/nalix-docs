@@ -122,7 +122,7 @@ Ephemeral session values—`Secret` (`Bytes32`), `SessionToken` (`ulong`), `Encr
 - [Transport Session](../api/sdk/transport-session.md)
 - [TCP Session](../api/sdk/tcp-session.md)
 - [WebSocket Session](../api/sdk/websocket-session.md)
-- [Datagram Session](../api/sdk/udp-session.md)
+- [Datagram Session](../api/sdk/datagram-session.md)
 - [Handshake Extensions](../api/sdk/handshake-extensions.md)
 - [Resume Extensions](../api/sdk/resume-extensions.md)
 - [Session Extensions](../api/sdk/tcp-session-extensions.md)

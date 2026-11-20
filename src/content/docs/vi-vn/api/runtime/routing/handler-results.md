@@ -23,7 +23,7 @@ Tại thời điểm biên dịch, [PacketHandlerGenerator](../../analyzers/auto
 | `Task` / `ValueTask` | `true` | Chờ hoàn thành; không gửi phản hồi tự động. |
 | `TResponse` (với `TResponse : IPacket`) | `false` | Gửi `response` qua `context.Sender.ReplyAsync` (khi `response.Header.SequenceId == 0`) hoặc `context.Sender.SendAsync` (khi `SequenceId != 0`), sau đó dispose `response` nếu nó là một instance `IDisposable` khác biệt. |
 | `Task<TResponse>` / `ValueTask<TResponse>` | `false` | Chờ kết quả, rồi gửi và dispose `TResponse` như trên. |
-| `byte[]` / `Memory<byte>` / `ReadOnlyMemory<byte>` (hoặc `Task<...>` / `ValueTask<...>`) | `false` | Gửi trực tiếp các byte thô qua `context.Connection.TCP` (nếu reliable hoặc UDP là `null`) hoặc `context.Connection.UDP`. |
+| `byte[]` / `Memory<byte>` / `ReadOnlyMemory<byte>` (hoặc `Task<...>` / `ValueTask<...>`) | `false` | Gửi trực tiếp các byte thô bằng `context.Connection.Transport.SendAsync(data)`. |
 | `IAsyncEnumerable<TResponse>` (với `TResponse : IPacket`) | `false` | Stream từng gói tin được yield qua `context.Sender.ReplyAsync(item, ct)`. Dùng look-ahead một phần tử để đặt `IPacketStreamable.IsEndOfStream = true` trên gói tin cuối trước khi gửi, và dispose mỗi gói tin `IDisposable` sau khi gửi. |
 
 ## Các dạng tham số handler được hỗ trợ

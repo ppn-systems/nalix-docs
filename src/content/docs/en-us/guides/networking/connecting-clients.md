@@ -232,5 +232,5 @@ session.Dispose();
 - [SDK Overview](../../api/sdk/index.md)
 - [Transport Session Guidelines](../../api/sdk/transport-session.md)
 - [TCP Session Guidelines](../../api/sdk/tcp-session.md)
-- [UDP Session Guidelines](../../api/sdk/udp-session.md)
+- [UDP Session Guidelines](../../api/sdk/datagram-session.md)
 - [Extensive Transport Options Documentation](../../api/options/sdk/transport-options.md)

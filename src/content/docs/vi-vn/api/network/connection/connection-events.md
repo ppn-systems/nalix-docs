@@ -15,6 +15,8 @@ Các sự kiện mạng trên `IConnection` (`MessageProcessing`, `MessageProces
 - `src/Nalix.Abstractions/Networking/IConnectionEventArgs.cs`
 - `src/Nalix.Network/Connections/Connection.EventArgs.cs`
 - `src/Nalix.Network/Connections/Connection.cs`
+- `src/Nalix.Network/Connections/WebSocketConnection.cs`
+- `src/Nalix.Network/Connections/DatagramConnection.cs`
 - `src/Nalix.Network/Internal/Transport/AsyncCallback.cs`
 - `src/Nalix.Network/Options/NetworkCallbackOptions.cs`
 
@@ -22,7 +24,7 @@ Các sự kiện mạng trên `IConnection` (`MessageProcessing`, `MessageProces
 
 ```mermaid
 sequenceDiagram
-    participant S as SocketConnection / UdpListenerBase
+    participant S as SocketConnection / WebSocketConnection / DatagramConnection
     participant C as Connection (LocalPool)
     participant AC as AsyncCallback
     participant TP as ThreadPool
@@ -65,6 +67,7 @@ public sealed class ConnectionEventArgs : EventArgs, IConnectionEventArgs, IPool
 ```
 
 - **`ExchangeLease(newLease)`**: Hoán đổi nguyên tử `IBufferLease?` bên dưới (được `TcpListenerBase` / `WebSocketListenerBase` dùng sau khi `FramePipeline.ProcessInbound` giải mã hoặc giải nén khung đến tại chỗ) và trả về lease trước đó để bên gọi dispose.
+- **Các loại kết nối**: Ba sự kiện này cùng tồn tại trên `Connection` (TCP), `WebSocketConnection` và `DatagramConnection`; cả ba đều triển khai `IConnection`. `DatagramListener` đăng ký `MessageProcessing` vào `IFrameProcessor.ProcessFrame` và `MessageProcessed` vào `IProtocol.PostProcessMessage` trên mỗi `DatagramConnection` được chấp nhận.
 - **Pool hai tầng**: `Connection` và `WebSocketConnection` duy trì một `LocalPool` lock-free 8 slot cho `ConnectionEventArgs` và `PooledConnectEventContext`, và chuyển sang `ObjectPoolManager.Shared` khi pool cục bộ của kết nối đã đầy.
 
 :::warning[Tuyệt đối không giữ `ConnectionEventArgs`]

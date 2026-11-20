@@ -121,7 +121,7 @@ LoginResponse response = await client.RequestAsync<LoginResponse>(
 ## Related APIs
 
 - [Transport Session](./transport-session.md)
-- [Datagram Session](./udp-session.md)
+- [Datagram Session](./datagram-session.md)
 - [WebSocket Session](./websocket-session.md)
 - [Session Extensions](./tcp-session-extensions.md)
 - [Transport Options](../options/sdk/transport-options.md)

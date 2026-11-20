@@ -65,8 +65,27 @@ public abstract partial class TcpListenerBase : IListener
     public virtual void WriteReportData(Utf8JsonWriter writer);
     public void Dispose();
     protected virtual void Dispose(bool disposing);
+
+    // Accept pipeline members available to derived listeners
+    protected void ProcessConnection(IConnection connection);
+    protected void HandleConnectionClose(object? sender, IConnectionEventArgs args);
+    protected internal static void SafeCloseSocket(Socket socket);
+    protected Task AcceptConnectionsAsync(IWorkerContext ctx, CancellationToken cancellationToken);
+    protected void DoAccept(IConnection connection);
+    protected void HandleAccept(SocketAsyncEventArgs args);
+    protected void OnSyncAcceptCompleted(object? sender, SocketAsyncEventArgs args);
+    protected void AcceptNext(SocketAsyncEventArgs args, CancellationToken cancellationToken);
 }
 ```
+
+| Thành phần protected | Nguồn | Hành vi |
+| :--- | :--- | :--- |
+| `ProcessConnection(IConnection)` | `TcpListener.Handle.cs` | Chuyển một kết nối đã khởi tạo đầy đủ cho protocol; ngoại lệ do `IProtocol.OnAccept` ném ra sẽ được bắt, ghi log và kết nối bị đóng, nên vòng lặp của listener vẫn tiếp tục. |
+| `HandleConnectionClose(object?, IConnectionEventArgs)` | `TcpListener.Handle.cs` | Trình xử lý `ConnectionClosed`; trả về ngay khi `args` hoặc `Connection` của nó là `null`. |
+| `SafeCloseSocket(Socket)` | `TcpListener.Handle.cs` | Đóng một socket có thể đang ở trạng thái không xác định; ngoại lệ được ghi log ở mức `Debug` và không ném lại. |
+| `AcceptConnectionsAsync(IWorkerContext, CancellationToken)` | `TcpListener.Handle.cs` | Vòng lặp worker accept; chuyển từng kết nối đã accept đi xử lý. |
+| `DoAccept(IConnection)` | `TcpListener.Handle.cs` | Gọi `IProtocol.OnAccept(connection, ct)`. |
+| `HandleAccept(SocketAsyncEventArgs)`, `OnSyncAcceptCompleted(...)`, `AcceptNext(...)` | `TcpListener.Synchronization.cs` | Xử lý hoàn tất accept SAEA và vòng lặp accept; `AcceptNext` tạm dừng 50 ms sau một ngoại lệ không mong đợi trước khi thử lại. |
 
 ## Số liệu (`TcpListenerBase.LMetrics`)
 
@@ -86,7 +105,7 @@ public abstract partial class TcpListenerBase : IListener
 ### 1. Bind và tinh chỉnh socket (`TcpListener.SocketConfig.cs`)
 
 - **Dual-stack IPv6 / IPv4 dự phòng**: Khi `NetworkSocketOptions.EnableDualStack` là `true` (mặc định), `TcpListenerBase` bind một socket `InterNetworkV6` với `DualMode = _config.DualMode` (`true`), và chuyển sang `InterNetwork` (IPv4) nếu hệ điều hành không hỗ trợ dual-stack IPv6.
-- **Tùy chọn socket**: Cấu hình `ReuseAddress`, `ReusePort`, `TcpFastOpen`, `Backlog` (`512`), `NoDelay` (`true`), `SendBufferSize`/`ReceiveBufferSize` (`BufferSize = 65536`), và các probe TCP Keep-Alive đa nền tảng (`3s` thời gian, `1s` khoảng cách, `3` lần thử lại).
+- **Tùy chọn socket**: Cấu hình `ReuseAddress`, `ReusePort`, `TcpFastOpen`, `Backlog` (`512`), `NoDelay` (`true`), `SendBufferSize`/`ReceiveBufferSize` (`BufferSize = 65536`), và các probe TCP Keep-Alive đa nền tảng (`120` thời gian, `30` khoảng cách, `5` lần thử lại). `SO_REUSEPORT` chỉ được áp dụng trên Linux.
 
 ### 2. PROXY Protocol v1/v2 (`TcpListener.ProxyProtocol.cs`)
 
@@ -105,7 +124,7 @@ Khi `ProxyProtocolOptions.Enabled` là `true`:
 
 ## API liên quan
 
-- [UDP Listener](./udp-listener.md)
+- [Datagram Listener](./datagram-listener.md)
 - [WebSocket Binding](../hosting/websocket-binding.md)
 - [Protocol](./protocol.md)
 - [Network Socket Options](../options/network/network-socket-options.md)

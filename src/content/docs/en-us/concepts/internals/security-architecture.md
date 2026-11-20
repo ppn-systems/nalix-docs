@@ -167,5 +167,5 @@ For most production deployments:
 - [Session Resumption](./session-resumption.md) — Resume protocol reference
 - [Permission Levels](../../api/security/permission-level.md) — Permission enum reference
 - [AEAD and Envelope](../../api/security/aead-and-envelope.md) — Encryption API
-- [UDP Auth Flow](../../guides/networking/udp-security.md) — UDP authentication guide
+- [UDP Auth Flow](../../guides/networking/datagram-security.md) — UDP authentication guide
 - [Custom Middleware](../../guides/extensibility/custom-middleware.md) — Building security middleware

@@ -21,11 +21,10 @@ package: Nalix.Runtime
 Khi `SendAsync` hoặc `ReplyAsync` được gọi:
 
 1. **Chọn transport (`GetTransport`)**:
-   - Nếu handler có `[PacketTransport(NetworkTransport.UDP)]`, chọn `connection.UDP` (ném `InvalidOperationException` nếu transport UDP đi kèm chưa được khởi tạo).
-   - Nếu `[PacketTransport]` chỉ định `TCP` hoặc `WEBSOCKET`, chọn `connection.TCP`.
-   - Nếu không có `[PacketTransport]`, phản hồi trên `connection.UDP` khi yêu cầu đến qua UDP (`!context.IsReliable && connection.UDP is not null`), ngược lại dùng `connection.TCP`.
+   - Luôn gửi trên `connection.Transport` (`IConnection.ITransport`).
+   - Khi `connection.Transport` là một `IDatagramTransport` (phiên datagram), attribute `[PacketDelivery(DeliveryMethod, channel)]` tùy chọn của handler được áp dụng qua `datagram.WithDelivery(method, channel)`. Nếu không có, việc gửi datagram dùng `DeliveryMethod.ReliableOrdered` trên kênh `0`. Các kết nối dạng stream (TCP, WebSocket) bỏ qua `[PacketDelivery]`.
 2. **Quyết định mã hóa**:
-   - `SendAsync(packet, ct)` dùng `needEncrypt = context.Attributes.Encryption?.IsEncrypted ?? false` (từ `[PacketEncryption]`).
+   - `SendAsync(packet, ct)` dùng `[PacketEncryption]` (`context.Attributes.Encryption?.IsEncrypted ?? false`), nhưng không bao giờ mã hóa trên `IDatagramTransport` vì các phiên datagram vốn đã được niêm phong (`PacketSender.NeedsEncryption`).
    - `SendAsync(packet, forceEncrypt, ct)` ghi đè chính sách của attribute bằng `forceEncrypt`.
 3. **Tuần tự hóa & biến đổi khung**:
    - Tuần tự hóa `packet` vào một `BufferLease` có pool qua `PacketPipeline.Serialize(packet, zeroOnDispose: needEncrypt)`.
@@ -37,8 +36,9 @@ Khi `SendAsync` hoặc `ReplyAsync` được gọi:
 | Phương thức | Chữ ký | Mô tả |
 | :--- | :--- | :--- |
 | `ReplyAsync` | `public ValueTask ReplyAsync(IPacket response, CancellationToken ct = default)` | Sao chép `SequenceId` của yêu cầu đến sang `response.Header.SequenceId` (để client `RequestAsync` / `StreamAsync` ghép cặp) rồi gọi `SendAsync(response, ct)`. |
-| `SendAsync` (policy mặc định) | `public ValueTask SendAsync(IPacket packet, CancellationToken ct = default)` | Tuần tự hóa và gửi `packet` theo metadata `[PacketEncryption]` và `[PacketTransport]` của handler, không thay đổi `packet.Header.SequenceId`. |
+| `SendAsync` (policy mặc định) | `public ValueTask SendAsync(IPacket packet, CancellationToken ct = default)` | Tuần tự hóa và gửi `packet` theo metadata `[PacketEncryption]` và `[PacketDelivery]` của handler, không thay đổi `packet.Header.SequenceId`. |
 | `SendAsync` (mã hóa tường minh) | `public ValueTask SendAsync(IPacket packet, bool forceEncrypt, CancellationToken ct = default)` | Tuần tự hóa và gửi `packet` với ghi đè `forceEncrypt` tường minh. |
+| `SendAsync<TPacket>` / `ReplyAsync<TPacket>` (batch) | `public ValueTask SendAsync<TPacket>(ReadOnlySpan<TPacket> packets, CancellationToken ct = default) where TPacket : IPacket` | Gửi (hoặc, với `ReplyAsync`, gán `SequenceId` của yêu cầu lên từng phản hồi rồi gửi) một lô gói tin trên transport đã chọn. |
 | `Initialize<TPacket>` | `public void Initialize<TPacket>(IPacketContext<TPacket> context) where TPacket : IPacket` | Gắn sender với `context` (được `PacketContext<TPacket>.Initialize` gọi tự động). |
 | `ResetForPool` | `public void ResetForPool()` | Xóa trạng thái kết nối, metadata, token và sequence khi `PacketContext<TPacket>` được trả về pool. |
 

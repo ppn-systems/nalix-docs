@@ -52,10 +52,10 @@ sequenceDiagram
 1. **Bộ quét timeout handshake**: Khi `Activate()` được gọi, `WebSocketListenerBase` lên lịch một tác vụ lặp lại mỗi giây (`TaskManager.ScheduleRecurring`) để quét các ngữ cảnh nâng cấp HTTP bị treo vượt quá `NetworkWebSocketOptions.HandshakeTimeoutMs` (mặc định `5000` ms), đóng socket của chúng ngoài lock và giải phóng các slot `ConnectionGuard`.
 2. **Endpoint HTTP DevOps có sẵn**: Khi `NetworkWebSocketOptions.EnableDevOpsEndpoints = true` (mặc định), listener đăng ký các handler `GET` HTTP không cấp phát bộ nhớ trên cùng cổng:
    - `/healthz`, `/health`, `/livez`, `/readyz`, `/startupz`, `/ping` $\rightarrow$ `200 OK` (`Healthy`)
-   - `/version` $\rightarrow$ `200 OK` JSON (`{"name":"Nalix","version":"1.0.0","status":"running"}`)
-   - `/metrics` $\rightarrow$ `200 OK` định dạng văn bản Prometheus (`nalix_active_connections`)
+   - `/version` $\rightarrow$ `200 OK` JSON (`{"name":"Nalix","version":"1.0.0","status":"running"}`) và `/metrics` $\rightarrow$ `200 OK` định dạng văn bản Prometheus (`nalix_active_connections`): cả hai chỉ được đăng ký **khi** `NetworkWebSocketOptions.DevOpsBearerToken` không rỗng (đóng khi thiếu cấu hình) và yêu cầu `Authorization: Bearer <token>`; nếu không, listener trả `401 Unauthorized` kèm `WWW-Authenticate: Bearer`.
 3. **Kiểm soát Origin chống CSWSH**: Kiểm tra header `Origin` qua `NetworkWebSocketOptions.IsOriginAllowed(origin)` trước khi gửi `101 Switching Protocols`. Yêu cầu bị từ chối sẽ nhận `HTTP/1.1 403 Forbidden` và kết nối bị đóng ngay.
 4. **Forwarded header ở tầng L7 (`ForwardedHeadersOptions`)**: Khi `ForwardedHeadersOptions.Enabled = true`, lấy IP client thật từ `CF-Connecting-IP`, `X-Real-IP` hoặc `X-Forwarded-For` (được chọn theo `ForwardedHeadersOptions.ClientIpHeader`, mặc định `Auto`) (áp dụng `TrustedProxyOptions` khi `RequireTrustedProxy = true`) và chuyển slot `ConnectionGuard` từ IP của proxy sang IP client thật.
+5. **Tắt êm (graceful shutdown)**: Listener theo dõi các instance `WebSocketConnection` đang sống; `Deactivate` đóng từng kết nối bằng khung đóng `EndpointUnavailable` (1001) (chờ trong một khoảng thời gian có giới hạn cho các bắt tay đóng) trước khi hủy, vì việc hủy sẽ ngắt các socket. Xem [Kết nối WebSocket](./websocket-connection.md).
 
 ---
 
@@ -101,6 +101,8 @@ public abstract partial class WebSocketListenerBase : TcpListenerBase
 
 ### `HttpMethodType` và `HttpRouteHandler`
 
+`HttpMethodType`, `HttpRequestView` và `HttpResponseWriter` được khai báo trong `src/Nalix.Network/Listeners/WebListener/HttpRequestView.cs` (không gian tên `Nalix.Network.Listeners.Web`).
+
 ```csharp
 public enum HttpMethodType : byte
 {
@@ -124,6 +126,7 @@ public delegate void HttpRouteHandler(
 | `Body` | `ReadOnlySpan<byte>` | Byte nội dung của yêu cầu (với yêu cầu `POST`, tối đa `MaxUpgradeRequestSize`), hoặc rỗng. |
 | `ContentType` | `ReadOnlySpan<byte>` | Giá trị header `Content-Type`, hoặc rỗng nếu không có. |
 | `Origin` | `ReadOnlySpan<byte>` | Giá trị header `Origin`, hoặc rỗng nếu không có. |
+| `Authorization` | `ReadOnlySpan<byte>` | Giá trị header `Authorization`, hoặc rỗng nếu không có. |
 | `RemoteEndPoint` | `EndPoint?` | Endpoint client đã phân giải (tính đến PROXY Protocol v1/v2 hoặc `ForwardedHeadersOptions` đáng tin cậy). |
 
 ### `HttpResponseWriter` (`ref struct`)

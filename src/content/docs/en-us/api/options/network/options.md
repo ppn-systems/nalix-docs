@@ -68,7 +68,7 @@ flowchart LR
 | [TrustedProxyOptions](./trusted-proxy-options.md) | `Nalix.Network.Options` | `[TrustedProxy]` | Trusted reverse proxy / CDN allowlist (`"trusted_proxies.txt"`) and elevated connection ceilings (`5000`). |
 | [ConnectionBanStoreOptions](./connection-ban-store-options.md) | `Nalix.Network.Options` | `[ConnectionBanStore]` | Disk persistence (`"banned_ips.bin"`) and 7-day decay window for dynamic IP bans. |
 | [ConnectionBlacklistStoreOptions](./connection-blacklist-store-options.md) | `Nalix.Network.Options` | `[ConnectionBlacklistStore]` | Permanent IP/CIDR blocklist loaded from `"blacklist.txt"`. |
-| [DatagramOptions](./datagram-guard-options.md) | `Nalix.Network.Options` | `[Datagram]` | Datagram (NDP) listener: ticket lifetime (`10` s), session limit (`100,000`), receive workers (`1`), and socket buffers (`4 MiB`). |
+| [DatagramOptions](./datagram-options.md) | `Nalix.Network.Options` | `[Datagram]` | Datagram (NDP) listener: ticket lifetime (`10` s), session limit (`100,000`), receive workers (`1`), and socket buffers (`4 MiB`). |
 | [ConnectionHubOptions](./connection-hub-options.md) | `Nalix.Network.Options` | `[ConnectionHub]` | Shard count (`max(1, ProcessorCount)`), broadcast batching, bulk disconnect parallelism, and latency logging. |
 | [TimingWheelOptions](./timing-wheel-options.md) | `Nalix.Network.Options` | `[TimingWheel]` | Bucket count (`512`), tick interval (`1000` ms), connection idle timeout (`60,000` ms), and handshake timeout (`15,000` ms). |
 | [NetworkCallbackOptions](./network-callback-options.md) | `Nalix.Network.Options` | `[NetworkCallback]` | Per-connection pending packet cap (`16`), `OverflowPolicy`, global/per-IP callback caps (`10,000` / `64`), and `FairnessMapSize` (`16,384`). |

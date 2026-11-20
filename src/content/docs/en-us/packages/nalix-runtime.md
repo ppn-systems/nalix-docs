@@ -111,7 +111,7 @@ If a handler method does not declare `[PacketPermission]` (`context.Attributes.P
 - **`HandshakeHandlers` & `ProofOfWorkHandlers`**: Server-side X25519 key exchange, TOFU public key serving, certificate storage (`FileCertificateStore`), and Proof-of-Work verification (`AdaptiveProofOfWorkPolicy`).
 - **`SessionHandlers`**: Stateless session resumption (`SessionResume`) with `HmacKeccak256` proof-of-possession and atomic token rotation via `ISessionService`.
 - **`SystemControlHandlers` & `SystemTimeSyncHandlers`**: `SystemControlHandlers` handles `Control` frames (`DISCONNECT`, `SESSION_REKEY`, `CIPHER_UPDATE`, `POW_REQUEST`, `PUBLIC_KEY_REQUEST`); `SystemTimeSyncHandlers` handles `TimeSync` frames (`PING`/`PONG`, `TIMESYNCREQUEST`).
-- **`DatagramTicketHandlers`**: Answers a `DatagramTicket` `REQUEST` on an established stream connection with a ticket from `IDatagramTicketIssuer` (or a refusal), bootstrapping a [DatagramSession](../api/sdk/udp-session.md).
+- **`DatagramTicketHandlers`**: Answers a `DatagramTicket` `REQUEST` on an established stream connection with a ticket from `IDatagramTicketIssuer` (or a refusal), bootstrapping a [DatagramSession](../api/sdk/datagram-session.md).
 
 ### 5. Session Store & Connection Groups
 

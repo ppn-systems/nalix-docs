@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport.Extensions`  
 **Assembly:** `Nalix.SDK`
 
-`HandshakeExtensions.HandshakeAsync` performs the client-side cryptographic handshake over any `ITransportSession` ([TcpSession](./tcp-session.md), [DatagramSession](./udp-session.md), or [WebSocketSession](./websocket-session.md)), deriving a 32-byte symmetric key (`session.State.Secret`), enabling frame encryption (`session.State.EncryptionEnabled = true`), capturing the 8-byte `session.State.SessionToken`, and signaling `TransportSession.NotifyReady()`.
+`HandshakeExtensions.HandshakeAsync` performs the client-side cryptographic handshake over any `ITransportSession` ([TcpSession](./tcp-session.md), [DatagramSession](./datagram-session.md), or [WebSocketSession](./websocket-session.md)), deriving a 32-byte symmetric key (`session.State.Secret`), enabling frame encryption (`session.State.EncryptionEnabled = true`), capturing the 8-byte `session.State.SessionToken`, and signaling `TransportSession.NotifyReady()`.
 
 ## Source Mapping
 

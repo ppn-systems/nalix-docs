@@ -8,10 +8,10 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Internal.Transport`  
 **Assembly:** `Nalix.Network`
 
-`SocketConnection` (`internal sealed partial class SocketConnection : IDisposable, IPoolable`) là bộ máy transport TCP có khung nội bộ, làm nền cho `Connection.TCP` (`SocketTcpTransport`). Nó dùng các `PooledSocketReceiveContext` (`SocketAsyncEventArgs`) lấy từ pool, pool mảng byte `BufferLease`, và đóng khung đa chế độ để duy trì 10,000+ kết nối đồng thời mà không cấp phát heap cho mỗi gói tin.
+`SocketConnection` (`internal sealed partial class SocketConnection : IDisposable, IPoolable`) là bộ máy transport TCP có khung nội bộ, làm nền cho transport TCP của `Connection` (`Connection.Transport`, được triển khai trong `Connection.Transport.cs`; không có kiểu `SocketTcpTransport` riêng). Nó dùng các `PooledSocketReceiveContext` (`SocketAsyncEventArgs`) lấy từ pool, pool mảng byte `BufferLease`, và đóng khung đa chế độ để duy trì 10,000+ kết nối đồng thời mà không cấp phát heap cho mỗi gói tin.
 
 :::warning[Kiểu triển khai nội bộ]
-`SocketConnection` là `internal sealed` và không được mã ứng dụng tham chiếu trực tiếp. Mã ứng dụng tương tác với socket TCP qua `IConnection` và `connection.TCP` (`IConnection.ITransport`).
+`SocketConnection` là `internal sealed` và không được mã ứng dụng tham chiếu trực tiếp. Mã ứng dụng tương tác với socket TCP qua `IConnection` và `connection.Transport` (`IConnection.ITransport`).
 :::
 
 ## Nguồn mã
@@ -21,7 +21,7 @@ package: Nalix.Network
 - `src/Nalix.Network/Internal/Transport/SocketConnection.Receive.VarInt.cs`
 - `src/Nalix.Network/Internal/Transport/SocketConnection.Send.cs`
 - `src/Nalix.Network/Internal/Transport/SocketConnection.Send.VarInt.cs`
-- `src/Nalix.Network/Internal/Transport/SocketTcpTransport.cs`
+- `src/Nalix.Network/Connections/Connection.Transport.cs`
 - `src/Nalix.Network/Options/NetworkCallbackOptions.cs`
 - `src/Nalix.Network/Options/VarIntFramingOptions.cs`
 
@@ -55,7 +55,7 @@ flowchart TD
 
 ### 1. Đóng khung transport đa chế độ (`TransportFraming`)
 
-Được cấu hình qua `connection.TCP.UseFraming(this.Framing)` trong `Protocol.OnAccept` (bị khóa khi `BeginReceive` bắt đầu):
+Được cấu hình qua `connection.Transport.UseFraming(this.Framing)` trong `Protocol.OnAccept` (bị khóa khi `BeginReceive` bắt đầu):
 
 | Chế độ | Tiền tố trên dây | Kích thước khung tối đa | File nguồn |
 | :--- | :--- | :--- | :--- |

@@ -24,7 +24,7 @@ function walkMdFiles(dir: string, baseDir = dir): string[] {
 describe('Ground-Truth Source-Code Parity & Adversarial Audit Gates', () => {
   const mdFiles = walkMdFiles(EN_DOCS_DIR);
 
-  it('ensures zero leaked Audit Summary headings, zero mojibake, and zero backticked link labels (R19) across all 203 docs', () => {
+  it('ensures zero leaked Audit Summary headings, zero mojibake, and zero backticked link labels (R19) across all 207 docs', () => {
     const violations: string[] = [];
 
     for (const relFile of mdFiles) {

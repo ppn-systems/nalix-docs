@@ -48,7 +48,7 @@ When an endpoint exceeds its rate window:
 
 ## 2. Datagram Sessions
 
-`DatagramGuard` and `DatagramGuardOptions` (per-source UDP packet windows) were removed. `DatagramListener` instead admits each datagram session through `IConnectionGuard.TryAccept(remote)` when the first datagram of its ticket authenticates, holds the guard slot while the session lives, and calls `Release` when the session is disposed. A refused session is counted in `DatagramListener.DMetrics.TotalGuardRejections`. Unauthenticated datagrams never reach the guard. See [Datagram Listener](../udp-listener.md).
+`DatagramGuard` and `DatagramGuardOptions` (per-source UDP packet windows) were removed. `DatagramListener` instead admits each datagram session through `IConnectionGuard.TryAccept(remote)` when the first datagram of its ticket authenticates, holds the guard slot while the session lives, and calls `Release` when the session is disposed. A refused session is counted in `DatagramListener.DMetrics.TotalGuardRejections`. Unauthenticated datagrams never reach the guard. See [Datagram Listener](../datagram-listener.md).
 
 ## Configuration Summary
 
@@ -63,4 +63,4 @@ When an endpoint exceeds its rate window:
 - [Connection Guard API Reference](./connection-guard.md)
 - [Connection Hub](./connection-hub.md)
 - [TCP Listener](../tcp-listener.md)
-- [Datagram Listener](../udp-listener.md)
+- [Datagram Listener](../datagram-listener.md)

@@ -61,12 +61,13 @@ sequenceDiagram
 
 Khi một yêu cầu `SessionResume` (`0x0002`, `SESSION_SIGNAL`) đến `SessionHandlers.HandleAsync`:
 
+0. Kết nối datagram (`context.Connection.Transport is IDatagramTransport`) bị bỏ qua: điều khiển phiên chỉ chạy trên kết nối dạng luồng. Thiếu `ISessionService` được trả lời bằng `SERVICE_UNAVAILABLE`, còn yêu cầu trên kết nối đã thiết lập handshake được trả lời bằng `STATE_VIOLATION`.
 1. Gói tin đến được kiểm tra để đảm bảo các trường `Stage` (`SessionResumeStage.REQUEST`), `SessionToken` và `Proof` đúng cấu trúc.
 2. Máy chủ gọi `ISessionService.ConsumeAsync(packet.SessionToken, entry => ...)` để xác thực và tiêu thụ `SessionEntry` đã lưu một cách nguyên tử.
 3. Bên trong predicate, nó xác minh `Proof` theo thời gian hằng số bằng `HmacKeccak256.Compute` trên bộ đệm 16 byte `SessionToken (8B LE) || TimeWindow (8B LE, UnixSeconds / 30)` qua các cửa sổ thời gian `[t - 1, t, t + 1]` (các bucket 30 giây).
-4. Nếu xác thực thành công, runtime khôi phục `Secret`, `Algorithm`, `Level` của kết nối và trạng thái đã lưu, đồng thời đánh dấu trạng thái handshake là đã thiết lập.
+4. Nếu xác thực thành công, runtime khôi phục `Secret`, `Algorithm`, `Level` của kết nối và trạng thái đã lưu, đánh dấu trạng thái handshake là đã thiết lập, và khôi phục trạng thái sequence của transport từ snapshot (`SendSequence.Reset(TcpSendSequence)` và bộ đếm nhận được khôi phục về `TcpReceiveSequence`, với cửa sổ sắp xếp lại 32 ô được đánh dấu lại là đã thấy), nhờ đó các khung được ghi lại trước lúc resume không thể bị phát lại.
 5. Runtime lưu kết nối đang hoạt động dưới `ConnectionId` mới (`newToken`) qua `ISessionService.SaveSessionAsync(connection)`, tính proof phản hồi của máy chủ (`HmacKeccak256` trên `newToken (8B LE) || TimeWindow (8B LE)`), và gửi `SessionResume` (`Stage = RESPONSE`, `SessionToken = newToken`, `Reason = ProtocolReason.NONE`, `Proof = responseProof`).
-6. Nếu xác thực, tra cứu token hoặc xác minh proof thất bại, máy chủ gửi `SessionResume` (`Stage = RESPONSE`) với `ProtocolReason` tương ứng với lỗi và đóng kết nối.
+6. Nếu xác thực, tra cứu token hoặc xác minh proof thất bại (`MALFORMED_PACKET`, `SESSION_EXPIRED`, ...), máy chủ gửi `SessionResume` (`Stage = RESPONSE`, `SessionToken = 0`) với `ProtocolReason` tương ứng với lỗi, chờ `50` ms rồi đóng kết nối.
 
 ---
 

@@ -17,10 +17,12 @@ package: Nalix.Runtime
 - `src/Nalix.Runtime/Middleware/Standard/PermissionMiddleware.cs`
 - `src/Nalix.Runtime/Middleware/Standard/RateLimitMiddleware.cs`
 - `src/Nalix.Runtime/Middleware/Standard/TimeoutMiddleware.cs`
+- `src/Nalix.Runtime/Handlers/DatagramTicketHandlers.cs`
 - `src/Nalix.Runtime/Handlers/HandshakeHandlers.cs`
 - `src/Nalix.Runtime/Handlers/ProofOfWorkHandlers.cs`
 - `src/Nalix.Runtime/Handlers/SessionHandlers.cs`
 - `src/Nalix.Runtime/Handlers/SystemControlHandlers.cs`
+- `src/Nalix.Runtime/Security/FileCertificateStore.cs`
 - `src/Nalix.Runtime/Handlers/SystemTimeSyncHandlers.cs`
 - `src/Nalix.Runtime/Sessions/SessionService.cs`
 - `src/Nalix.Runtime/Groups/InMemoryGroupStore.cs`
@@ -108,7 +110,8 @@ Nếu một method handler không khai báo `[PacketPermission]` (`context.Attri
 
 - **`HandshakeHandlers` & `ProofOfWorkHandlers`**: Trao đổi khóa X25519 phía máy chủ, phục vụ khóa công khai TOFU, lưu trữ chứng chỉ (`FileCertificateStore`), và xác minh Proof-of-Work (`AdaptiveProofOfWorkPolicy`).
 - **`SessionHandlers`**: Tiếp tục phiên không trạng thái (`SessionResume`) với chứng minh sở hữu `HmacKeccak256` và xoay vòng token nguyên tử qua `ISessionService`.
-- **`SystemControlHandlers` & `SystemTimeSyncHandlers`**: Xử lý các frame `Control` (`PING`/`PONG`, `DISCONNECT`, `CIPHER_UPDATE`, `PUBLIC_KEY_REQUEST`) và `TimeSync`.
+- **`SystemControlHandlers` & `SystemTimeSyncHandlers`**: `SystemControlHandlers` xử lý các frame `Control` (`DISCONNECT`, `SESSION_REKEY`, `CIPHER_UPDATE`, `POW_REQUEST`, `PUBLIC_KEY_REQUEST`); `SystemTimeSyncHandlers` xử lý các frame `TimeSync` (`PING`/`PONG`, `TIMESYNCREQUEST`).
+- **`DatagramTicketHandlers`**: Trả lời yêu cầu `REQUEST` của `DatagramTicket` trên một kết nối stream đã thiết lập bằng một ticket từ `IDatagramTicketIssuer` (hoặc từ chối), khởi tạo một [DatagramSession](../api/sdk/datagram-session.md).
 
 ### 5. Kho lưu phiên & nhóm kết nối
 
@@ -127,7 +130,7 @@ Nếu một method handler không khai báo `[PacketPermission]` (`context.Attri
 
 ## Gói liên quan
 
-- [Nalix.Network](./nalix-network.md) — Các listener transport TCP, UDP và WebSocket
+- [Nalix.Network](./nalix-network.md) — Các listener transport TCP, datagram (NDP qua UDP) và WebSocket
 - [Nalix.Hosting](./nalix-hosting.md) — Bộ dựng máy chủ kiểu fluent
 - [Nalix.Codec](./nalix-codec.md) — Registry gói tin, tuần tự hóa và biến đổi frame
 - [Nalix.Framework](./nalix-framework.md) — DI, worker và pool đối tượng

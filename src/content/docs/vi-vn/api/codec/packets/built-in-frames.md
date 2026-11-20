@@ -1,6 +1,6 @@
 ---
 title: Khung tích hợp sẵn
-description: Tài liệu tham chiếu cho cả 11 khung giao thức hệ thống, bắt tay, tiếp tục phiên và Proof-of-Work tích hợp sẵn trong Nalix.Codec.ProtocolFrames.
+description: Tài liệu tham chiếu cho cả 12 khung giao thức hệ thống, bắt tay, tiếp tục phiên, Proof-of-Work và vé datagram tích hợp sẵn trong Nalix.Codec.ProtocolFrames.
 section: API Reference
 package: Nalix.Codec
 ---
@@ -8,7 +8,7 @@ package: Nalix.Codec
 **Namespace:** `Nalix.Codec.ProtocolFrames`  
 **Assembly:** `Nalix.Codec`
 
-`Nalix.Codec` đi kèm **11 khung giao thức tích hợp sẵn có kích thước cố định** trong `namespace Nalix.Codec.ProtocolFrames`, chiếm các opcode hệ thống dành riêng từ `0x0000` đến `0x000B` (với `ProtocolOpCode.SESSION_REKEY = 0x0009` được mang qua `Control`). Cả 11 khung đều kế thừa `PacketBase<TSelf>`, implement `IFixedSizeSerializable` và `IPacketStaticOpcode`, và được đăng ký sẵn trong `PacketRegistry` với sức chứa pool là `128` cho mỗi khung.
+`Nalix.Codec` đi kèm **12 khung giao thức tích hợp sẵn có kích thước cố định** trong `namespace Nalix.Codec.ProtocolFrames`, chiếm các opcode hệ thống dành riêng từ `0x0000` đến `0x000C` (với `ProtocolOpCode.SESSION_REKEY = 0x0009` được mang qua `Control`). Cả 12 khung đều kế thừa `PacketBase<TSelf>`, implement `IFixedSizeSerializable` và `IPacketStaticOpcode`. 11 khung đầu được đăng ký sẵn trong `PacketRegistry` với sức chứa pool là `128` cho mỗi khung; `DatagramTicket` không có sức chứa pool tường minh (`PacketRegistry.cs` chỉ đặt giá trị này cho 11 khung còn lại).
 
 ## Ánh xạ mã nguồn
 
@@ -23,6 +23,7 @@ package: Nalix.Codec
 - `src/Nalix.Codec/ProtocolFrames/Session/SessionTofu.cs`
 - `src/Nalix.Codec/ProtocolFrames/Security/ProofOfWorkChallenge.cs`
 - `src/Nalix.Codec/ProtocolFrames/Security/ProofOfWorkProof.cs`
+- `src/Nalix.Codec/ProtocolFrames/Datagram/DatagramTicket.cs`
 
 ## Tóm tắt khung giao thức tích hợp sẵn
 
@@ -39,6 +40,7 @@ package: Nalix.Codec
 | `Directive` | `SYSTEM_DIRECTIVE` | `0x0008` | `21` byte | Phản hồi có cấu trúc từ server tới client (`Type`, `Reason`, `Action`, `Control`, `Arg0`, `Arg1`, `Arg2`). |
 | `ProofOfWorkChallenge` | `POW_CHALLENGE` | `0x000A` | `79` byte | Câu đố PoW không trạng thái do server phát hành (`Nonce`, `Difficulty`, `TimestampTicks`, `Mac`). |
 | `ProofOfWorkProof` | `POW_PROOF` | `0x000B` | `87` byte | Lời giải PoW do client gửi (`Nonce`, `Difficulty`, `TimestampTicks`, `Mac`, `Solution`). |
+| `DatagramTicket` | `DATAGRAM_TICKET` | `0x000C` | `62` byte | Vé phiên datagram trao đổi trên một phiên stream đã thiết lập (`Stage`, `Reason`, `ConnectionId`, nonce, `Port`, các giới hạn). |
 
 ---
 
@@ -153,6 +155,28 @@ Mọi khung phiên đều implement `IPacketValidatable` (`bool Validate(out str
   - `Bytes32 Mac { get; set; }` (`[SerializeOrder(3)]`)
   - `long Solution { get; set; }` (`[SerializeOrder(4)]`) — Bộ đếm 8 byte được giải bởi `ProofOfWorkSolver.SolveChallenge`
 - **Method**: `void Initialize(Bytes32 nonce, byte difficulty, long timestampTicks, Bytes32 mac, long solution, PacketFlags flags = PacketFlags.SYSTEM)`
+
+---
+
+## 4. Khung vé datagram
+
+### `DatagramTicket` (`0x000C`, 62 byte)
+
+`public sealed partial class DatagramTicket : PacketBase<DatagramTicket>, IFixedSizeSerializable, IPacketValidatable, IPacketStaticOpcode` (`[Packet]`, `[GenerateFormatter]`, `[SerializePackable(SerializeLayout.Explicit)]`) được trao đổi trên một phiên stream (TCP hoặc WebSocket) đã thiết lập: client gửi `DatagramTicketStage.REQUEST`, và server trả lời bằng một `RESPONSE` mang vé (`DatagramTicketInfo`) hoặc một `Reason`. Kích thước `62` byte gồm phần header 6 byte cộng 56 byte của các trường bên dưới. `ResetForPool()` đặt `Priority = PacketPriority.URGENT` và `Flags = PacketFlags.SYSTEM`.
+
+- **Thuộc tính** (`get; set;`):
+  - `DatagramTicketStage Stage` (`[SerializeOrder(0)]`) — `NONE = 0x00`, `REQUEST = 0x01`, `RESPONSE = 0x02` (`enum DatagramTicketStage : byte`)
+  - `ProtocolReason Reason` (`[SerializeOrder(1)]`) — lý do một yêu cầu bị từ chối (chỉ có ở phản hồi)
+  - `ulong ConnectionId` (`[SerializeOrder(2)]`) — định danh kết nối datagram
+  - `ulong NonceLow`, `ulong NonceHigh` (`[SerializeOrder(3)]`, `[SerializeOrder(4)]`) — 8 byte thấp và 8 byte cao của nonce vé
+  - `ushort Port` (`[SerializeOrder(5)]`) — cổng UDP để gửi tới
+  - `ushort ExpiresInSeconds` (`[SerializeOrder(6)]`) — số giây trong đó datagram đầu tiên phải đến nơi
+  - `int IdleTimeoutMs` (`[SerializeOrder(7)]`), `int MaxMessageSize` (`[SerializeOrder(8)]`)
+  - `byte ChannelCount` (`[SerializeOrder(9)]`)
+  - `long ReceiveBufferBytes` (`[SerializeOrder(10)]`), `long ChannelReceiveBufferBytes` (`[SerializeOrder(11)]`)
+  - `UInt128 Nonce` (`[SerializeIgnore]`, chỉ đọc) — nonce dưới dạng một giá trị 128 bit
+- **Method**: `InitializeRequest()`, `InitializeResponse(in DatagramTicketInfo ticket)`, `InitializeRefusal(ProtocolReason reason)`, `DatagramTicketInfo ToTicketInfo()`, `bool Validate(out string? failureReason)`.
+- **Kiểm tra hợp lệ**: `REQUEST` luôn hợp lệ; `RESPONSE` hợp lệ khi `Reason != NONE`, hoặc khi `ConnectionId`, `Port`, `IdleTimeoutMs`, `MaxMessageSize`, `ReceiveBufferBytes` và `ChannelReceiveBufferBytes` khác 0 và `ChannelCount` nằm trong khoảng `1..64`. Mọi stage khác đều không hợp lệ.
 
 ---
 

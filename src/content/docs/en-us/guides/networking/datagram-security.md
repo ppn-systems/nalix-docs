@@ -111,7 +111,7 @@ Invalid datagrams are dropped before they reach your protocol logic.
 
 ## Related pages
 
-- [UDP Listener](../../api/network/udp-listener.md)
-- [UDP Session](../../api/sdk/udp-session.md)
+- [UDP Listener](../../api/network/datagram-listener.md)
+- [UDP Session](../../api/sdk/datagram-session.md)
 - [Connection Hub](../../api/network/connection/connection-hub.md)
 - [Network Options](../../api/options/network/options.md)

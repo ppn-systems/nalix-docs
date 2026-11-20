@@ -13,7 +13,7 @@ package: Nalix.Network
 A client first completes the handshake on a stream connection (TCP or WebSocket), then asks for a datagram **ticket**. The listener answers with the connection identifier, a nonce and the session limits, and turns the ticket into a `DatagramConnection` when the first datagram of that identifier authenticates.
 
 :::note[Page location]
-The page keeps its historical `udp-listener` URL. `UdpListenerBase`, `UdpPassthroughListener`, `PassthroughConnection`, `DatagramGuard` and `DatagramGuardOptions` no longer exist in the source.
+`UdpListenerBase`, `UdpPassthroughListener`, `PassthroughConnection`, `DatagramGuard` and `DatagramGuardOptions` no longer exist in the source.
 :::
 
 ## Source Mapping
@@ -140,7 +140,7 @@ public sealed partial class DatagramListener : IListener, IDatagramTicketIssuer
 
 - [TCP Listener](./tcp-listener.md)
 - [Connection](./connection/connection.md)
-- [Datagram Options](../options/network/datagram-guard-options.md)
+- [Datagram Options](../options/network/datagram-options.md)
 - [Network Socket Options](../options/network/network-socket-options.md)
 - [Connection Limiter](./connection/connection-limiter.md)
 - [Network Application](../hosting/network-application.md)

@@ -5,19 +5,21 @@ section: API Reference
 package: Nalix.SDK
 ---
 
-**Namespaces:** `Nalix.SDK.Transport`, `Nalix.SDK.Transport.Extensions`, `Nalix.SDK.Options`  
+**Namespaces:** `Nalix.SDK`, `Nalix.SDK.Transport`, `Nalix.SDK.Transport.Extensions`, `Nalix.SDK.Options`  
 **Assembly:** `Nalix.SDK`
 
-`Nalix.SDK` đưa ra các thay đổi vòng đời transport, lỗi khung, kết quả yêu cầu và chỉ số độ trễ thông qua các sự kiện của `TransportSession` (`OnConnected`, `OnReady`, `OnDisconnected`, `OnMessageReceived`, `OnError`), ghi log có cấu trúc `NLogix`, và các kết quả `RequestOutcome<TResponse>` không ném exception.
+`Nalix.SDK` đưa ra các thay đổi vòng đời transport, lỗi khung, kết quả yêu cầu và chỉ số độ trễ thông qua các sự kiện của `TransportSession` (`OnConnected`, `OnReady`, `OnDisconnected`, `OnMessageReceived`, `OnError`), ghi log có cấu trúc `NLogix`, các kết quả `RequestOutcome<TResponse>` không ném exception, bộ lắng nghe `DiagnosticsEvents` (`"SDK"`), và `SdkTelemetry` cho tracing/metrics (`ActivitySource` và `Meter` `Nalix.SDK`).
 
 ## Ánh xạ mã nguồn
 
 - `src/Nalix.SDK/Transport/TransportSession.cs`
 - `src/Nalix.SDK/Transport/TcpSession.cs`
-- `src/Nalix.SDK/Transport/UdpSession.cs`
+- `src/Nalix.SDK/Transport/DatagramSession.cs`
 - `src/Nalix.SDK/Transport/WebSocketSession.cs`
 - `src/Nalix.SDK/Options/RequestOutcome.cs`
 - `src/Nalix.SDK/TimeSyncCalculator.cs`
+- `src/Nalix.SDK/DiagnosticsEvents.cs`
+- `src/Nalix.SDK/SdkTelemetry.cs`
 
 ## 1. Đăng ký sự kiện vòng đời & lỗi của phiên
 
@@ -104,6 +106,86 @@ switch (outcome.Kind)
         break;
 }
 ```
+
+## 4. Sự kiện chẩn đoán (`DiagnosticsEvents`)
+
+`DiagnosticsEvents` (`public static class`, namespace `Nalix.SDK`) là bảng đăng ký tên các sự kiện mà SDK ghi vào một `DiagnosticListener`. Mỗi sự kiện mang payload `Nalix.Abstractions.Diagnostics.DiagnosticLog`. Hãy đăng ký qua `DiagnosticListener.AllListeners` và so khớp với `DiagnosticsEvents.ListenerName`.
+
+| Thành viên | Giá trị | Mô tả |
+| :--- | :--- | :--- |
+| `ListenerName` | `"SDK"` | Tên của `DiagnosticListener`. |
+| `Source` | `DiagnosticListener` | Nguồn toàn cục mà các sự kiện được ghi vào. |
+| `Write<T>(string name, T payload)` | `void` | Ghi `payload` qua `Source`, an toàn với AOT. |
+
+Tên sự kiện được nhóm trong các lớp static lồng nhau (tất cả là `const string`, ví dụ `DiagnosticsEvents.Session.Connected == "Session.Connected"`):
+
+| Nhóm | Sự kiện |
+| :--- | :--- |
+| `Session` (phiên TCP, WebSocket và datagram) | `Connecting`, `Connected`, `ConnectFailed`, `Disconnected`, `TransportError` |
+| `Handshake` | `Started`, `ProofOfWorkRequested`, `TofuTrusted`, `TofuPersisted`, `TofuNotPersisted`, `ProofInvalid`, `Completed`, `Failed` |
+| `Resumption` | `Resumed`, `Declined`, `Failed`, `ProofInvalid`, `Fallback` |
+| `Reconnect` | `Scheduled`, `AttemptFailed`, `Succeeded`, `GaveUp` |
+| `KeepAlive` | `Missed`, `Failed` |
+| `Rekey` | `Started`, `Completed`, `Failed` |
+| `Requests` | `Retrying`, `Failed`, `InboundFrameFailed` |
+| `Frames` (khối lượng lớn) | `Sent`, `Received`, `ReplayRejected` |
+| `Subscriptions` | `HandlerFailed`, `HandlerCanceled`, `UnexpectedPacket`, `DisposeFailed` |
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using Nalix.SDK;
+
+public sealed class SdkObserver : IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object?>>
+{
+    public void OnNext(DiagnosticListener listener)
+    {
+        if (listener.Name == DiagnosticsEvents.ListenerName)
+        {
+            _ = listener.Subscribe(this);
+        }
+    }
+
+    public void OnNext(KeyValuePair<string, object?> evt)
+    {
+        if (evt.Key == DiagnosticsEvents.Reconnect.GaveUp)
+        {
+            Console.Error.WriteLine("Automatic reconnect gave up.");
+        }
+    }
+
+    public void OnCompleted() { }
+    public void OnError(Exception error) { }
+}
+
+// DiagnosticListener.AllListeners.Subscribe(new SdkObserver());
+```
+
+## 5. Tracing và metrics (`SdkTelemetry`)
+
+`SdkTelemetry` (`public static class`, namespace `Nalix.SDK`) đặt tên cho các nguồn tracing và metrics phía client. Khi chưa gắn listener nào, không có gì được ghi lại và không có gì được cấp phát.
+
+| Thành viên | Giá trị |
+| :--- | :--- |
+| `ActivitySourceName` | `"Nalix.SDK"` |
+| `MeterName` | `"Nalix.SDK"` |
+
+| Tín hiệu | Loại | Chi tiết |
+| :--- | :--- | :--- |
+| `nalix.request` | Activity (loại client) | Một activity cho mỗi lần gọi `RequestAsync` / `TryRequestAsync`; có các tag `nalix.opcode`, `nalix.response.type`, `nalix.request.attempts`, `nalix.request.outcome` và, khi thất bại, `error.type`. |
+| `nalix.client.request.duration` | Histogram (`s`) | Thời lượng yêu cầu gồm cả mọi lần thử lại; có các tag `nalix.response.type`, `nalix.request.outcome` (`ok`, `timeout`, `not_connected`, `network_error`, `canceled`, `error`). |
+| `nalix.client.request.retries` | Counter | Số lần thử lại được bắt đầu sau khi một lần thử hết thời gian chờ; tag `nalix.response.type`. |
+| `nalix.client.reconnect.attempts` | Counter | Số lần thử kết nối lại tự động; tag `nalix.reconnect.outcome` (`resumed`, `handshake`, `failed`). |
+
+```csharp
+// OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .WithTracing(t => t.AddSource(SdkTelemetry.ActivitySourceName))
+    .WithMetrics(m => m.AddMeter(SdkTelemetry.MeterName));
+```
+
+Ngữ cảnh trace không được truyền sang máy chủ.
 
 ## API liên quan
 

@@ -20,13 +20,15 @@ Nalix dùng bộ tuần tự hóa nhị phân được sinh từ mã nguồn (`S
 
 - [**Packet Registry**](./packets/packet-registry.md): Danh mục opcode toàn process với độ phức tạp O(1) (`PacketRegistry.Build()`, `TryDeserialize`, `Deserialize`, `IsKnownOpCode`, `IsRegistered<T>()`).
 - [**Frame Model**](./packets/frame-model.md): `FrameBase`, `PacketBase<TSelf>`, `FrameTransformer`, `FrameCipher` và `FrameCompression`.
-- [**Built-in Frames**](./packets/built-in-frames.md): Cả 11 khung hệ thống và khung bắt tay tích hợp sẵn (`Control`, `Directive`, `TimeSync`, `SessionInit`, `SessionChallenge`, `SessionProof`, `SessionEstablished`, `SessionResume`, `SessionTofu`, `ProofOfWorkChallenge`, `ProofOfWorkProof`).
-- [**Fragmentation**](./packets/fragmentation.md): Tách và ghép lại payload lớn (`FragmentHeader`, `FragmentAssembler`, `FragmentOptions`, `FragmentStreamId` trong `Nalix.Environment.Fragments`).
+- [**Built-in Frames**](./packets/built-in-frames.md): Cả 12 khung hệ thống, khung bắt tay và khung datagram tích hợp sẵn (`Control`, `Directive`, `TimeSync`, `SessionInit`, `SessionChallenge`, `SessionProof`, `SessionEstablished`, `SessionResume`, `SessionTofu`, `ProofOfWorkChallenge`, `ProofOfWorkProof`, `DatagramTicket`).
+- [**Fragmentation**](./packets/fragmentation.md): Tách và ghép lại payload lớn (`FragmentHeader`, `FragmentAssembler`, `FragmentOptions`, `FragmentStreamId` trong `Nalix.Environment.Fragments`, và `DatagramEngineOptions`).
 
 ## Biến đổi khung & Mật mã (`Nalix.Codec.Transforms` & `Nalix.Codec.Security`)
 
 - [**Frame Pipeline**](./frame-pipeline.md): Biến đổi khung inbound (giải mã $\rightarrow$ giải nén) và outbound (nén $\rightarrow$ mã hóa) hợp nhất qua `FramePipeline`.
+- [**Datagram Protection**](./datagram-protection.md): `ChaCha20Poly1305DatagramProtection`, factory của nó và `DatagramKeySchedule`.
 - [**LZ4 Compression**](./lz4.md): Nén/giải nén khối LZ4 dựa trên span và `BufferLease` có pool (`LZ4Codec`, `LZ4BlockHeader`, `CompressionOptions`).
+- **Bảo vệ datagram** (`Nalix.Codec.Security.Datagram`): `ChaCha20Poly1305DatagramProtection`, `ChaCha20Poly1305DatagramProtectionFactory` và `DatagramKeySchedule` triển khai các hợp đồng `IDatagramProtection` / `IDatagramProtectionFactory` từ [Nalix.Abstractions](../abstractions/connection-contracts.md); xem [Nalix.Codec](../../packages/nalix-codec.md).
 - [**Cryptography Overview**](../security/cryptography.md): `EnvelopeCipher`, `ChaCha20Poly1305`, `Salsa20Poly1305`, `HandshakeX25519`, `ProofOfWork`, `Keccak256`, `HmacKeccak256` và `Pbkdf2`.
 
 ## Tùy chọn cấu hình (`Nalix.Codec.Options`)

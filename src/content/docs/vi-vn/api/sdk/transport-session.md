@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport`  
 **Assembly:** `Nalix.SDK`
 
-`ITransportSession` và lớp cài đặt cơ sở trừu tượng `TransportSession` định nghĩa hợp đồng phiên client thống nhất cho [TcpSession](./tcp-session.md), [UdpSession](./udp-session.md) và [WebSocketSession](./websocket-session.md). Trạng thái bảo mật và kết nối tạm thời (`Secret`, `SessionToken`, `EncryptionEnabled`, `LocalPort`) được lưu trong `SessionState`, cho phép một `TcpSession` và `UdpSession` đi kèm chia sẻ khóa và token đã thương lượng một cách liền mạch.
+`ITransportSession` và lớp cài đặt cơ sở trừu tượng `TransportSession` (`public abstract class TransportSession : IDisposable, IAsyncDisposable, ITransportSession`) định nghĩa hợp đồng phiên client thống nhất cho [TcpSession](./tcp-session.md), [DatagramSession](./datagram-session.md) và [WebSocketSession](./websocket-session.md). Trạng thái bảo mật và kết nối tạm thời (`Secret`, `SessionToken`, `EncryptionEnabled`, `LocalPort`) được lưu trong `SessionState`, cho phép một `DatagramSession` dẫn xuất khóa của nó từ `Secret` của phiên stream mà nó được gắn vào.
 
 ## Ánh xạ mã nguồn
 
@@ -54,7 +54,7 @@ classDiagram
     ITransportSession <|.. TransportSession
     TransportSession --> SessionState : State
     TransportSession <|-- TcpSession
-    TransportSession <|-- UdpSession
+    TransportSession <|-- DatagramSession
     TransportSession <|-- WebSocketSession
 ```
 
@@ -78,12 +78,12 @@ public class SessionState
 | Thuộc tính | Kiểu | Mặc định | Mô tả |
 | :--- | :--- | :--- | :--- |
 | `Secret` | `Bytes32` | `Bytes32.Zero` | Khóa mã hóa đối xứng 32 byte được dẫn xuất trong `HandshakeAsync` hoặc xoay vòng qua `RekeyAsync`. |
-| `SessionToken` | `ulong` | `0` | Token phiên Snowflake 8 byte do máy chủ cấp trong `SessionEstablished` / `SessionResume` (dùng cho tiếp tục 0-RTT và xác thực UDP). |
+| `SessionToken` | `ulong` | `0` | Token phiên Snowflake 8 byte do máy chủ cấp trong `SessionEstablished` / `SessionResume` (dùng cho tiếp tục 0-RTT). |
 | `EncryptionEnabled` | `bool` | `false` | `true` khi `HandshakeAsync` hoặc `ResumeSessionAsync` hoàn tất; quyết định gói đi có được mã hóa mặc định hay không. |
-| `LocalPort` | `int` | `0` | Cổng socket TCP cục bộ được ghi bởi `TcpSession.ConnectAsync`; `UdpSession` đi kèm dùng chung `SessionState` sẽ bind vào cổng này để ghim endpoint máy chủ (`SEC-30`). |
+| `LocalPort` | `int` | `0` | Cổng socket TCP cục bộ được ghi bởi `TcpSession.ConnectAsync` và `ConnectWithProxyAsync`; được xóa bởi `Reset()`. |
 
-:::tip[Chia sẻ `SessionState` giữa TCP và UDP]
-Truyền `tcpSession.State` vào constructor `UdpSession(options, tcpSession.State)` để phiên UDP tự động kế thừa `Secret`, `SessionToken`, `EncryptionEnabled` và `LocalPort` đã thương lượng từ handshake TCP!
+:::tip[Phiên datagram]
+`DatagramSession` được tạo từ một `TransportSession` đã thiết lập (`new DatagramSession(stream)`) và dùng chung `State` của phiên đó, nên nó dẫn xuất khóa datagram từ `State.Secret`. Xem [DatagramSession](./datagram-session.md).
 :::
 
 ## Thành viên của `ITransportSession` & `TransportSession`
@@ -121,7 +121,9 @@ Truyền `tcpSession.State` vào constructor `UdpSession(options, tcpSession.Sta
 | `WaitUntilReadyAsync` | `Task WaitUntilReadyAsync(CancellationToken ct = default)` | Chờ mọi quá trình phục hồi `ReconnectSupervisor` đang diễn ra (bao gồm handshake/resume và `OnReauthenticateAsync` / `OnResumedAsync`). Hoàn tất ngay nếu đã kết nối. |
 | `NextSequenceId` | `ushort NextSequenceId()` | Giữ chỗ `SequenceId` đi tiếp theo từ bộ đếm của phiên; `0` ("chưa đặt") được bỏ qua khi bộ đếm quay vòng. |
 | `StampSequenceId` | `ushort StampSequenceId(IPacket packet)` | Đặt `packet.Header.SequenceId` từ `NextSequenceId()` khi giá trị hiện tại là `0`, và trả về giá trị gói mang theo; gói đã có `SequenceId` khác không thì giữ nguyên. Các session cụ thể gọi hàm này từ `SendAsync(IPacket, ...)` trước khi tuần tự hóa. |
-| `Dispose` | `void Dispose()` | Đánh dấu việc ngắt kết nối là chủ đích, dừng giám sát keepalive, đóng transport và giải phóng các khóa. |
+| `Dispose` | `void Dispose()` | Đánh dấu việc ngắt kết nối là chủ đích, dừng giám sát keepalive, đóng transport và giải phóng các khóa. Bắt đầu việc ngắt kết nối rồi trả về. |
+| `DisposeAsync` | `ValueTask DisposeAsync()` | Ngắt kết nối nhẹ nhàng, chờ đến khi transport và vòng lặp nhận đã dừng hẳn, rồi giải phóng mọi tài nguyên. An toàn khi gọi nhiều lần và cùng với `Dispose()`; việc ngắt kết nối do ứng dụng khởi tạo nên không bao giờ kích hoạt tự động kết nối lại. Nếu ngắt kết nối thất bại, tài nguyên vẫn được giải phóng. |
+| `DisposeAsyncCore` | `protected virtual ValueTask DisposeAsyncCore()` | Phần bất đồng bộ của `DisposeAsync`; mặc định là `DisconnectAsync()`. `TcpSession` và `WebSocketSession` ghi đè để chờ thêm vòng lặp nhận. |
 
 ## Cơ chế chống chịu tích hợp sẵn
 
@@ -137,7 +139,7 @@ Khi `Options.KeepAliveIntervalMillis > 0`, `TransportSession` chạy một vòng
 ## API liên quan
 
 - [TCP Session](./tcp-session.md)
-- [UDP Session](./udp-session.md)
+- [Datagram Session](./datagram-session.md)
 - [WebSocket Session](./websocket-session.md)
 - [Session Extensions](./tcp-session-extensions.md)
 - [Transport Options](../options/sdk/transport-options.md)

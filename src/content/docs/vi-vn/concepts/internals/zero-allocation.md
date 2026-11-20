@@ -120,7 +120,7 @@ public async ValueTask SendResponse(IPacketContext<MyPacket> context)
     int written = response.Serialize(lease.SpanFull);
     lease.CommitLength(written);
 
-    await context.Connection.TCP.SendAsync(lease.Memory);
+    await context.Connection.Transport.SendAsync(lease.Memory);
 }
 ```
 

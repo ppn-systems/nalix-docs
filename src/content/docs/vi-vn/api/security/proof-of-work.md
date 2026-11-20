@@ -72,7 +72,17 @@ long solution = ProofOfWorkSolver.SolveChallenge(
     nonce: challenge.Nonce.AsSpan(),
     difficulty: challenge.Difficulty,
     timestampTicks: challenge.TimestampTicks);
+
+// Tìm kiếm có giới hạn: ném OperationCanceledException khi ct bị hủy
+using CancellationTokenSource cts = new(TimeSpan.FromSeconds(10));
+long boundedSolution = ProofOfWorkSolver.SolveChallenge(
+    challenge.Nonce.AsSpan(),
+    challenge.Difficulty,
+    challenge.TimestampTicks,
+    cts.Token);
 ```
+
+`ProofOfWorkSolver` (`public class`) có hai overload tĩnh: `long SolveChallenge(ReadOnlySpan<byte> nonce, byte difficulty, long timestampTicks)` chặn cho đến khi tìm được lời giải, và `long SolveChallenge(ReadOnlySpan<byte> nonce, byte difficulty, long timestampTicks, CancellationToken ct)` kiểm tra `ct` sau mỗi `4096` lần thử và ném `OperationCanceledException` khi bị hủy. `difficulty` bằng `0` trả về `0` ngay lập tức. Bộ giải băm bài toán 49 byte `nonce (32B) || difficulty (1B) || timestampTicks (8B LE) || solution (8B LE)` bằng `Keccak256`.
 
 ### 5. Các khung giao thức
 

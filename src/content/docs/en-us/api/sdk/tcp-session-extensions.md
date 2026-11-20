@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport.Extensions`  
 **Assembly:** `Nalix.SDK`
 
-All high-level request, streaming, reactive, RPC, and security helpers in `Nalix.SDK` are implemented as extension methods on **`ITransportSession`**, meaning they work identically across [TcpSession](./tcp-session.md), [DatagramSession](./udp-session.md), and [WebSocketSession](./websocket-session.md).
+All high-level request, streaming, reactive, RPC, and security helpers in `Nalix.SDK` are implemented as extension methods on **`ITransportSession`**, meaning they work identically across [TcpSession](./tcp-session.md), [DatagramSession](./datagram-session.md), and [WebSocketSession](./websocket-session.md).
 
 ## Source Mapping
 
@@ -238,7 +238,7 @@ The extensions above operate on any `ITransportSession`; the concrete types they
 | `TransportSession` | `public abstract class : IDisposable, IAsyncDisposable, ITransportSession` | [Transport Session](./transport-session.md) |
 | `TcpSession` | `public class : TransportSession` | [TCP Session](./tcp-session.md) |
 | `WebSocketSession` | `public class : TransportSession` | [WebSocket Session](./websocket-session.md) |
-| `DatagramSession` | `public sealed class : TransportSession` | [Datagram Session](./udp-session.md) |
+| `DatagramSession` | `public sealed class : TransportSession` | [Datagram Session](./datagram-session.md) |
 | `TransportOptions` | `public sealed partial class : ConfigurationLoader` | [Transport Options](../options/sdk/transport-options.md) |
 | `RequestOptions` | `public sealed record` | [Request Options & RequestOutcome&lt;T&gt;](../options/sdk/request-options.md) |
 | `TimeSyncExtensions` / `TimeSyncBuilder` | `public static class` / nested `readonly ref struct` | [Control Utilities](./control-utilities.md) |

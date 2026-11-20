@@ -51,7 +51,7 @@ flowchart TD
 ## Progressive Reading Order
 
 1. [Socket Connection](./socket-connection.md) — Internal SAEA receive/send engine, length/VarInt framing, fragmentation, and Layer 1 pending-packet throttling.
-2. [TCP Listener](./tcp-listener.md) and [Datagram Listener](./udp-listener.md) — Socket activation, `ConnectionGuard` admission, PROXY protocol parsing, and NDP tickets with AEAD-protected datagram sessions.
+2. [TCP Listener](./tcp-listener.md) and [Datagram Listener](./datagram-listener.md) — Socket activation, `ConnectionGuard` admission, PROXY protocol parsing, and NDP tickets with AEAD-protected datagram sessions.
 3. [Connection](./connection/connection.md) — High-level `IConnection` implementation owning identity (`ConnectionId`), cryptographic context (`Secret`, `Algorithm`), `Attributes`, and event bridges.
 4. [Connection Hub](./connection/connection-hub.md) — Sharded `ConnectionRegistry` (`MIX64` hash sharding), zero-allocation snapshot broadcasting, and `IReportable` telemetry.
 5. [Timing Wheel](./time/timing-wheel.md) — Hashed wheel timer for low-overhead idle connection reaping.
@@ -72,7 +72,7 @@ flowchart TD
 - [Protocol](./protocol.md)
 - [Socket Connection](./socket-connection.md)
 - [TCP Listener](./tcp-listener.md)
-- [Datagram Listener](./udp-listener.md)
+- [Datagram Listener](./datagram-listener.md)
 - [WebSocket Listener](./websocket-listener.md)
 - [WebSocket Connection](./websocket-connection.md)
 - [Session Store & Service](./session-store.md)
@@ -82,7 +82,7 @@ flowchart TD
 
 - [Options Overview](../options/network/options.md)
 - [Network Socket Options](../options/network/network-socket-options.md)
-- [Datagram Options](../options/network/datagram-guard-options.md)
+- [Datagram Options](../options/network/datagram-options.md)
 - [Connection Quota Options](../options/network/connection-quota-options.md)
 - [Connection Guard Options](../options/network/connection-guard-options.md)
 - [Trusted Proxy Options](../options/network/trusted-proxy-options.md)

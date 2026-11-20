@@ -121,14 +121,14 @@ export const NAVIGATION_TREE: NavItem[] = [
           {
             "title": "UDP Server",
             "titles": { "vi-vn": "Máy chủ UDP" },
-            "slug": "guides/networking/udp-server",
-            "file": "guides/networking/udp-server.md"
+            "slug": "guides/networking/datagram-server",
+            "file": "guides/networking/datagram-server.md"
           },
           {
             "title": "UDP Security",
             "titles": { "vi-vn": "Bảo mật UDP" },
-            "slug": "guides/networking/udp-security",
-            "file": "guides/networking/udp-security.md"
+            "slug": "guides/networking/datagram-security",
+            "file": "guides/networking/datagram-security.md"
           },
           {
             "title": "Idle Connection Timeout",
@@ -557,6 +557,12 @@ export const NAVIGATION_TREE: NavItem[] = [
             "file": "api/abstractions/connection-contracts.md"
           },
           {
+            "title": "Datagram Contracts",
+            "titles": { "vi-vn": "Contract datagram" },
+            "slug": "api/abstractions/datagram-contracts",
+            "file": "api/abstractions/datagram-contracts.md"
+          },
+          {
             "title": "Session Contracts",
             "titles": { "vi-vn": "Contract phiên" },
             "slug": "api/abstractions/session-contracts",
@@ -649,6 +655,18 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "titles": { "vi-vn": "Cấu hình" },
                 "slug": "api/environment/configuration",
                 "file": "api/environment/configuration.md"
+              },
+              {
+                "title": "IniConfig",
+                "titles": { "vi-vn": "IniConfig" },
+                "slug": "api/environment/ini-config",
+                "file": "api/environment/ini-config.md"
+              },
+              {
+                "title": "Datagram Engine",
+                "titles": { "vi-vn": "Engine datagram" },
+                "slug": "api/environment/datagram-engine",
+                "file": "api/environment/datagram-engine.md"
               },
               {
                 "title": "Sequencing",
@@ -751,6 +769,12 @@ export const NAVIGATION_TREE: NavItem[] = [
                 "titles": { "vi-vn": "LZ4" },
                 "slug": "api/codec/lz4",
                 "file": "api/codec/lz4.md"
+              },
+              {
+                "title": "Datagram Protection",
+                "titles": { "vi-vn": "Bảo vệ datagram" },
+                "slug": "api/codec/datagram-protection",
+                "file": "api/codec/datagram-protection.md"
               },
               {
                 "title": "Frame Pipeline",
@@ -1045,8 +1069,8 @@ export const NAVIGATION_TREE: NavItem[] = [
           {
             "title": "Datagram Listener",
             "titles": { "vi-vn": "Datagram Listener" },
-            "slug": "api/network/udp-listener",
-            "file": "api/network/udp-listener.md"
+            "slug": "api/network/datagram-listener",
+            "file": "api/network/datagram-listener.md"
           },
           {
             "title": "WebSocket Listener",
@@ -1175,8 +1199,8 @@ export const NAVIGATION_TREE: NavItem[] = [
               {
                 "title": "Datagram Session",
                 "titles": { "vi-vn": "Phiên UDP" },
-                "slug": "api/sdk/udp-session",
-                "file": "api/sdk/udp-session.md"
+                "slug": "api/sdk/datagram-session",
+                "file": "api/sdk/datagram-session.md"
               },
               {
                 "title": "WebSocket Session",
@@ -1349,8 +1373,8 @@ export const NAVIGATION_TREE: NavItem[] = [
               {
                 "title": "Datagram Options",
                 "titles": { "vi-vn": "Datagram Options" },
-                "slug": "api/options/network/datagram-guard-options",
-                "file": "api/options/network/datagram-guard-options.md"
+                "slug": "api/options/network/datagram-options",
+                "file": "api/options/network/datagram-options.md"
               },
               {
                 "title": "Timing Wheel",

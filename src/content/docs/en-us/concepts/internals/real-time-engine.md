@@ -127,4 +127,4 @@ Metadata is resolved once during handler registration, then reused through dispa
 - [Middleware](./middleware-pipeline.md) — Buffer vs. packet middleware
 - [Packet Dispatch](../../api/runtime/routing/packet-dispatch.md) — Dispatch API reference
 - [TCP Request/Response](../../guides/networking/tcp-patterns.md) — TCP pattern guide
-- [UDP Auth Flow](../../guides/networking/udp-security.md) — UDP authentication guide
+- [UDP Auth Flow](../../guides/networking/datagram-security.md) — UDP authentication guide

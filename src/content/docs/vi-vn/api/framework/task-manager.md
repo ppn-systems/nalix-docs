@@ -17,6 +17,7 @@ package: Nalix.Framework
 - `src/Nalix.Framework/Tasks/TaskManager.PrivateMethods.cs`
 - `src/Nalix.Framework/Tasks/TaskManager.Affinity.cs`
 - `src/Nalix.Framework/Tasks/TaskManager.Cleanup.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.Names.cs`
 - `src/Nalix.Framework/Tasks/TaskManager.Report.cs`
 - `src/Nalix.Framework/Options/TaskManagerOptions.cs`
 
@@ -109,6 +110,14 @@ flowchart TD
 | `BackoffMaxPower` | `int` | `5` (`32x`) | `[ValueRange(0, 16)]` | Số mũ tối đa ($2^n$) cho backoff khi tác vụ định kỳ lỗi. |
 | `BackoffBaseInterval` | `TimeSpan` | `00:00:01` (`1s`) | `>= 10 ms` | Khoảng cơ sở được nhân với $2^{\text{failures}}$ trong backoff của tác vụ định kỳ. |
 | `CleanupInterval` | `TimeSpan` | `00:00:30` (`30s`) | `>= 1 s` | Khoảng thời gian mà các worker đã hoàn thành và vượt quá cửa sổ `RetainFor` sẽ bị xóa. |
+
+## `TaskNaming` (`Nalix.Framework.Tasks`)
+
+`TaskNaming` (`src/Nalix.Framework/Tasks/TaskManager.Names.cs`) là lớp helper static (ẩn khỏi IntelliSense) chuẩn hóa tên: nhóm dùng các đoạn kiểu đường dẫn phân tách bằng `/`, còn worker và tác vụ định kỳ dùng các đoạn kiểu dấu chấm.
+
+- `TaskNaming.SanitizeToken(string s)` giữ lại chữ cái, chữ số, dấu gạch ngang, dấu gạch dưới và dấu chấm, thay mọi ký tự khác bằng `_`, và trả về `"-"` cho chuỗi `null` hoặc rỗng.
+- `TaskNaming.Tags` chứa các hằng số tag ngắn chuẩn: `Tcp = "tcp"`, `WebSocket = "ws"`, `Datagram = "dgram"`, `Net = "net"`, `Time = "time"`, `Sync = "sync"`, `Wheel = "wheel"`, `Process = "proc"`, `Worker = "worker"`, `Accept = "accept"`, `Cleanup = "cleanup"`, `Service = "service"`, `Dispatch = "dispatch"`, `Logging = "log"`, `Proxy = "proxy"`.
+- `TaskNaming.Recurring.CleanupJobId(string prefix, int instanceKey)` trả về `"<sanitized prefix>.cleanup.<instanceKey as 8 hex digits>"`, ví dụ `"sessions.cleanup.0000002A"`.
 
 ## `TaskExtensions` (`Nalix.Framework.Extensions`)
 

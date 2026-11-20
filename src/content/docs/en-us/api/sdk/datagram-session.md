@@ -11,7 +11,7 @@ package: Nalix.SDK
 `DatagramSession` (`[UnsupportedOSPlatform("browser")] public sealed class DatagramSession : TransportSession`) is the client side of a Nalix Datagram Protocol session (NDP over UDP). It obtains a **ticket** over an established stream session (`TcpSession` or `WebSocketSession`), derives its own keys from that stream session's secret, and then runs on UDP alone: closing the stream afterwards does not affect it.
 
 :::note[Replaces `UdpSession`]
-`UdpSession`, the UDP datagram-size transport option, and the `UdpFrameReader` / `UdpFrameSender` pair (the `[8B SessionToken][Payload][4B XxHash32 MAC]` datagram format) no longer exist. This page keeps its original URL.
+`UdpSession`, the UDP datagram-size transport option, and the `UdpFrameReader` / `UdpFrameSender` pair (the `[8B SessionToken][Payload][4B XxHash32 MAC]` datagram format) no longer exist.
 :::
 
 ## Source Mapping
@@ -166,5 +166,5 @@ bool acknowledged = await datagram.SendWithReceiptAsync(new ChatPacket { Text = 
 - [Transport Session](./transport-session.md)
 - [TCP Session](./tcp-session.md)
 - [WebSocket Session](./websocket-session.md)
-- [UDP Listener (Server)](../network/udp-listener.md)
+- [UDP Listener (Server)](../network/datagram-listener.md)
 - [Transport Options](../options/sdk/transport-options.md)

@@ -169,4 +169,4 @@ The internal `CipherError` enum distinguishes the following failure modes:
 - [Cryptography](./cryptography.md)
 - [Hashing and MAC](./hashing-and-mac.md)
 - [Transport Options](../options/sdk/transport-options.md)
-- [UDP Security Guide](../../guides/networking/udp-security.md)
+- [UDP Security Guide](../../guides/networking/datagram-security.md)

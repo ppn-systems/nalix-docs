@@ -8,7 +8,7 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Options`  
 **Assembly:** `Nalix.Network`
 
-`NetworkSocketOptions` (`public sealed partial class NetworkSocketOptions : ConfigurationLoader, IValidatableConfiguration`) configures the socket policy used by `TcpListenerBase`. `DatagramListener` reads only `EnableDualStack` and `DualMode` from it; its buffers and workers are configured by [DatagramOptions](./datagram-guard-options.md).
+`NetworkSocketOptions` (`public sealed partial class NetworkSocketOptions : ConfigurationLoader, IValidatableConfiguration`) configures the socket policy used by `TcpListenerBase`. `DatagramListener` reads only `EnableDualStack` and `DualMode` from it; its buffers and workers are configured by [DatagramOptions](./datagram-options.md).
 
 ## Source Mapping
 
@@ -55,8 +55,8 @@ Loaded from the `[NetworkSocket]` section of `default.ini`:
 ## Related APIs
 
 - [TCP Listener](../../network/tcp-listener.md)
-- [Datagram Listener](../../network/udp-listener.md)
-- [Datagram Options](./datagram-guard-options.md)
+- [Datagram Listener](../../network/datagram-listener.md)
+- [Datagram Options](./datagram-options.md)
 - [Connection Quota Options](./connection-quota-options.md)
 - [Connection Guard Options](./connection-guard-options.md)
 - [Timing Wheel Options](./timing-wheel-options.md)

@@ -8,7 +8,7 @@ package: Nalix.Hosting
 **Không gian tên:** `Nalix.Hosting`, `Nalix.Hosting.Protocols`  
 **Assembly:** `Nalix.Hosting`
 
-`Nalix.Hosting` cung cấp một builder fluent theo phong cách Microsoft (`INetworkApplicationBuilder` / `NetworkApplicationBuilder`) và host máy chủ (`NetworkApplication`), điều phối việc nạp cấu hình, đăng ký phụ thuộc, nối handler packet lúc biên dịch, và vòng đời listener đa transport (TCP, UDP và WebSocket).
+`Nalix.Hosting` cung cấp một builder fluent theo phong cách Microsoft (`INetworkApplicationBuilder` / `NetworkApplicationBuilder`) và host máy chủ (`NetworkApplication`), điều phối việc nạp cấu hình, đăng ký phụ thuộc, nối handler packet lúc biên dịch, và vòng đời listener đa transport (TCP, datagram (NDP qua UDP) và WebSocket), cùng các listener tùy chỉnh được thêm bằng `AddListener`.
 
 ## Ánh xạ mã nguồn
 
@@ -21,6 +21,7 @@ package: Nalix.Hosting
 - `src/Nalix.Hosting/Protocols/DefaultProtocol.cs`
 - `src/Nalix.Hosting/Protocols/DefaultFrameProcessor.cs`
 - `src/Nalix.Hosting/Protocols/DefaultOpCodeExtractor.cs`
+- `src/Nalix.Runtime/Handlers/DatagramTicketHandlers.cs`
 
 ## Luồng khởi động & vòng đời
 
@@ -30,7 +31,7 @@ flowchart LR
         CB["NetworkApplication.CreateBuilder()"] --> Opts["Configure<TOptions>() / UseLogger()"]
         Opts --> Feat["UseSecureConnections() / UseSessions() / UseGroups()"]
         Feat --> Map["MapHandlers<THandler>() / RegisterScoped<T>()"]
-        Map --> Bind["MapTcp<T>() / MapUdp<T>() / MapWebSocket<T>().Bind()"]
+        Map --> Bind["MapTcp<T>() / MapDatagram<T>() / MapWebSocket<T>().Bind()"]
     end
 
     subgraph Phase2["2. Build()"]
@@ -42,7 +43,7 @@ flowchart LR
     subgraph Phase3["3. ActivateAsync() / RunAsync()"]
         Factories --> Prep["Register Logger, Hub, Guard, BufferPool, ObjectPool"]
         Prep --> Disp["Create & Activate IPacketDispatch"]
-        Disp --> Listen["Construct & Activate TCP / UDP / WebSocket Listeners"]
+        Disp --> Listen["Construct & Activate TCP / Datagram / WebSocket / custom Listeners"]
     end
 ```
 
@@ -68,7 +69,7 @@ public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable
 | :--- | :--- |
 | `CreateBuilder()` | Tạo một `NetworkApplicationBuilder` mới, được khởi tạo với `HostingBuilderContext` rỗng. |
 | `CreateMinimal(ushort? port = null)` | Tạo một `NetworkApplication` sẵn sàng chạy, được gắn với `MapTcp<DefaultProtocol>()` trên `port` (hoặc `NetworkSocketOptions.Port` khi `null`). Lưu ý: việc quét assembly lúc chạy bị bỏ qua để đảm bảo an toàn cho Native AOT; handler được phân giải qua `PacketHandlerRegistry` lúc biên dịch hoặc `MapHandlers<T>()`. |
-| `ActivateAsync(CancellationToken)` | Lấy cổng khóa vòng đời, gọi `PrepareCallbacks` (đăng ký `ILogger`, `IConnectionHub`, `IConnectionGuard`, `IBufferPoolManager`, và `IObjectPoolManager`), tạo và kích hoạt `IPacketDispatch`, khởi tạo từng listener đã gắn (`TcpServerListener`, `UdpServerListener`, `UdpPassthroughListener`, `WebSocketServerListener`), đăng ký chúng vào `ReportRegistry`, và kích hoạt chúng. Hoàn tác phần đã kích hoạt nếu có lỗi. |
+| `ActivateAsync(CancellationToken)` | Lấy cổng khóa vòng đời, gọi `PrepareCallbacks` (đăng ký `ILogger`, `IConnectionHub`, `IConnectionGuard`, `IBufferPoolManager`, và `IObjectPoolManager`), tạo và kích hoạt `IPacketDispatch`, khởi tạo từng listener đã gắn (`TcpServerListener`, `DatagramListener`, `WebSocketServerListener`, cùng mọi listener được thêm qua `AddListener`), đăng ký chúng vào `ReportRegistry`, và kích hoạt chúng. Hoàn tác phần đã kích hoạt nếu có lỗi. |
 | `RunAsync(CancellationToken)` | Gọi `ActivateAsync(cancellationToken)`, chờ `Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)`, và đảm bảo `DeactivateAsync(CancellationToken.None)` được gọi trong khối `finally`. |
 | `DeactivateAsync(CancellationToken)` | Hủy kích hoạt và dispose mọi listener theo thứ tự ngược với lúc đăng ký, dispose mọi protocol theo thứ tự ngược, hủy kích hoạt `IPacketDispatch`, và chờ `TaskManager.WaitGroupAsync("net/*", ct)` cùng `WaitGroupAsync("time/*", ct)` để không worker nền nào bị rò rỉ qua các lần khởi động lại. |
 | `DisposeAsync()` / `Dispose()` | Gọi `DeactivateAsync(CancellationToken.None)` một cách idempotent và dispose `SemaphoreSlim` gate nội bộ. |
@@ -94,12 +95,17 @@ public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable
 | `MapHandlers<THandler>(Func<THandler>)` | Kiểm tra và đăng ký một class `[PacketController]`, được tạo qua một delegate factory tường minh. |
 | `MapHandlers(Type)` | Kiểm tra và đăng ký trực tiếp một kiểu `[PacketController]` (hỗ trợ các class handler tĩnh). |
 | `MapTcp<TProtocol>()` | Bắt đầu một binding listener TCP fluent (`IProtocolBindingBuilder`) cho `TProtocol : class, IProtocol`. |
-| `MapUdp<TProtocol>()` | Bắt đầu một binding listener UDP fluent (`IProtocolBindingBuilder`) cho `TProtocol : class, IProtocol`. |
+| `MapDatagram<TProtocol>()` | Bắt đầu một binding listener datagram (NDP qua UDP) fluent (`IProtocolBindingBuilder`) cho `TProtocol : class, IProtocol`. Đồng thời ánh xạ `DatagramTicketHandlers`, qua đó client yêu cầu ticket trên một phiên TCP hoặc WebSocket đã thiết lập. Ném `InvalidOperationException` khi được gọi nhiều hơn một lần: ticket chỉ được cấp bởi một listener duy nhất. |
+| `AddListener(Func<IListener>)` | Thêm một listener được tạo khi kích hoạt và được kích hoạt/hủy kích hoạt cùng các listener protocol, dành cho các phần mở rộng chạy socket riêng (ví dụ một UDP relay thô). |
 | `MapWebSocket<TProtocol>()` | Bắt đầu một binding listener WebSocket fluent ([IWebSocketBindingBuilder](./websocket-binding.md)) cho `TProtocol : class, IProtocol`. |
 | `Build()` | Áp dụng các tùy chọn, đăng ký registry packet lúc biên dịch, và trả về một `NetworkApplication` đã được cấu hình. |
 
 :::warning[Các phương thức binding đã lỗi thời]
-`ListenTcp<TProtocol>()`, `ListenUdp<TProtocol>()`, và `ListenWebSocket<TProtocol>()` được đánh dấu `[Obsolete]` trong `INetworkApplicationBuilder`. Trong mã mới, luôn dùng `MapTcp<TProtocol>()`, `MapUdp<TProtocol>()`, và `MapWebSocket<TProtocol>()`.
+`ListenTcp<TProtocol>()` và `ListenWebSocket<TProtocol>()` được đánh dấu `[Obsolete]` trong `INetworkApplicationBuilder`. Trong mã mới, luôn dùng `MapTcp<TProtocol>()` và `MapWebSocket<TProtocol>()`. `ListenUdp<TProtocol>()` và `MapUdp<TProtocol>()` không còn tồn tại; hãy dùng `MapDatagram<TProtocol>()`.
+:::
+
+:::note[Phiên datagram tồn tại lâu hơn kết nối stream của nó]
+Một phiên datagram sao chép người dùng, mức quyền và secret của kết nối stream khi ticket được cấp, rồi tồn tại độc lập: ngắt kết nối stream không đóng nó. Để đuổi một người dùng, hãy ngắt thêm các instance `DatagramConnection` có `StreamConnectionId` khớp (`INetworkApplicationBuilder.cs`, phần remarks của `MapDatagram`).
 :::
 
 ---
@@ -121,28 +127,26 @@ public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable
 
 ---
 
-## Tham chiếu `IProtocolBindingBuilder` (TCP & UDP)
+## Tham chiếu `IProtocolBindingBuilder` (TCP & Datagram)
 
-`MapTcp<TProtocol>()` và `MapUdp<TProtocol>()` trả về một `IProtocolBindingBuilder`:
+`MapTcp<TProtocol>()` và `MapDatagram<TProtocol>()` trả về một `IProtocolBindingBuilder`:
 
 ```csharp
 public interface IProtocolBindingBuilder
 {
     IProtocolBindingBuilder OnPort(ushort port);
-    IProtocolBindingBuilder WithMode(OperatingMode mode);
     IProtocolBindingBuilder WithFactory(Func<IPacketDispatch, IProtocol> factory);
-    IProtocolBindingBuilder WithAuthentication(Func<IConnection, EndPoint, ReadOnlySpan<byte>, bool> authen);
     INetworkApplicationBuilder Bind();
 }
 ```
 
-| Phương thức | Áp dụng cho | Mô tả |
-| :--- | :--- | :--- |
-| `OnPort(ushort port)` | TCP & UDP | Ghi đè `NetworkSocketOptions.Port` (`57206`) cho binding listener cụ thể này. |
-| `WithFactory(Func<IPacketDispatch, IProtocol>)` | TCP & UDP | Cung cấp factory tùy chỉnh để khởi tạo `TProtocol`. Khi bỏ qua, `NetworkApplicationBuilder` tự động phân giải các constructor khớp với `(ILogger, IPacketDispatch)`, `(IPacketDispatch, ILogger)`, `(IPacketDispatch)`, hoặc `()`. |
-| `WithMode(OperatingMode mode)` | Chỉ UDP | Chọn `OperatingMode.Server` (`0`, mặc định, `UdpListenerBase` có xác thực) hoặc `OperatingMode.Passthrough` (`1`, `UdpPassthroughListener` thô, không có khung session/MAC của Nalix). |
-| `WithAuthentication(Func<IConnection, EndPoint, ReadOnlySpan<byte>, bool>)` | UDP (chế độ `Server`) | Cung cấp predicate xác thực datagram tùy chỉnh cho `UdpServerListener`. Ném `InvalidOperationException` nếu kết hợp với `OperatingMode.Passthrough`. |
-| `Bind()` | TCP & UDP | Hoàn tất binding và trả về `INetworkApplicationBuilder` cha. |
+| Phương thức | Mô tả |
+| :--- | :--- |
+| `OnPort(ushort port)` | Đặt cổng lắng nghe, ghi đè giá trị mặc định từ `NetworkSocketOptions`. Với binding datagram không gọi `OnPort`, listener được tạo với cổng `0` (`registration.BindingBuilder.Port ?? 0`), nên hệ điều hành chọn một cổng trống; cổng được chọn sẽ được báo cho client trong ticket (`DatagramListener.Port`). |
+| `WithFactory(Func<IPacketDispatch, IProtocol>)` | Cung cấp factory tùy chỉnh để khởi tạo `TProtocol`. Khi bỏ qua, `NetworkApplicationBuilder` tự động phân giải các constructor khớp với `(ILogger, IPacketDispatch)`, `(IPacketDispatch, ILogger)`, `(IPacketDispatch)`, hoặc `()`. |
+| `Bind()` | Hoàn tất binding và trả về `INetworkApplicationBuilder` cha. |
+
+`WithMode(OperatingMode)` và `WithAuthentication(...)` đã bị gỡ cùng với các listener UDP; listener datagram luôn xác thực từng datagram bằng cơ chế bảo vệ AEAD do `ChaCha20Poly1305DatagramProtectionFactory` tạo ra và cho phép phiên vào qua `IConnectionGuard`.
 
 ---
 
@@ -202,7 +206,7 @@ public static class Program
             })
             .MapHandlers<PlayerController>()
             .MapTcp<DefaultProtocol>().OnPort(57206).Bind()
-            .MapUdp<DefaultProtocol>().OnPort(57206).Bind()
+            .MapDatagram<DefaultProtocol>().OnPort(57207).Bind()
             .Build();
 
         using CancellationTokenSource cts = new();
@@ -223,6 +227,6 @@ public static class Program
 - [Tùy chọn Hosting](../options/hosting/hosting-options.md)
 - [Protocol](../network/protocol.md)
 - [TCP Listener](../network/tcp-listener.md)
-- [UDP Listener](../network/udp-listener.md)
+- [Datagram Listener](../network/datagram-listener.md)
 - [Packet Dispatch Channel & Router](../runtime/routing/dispatch-channel-and-router.md)
 - [Tùy chọn Packet Dispatch](../options/runtime/packet-dispatch-options.md)

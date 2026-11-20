@@ -42,7 +42,7 @@ await using NetworkApplication app = NetworkApplication.CreateBuilder()
 await app.RunAsync(cts.Token);
 ```
 
-`MapDatagram<TProtocol>()` creates a `DatagramListener` and maps the ticket handlers (`DatagramTicketHandlers`) for you. It can be called once per application, because tickets are issued by a single listener; a second call throws `InvalidOperationException`. There is no subclass to write and no `IsAuthenticated(...)` hook: authentication is part of the protocol (see [UDP Security](./udp-security.md)).
+`MapDatagram<TProtocol>()` creates a `DatagramListener` and maps the ticket handlers (`DatagramTicketHandlers`) for you. It can be called once per application, because tickets are issued by a single listener; a second call throws `InvalidOperationException`. There is no subclass to write and no `IsAuthenticated(...)` hook: authentication is part of the protocol (see [UDP Security](./datagram-security.md)).
 
 A datagram session is always created from an established TCP or WebSocket session. The client asks for a ticket over that stream (the handshake must be complete), then opens a UDP socket and sends its first datagram within the ticket lifetime.
 
@@ -122,8 +122,8 @@ receive datagram (at most DatagramEngine.MaxDatagramSize = 1472 bytes)
 
 ## Related APIs
 
-- [UDP Listener](../../api/network/udp-listener.md)
-- [UDP Session](../../api/sdk/udp-session.md)
+- [UDP Listener](../../api/network/datagram-listener.md)
+- [UDP Session](../../api/sdk/datagram-session.md)
 - [Protocol](../../api/network/protocol.md)
-- [UDP Auth Flow](./udp-security.md)
+- [UDP Auth Flow](./datagram-security.md)
 - [Security Architecture](../../concepts/internals/security-architecture.md)

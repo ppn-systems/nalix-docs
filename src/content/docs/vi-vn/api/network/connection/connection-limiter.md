@@ -1,6 +1,6 @@
 ---
 title: Connection Limiter
-description: Hướng dẫn kiến trúc về ConnectionGuard và DatagramGuard — giới hạn tốc độ nhiều tầng theo IP, theo subnet, theo burst và theo cửa sổ nguồn UDP trong Nalix.Network.
+description: Hướng dẫn kiến trúc về ConnectionGuard — giới hạn chấp nhận nhiều tầng theo IP, theo subnet, theo burst và cấm lũy tiến trong Nalix.Network, gồm cả cách chấp nhận các phiên datagram.
 section: API Reference
 package: Nalix.Network
 ---
@@ -8,10 +8,9 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.RateLimiting`  
 **Assembly:** `Nalix.Network`
 
-`Nalix.Network.RateLimiting` cung cấp hai bộ giới hạn chấp nhận cho tầng transport:
+`Nalix.Network.RateLimiting` cung cấp bộ giới hạn chấp nhận cho tầng transport:
 
-1. [ConnectionGuard](./connection-guard.md) (`src/Nalix.Network/RateLimiting/Connection.Guard.cs`): Bảo vệ các listener hướng kết nối (`TcpListenerBase`, `WebSocketListenerBase` và `UdpPassthroughListener`).
-2. **`DatagramGuard`** (`src/Nalix.Network/RateLimiting/Datagram.Guard.cs`): Bảo vệ `UdpListenerBase` khỏi lũ gói UDP bằng các cửa sổ trượt theo nguồn IPv4/IPv6 có giới hạn kích thước.
+1. [ConnectionGuard](./connection-guard.md) (`src/Nalix.Network/RateLimiting/Connection.Guard.cs`): Bảo vệ các listener hướng kết nối (`TcpListenerBase`, `WebSocketListenerBase` và `DatagramListener` cho các phiên datagram đã xác thực).
 
 ## Nguồn mã
 
@@ -19,10 +18,9 @@ package: Nalix.Network
 - `src/Nalix.Network/RateLimiting/Connection.Guard.Slot.cs`
 - `src/Nalix.Network/RateLimiting/Connection.Guard.Subnet.cs`
 - `src/Nalix.Network/RateLimiting/Connection.Guard.Cleanup.cs`
-- `src/Nalix.Network/RateLimiting/Datagram.Guard.cs`
 - `src/Nalix.Network/Options/ConnectionQuotaOptions.cs`
 - `src/Nalix.Network/Options/ConnectionGuardOptions.cs`
-- `src/Nalix.Network/Options/DatagramGuardOptions.cs`
+- `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`
 
 ## 1. Cơ chế phòng thủ của `ConnectionGuard`
 
@@ -48,19 +46,16 @@ Khi một endpoint vượt quá cửa sổ tốc độ của nó:
 
 - Giới hạn số mục IP theo dõi ở `ConnectionQuotaOptions.MaxTrackedEndpoints` (`50,000`) và dùng cơ chế loại bỏ ngẫu nhiên lấy mẫu $O(1)$ kiểu Redis khi đầy, cùng với tác vụ dọn dẹp nền định kỳ `"conn.limit"`.
 
-## 2. `DatagramGuard` (bảo vệ `UdpListenerBase`)
+## 2. Phiên datagram
 
-`DatagramGuard` (`public sealed class DatagramGuard : IDisposable`) thực thi ngân sách số gói mỗi giây theo IP (`ConnectionGuardOptions.MaxPacketPerSecond = 128`) cho các datagram UDP đến:
-
-- Duy trì các bản đồ có giới hạn riêng cho IPv4 (`DatagramGuardOptions.IPv4Windows = 65,536`) và IPv6 (`DatagramGuardOptions.IPv6Windows = 16,384`).
-- Khi bản đồ nguồn đã đầy, `DatagramGuardOptions.FailOpenWhenFull` quyết định nguồn chưa biết sẽ bị loại (`false`, mặc định) hay được cho qua (`true`).
+`DatagramGuard` và `DatagramGuardOptions` (cửa sổ gói UDP theo nguồn) đã bị gỡ bỏ. Thay vào đó, `DatagramListener` chấp nhận từng phiên datagram qua `IConnectionGuard.TryAccept(remote)` khi datagram đầu tiên của ticket được xác thực, giữ slot của guard trong suốt vòng đời phiên, và gọi `Release` khi phiên bị dispose. Một phiên bị từ chối được đếm trong `DatagramListener.DMetrics.TotalGuardRejections`. Các datagram chưa xác thực không bao giờ đến guard. Xem [Datagram Listener](../datagram-listener.md).
 
 ## Tóm tắt cấu hình
 
 | Lớp tùy chọn | Thiết lập chính | Tham chiếu |
 | :--- | :--- | :--- |
 | `ConnectionQuotaOptions` | `MaxConnectionsPerIpAddress = 10`, `MaxConnectionsPerWindow = 10`, `ConnectionRateWindow = 5s`, `MaxConnectionsPerSubnet = 50`, `ExemptLoopback = true`, `MaxTrackedEndpoints = 50,000` | [Connection Quota Options](../../options/network/connection-quota-options.md) |
-| `ConnectionGuardOptions` | `MaxConnections = 2000`, `BanDuration = 5m`, `EnableProgressiveBanning = true`, `MaxErrorThreshold = 50`, `MaxPacketPerSecond = 128` | [Connection Guard Options](../../options/network/connection-guard-options.md) |
+| `ConnectionGuardOptions` | `MaxConnections = 2000`, `BanDuration = 5m`, `EnableProgressiveBanning = true`, `MaxErrorThreshold = 50`, `ErrorWindow = 1m`, `MaxPacketPerSecond = 128` | [Connection Guard Options](../../options/network/connection-guard-options.md) |
 | `TrustedProxyOptions` | `StoreFileName = "trusted_proxies.txt"`, `MaxConnectionsPerTrustedProxy = 5000`, `MaxAttemptsPerTrustedProxyWindow = 2000` | [Trusted Proxy Options](../../options/network/trusted-proxy-options.md) |
 
 ## API liên quan
@@ -68,4 +63,4 @@ Khi một endpoint vượt quá cửa sổ tốc độ của nó:
 - [Connection Guard API Reference](./connection-guard.md)
 - [Connection Hub](./connection-hub.md)
 - [TCP Listener](../tcp-listener.md)
-- [UDP Listener](../udp-listener.md)
+- [Datagram Listener](../datagram-listener.md)

@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport`  
 **Assembly:** `Nalix.SDK`
 
-`WebSocketSession` (`public class WebSocketSession : TransportSession`) là transport WebSocket nhị phân phía client trong `Nalix.SDK`, được xây dựng trên `ClientWebSocket`, `WsFrameSender` và `WsFrameReader`. Khác với `TcpSession` và `UdpSession`, `WebSocketSession` được hỗ trợ trên các target trình duyệt/Blazor WASM (`SendAsync`) cũng như các runtime desktop/di động.
+`WebSocketSession` (`public class WebSocketSession : TransportSession`) là transport WebSocket nhị phân phía client trong `Nalix.SDK`, được xây dựng trên `ClientWebSocket`, `WsFrameSender` và `WsFrameReader`. Khác với `TcpSession` và `DatagramSession`, `WebSocketSession` được hỗ trợ trên các target trình duyệt/Blazor WASM (`SendAsync`) cũng như các runtime desktop/di động.
 
 ## Ánh xạ mã nguồn
 
@@ -49,6 +49,9 @@ public class WebSocketSession : TransportSession
     public override Task SendAsync(IPacket packet, bool? encrypt = null, CancellationToken ct = default);
     public override Task SendAsync(ReadOnlyMemory<byte> payload, bool? encrypt = null, CancellationToken ct = default);
     public override void ResetSequenceCounters();
+
+    protected virtual ValueTask<IPEndPoint?> ResolveDialEndpointAsync(string host, ushort port, CancellationToken ct);
+    protected override ValueTask DisposeAsyncCore();
 }
 ```
 
@@ -56,6 +59,8 @@ public class WebSocketSession : TransportSession
 
 - **Xây dựng URI và Subprotocol**: `ConnectAsync` tạo `ws://{host}:{port}{path}` (hoặc `wss://` khi `WebSocketOptions.UseTls == true`), chuẩn hóa `WebSocketOptions.Path` (mặc định `"/ws/"`), và đăng ký `WebSocketOptions.SubProtocol` (mặc định `"nalix.v1"`).
 - **Vòng nhận an toàn cho WASM**: `ConnectAsync` khởi động `_reader.ReceiveLoopAsync` trực tiếp như một async task thay vì `TaskCreationOptions.LongRunning`, tránh deadlock thread pool trên runtime Blazor WebAssembly một luồng.
+- **Endpoint quay số tùy chỉnh (`ResolveDialEndpointAsync`)**: Lớp con có thể trả về một `IPEndPoint` đã phân giải sẵn để quay số, trong khi URI yêu cầu vẫn giữ hostname gốc, nên TLS SNI và header HTTP `Host` vẫn là hostname (ví dụ để phân giải host qua một giao diện mạng cụ thể). Trả về `null` (mặc định) sẽ dùng cách phân giải thông thường của `ClientWebSocket`.
+- **`DisposeAsync`**: `await using WebSocketSession` ngắt kết nối nhẹ nhàng và chờ vòng nhận kết thúc, điều mà `Dispose()` không làm.
 - **Tương thích đầy đủ với handshake và tiện ích mở rộng**: Vì `WebSocketSession` triển khai `ITransportSession`, mọi tiện ích SDK (`HandshakeAsync`, `ResumeSessionAsync`, `RequestAsync`, `TryRequestAsync`, `StreamAsync`, `CreateRpcClient<T>`) hoạt động y hệt trên WebSocket.
 
 ## Ví dụ sử dụng

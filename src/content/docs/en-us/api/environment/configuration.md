@@ -89,7 +89,7 @@ public sealed partial class ServerRoomOptions : ConfigurationLoader, IValidatabl
 | `FilePath` | `public string FilePath { get; }` | Absolute path to the `.ini` file. |
 | `Reload` | `public void Reload()` | Reloads the file from disk, discarding unsaved changes. |
 | `WriteValue` | `public void WriteValue(string section, string key, object value)` | Sets the value for `[section]` / `key` in memory (written to disk by `Flush`). `section` must not contain newline, `[` or `]`; `key` must not contain newline or `=`. |
-| `WriteComment` | `public void WriteComment(string section, string? key, string? comment)` | Registers a comment above a section (`key` is `null` or empty) or a key. Comments are kept in memory and written on the next flush; they are never read back from disk. A `null` or whitespace `comment` is a no-op. |
+| `WriteComment` | `public void WriteComment(string section, string? key, string? comment)` | Registers a comment above a section (`key` is `null` or empty) or a key. Comments are kept in memory and written on the next flush. On load, `;` comment lines directly above a `[section]` header are read back as that section's comment (`IniConfig.cs:1160-1182`); see [IniConfig](./ini-config.md). A `null` or whitespace `comment` is a no-op. |
 | `Flush` | `public void Flush()` | Writes pending changes to disk when the instance is dirty. |
 | `Dispose` | `public void Dispose()` | Disposes the internal file lock. |
 
