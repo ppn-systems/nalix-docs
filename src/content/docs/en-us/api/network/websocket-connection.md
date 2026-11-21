@@ -120,7 +120,7 @@ public sealed partial class WebSocketConnection :
 WebSocket communication is frameless from the application's perspective, as the WebSocket protocol itself provides frame borders.
 
 * **Synchronous Operations Unsupported**: `IConnection.ITransport.Send(ReadOnlySpan<byte>)` throws `NotSupportedException`. Use `SendAsync`. A send on a connection that is disposed or whose socket is not `Open` completes without sending.
-* **Receive Loop Buffer**: The receive loop uses a rented buffer matching `FragmentOptions.MaxChunkSize`. Larger messages switch to a slow path that assembles the payload into a rented array, growing on demand up to `NetworkWebSocketOptions.MaxMessageSize` before `MessageProcessing` is raised.
+* **Receive Loop Buffer**: The receive loop uses a rented buffer matching `FragmentOptions.MaxChunkSize`. Larger messages switch to a slow path that assembles the payload into a rented array, growing on demand up to `NetworkWebSocketOptions.MaxMessageSize` before `MessageProcessing` is raised. Receives use the `Memory<byte>` overload of `WebSocket.ReceiveAsync`, so a receive allocates no result object.
 
 ### Closing Handshake
 

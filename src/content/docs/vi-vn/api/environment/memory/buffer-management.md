@@ -41,7 +41,7 @@ sequenceDiagram
 
 ## `BufferPoolManager` (`Nalix.Framework.Memory.Buffers`)
 
-`BufferPoolManager` (`[Injectable(typeof(IBufferPoolManager))]`) triển khai `IBufferPoolManager` và `IDisposable`. Lớp này bọc `ArrayPool<byte>.Shared`, theo dõi số liệu rent/return nguyên tử (`_rentCount`, `_returnCount`, `_totalBytesRented`), và gắn các `BufferSentinel` theo dõi bằng finalizer khi `BufferOptions.EnableBufferLeakDetection` được bật.
+`BufferPoolManager` (`[Injectable(typeof(IBufferPoolManager))]`) triển khai `IBufferPoolManager` và `IDisposable`. Lớp này bọc `ArrayPool<byte>.Shared`, theo dõi số liệu rent/return trong các slot bộ đếm theo từng bộ xử lý mà báo cáo sẽ cộng lại (số rent và return là bộ đếm nguyên tử chính xác; tổng byte là phép cộng thường và có thể mất một lần cập nhật nếu thread di chuyển giữa chừng), chặn trả lại hai lần bằng bảng băm định danh không khóa (`4096` slot), và gắn các `BufferSentinel` theo dõi bằng finalizer khi `BufferOptions.EnableBufferLeakDetection` được bật.
 
 ### Constructor, thuộc tính & phương thức
 

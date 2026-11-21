@@ -120,7 +120,7 @@ public sealed partial class WebSocketConnection :
 Về phía ứng dụng, giao tiếp WebSocket không có khung (frameless) vì bản thân giao thức WebSocket đã cung cấp ranh giới khung.
 
 * **Không hỗ trợ thao tác đồng bộ**: `IConnection.ITransport.Send(ReadOnlySpan<byte>)` ném `NotSupportedException`. Hãy dùng `SendAsync`. Việc gửi trên kết nối đã dispose hoặc có socket không ở trạng thái `Open` sẽ hoàn tất mà không gửi gì.
-* **Buffer của receive loop**: Receive loop dùng một buffer được thuê có kích thước khớp với `FragmentOptions.MaxChunkSize`. Các thông điệp lớn hơn chuyển sang đường chậm, gom payload vào một mảng được thuê và tăng dần theo nhu cầu tới tối đa `NetworkWebSocketOptions.MaxMessageSize` rồi mới kích hoạt `MessageProcessing`.
+* **Buffer của receive loop**: Receive loop dùng một buffer được thuê có kích thước khớp với `FragmentOptions.MaxChunkSize`. Các thông điệp lớn hơn chuyển sang đường chậm, gom payload vào một mảng được thuê và tăng dần theo nhu cầu tới tối đa `NetworkWebSocketOptions.MaxMessageSize` rồi mới kích hoạt `MessageProcessing`. Các lần nhận dùng overload `Memory<byte>` của `WebSocket.ReceiveAsync`, nên mỗi lần nhận không cấp phát đối tượng kết quả.
 
 ### Bắt tay đóng
 

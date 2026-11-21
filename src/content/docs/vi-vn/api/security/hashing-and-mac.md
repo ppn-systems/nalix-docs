@@ -155,7 +155,7 @@ bool validEncoded = Pbkdf2.Encoded.Verify("secret-password", encoded);
   - `public static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)` — So sánh byte theo thời gian hằng số (`[MethodImpl(NoInlining | NoOptimization)]`), chống tấn công kênh kề qua thời gian.
   - `public static bool IsZero(ReadOnlySpan<byte> value)` — Kiểm tra toàn bộ bằng 0 theo thời gian hằng số, dùng cho khóa và bí mật.
 - **`MemorySecurity`** (`src/Nalix.Codec/Security/Primitives/MemorySecurity.cs`):
-  - `public static void ZeroMemory(byte[] buffer)` và `public static void ZeroMemory(Span<byte> buffer)` — Ghi đè bộ đệm nhạy cảm bằng `Volatile.Write(..., 0)` để JIT không loại bỏ việc xóa khóa như ghi thừa.
+  - `public static void ZeroMemory(byte[] buffer)` và `public static void ZeroMemory(Span<byte> buffer)` — Ghi đè bộ đệm nhạy cảm bằng cách gọi `Span<byte>.Clear()` trong một phương thức đánh dấu `NoInlining | NoOptimization` để JIT không loại bỏ việc xóa khóa như ghi thừa.
 
 ## 6. Nguyên thủy băm cho giao thức và khung (`Nalix.Environment.Hashing`)
 

@@ -100,7 +100,7 @@ public DatagramEngine(
 | `long NextTimer` | Thời điểm của lần gọi `OnTimer` kế tiếp, hoặc `long.MaxValue` khi không cần. |
 | `void Close(DatagramCloseCode code, string? reason, long now, ulong applicationCode = 0)` | Đưa frame CLOSE vào hàng đợi cho lần `Poll` kế tiếp, rồi chuyển sang draining. `IdleTimeout` không được phép (`ArgumentException`); tối đa 256 byte UTF-8 của `reason` được gửi. |
 | `Mtu`, `SmoothedRtt`, `CongestionWindow`, `BytesInFlight` | MTU đường truyền hiện tại, RTT làm mượt (micro giây), cửa sổ tắc nghẽn và số byte đang bay. |
-| `DatagramsSent`, `DatagramsReceived`, `DatagramsDropped`, `DatagramsLost` | Bộ đếm (received đếm các datagram đã xác thực; dropped gồm datagram sai định dạng, trùng lặp hoặc không xác thực được). |
+| `DatagramsSent`, `DatagramsReceived`, `DatagramsDropped`, `DatagramsLost` | Bộ đếm (received đếm các datagram đã xác thực; dropped gồm datagram sai định dạng, trùng lặp hoặc không xác thực được; lost chỉ đếm datagram ack-eliciting, không đếm datagram chỉ chứa ACK). |
 | `ActivePath` | Địa chỉ peer đã xác thực trên máy chủ; `null` trước datagram đã xác thực đầu tiên và trên client. |
 | `string GenerateReport()` | Bản tóm tắt thống kê một dòng để chẩn đoán. |
 | `Dispose()` | Giải phóng bộ máy. |

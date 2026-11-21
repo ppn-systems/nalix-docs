@@ -162,11 +162,13 @@ public sealed class DefaultProtocol : Protocol
     public DefaultProtocol(ILogger logger, IPacketDispatch dispatch);
     public override IFrameProcessor FrameProcessor { get; }
     public override IOpCodeExtractor OpCodeExtractor { get; }
+    public override bool SupportsInlinePostProcessing { get; }
     public override void ProcessMessage(object? sender, IConnectionEventArgs args);
 }
 ```
 
 - Sets `IsAccepting = true` and `KeepConnectionOpen = true` on construction.
+- `SupportsInlinePostProcessing` returns `KeepConnectionOpen` (`true`), so post-processing, which only counts the message, runs where the send completed instead of costing a thread-pool hop per sent message.
 - Uses `DefaultFrameProcessor` and `DefaultOpCodeExtractor` (reading `payload.AsHeaderRef().OpCode` from `PacketHeader`).
 - `DefaultFrameProcessor.OnFrameRejected(IConnection, ReadOnlySpan<byte>)` answers a frame the transport dropped under backpressure with a `ControlType.FAIL` / `ProtocolReason.RATE_LIMITED` / `ProtocolAdvice.RETRY` directive flagged `ControlFlags.IS_TRANSIENT`, the same reply the rate-limit middleware sends. The directive carries the request's sequence id and `Arg0` holds its opcode, so the client can match it to the pending request and retry. At most one reply is sent per connection within `DirectiveGuardOptions.DefaultCooldownMs`; frames rejected inside that window stay unanswered. The directive is not encrypted.
 - Forwards `args.Lease` and `args.Connection` directly to `_dispatch.HandlePacket(args.Lease, args.Connection)`.

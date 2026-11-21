@@ -71,7 +71,7 @@ flowchart TD
     F -->|ok, or established session| G[Accept and dispatch]
 ```
 
-1. Each receive worker reads into a pinned buffer of `DatagramEngine.MaxDatagramSize + 1` bytes (`MaxDatagramSize = 1472`), so an oversized datagram is detected rather than truncated.
+1. Each receive worker reads into a pinned buffer of `DatagramEngine.MaxDatagramSize + 1` bytes (`MaxDatagramSize = 1472`), so an oversized datagram is detected rather than truncated. After each awaited receive, on 64-bit Linux the worker drains what is already queued on the socket with `recvmmsg` (up to `DatagramBatchSender.MaxBatch` = 8 datagrams per system call, never waiting) before it awaits again; elsewhere every datagram is read by the awaited receive alone (`DatagramBatchReceiver`, `DatagramListener.Receive.cs`).
 2. `Route` drops the datagram (`DroppedMalformed`) when it is longer than `MaxDatagramSize` or has no NDP header from which `DatagramEngine.TryReadConnectionId` can read the connection identifier.
 3. A known identifier in the session table is handed to `DatagramConnection.OnDatagram`; an identifier with a pending ticket goes through `TryPromote`; anything else is dropped (`DroppedUnknown`). Unauthenticated datagrams are never answered.
 4. A datagram of a known session that fails authentication, or is a replay, counts as `DroppedUnauthenticated`.
@@ -152,6 +152,9 @@ public sealed partial class DatagramListener : IListener, IDatagramTicketIssuer
 - `Transport` returns the connection itself. Plain `Send` / `SendAsync` use `DeliveryMethod.ReliableOrdered` on channel 0.
 - `SendAsync(ReadOnlyMemory<byte> message, DeliveryMethod method, byte channel, CancellationToken)` and `WithDelivery(DeliveryMethod method, byte channel)` choose the delivery method (`Unreliable`, `UnreliableSequenced`, `ReliableUnordered`, `ReliableOrdered`, `ReliableSequenced`) and channel; `WithDelivery` throws `ArgumentOutOfRangeException` for an unknown method or a channel not below the session's channel count.
 - `EngineReport` returns the protocol engine's report.
+- `NetworkEndpoint` follows the client: it is set from the session's first path and updated each time the engine validates a migration (NAT rebinding, a handover), not only when the session is established.
+- The datagrams a session produces in one drain are sent with `sendmmsg` on 64-bit Linux (up to 8 per system call, `DatagramListener.SendBatch`); on other platforms, or when the batch call is unavailable, each goes out with its own `SendTo`.
+- `MessageProcessed` runs inline on the thread that completed the send when the protocol reports `SupportsInlinePostProcessing`; see [Protocol](./protocol.md).
 - `ExcludeFromIdleTimeout` is `true`; the idle timeout is enforced by the protocol engine (`DatagramEngineOptions.IdleTimeoutMs`), not by the `TimingWheel`. `UpdateIdleTimeout` only validates its argument.
 
 ## Related APIs

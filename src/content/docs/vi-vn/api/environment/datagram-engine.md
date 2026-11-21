@@ -43,7 +43,7 @@ Sau mỗi lần `Receive`, `TrySend`, `Close` và `OnTimer`, hãy gọi `Poll` l
 
 ### Đường gửi
 
-Cách một message trở thành datagram. `TrySend` sao chép message vào hàng đợi ưu tiên, tách thành fragment khi vượt `MaxUnfragmentedMessageSize` (`ReliableSender.cs` L80); `Poll` (`DatagramEngine.cs` L241) ghi bản truyền lại trước, rồi các message trong hàng đợi theo ưu tiên khi cửa sổ tắc nghẽn và pacer cho phép, rồi niêm phong bằng protection.
+Cách một message trở thành datagram. `TrySend` sao chép message vào hàng đợi ưu tiên, tách thành fragment khi vượt `MaxUnfragmentedMessageSize` (`ReliableSender.cs` L80); `Poll` (`DatagramEngine.cs` L241) ghi bản truyền lại trước, rồi các message trong hàng đợi theo ưu tiên khi cửa sổ tắc nghẽn và pacer cho phép, rồi niêm phong bằng protection. ACK đang chờ được gắn vào datagram có dữ liệu, nhưng ACK đã ghi cho một lượt gửi rốt cuộc không có gì để gửi sẽ bị bỏ trừ khi đã đến hạn (`MaxAckDelayMs` hoặc độ trễ gộp bên dưới), nên một trao đổi request/response không tạo ra datagram chỉ chứa ACK; datagram kế tiếp, thường là phản hồi, mang ACK đó. PATH_RESPONSE là ngoại lệ: nó được ghi ngay, bỏ qua cửa sổ tắc nghẽn và pacer (RFC 9000 mục 8.2.2), để phiên bị kẹt sau NAT rebinding hoặc handover xác thực được đường truyền mới. Các message trong hàng đợi được nối qua `OutMessage.Previous`/`Next` (`OutMessageList`) thay vì `LinkedList`, và các chunk của một message bị phân mảnh dùng chung một bản sao pooled của message, nên việc xếp hàng không cấp phát gì cho mỗi message hay chunk (`ReliableSender.cs`, `OutMessage.cs`). ACK đang chờ được gắn vào datagram có dữ liệu, nhưng ACK đã ghi cho một lượt gửi rốt cuộc không có gì để gửi sẽ bị bỏ trừ khi đã đến hạn (`MaxAckDelayMs` hoặc độ trễ gộp bên dưới), nên một trao đổi request/response không tạo ra datagram chỉ chứa ACK; datagram kế tiếp, thường là phản hồi, mang ACK đó. PATH_RESPONSE là ngoại lệ: nó được ghi ngay, bỏ qua cửa sổ tắc nghẽn và pacer (RFC 9000 mục 8.2.2), để phiên bị kẹt sau NAT rebinding hoặc handover xác thực được đường truyền mới. Các message trong hàng đợi được nối qua `OutMessage.Previous`/`Next` (`OutMessageList`) thay vì `LinkedList`, và các chunk của một message bị phân mảnh dùng chung một bản sao pooled của message, nên việc xếp hàng không cấp phát gì cho mỗi message hay chunk (`ReliableSender.cs`, `OutMessage.cs`).
 
 ```mermaid
 flowchart LR
@@ -61,7 +61,7 @@ flowchart LR
 
 ### Đường nhận
 
-Cách một datagram trở thành message. `Receive` (`DatagramEngine.cs` L423) loại bỏ datagram sai định dạng, trùng hoặc không xác thực, sau đó `ProcessFrames` định tuyến từng khung; message đi qua `ReliableReceiver` theo phương thức giao và tới handler sau khi xử lý xong cả datagram (`DispatchDeliveries`).
+Cách một datagram trở thành message. `Receive` (`DatagramEngine.cs` L441) loại bỏ datagram sai định dạng, trùng hoặc không xác thực, sau đó `ProcessFrames` định tuyến từng khung; message đi qua `ReliableReceiver` theo phương thức giao và tới handler sau khi xử lý xong cả datagram (`DispatchDeliveries`).
 
 ```mermaid
 flowchart LR
@@ -79,7 +79,7 @@ flowchart LR
 
 ### Khôi phục mất gói và bộ đếm thời gian
 
-Cách phát hiện và bù đắp mất gói, do khung ACK và `OnTimer` (`DatagramEngine.Cleanup.cs` L182) điều khiển. Một gói bị coi là mất khi ba gói mới hơn đã được ACK hoặc quá thời điểm mất (`LossRecovery.PacketThreshold`); message mất quay lại danh sách truyền lại và cửa sổ NewReno co lại. Khi không có ACK, probe timeout xếp hai probe để `Poll` gửi được dù cửa sổ đã đầy. `OnTimer` cũng gửi PING keepalive và kết thúc phiên khi idle timeout.
+Cách phát hiện và bù đắp mất gói, do khung ACK và `OnTimer` (`DatagramEngine.Cleanup.cs` L182) điều khiển. Một gói bị coi là mất khi ba gói mới hơn đã được ACK hoặc quá thời điểm mất (`LossRecovery.PacketThreshold`); message mất quay lại danh sách truyền lại và cửa sổ NewReno co lại. Bên nhận ACK ngay khi có khoảng trống trong số gói, nhưng gói ack-eliciting thứ hai chỉ đặt hạn ACK tối đa `AckCoalesceDelay` (1 ms, bị chặn bởi `MaxAckDelayMs`) để một phản hồi kịp mang theo ACK (`AckTracker.cs`). Datagram chỉ chứa ACK không bao giờ được ACK riêng, nên không được tính vào `DatagramsLost` (`DatagramEngine.cs` `DetectLost`). Cửa sổ NewReno không tăng khi ACK đến mà lượng đang bay trước đó chưa lấp được nửa cửa sổ (bên gửi bị giới hạn bởi ứng dụng, RFC 9002 mục 7.8; `NewRenoController.cs`). Ba datagram liên tiếp lớn hơn `MinimumMtu` bị mất sẽ đưa MTU về `MinimumMtu`; path MTU discovery sau đó dò lại từ ứng viên nhỏ nhất sau 60 giây (`MtuDiscovery.RaiseDelayMicros`) thay vì bị chặn trần cả phiên, nên blackout (tunnel, handover) không chặn trần MTU vĩnh viễn. Bên nhận ACK ngay khi có khoảng trống trong số gói, nhưng gói ack-eliciting thứ hai chỉ đặt hạn ACK tối đa `AckCoalesceDelay` (1 ms, bị chặn bởi `MaxAckDelayMs`) để một phản hồi kịp mang theo ACK (`AckTracker.cs`). Datagram chỉ chứa ACK không bao giờ được ACK riêng, nên không được tính vào `DatagramsLost` (`DatagramEngine.cs` `DetectLost`). Cửa sổ NewReno không tăng khi ACK đến mà lượng đang bay trước đó chưa lấp được nửa cửa sổ (bên gửi bị giới hạn bởi ứng dụng, RFC 9002 mục 7.8; `NewRenoController.cs`). Ba datagram liên tiếp lớn hơn `MinimumMtu` bị mất sẽ đưa MTU về `MinimumMtu`; path MTU discovery sau đó dò lại từ ứng viên nhỏ nhất sau 60 giây (`MtuDiscovery.RaiseDelayMicros`) thay vì bị chặn trần cả phiên, nên blackout (tunnel, handover) không chặn trần MTU vĩnh viễn. Khi không có ACK, probe timeout xếp hai probe để `Poll` gửi được dù cửa sổ đã đầy. `OnTimer` cũng gửi PING keepalive và kết thúc phiên khi idle timeout.
 
 ```mermaid
 flowchart TD
@@ -140,9 +140,9 @@ public DatagramEngine(
 | Thành viên | Chữ ký | Mô tả |
 | :--- | :--- | :--- |
 | `Poll` | `public int Poll(Span<byte> destination, long now, out SocketAddress? path)` | Tạo datagram tiếp theo, hoặc trả về `0` khi chưa có gì đến hạn. `destination` phải dài ít nhất `MaxDatagramSize` byte (nếu không sẽ ném `ArgumentOutOfRangeException`). `path` chỉ khác `null` với path challenge gửi tới một địa chỉ không phải đường truyền đang hoạt động (L241). |
-| `Receive` | `public bool Receive(ReadOnlySpan<byte> datagram, SocketAddress? from, long now)` | Xử lý một datagram nhận được; trả về `true` khi nó đã xác thực và được xử lý. `from` là địa chỉ người gửi trên máy chủ (được sao chép khi giữ lại) và là `null` trên client. Datagram sai định dạng, quá dài, thuộc connection id khác, trùng lặp hoặc không xác thực được sẽ tăng `DatagramsDropped` và trả về `false` (L423-L433). |
+| `Receive` | `public bool Receive(ReadOnlySpan<byte> datagram, SocketAddress? from, long now)` | Xử lý một datagram nhận được; trả về `true` khi nó đã xác thực và được xử lý. `from` là địa chỉ người gửi trên máy chủ (được sao chép khi giữ lại) và là `null` trên client. Datagram sai định dạng, quá dài, thuộc connection id khác, trùng lặp hoặc không xác thực được sẽ tăng `DatagramsDropped` và trả về `false` (L441-L449). |
 | `OnTimer` | `public void OnTimer(long now)` | Chạy các bộ đếm thời gian đã đến hạn: thời gian chờ không hoạt động, draining, phát hiện mất gói, probe timeout, keepalive, thử lại xác thực đường truyền, hủy khóa và hết hạn mảnh (`DatagramEngine.Cleanup.cs` L182). |
-| `NextTimer` | `public long NextTimer { get; }` | Thời điểm của lần gọi `OnTimer` tiếp theo, hoặc `long.MaxValue` khi không cần (`DatagramEngine.Report.cs` L48). |
+| `NextTimer` | `public long NextTimer { get; }` | Thời điểm của lần gọi `OnTimer` tiếp theo, hoặc `long.MaxValue` khi không cần (`DatagramEngine.Report.cs` L51). |
 | `Close` | `public void Close(DatagramCloseCode code, string? reason, long now, ulong applicationCode = 0)` | Đưa một frame CLOSE vào hàng đợi cho lần `Poll` kế tiếp, rồi draining trong ba probe timeout. `IdleTimeout` ném `ArgumentException` (chỉ cục bộ). Tối đa 256 byte UTF-8 của `reason` được gửi. `applicationCode` được dùng với `ApplicationError` (`DatagramEngine.Cleanup.cs` L65). |
 
 ### Chẩn đoán
@@ -151,16 +151,16 @@ Tất cả nằm trong `DatagramEngine.Report.cs`.
 
 | Thành viên | Chữ ký | Mô tả |
 | :--- | :--- | :--- |
-| `Mtu` | `public int Mtu { get; }` | MTU hiện tại của đường truyền (byte payload UDP) (L13). |
+| `Mtu` | `public int Mtu { get; }` | MTU hiện tại của đường truyền (byte payload UDP). Về `MinimumMtu` sau nhiều lần mất datagram lớn liên tiếp và được dò lại sau 60 giây (L13). |
 | `SmoothedRtt` | `public long SmoothedRtt { get; }` | Thời gian khứ hồi đã làm mượt, tính bằng micro giây (L16). |
 | `CongestionWindow` | `public long CongestionWindow { get; }` | Cửa sổ tắc nghẽn tính bằng byte (L19). |
 | `BytesInFlight` | `public long BytesInFlight { get; }` | Số byte đang bay (L22). |
 | `DatagramsSent` | `public long DatagramsSent { get; private set; }` | Số datagram đã gửi (L25). |
 | `DatagramsReceived` | `public long DatagramsReceived { get; private set; }` | Số datagram đã xác thực nhận được (L28). |
 | `DatagramsDropped` | `public long DatagramsDropped { get; private set; }` | Số datagram nhận được bị loại bỏ (sai định dạng, trùng lặp hoặc không xác thực được) (L31). |
-| `DatagramsLost` | `public long DatagramsLost { get; private set; }` | Số datagram đã gửi bị coi là mất (L34). |
-| `ActivePath` | `public SocketAddress? ActivePath { get; }` | Địa chỉ bên kia đã xác thực trên máy chủ; `null` trước datagram xác thực đầu tiên và trên client (L43). |
-| `GenerateReport` | `public string GenerateReport()` | Bản tóm tắt một dòng (`state`, `mtu`, `srtt`, `cwnd`, `inflight`, `sent`, `received`, `lost`, `dropped`) để chẩn đoán (L87). |
+| `DatagramsLost` | `public long DatagramsLost { get; private set; }` | Số datagram ack-eliciting đã gửi bị coi là mất; datagram chỉ chứa ACK không được tính (L37). |
+| `ActivePath` | `public SocketAddress? ActivePath { get; }` | Địa chỉ bên kia đã xác thực trên máy chủ; `null` trước datagram xác thực đầu tiên và trên client (L46). |
+| `GenerateReport` | `public string GenerateReport()` | Bản tóm tắt một dòng (`state`, `mtu`, `srtt`, `cwnd`, `inflight`, `sent`, `received`, `lost`, `dropped`) để chẩn đoán (L90). |
 
 ## `DatagramEngineState`
 
@@ -169,7 +169,7 @@ Tất cả nằm trong `DatagramEngine.Report.cs`.
 | Giá trị | Ý nghĩa |
 | :--- | :--- |
 | `Pending = 0` | Đã tạo; chưa có datagram nào xác thực. |
-| `Established = 1` | Một datagram từ bên kia đã xác thực; dữ liệu được truyền (được đặt trong `Receive`, `DatagramEngine.cs` L468). |
+| `Established = 1` | Một datagram từ bên kia đã xác thực; dữ liệu được truyền (được đặt trong `Receive`, `DatagramEngine.cs` L486). |
 | `Draining = 2` | Một frame CLOSE đang nằm trong hàng đợi hoặc đã được gửi hay nhận; phiên bỏ qua các datagram tiếp theo. |
 | `Closed = 3` | Đã đóng; không gửi hay nhận gì nữa. |
 
@@ -241,7 +241,7 @@ stateDiagram-v2
 | :--- | :--- | :--- | :--- | :--- |
 | `ChannelCount` | `int` | `8` | 1..64 | Số kênh đang dùng (L27). |
 | `IdleTimeoutMs` | `int` | `15_000` | 100..3,600,000 | Thời gian chờ không hoạt động, tính bằng mili giây (L32). |
-| `MaxAckDelayMs` | `int` | `25` | 1..1,000 | Thời gian trì hoãn tối đa của một acknowledgement, tính bằng mili giây (L37). |
+| `MaxAckDelayMs` | `int` | `25` | 1..1,000 | Thời gian trì hoãn tối đa của một acknowledgement, tính bằng mili giây; ACK đến hạn sau hai gói chỉ chờ tối đa 1 ms (L37). |
 | `UnreliableExpiryMs` | `int` | `100` | 1..60,000 | Thời gian một thông điệp không tin cậy trong hàng đợi được phép chờ trước khi bị loại bỏ (L42). |
 | `MaxMessageSize` | `int` | `1048576` (1 MiB) | 1..67,108,864 (64 MiB) | Thông điệp lớn nhất được chấp nhận khi gửi hoặc được ghép lại từ các mảnh (L47). |
 | `ReceiveBufferBytes` | `long` | `4194304` (4 MiB) | 1..`long.MaxValue` | Tổng số byte phía này đệm để sắp xếp thứ tự và ghép lại; được quảng bá cho bên kia (L52). |

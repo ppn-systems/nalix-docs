@@ -51,7 +51,7 @@ Every datagram is sealed with ChaCha20-Poly1305 by the session, so frames are **
 
 ## Send and Receive Path
 
-The diagram follows one message out through the engine to the UDP socket and one datagram back to `OnMessageReceived` (`DatagramSession.cs:271-281`, `346-361`, `363-404`, `424-454`, `483-526`).
+The diagram follows one message out through the engine to the UDP socket and one datagram back to `OnMessageReceived` (`DatagramSession.cs:294-313`, `354-370`, `377-419`, `446-536`, `596-650`).
 
 ```mermaid
 flowchart LR
@@ -59,14 +59,14 @@ flowchart LR
     B --> C["engine.TrySend"]
     C --> D["engine.Poll"]
     D -->|sealed datagram| E[UDP socket]
-    E -->|network| F["ReceiveLoopAsync"]
+    E -->|network| F["ReceiveLoop"]
     F --> G["engine.Receive"]
     G -->|authenticated message| H["DispatchBatch"]
     H --> I["FramePipeline inbound"]
     I --> J[OnMessageReceived]
 ```
 
-`TrySend` queues the frame on its channel and returns `false` (surfaced as `NetworkException`) when the session is closing, the frame is too large for the method, or the queue is full. `FlushLocked` then drains `Poll` into the socket and re-arms the engine timer; socket errors during send are ignored because the engine retransmits what matters. On receive, the engine opens the datagram, and `DispatchBatch` runs outside the engine lock, one thread at a time and in delivery order.
+`TrySend` queues the frame on its channel and returns `false` (surfaced as `NetworkException`) when the session is closing, the frame is too large for the method, or the queue is full. The send path then calls `Flush`, outside the engine lock: one thread at a time polls the engine in batches of up to 8 datagrams under the lock, sends each batch after releasing it, and re-arms the engine timer; a thread that finds the drain busy leaves a request that the draining thread picks up. Socket errors during send are ignored because the engine retransmits what matters. Only the close datagram of `DisconnectAsync` is sent under the engine lock. The receive loop runs on the session's own long-running thread with blocking `Socket.Receive` calls, so a datagram goes from the kernel straight to the engine without a thread-pool hop. After `engine.Receive`, `DispatchBatch` runs outside the engine lock, one thread at a time and in delivery order, and only then does the loop flush what the datagram calls for (an ACK, mostly, plus any reply the handler queued).
 
 ## Public API Reference
 

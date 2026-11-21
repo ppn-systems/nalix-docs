@@ -81,7 +81,7 @@ flowchart TD
 | `PacketsDropped` | `long` | Total packets dropped for this connection due to backpressure or validation failures. |
 | `IsDisposed` | `bool` | `true` once the connection backing has been disposed and returned to the pool. |
 | `MessageProcessing` | `event EventHandler<IConnectionEventArgs>` | Raised via `OnFrameReceived` (`CallbackLane.Process` or `InvokeInline`) when an inbound frame arrives. |
-| `MessageProcessed` | `event EventHandler<IConnectionEventArgs>` | Raised via `OnFrameSent` on `CallbackLane.Post` when `SocketConnection` finishes sending an outbound frame. |
+| `MessageProcessed` | `event EventHandler<IConnectionEventArgs>` | Raised via `OnFrameSent` on `CallbackLane.Post` when `SocketConnection` finishes sending an outbound frame. Runs inline when the single subscriber is a `Protocol` with `SupportsInlinePostProcessing == true`. |
 | `ConnectionClosed` | `event EventHandler<IConnectionEventArgs>` | Raised once during connection teardown before `Attributes` are returned to the pool. |
 
 ## Public Methods

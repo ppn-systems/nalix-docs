@@ -88,7 +88,7 @@ public interface IPoolRentable
 | `GetTypedPool<T>()` | `public TypedObjectPool<T> GetTypedPool<T>() where T : IPoolable, new()` | Trả về adapter `TypedObjectPool<T>` gắn với manager này. |
 | `Prealloc<T>(int)` | `public int Prealloc<T>(int count) where T : IPoolable, new()` | Cấp phát trước `count` instance vào pool của `T` (`count > 0`) và trả về số instance đã thêm. |
 | `SetMaxCapacity<T>(int)` | `public bool SetMaxCapacity<T>(int maxCapacity) where T : IPoolable` | Đặt dung lượng giữ lại tối đa cho pool của `T` (`maxCapacity >= 0`). |
-| `GetTypeInfo<T>()` | `public Dictionary<string, object> GetTypeInfo<T>() where T : IPoolable` | Trả về từ điển chỉ số (`AvailableCount`, `MaxCapacity`, `TotalGets`, `TotalReturns`, `CacheHitRate`, `Outstanding`, `PeakOutstanding`, `Status`, và các percentile vòng đời khi `EnableDiagnostics = true`). |
+| `GetTypeInfo<T>()` | `public Dictionary<string, object> GetTypeInfo<T>() where T : IPoolable` | Trả về từ điển chỉ số (`AvailableCount`, `MaxCapacity`, `TotalGets`, `TotalReturns`, `CacheHitRate`, `Outstanding`, `PeakOutstanding` (chỉ chính xác khi `EnableMetrics = true`), `Status`, và các percentile vòng đời khi `EnableDiagnostics = true`). |
 | `ClearPool<T>()` / `ClearAllPools()` | `public int ClearPool<T>()` / `public int ClearAllPools()` | Xóa các instance trong pool và trả về số đối tượng đã loại bỏ. |
 | `PerformHealthCheck()` | `public int PerformHealthCheck()` | Đánh giá tỷ lệ miss theo cửa sổ trên các pool đang hoạt động và trả về số pool không lành mạnh. |
 | `ResetMetrics()` / `ResetStatistics()` | `public void ResetMetrics()` / `public void ResetStatistics()` | Đặt lại bộ đếm toàn cục và theo từng pool. |
@@ -103,7 +103,7 @@ public interface IPoolRentable
 | `DefaultMaxSize` | `public const int DefaultMaxSize = 1024` | Dung lượng mỗi kiểu được dùng khi không có giới hạn dương nào được cung cấp. |
 | `Default` | `public static ObjectPool Default { get; }` | Instance dùng chung được tạo bằng constructor không tham số. |
 | `ObjectPool()` | `public ObjectPool()` | Tạo pool với `DefaultMaxSize` cho mỗi kiểu. |
-| `Get<T>()` / `GetWithInfo<T>()` | `public T Get<T>()` / `public (T obj, bool isCacheHit) GetWithInfo<T>() where T : IPoolable, new()` | Thuê một instance, tạo mới khi bucket rỗng; `GetWithInfo` còn báo cho biết đó có phải là lần trúng pool hay không. |
+| `Get<T>()` / `GetWithInfo<T>()` | `public T Get<T>()` / `public (T obj, bool isCacheHit) GetWithInfo<T>() where T : IPoolable, new()` | Thuê một instance, tạo mới khi bucket rỗng (bucket rỗng được nhận biết từ các bộ đếm mà không quét các slot); `GetWithInfo` còn báo cho biết đó có phải là lần trúng pool hay không. |
 | `Return<T>(T)` | `public void Return<T>(T obj) where T : IPoolable` | Đặt lại và trả một instance (ném `ArgumentNullException` với `null`). |
 | `GetMultiple<T>(int)` / `ReturnMultiple<T>(IEnumerable<T>)` | `public List<T> GetMultiple<T>(int count)` / `public int ReturnMultiple<T>(IEnumerable<T> objects)` | Thuê hàng loạt (ném `ArgumentException` khi `count <= 0`) và trả hàng loạt (trả về số lượng được chấp nhận). |
 | `Prealloc<T>(int)` | `public int Prealloc<T>(int count)` | Cấp phát trước các instance và trả về số lượng đã thêm. |
@@ -122,7 +122,7 @@ public interface IPoolRentable
 | Thuộc tính | Kiểu | Mặc định | Ràng buộc | Mô tả |
 | :--- | :--- | :---: | :--- | :--- |
 | `EnableDiagnostics` | `bool` | `false` | — | Bật theo dõi `PoolSentinel` cho vòng đời đối tượng (`Avg`/`p95`/`Max`) và các lần thuê bất thường kéo dài. |
-| `EnableMetrics` | `bool` | `true` | — | Bật bộ đếm hit/miss và `Outstanding` nhẹ, dùng nguyên tử (an toàn cho production). |
+| `EnableMetrics` | `bool` | `true` | — | Bật theo dõi chính xác `Outstanding` / `PeakOutstanding` theo từng kiểu và dấu thời gian truy cập. Mặc định `false`: mọi thread thuê cùng một kiểu đều cập nhật chung các bộ đếm, làm giảm thông lượng trên máy nhiều lõi. Số lần get, return, hit và miss theo từng kiểu, cùng các tổng toàn manager (`TotalGetOperations` và tương tự), luôn được đếm dù tùy chọn này bật hay tắt. |
 | `CaptureStackTraces` | `bool` | `false` | — | Ghi stack trace cấp phát khi `Get<T>()` nếu `EnableDiagnostics = true` (tốn kém; chỉ dùng khi gỡ lỗi rò rỉ). |
 | `SuspiciousThresholdSeconds` | `int` | `30` | `[ValueRange(0, 3600)]` | Ngưỡng tính bằng giây; sau thời gian này, đối tượng chưa được trả sẽ bị đánh dấu đáng ngờ. |
 | `EnableLeakDetection` | `bool` | `false` | — | Dùng finalizer của `PoolSentinel` để phát hiện đối tượng đã thuê bị GC thu hồi mà không gọi `Return<T>()` (yêu cầu `EnableDiagnostics = true` để `PoolSentinel` được gắn khi `Get<T>()`). |
@@ -134,7 +134,7 @@ public interface IPoolRentable
 | `DeepTrimPercentage` | `int` | `25` | `[ValueRange(10, 45)]` | Phần trăm dung lượng được giữ lại trong chu kỳ cắt tỉa sâu. |
 | `TrimDecayFactor` | `double` | `0.5` | `[ValueRange(0.1, 1.0)]` | Tỷ lệ đối tượng dư thừa bị loại bỏ mỗi chu kỳ cắt tỉa (suy giảm theo cấp số nhân). |
 | `HotHitRateThreshold` | `double` | `85.0` | `[ValueRange(75.0, 98.0)]` | Tỷ lệ trúng (phần trăm) mà trên đó một pool được coi là "nóng" và chỉ được cắt tỉa nhẹ. |
-| `MinimumKeepObjects` | `int` | `8` | `[ValueRange(4, 64)]` | Ngưỡng tối thiểu luôn được giữ trong mỗi pool khi cắt tỉa. |
+| `MinimumKeepObjects` | `int` | `8` | `[ValueRange(4, 64)]` | Ngưỡng tối thiểu được giữ trong mỗi pool khi cắt tỉa; ngưỡng sàn là giá trị lớn nhất trong số này, một phần mười hai dung lượng pool và 1.5 lần đỉnh gần đây của số đối tượng đang được thuê (đỉnh của khoảng thời gian này hoặc một nửa đỉnh trước đó, nên một đợt tăng đột biến giảm dần sau vài khoảng). Pool không có `Get<T>()` nào trong cả một khoảng cắt tỉa sẽ co dần về ngưỡng sàn này (`TrimDecayFactor` phần dư thừa mỗi chu kỳ) thay vì giữ `BaseKeepPercentage`. |
 | `DefaultMaxPoolSize` | `int` | `2048` | `[ValueRange(1024, 1_000_000)]` | Dung lượng tối đa mặc định cho các pool theo kiểu mới tạo. |
 | `DefaultPreallocate` | `int` | `8` | `[ValueRange(0, 1_000_000)]` | Số instance được cấp phát trước khi một pool theo kiểu được tạo lần đầu. |
 | `ThreadCacheDepth` | `int` | `0` | `[ValueRange(0, 4)]` | Độ sâu `ThreadLocalCache<T>` theo từng luồng (`0` = tắt mặc định để các continuation `async`/`await` chạy trên các luồng ThreadPool khác nhau không làm kẹt đối tượng trong pool). |

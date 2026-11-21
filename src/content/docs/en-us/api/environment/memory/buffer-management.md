@@ -41,7 +41,7 @@ sequenceDiagram
 
 ## `BufferPoolManager` (`Nalix.Framework.Memory.Buffers`)
 
-`BufferPoolManager` (`[Injectable(typeof(IBufferPoolManager))]`) implements `IBufferPoolManager` and `IDisposable`. It wraps `ArrayPool<byte>.Shared`, tracks atomic rent/return telemetry (`_rentCount`, `_returnCount`, `_totalBytesRented`), and attaches `BufferSentinel` finalizer trackers when `BufferOptions.EnableBufferLeakDetection` is enabled.
+`BufferPoolManager` (`[Injectable(typeof(IBufferPoolManager))]`) implements `IBufferPoolManager` and `IDisposable`. It wraps `ArrayPool<byte>.Shared`, tracks rent/return telemetry in per-processor counter slots that the report sums (rents and returns are exact atomic counts; the byte total is a plain add and may lose an update if a thread migrates mid-add), guards against double returns with a lock-free identity-hash table (`4096` slots), and attaches `BufferSentinel` finalizer trackers when `BufferOptions.EnableBufferLeakDetection` is enabled.
 
 ### Constructors, Properties & Methods
 

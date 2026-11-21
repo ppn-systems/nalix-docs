@@ -100,7 +100,7 @@ public DatagramEngine(
 | `long NextTimer` | Time of the next `OnTimer` call, or `long.MaxValue` when none is needed. |
 | `void Close(DatagramCloseCode code, string? reason, long now, ulong applicationCode = 0)` | Queues a CLOSE frame for the next `Poll`, then drains. `IdleTimeout` is not allowed (`ArgumentException`); at most 256 UTF-8 bytes of `reason` are sent. |
 | `Mtu`, `SmoothedRtt`, `CongestionWindow`, `BytesInFlight` | Current path MTU, smoothed RTT (microseconds), congestion window and bytes in flight. |
-| `DatagramsSent`, `DatagramsReceived`, `DatagramsDropped`, `DatagramsLost` | Counters (received counts authenticated datagrams; dropped covers malformed, duplicate or unauthentic ones). |
+| `DatagramsSent`, `DatagramsReceived`, `DatagramsDropped`, `DatagramsLost` | Counters (received counts authenticated datagrams; dropped covers malformed, duplicate or unauthentic ones; lost counts ack-eliciting datagrams only, not ACK-only ones). |
 | `ActivePath` | Validated peer address on the server; `null` before the first authenticated datagram and on the client. |
 | `string GenerateReport()` | One-line statistics summary for diagnostics. |
 | `Dispose()` | Releases the engine. |
