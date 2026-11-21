@@ -12,19 +12,19 @@ Micro-benchmark chi tiết các thao tác tuần tự hóa tiêu chuẩn, bao g�
 
 | Phương thức | Mean | Error | StdDev | P95 | Gen0 | Gen1 | Gen2 | Cấp phát |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **Serialize_Unmanaged_Small** | **8.4605 ns** | 0.3905 ns | 0.5214 ns | 9.1123 ns | 0.0015 | - | - | 56 B |
-| **Serialize_Unmanaged_Large** | **49.7401 ns** | 1.3714 ns | 1.7831 ns | 52.4651 ns | 0.0144 | - | - | 536 B |
-| **Deserialize_Unmanaged_Small** | **3.3755 ns** | 0.0330 ns | 0.0441 ns | 3.4550 ns | - | - | - | 0 B |
-| **Deserialize_Unmanaged_Large** | **22.0984 ns** | 0.2677 ns | 0.3083 ns | 22.6873 ns | - | - | - | 0 B |
-| **Serialize_Formatter** | **58.3652 ns** | 2.3481 ns | 2.6099 ns | 60.5600 ns | 0.0041 | - | - | 152 B |
-| **Deserialize_Formatter** | **60.4312 ns** | 0.7158 ns | 0.9556 ns | 62.0313 ns | 0.0079 | - | - | 296 B |
-| **Fill_IntoSpan_Small** | **1.0629 ns** | 0.0188 ns | 0.0245 ns | 1.1034 ns | - | - | - | 0 B |
-| **Fill_IntoSpan_Large** | **5.1200 ns** | 0.0450 ns | 0.0585 ns | 5.2316 ns | - | - | - | 0 B |
-| **Resolve_Formatter** | **0.9009 ns** | 0.0128 ns | 0.0162 ns | 0.9219 ns | - | - | - | 0 B |
+| **Serialize_Unmanaged_Small** | **11.3692 ns** | 0.6061 ns | 0.8091 ns | 12.387 ns | 0.0055 | - | - | 56 B |
+| **Serialize_Unmanaged_Large** | **60.9115 ns** | 9.5825 ns | 12.7924 ns | 76.527 ns | 0.0530 | - | - | 536 B |
+| **Deserialize_Unmanaged_Small** | **4.0649 ns** | 0.1476 ns | 0.1970 ns | 4.438 ns | - | - | - | 0 B |
+| **Deserialize_Unmanaged_Large** | **16.6168 ns** | 0.5510 ns | 0.6968 ns | 17.877 ns | - | - | - | 0 B |
+| **Serialize_Formatter** | **64.0497 ns** | 1.6643 ns | 2.1641 ns | 66.875 ns | 0.0197 | - | - | 152 B |
+| **Deserialize_Formatter** | **78.7231 ns** | 3.0755 ns | 4.1057 ns | 84.189 ns | 0.0286 | - | - | 296 B |
+| **Fill_IntoSpan_Small** | **1.1024 ns** | 0.1480 ns | 0.1976 ns | 1.439 ns | - | - | - | 0 B |
+| **Fill_IntoSpan_Large** | **5.5824 ns** | 0.2336 ns | 0.3037 ns | 6.181 ns | - | - | - | 0 B |
+| **Resolve_Formatter** | **0.9033 ns** | 0.1041 ns | 0.1316 ns | 1.171 ns | - | - | - | 0 B |
 
 ### Vì sao tuần tự hóa của Nalix?
 
 - **Giải tuần tự hóa không cấp phát**: Giải tuần tự hóa các cấu trúc unmanaged (`Deserialize_Unmanaged_Small` và `Deserialize_Unmanaged_Large`) hoàn toàn không cấp phát (0 B) và chạy trong khoảng từ một chữ số đến hai chữ số thập phân nano giây.
-- **Đường nhanh điền span**: Sao chép dữ liệu nguyên thủy trực tiếp vào span đích (`Fill_IntoSpan_Small`) mất khoảng **1 nano giây** (~1.06 ns) với chi phí gần như bằng không.
+- **Đường nhanh điền span**: Sao chép dữ liệu nguyên thủy trực tiếp vào span đích (`Fill_IntoSpan_Small`) mất khoảng **1 nano giây** (~1.10 ns) với chi phí gần như bằng không.
 - **Sao chép bộ nhớ trực tiếp**: Với các struct unmanaged, `LiteSerializer` dùng phép sao chép khối bộ nhớ mức thấp qua lớp `Unsafe`, tạo ra các lệnh CPU chạy ở giới hạn phần cứng.
 - **Inlining tích cực**: Các phương thức chính trên đường tuần tự hóa được trang trí bằng thuộc tính biên dịch tích cực, cho phép RyuJIT inline và loại bỏ chi phí gọi phương thức.
