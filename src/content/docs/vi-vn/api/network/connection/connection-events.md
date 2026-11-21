@@ -78,7 +78,7 @@ public sealed class ConnectionEventArgs : EventArgs, IConnectionEventArgs, IPool
 
 | Sự kiện | Làn `AsyncCallback` | Giới hạn toàn cục | Giới hạn theo IP | Hành vi |
 | :--- | :--- | ---: | ---: | :--- |
-| `MessageProcessing` | `CallbackLane.Process` (hoặc `InvokeInline`) | `MaxPendingNormalCallbacks` (`10,000`) | `MaxPendingPerIp` (`64`) | Giải mã/giải nén khung (`FramePipeline.ProcessInbound`), kiểm tra sequence và gọi `IProtocol.ProcessMessage`. Thực thi inline qua `AsyncCallback.CanRunInline` / `InvokeInline` khi được gắn với một subscriber `IFrameProcessor { SupportsInlineProcessing: true }` duy nhất. |
+| `MessageProcessing` | `CallbackLane.Process` (hoặc `InvokeInline`) | `MaxPendingNormalCallbacks` (`10,000`) | `MaxPendingPerIp` (`64`) | Giải mã/giải nén khung (`FramePipeline.ProcessInbound`), kiểm tra sequence và gọi `IProtocol.ProcessMessage`. Thực thi inline qua `AsyncCallback.CanRunInline` / `InvokeInline` khi được gắn với một subscriber `IFrameProcessor { SupportsInlineProcessing: true }` duy nhất. Khung bị loại bỏ do backpressure không được chuyển tới sự kiện này; thay vào đó nó được báo cho `IFrameProcessor` đã đăng ký qua `OnFrameRejected`. |
 | `MessageProcessed` | `CallbackLane.Post` | `MaxPendingPostCallbacks` (`5,000`) | `MaxPendingPostPerIp` (`32`) | Được kích hoạt bởi `Connection.OnFrameSent` khi việc gửi khung đi hoàn tất; gọi `IProtocol.PostProcessMessage` (số liệu và việc đóng `KeepConnectionOpen`). |
 | `ConnectionClosed` | `InvokeHighPriority` | Không giới hạn | Không giới hạn | Bỏ qua mọi cơ chế backpressure của làn thường và làn post, để việc dọn dẹp khi ngắt kết nối và hủy đăng ký không bị nghẽn khi có lũ yêu cầu. |
 

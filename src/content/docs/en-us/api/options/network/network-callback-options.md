@@ -53,6 +53,7 @@ When a complete frame is assembled in `SocketConnection.PROCESS_FRAME_FROM_BUFFE
   - The counter is immediately decremented, `IncrementPacketsDropped()` is called, and the frame lease is disposed.
   - If `OverflowPolicy == NetworkOverflowPolicy.Disconnect`, the connection is closed immediately (`Disconnect()`) to protect the server from slow-consumer / flood abuse.
   - If `OverflowPolicy == NetworkOverflowPolicy.DropPacket` (default), the packet is dropped and the connection remains open.
+  - Rejected frames: with `DropPacket`, a frame dropped by either layer is reported to the connection's frame processor through `IFrameProcessor.OnFrameRejected` (via `AsyncCallback.NotifyFrameRejected`). `DefaultFrameProcessor` answers it with a retryable `FAIL` / `RATE_LIMITED` / `RETRY` directive carrying the request's sequence id (at most one per connection per directive cooldown); a custom frame processor that does not override the method keeps the silent drop. Frames are not reported when `OverflowPolicy` is `Disconnect`.
 - Otherwise, the frame is wrapped in `ConnectionEventArgs` and dispatched via:
   ```csharp
   AsyncCallback.Invoke(

@@ -78,7 +78,7 @@ public sealed class ConnectionEventArgs : EventArgs, IConnectionEventArgs, IPool
 
 | Event | `AsyncCallback` Lane | Global Cap | Per-IP Cap | Behavior |
 | :--- | :--- | ---: | ---: | :--- |
-| `MessageProcessing` | `CallbackLane.Process` (or `InvokeInline`) | `MaxPendingNormalCallbacks` (`10,000`) | `MaxPendingPerIp` (`64`) | Decrypts/decompresses frame (`FramePipeline.ProcessInbound`), verifies sequence, and invokes `IProtocol.ProcessMessage`. Executes inline via `AsyncCallback.CanRunInline` / `InvokeInline` when bound to a single `IFrameProcessor { SupportsInlineProcessing: true }` subscriber. |
+| `MessageProcessing` | `CallbackLane.Process` (or `InvokeInline`) | `MaxPendingNormalCallbacks` (`10,000`) | `MaxPendingPerIp` (`64`) | Decrypts/decompresses frame (`FramePipeline.ProcessInbound`), verifies sequence, and invokes `IProtocol.ProcessMessage`. Executes inline via `AsyncCallback.CanRunInline` / `InvokeInline` when bound to a single `IFrameProcessor { SupportsInlineProcessing: true }` subscriber. A frame dropped by backpressure is not delivered to this event; it is reported to the subscribed `IFrameProcessor` through `OnFrameRejected` instead. |
 | `MessageProcessed` | `CallbackLane.Post` | `MaxPendingPostCallbacks` (`5,000`) | `MaxPendingPostPerIp` (`32`) | Triggered by `Connection.OnFrameSent` when an outbound frame send completes; invokes `IProtocol.PostProcessMessage` (metrics & `KeepConnectionOpen` teardown). |
 | `ConnectionClosed` | `InvokeHighPriority` | Unbounded | Unbounded | Bypasses all normal/post backpressure gates so disconnect cleanup and unregistration never stall under flood conditions. |
 

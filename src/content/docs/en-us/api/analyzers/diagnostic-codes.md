@@ -1,11 +1,11 @@
 ---
 title: Diagnostic Codes
-description: Complete reference of all 75 compile-time diagnostic descriptors (NALIX001–NALIX107) emitted by Nalix.Analyzers and Nalix.Analyzers.Generators.
+description: Complete reference of all 78 compile-time diagnostic descriptors (NALIX001–NALIX110) emitted by Nalix.Analyzers and Nalix.Analyzers.Generators.
 section: API Reference
 package: Nalix.Analyzers
 ---
 
-This page lists all **75 active diagnostic descriptors** emitted by `Nalix.Analyzers` (67 rules in `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`) and `Nalix.Analyzers.Generators` (8 rules in `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`).
+This page lists all **78 active diagnostic descriptors** emitted by `Nalix.Analyzers` (70 rules in `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`) and `Nalix.Analyzers.Generators` (8 rules in `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`).
 
 :::note[Retired Diagnostic IDs]
 `NALIX007`, `NALIX019`, `NALIX029`, `NALIX031`, `NALIX049`, and `NALIX053` were retired when `INetworkBufferMiddleware` and legacy reflection dispatch paths were removed.
@@ -98,7 +98,7 @@ Emitted by `Nalix.Analyzers.Generators` (`analyzers/Nalix.Analyzers.Generators/I
 | `NALIX067` | Handler method dropped from dispatch table | Error | `Nalix.Runtime.Dispatching` | `PacketHandlerGenerator` | Parameter `0` of a `[PacketOpcode]` handler is `IPacketContext<TPacket>`; any additional parameter (`1..N`) must be a reference type annotated with `[FromScope]`. |
 | `NALIX068` | Duplicate packet `StaticOpCode` | Error | `Nalix.Codec.DataFrames` | `PacketRegistryGenerator` | Two or more packet classes in the compilation define the same `StaticOpCode`. |
 
-## 6. Security, Pooling, RPC, Injection, and Lifecycle Diagnostics (`NALIX071`–`NALIX107`)
+## 6. Security, Pooling, RPC, Injection, and Lifecycle Diagnostics (`NALIX071`–`NALIX110`)
 
 | ID | Title | Severity | Category | Scope | Description |
 | --- | --- | :---: | --- | --- | --- |
@@ -117,6 +117,9 @@ Emitted by `Nalix.Analyzers.Generators` (`analyzers/Nalix.Analyzers.Generators/I
 | `NALIX105` | Nalix analyzer disabled: required symbol could not be resolved | Warning | Usage | All assemblies | Emitted at compilation start if a required core Nalix symbol cannot be resolved from referenced assemblies. |
 | `NALIX106` | Packet `StaticOpCode` is already used by another packet | Error | Usage | All assemblies | Two packet types in the compilation declare the same `StaticOpCode` value. |
 | `NALIX107` | Packet `ResetForPool` does not reset mutable member | Warning | Lifecycle | All assemblies | A manual `ResetForPool()` override on a packet class omits resetting a mutable field or property that is not marked `[SkipClean]`. |
+| `NALIX108` | `IBufferLease` released more than once | Warning | Lifecycle | All assemblies | A lease is released twice in one method: `Dispose()` or a pass to a parameter that takes ownership (not `[Borrowed]`) followed by another release, or an explicit release of a lease declared with `using`. Reported only when the first release is unconditional and the second sits in a later statement of the same block. Calling `Retain()` on the lease skips the analysis. |
+| `NALIX109` | `IBufferLease` used after release | Warning | Lifecycle | All assemblies | A lease is used after `Dispose()` or after being passed to a parameter that takes ownership (not `[Borrowed]`); pooled lease instances are reused, so the lease may already belong to another owner. |
+| `NALIX110` | Borrowed `IBufferLease` is released or stored | Warning | Lifecycle | All assemblies | A `[Borrowed]` lease parameter is caller-owned: the method must not dispose it, pass it to a parameter that takes ownership, or store it in a field or property that is not itself `[Borrowed]`. Mark the target `[Borrowed]`, call `Retain()` for a new owner, or remove `[Borrowed]`. |
 
 ---
 

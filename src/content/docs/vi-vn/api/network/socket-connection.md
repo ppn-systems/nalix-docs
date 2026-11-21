@@ -69,7 +69,7 @@ Khi `SocketConnection.PROCESS_FRAME_FROM_BUFFER` hoàn tất một khung (hoặc
 
 - **Đường nhanh inline (`AsyncCallback.CanRunInline`)**: Nếu `MessageProcessing` có một subscriber duy nhất gắn với `IFrameProcessor` có `SupportsInlineProcessing == true`, `Connection.OnFrameReceived` chạy `AsyncCallback.InvokeInline(...)` đồng bộ trên luồng hoàn tất nhận mà không xếp hàng.
 - **Giới hạn theo kết nối**: Nếu không, `Connection.OnFrameReceived` tăng `backing.PendingProcessCallbacks` và kiểm tra `NetworkCallbackOptions.MaxPerConnectionPendingPackets` (mặc định `16`):
-  - Khi `OverflowPolicy == NetworkOverflowPolicy.DropPacket` (mặc định): tăng `PacketsDropped`, hoàn tác `PendingProcessCallbacks`, dispose lease và loại khung trước khi nó chạm tới `ThreadPool`.
+  - Khi `OverflowPolicy == NetworkOverflowPolicy.DropPacket` (mặc định): tăng `PacketsDropped`, hoàn tác `PendingProcessCallbacks`, báo khung cho frame processor qua `AsyncCallback.NotifyFrameRejected` (`IFrameProcessor.OnFrameRejected`), dispose lease và loại khung trước khi nó chạm tới `ThreadPool`. Khung bị cổng Lớp 2 loại bỏ cũng được báo theo cách tương tự. Triển khai mặc định không làm gì; `DefaultFrameProcessor` phản hồi bằng directive `RATE_LIMITED` có thể thử lại.
   - Khi `OverflowPolicy == NetworkOverflowPolicy.Disconnect`: hoàn tác bộ đếm, dispose lease và gọi ngay `Disconnect()` lên peer đang gây lũ.
   - Khi còn trong ngân sách: lấy một `ConnectionEventArgs` từ pool và phát qua `AsyncCallback.Invoke(..., CallbackLane.Process, releasePendingPacketOnCompletion: true)`.
 

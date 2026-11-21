@@ -8,7 +8,7 @@ package: Nalix.Abstractions
 `Nalix.Abstractions` is the **Level 0** foundation of the Nalix ecosystem. It has zero external package dependencies and defines the shared interfaces, value types, attributes, and exceptions consumed by every server, client, and shared contract assembly.
 
 :::tip[Bundled Roslyn Analyzers & Source Generators]
-The `Nalix.Abstractions` NuGet package bundles `Nalix.Analyzers.dll`, `Nalix.Analyzers.CodeFixes.dll`, and `Nalix.Analyzers.Generators.dll` under `analyzers/dotnet/cs`. Referencing `Nalix.Abstractions` (directly or transitively) automatically activates all 75 compile-time diagnostics (`NALIX001`–`NALIX107`) and all 7 source generators.
+The `Nalix.Abstractions` NuGet package bundles `Nalix.Analyzers.dll`, `Nalix.Analyzers.CodeFixes.dll`, and `Nalix.Analyzers.Generators.dll` under `analyzers/dotnet/cs`. Referencing `Nalix.Abstractions` (directly or transitively) automatically activates all 78 compile-time diagnostics (`NALIX001`–`NALIX110`) and all 7 source generators.
 :::
 
 ## Where It Fits
@@ -94,7 +94,7 @@ public sealed class SamplePingHandlers
 **Key Components**
 
 - `IBufferLease` — Reference-counted/disposable pooled memory lease (`Span`, `Memory`, `Length`, `EncryptedOnWire`, `Retain()`).
-- `BorrowedAttribute` — Marks an `IBufferLease` parameter as borrowed (the callee must not dispose it unless transferring ownership via `ref`).
+- `BorrowedAttribute` — Marks an `IBufferLease` parameter as borrowed (the callee must not dispose it unless transferring ownership via `ref`). It also defines the ownership contract used by the analyzers `NALIX108`–`NALIX110`: a lease parameter without `[Borrowed]` takes ownership of its argument, so the caller must not dispose or use the lease afterwards.
 - `SkipCleanAttribute` — Instructs `PacketSchemaGenerator` not to reset a field/property inside the generated `ResetForPool()` method.
 - `IPoolable`, `IObjectPoolManager`, `IBufferPoolManager` — Object and buffer pool contracts.
 - `ITaskManager`, `IWorker`, `IWorkerHandle`, `IRecurringHandle` — Background worker and recurring job contracts.

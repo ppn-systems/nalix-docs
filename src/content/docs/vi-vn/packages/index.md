@@ -69,7 +69,7 @@ Nalix đi kèm ba gói Roslyn lúc biên dịch, được đóng gói sẵn bên
 
 | Gói | Vai trò | Thành phần chính |
 | :--- | :--- | :--- |
-| **Nalix.Analyzers** | Áp dụng 67 quy tắc analyzer lúc biên dịch (`NALIX001`–`NALIX078`, `NALIX100`–`NALIX107`) cho gói tin, handler, tuần tự hóa, contract RPC, bảo mật và quyền sở hữu bộ đệm | `NalixUsageAnalyzer`, `DiagnosticDescriptors` |
+| **Nalix.Analyzers** | Áp dụng 70 quy tắc analyzer lúc biên dịch (`NALIX001`–`NALIX078`, `NALIX100`–`NALIX110`) cho gói tin, handler, tuần tự hóa, contract RPC, bảo mật và quyền sở hữu bộ đệm | `NalixUsageAnalyzer`, `DiagnosticDescriptors` |
 | **Nalix.Analyzers.CodeFixes** | Cung cấp 16 nhà cung cấp quick-fix cho IDE, xử lý 20 chẩn đoán analyzer đang hoạt động | `PacketOpcodeCodeFixProvider`, `SerializeOrderMissingCodeFixProvider`, `ResetForPoolCodeFixProvider`, v.v. |
 | **Nalix.Analyzers.Generators** | Sinh mã C# không dùng reflection lúc biên dịch qua 7 source generator (cùng 8 chẩn đoán generator `NALIX059`–`NALIX068`) | `PacketHandlerGenerator`, `InstanceGenerator`, `SerializeFormatterGenerator`, `PacketRegistryGenerator`, `PacketSchemaGenerator`, `ConfigurationGenerator`, `RpcClientGenerator` |
 

@@ -53,6 +53,7 @@ Khi một khung hoàn chỉnh được lắp ráp trong `SocketConnection.PROCES
   - Bộ đếm được giảm ngay lập tức, `IncrementPacketsDropped()` được gọi và lease của khung được giải phóng.
   - Nếu `OverflowPolicy == NetworkOverflowPolicy.Disconnect`, kết nối bị đóng ngay (`Disconnect()`) để bảo vệ máy chủ khỏi lạm dụng kiểu consumer chậm / flood.
   - Nếu `OverflowPolicy == NetworkOverflowPolicy.DropPacket` (mặc định), gói bị loại bỏ và kết nối vẫn mở.
+  - Frame bị từ chối: với `DropPacket`, khung bị loại bỏ bởi một trong hai lớp được báo cho frame processor của kết nối qua `IFrameProcessor.OnFrameRejected` (thông qua `AsyncCallback.NotifyFrameRejected`). `DefaultFrameProcessor` phản hồi bằng directive `FAIL` / `RATE_LIMITED` / `RETRY` có thể thử lại, mang sequence id của yêu cầu (tối đa một lần cho mỗi kết nối trong mỗi khoảng cooldown của directive); frame processor tùy chỉnh không override phương thức này vẫn giữ hành vi bỏ im lặng. Khung không được báo khi `OverflowPolicy` là `Disconnect`.
 - Ngược lại, khung được bọc trong `ConnectionEventArgs` và được điều phối qua:
   ```csharp
   AsyncCallback.Invoke(

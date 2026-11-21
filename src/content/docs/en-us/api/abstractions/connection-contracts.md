@@ -176,6 +176,8 @@ Namespace `Nalix.Abstractions.Networking.Datagrams` (`src/Nalix.Abstractions/Net
 - **`IFrameProcessor`**:
   - `bool SupportsInlineProcessing => false`
   - `void ProcessFrame(object? sender, IConnectionEventArgs args)`
+  - `void OnFrameRejected(IConnection connection, ReadOnlySpan<byte> frame)` (default implementation does nothing)
+  - `OnFrameRejected` is called when the transport drops a received frame instead of passing it to `ProcessFrame` because the connection's or the remote address's pending-frame budget is full (see `NetworkCallbackOptions`). It lets the protocol answer the dropped request (for example with a retryable rate-limit error) instead of leaving the client to time out. It runs on the receive path while the connection is overloaded, so it must not block and should not answer every rejected frame of a flood. `frame` is the raw frame as received (header in plain text, body still encrypted or compressed) and is only valid for the duration of the call.
 - **`IOpCodeExtractor`**:
   - `ushort Extract(ReadOnlySpan<byte> payload)`
 - **`ITransportSequencer`**:

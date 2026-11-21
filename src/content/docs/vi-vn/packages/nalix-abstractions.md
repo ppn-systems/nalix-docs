@@ -8,7 +8,7 @@ package: Nalix.Abstractions
 `Nalix.Abstractions` là nền tảng **cấp 0** của hệ sinh thái Nalix. Nó không có phụ thuộc gói bên ngoài nào và định nghĩa các interface dùng chung, kiểu giá trị, attribute và ngoại lệ được mọi máy chủ, client và assembly contract dùng chung sử dụng.
 
 :::tip[Roslyn Analyzers & Source Generator đi kèm]
-Gói NuGet `Nalix.Abstractions` đóng gói sẵn `Nalix.Analyzers.dll`, `Nalix.Analyzers.CodeFixes.dll` và `Nalix.Analyzers.Generators.dll` dưới `analyzers/dotnet/cs`. Khi tham chiếu `Nalix.Abstractions` (trực tiếp hoặc gián tiếp), tự động kích hoạt tất cả 75 chẩn đoán lúc biên dịch (`NALIX001`–`NALIX107`) và cả 7 source generator.
+Gói NuGet `Nalix.Abstractions` đóng gói sẵn `Nalix.Analyzers.dll`, `Nalix.Analyzers.CodeFixes.dll` và `Nalix.Analyzers.Generators.dll` dưới `analyzers/dotnet/cs`. Khi tham chiếu `Nalix.Abstractions` (trực tiếp hoặc gián tiếp), tự động kích hoạt tất cả 78 chẩn đoán lúc biên dịch (`NALIX001`–`NALIX110`) và cả 7 source generator.
 :::
 
 ## Vị trí trong kiến trúc
@@ -94,7 +94,7 @@ public sealed class SamplePingHandlers
 **Thành phần chính**
 
 - `IBufferLease` — Lease bộ nhớ có pool, đếm tham chiếu và có thể dispose (`Span`, `Memory`, `Length`, `EncryptedOnWire`, `Retain()`).
-- `BorrowedAttribute` — Đánh dấu một tham số `IBufferLease` là mượn (callee không được dispose trừ khi chuyển quyền sở hữu qua `ref`).
+- `BorrowedAttribute` — Đánh dấu một tham số `IBufferLease` là mượn (callee không được dispose trừ khi chuyển quyền sở hữu qua `ref`). Nó cũng định nghĩa hợp đồng sở hữu mà các analyzer `NALIX108`–`NALIX110` sử dụng: tham số lease không có `[Borrowed]` nhận quyền sở hữu đối số, nên caller không được dispose hoặc dùng lease sau đó.
 - `SkipCleanAttribute` — Chỉ dẫn `PacketSchemaGenerator` không reset một field/property bên trong method `ResetForPool()` được sinh ra.
 - `IPoolable`, `IObjectPoolManager`, `IBufferPoolManager` — Contract pool đối tượng và pool bộ đệm.
 - `ITaskManager`, `IWorker`, `IWorkerHandle`, `IRecurringHandle` — Contract worker nền và job định kỳ.

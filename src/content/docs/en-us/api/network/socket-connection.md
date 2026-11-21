@@ -69,7 +69,7 @@ When `SocketConnection.PROCESS_FRAME_FROM_BUFFER` completes a frame (or reassemb
 
 - **Inline Fast Path (`AsyncCallback.CanRunInline`)**: If `MessageProcessing` has a single subscriber bound to an `IFrameProcessor` with `SupportsInlineProcessing == true`, `Connection.OnFrameReceived` executes `AsyncCallback.InvokeInline(...)` synchronously on the receive completion thread without queuing.
 - **Per-Connection Throttle**: Otherwise, `Connection.OnFrameReceived` increments `backing.PendingProcessCallbacks` and checks `NetworkCallbackOptions.MaxPerConnectionPendingPackets` (default `16`):
-  - When `OverflowPolicy == NetworkOverflowPolicy.DropPacket` (default): increments `PacketsDropped`, rolls back `PendingProcessCallbacks`, disposes the lease, and discards the frame before it touches the `ThreadPool`.
+  - When `OverflowPolicy == NetworkOverflowPolicy.DropPacket` (default): increments `PacketsDropped`, rolls back `PendingProcessCallbacks`, reports the frame to the frame processor through `AsyncCallback.NotifyFrameRejected` (`IFrameProcessor.OnFrameRejected`), disposes the lease, and discards the frame before it touches the `ThreadPool`. A frame dropped by the Layer 2 gate is reported the same way. The default implementation does nothing; `DefaultFrameProcessor` answers with a retryable `RATE_LIMITED` directive.
   - When `OverflowPolicy == NetworkOverflowPolicy.Disconnect`: rolls back the counter, disposes the lease, and immediately calls `Disconnect()` on the flooding peer.
   - When within budget: acquires a pooled `ConnectionEventArgs` and dispatches via `AsyncCallback.Invoke(..., CallbackLane.Process, releasePendingPacketOnCompletion: true)`.
 

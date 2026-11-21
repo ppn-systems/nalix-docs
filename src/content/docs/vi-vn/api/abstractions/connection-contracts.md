@@ -176,6 +176,8 @@ Không gian tên `Nalix.Abstractions.Networking.Datagrams` (`src/Nalix.Abstracti
 - **`IFrameProcessor`**:
   - `bool SupportsInlineProcessing => false`
   - `void ProcessFrame(object? sender, IConnectionEventArgs args)`
+  - `void OnFrameRejected(IConnection connection, ReadOnlySpan<byte> frame)` (triển khai mặc định không làm gì)
+  - `OnFrameRejected` được gọi khi transport bỏ một frame đã nhận thay vì chuyển cho `ProcessFrame`, vì ngân sách frame đang chờ của kết nối hoặc của địa chỉ từ xa đã đầy (xem `NetworkCallbackOptions`). Phương thức này cho phép protocol phản hồi yêu cầu bị bỏ (ví dụ bằng lỗi giới hạn tốc độ có thể thử lại) thay vì để client chờ đến timeout. Nó chạy trên đường nhận trong lúc kết nối đang quá tải, nên không được chặn và không nên phản hồi mọi frame bị từ chối trong một đợt flood. `frame` là frame thô như đã nhận (header ở dạng văn bản thường, phần thân vẫn còn mã hóa hoặc nén) và chỉ hợp lệ trong suốt lời gọi.
 - **`IOpCodeExtractor`**:
   - `ushort Extract(ReadOnlySpan<byte> payload)`
 - **`ITransportSequencer`**:

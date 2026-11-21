@@ -69,7 +69,7 @@ Nalix ships three compile-time Roslyn packages bundled directly inside the `Nali
 
 | Package | Role | Key Components |
 | :--- | :--- | :--- |
-| **Nalix.Analyzers** | Enforces 67 compile-time analyzer rules (`NALIX001`–`NALIX078`, `NALIX100`–`NALIX107`) across packets, handlers, serialization, RPC contracts, security, and buffer ownership | `NalixUsageAnalyzer`, `DiagnosticDescriptors` |
+| **Nalix.Analyzers** | Enforces 70 compile-time analyzer rules (`NALIX001`–`NALIX078`, `NALIX100`–`NALIX110`) across packets, handlers, serialization, RPC contracts, security, and buffer ownership | `NalixUsageAnalyzer`, `DiagnosticDescriptors` |
 | **Nalix.Analyzers.CodeFixes** | Provides 16 IDE quick-fix providers for 20 active analyzer diagnostics | `PacketOpcodeCodeFixProvider`, `SerializeOrderMissingCodeFixProvider`, `ResetForPoolCodeFixProvider`, etc. |
 | **Nalix.Analyzers.Generators** | Emits zero-reflection C# source at compile time via 7 source generators (plus 8 generator diagnostics `NALIX059`–`NALIX068`) | `PacketHandlerGenerator`, `InstanceGenerator`, `SerializeFormatterGenerator`, `PacketRegistryGenerator`, `PacketSchemaGenerator`, `ConfigurationGenerator`, `RpcClientGenerator` |
 

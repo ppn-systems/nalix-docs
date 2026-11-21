@@ -168,6 +168,7 @@ public sealed class DefaultProtocol : Protocol
 
 - Đặt `IsAccepting = true` và `KeepConnectionOpen = true` khi khởi tạo.
 - Dùng `DefaultFrameProcessor` và `DefaultOpCodeExtractor` (đọc `payload.AsHeaderRef().OpCode` từ `PacketHeader`).
+- `DefaultFrameProcessor.OnFrameRejected(IConnection, ReadOnlySpan<byte>)` phản hồi frame mà transport đã bỏ do backpressure bằng directive `ControlType.FAIL` / `ProtocolReason.RATE_LIMITED` / `ProtocolAdvice.RETRY` gắn cờ `ControlFlags.IS_TRANSIENT`, giống phản hồi của middleware giới hạn tốc độ. Directive mang sequence id của yêu cầu và `Arg0` chứa opcode của nó, nên client có thể khớp với yêu cầu đang chờ và thử lại. Mỗi kết nối chỉ nhận tối đa một phản hồi trong khoảng `DirectiveGuardOptions.DefaultCooldownMs`; các frame bị từ chối trong khoảng đó không được phản hồi. Directive không được mã hóa.
 - Chuyển trực tiếp `args.Lease` và `args.Connection` cho `_dispatch.HandlePacket(args.Lease, args.Connection)`.
 
 ---
