@@ -44,6 +44,7 @@ The `Protocol` abstract class (`Nalix.Network.Protocols.Protocol`) bridges raw t
 - **Post-accept lifecycle** — `OnAccept(IConnection, CancellationToken)` runs after admission and hub registration.
 - **Message processing** — `ProcessMessage(object? sender, IConnectionEventArgs args)` forwards framed `IBufferLease` payloads to `IPacketDispatch.HandlePacket(...)`.
 - **Dynamic acceptance toggle** — `IsAccepting` and `SetConnectionAcceptance(bool)` atomically enable or pause new connection acceptance without tearing down active sockets.
+- **Inline post-processing** — `virtual bool SupportsInlinePostProcessing` (default `false`) lets a protocol whose `OnPostProcess` is trivial have the transport run it on the send-completion thread instead of the thread pool.
 
 ```csharp
 using Nalix.Abstractions.Networking;

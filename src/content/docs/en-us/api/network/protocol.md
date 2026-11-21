@@ -57,6 +57,7 @@ public abstract partial class Protocol : IProtocol
     // Configurable properties
     public virtual TransportFraming Framing { get; set; } = TransportFraming.UInt16LengthPrefixed;
     public virtual bool KeepConnectionOpen { get; protected set; }
+    public virtual bool SupportsInlinePostProcessing { get; }
     public bool IsAccepting { get; protected set; }
 
     // Metrics
@@ -80,6 +81,10 @@ public abstract partial class Protocol : IProtocol
     public void Dispose();
 }
 ```
+
+## Inline Post-Processing
+
+`SupportsInlinePostProcessing` (`Protocol.Lifecycle.cs`) defaults to `false`. When a protocol returns `true` and is the single `MessageProcessed` subscriber, the transport runs `PostProcessMessage` on the thread that completed the send (`AsyncCallback.CanPostProcessInline` / `InvokeInline`, used by `Connection`, `WebSocketConnection` and `DatagramConnection`) instead of queuing a thread-pool work item per sent message. Return `true` only when `OnPostProcess` does next to nothing and `KeepConnectionOpen` is `true`: otherwise post-processing disconnects, which must not run on the send path. `DefaultProtocol` in `Nalix.Hosting` returns its `KeepConnectionOpen`.
 
 ## Implementing a Custom `Protocol`
 

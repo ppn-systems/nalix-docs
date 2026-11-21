@@ -71,7 +71,7 @@ flowchart TD
     F -->|ok, or established session| G[Accept and dispatch]
 ```
 
-1. Mỗi worker nhận đọc vào một buffer được ghim có kích thước `DatagramEngine.MaxDatagramSize + 1` byte (`MaxDatagramSize = 1472`), nhờ đó datagram quá lớn được phát hiện thay vì bị cắt cụt.
+1. Mỗi worker nhận đọc vào một buffer được ghim có kích thước `DatagramEngine.MaxDatagramSize + 1` byte (`MaxDatagramSize = 1472`), nhờ đó datagram quá lớn được phát hiện thay vì bị cắt cụt. Sau mỗi lần nhận bất đồng bộ, trên Linux 64-bit worker rút những datagram đã nằm sẵn trong socket bằng `recvmmsg` (tối đa `DatagramBatchSender.MaxBatch` = 8 datagram mỗi lần gọi hệ thống, không bao giờ chờ) rồi mới chờ tiếp; trên nền tảng khác, mỗi datagram chỉ được đọc bằng lần nhận bất đồng bộ (`DatagramBatchReceiver`, `DatagramListener.Receive.cs`).
 2. `Route` loại datagram (`DroppedMalformed`) khi nó dài hơn `MaxDatagramSize` hoặc không có header NDP để `DatagramEngine.TryReadConnectionId` đọc định danh kết nối.
 3. Một định danh đã biết trong bảng phiên được chuyển cho `DatagramConnection.OnDatagram`; một định danh có ticket đang chờ đi qua `TryPromote`; mọi trường hợp khác bị loại (`DroppedUnknown`). Datagram chưa xác thực không bao giờ được phản hồi.
 4. Datagram của một phiên đã biết nhưng xác thực thất bại, hoặc là bản phát lại, được tính là `DroppedUnauthenticated`.
@@ -152,6 +152,9 @@ public sealed partial class DatagramListener : IListener, IDatagramTicketIssuer
 - `Transport` trả về chính kết nối. `Send` / `SendAsync` thông thường dùng `DeliveryMethod.ReliableOrdered` trên kênh 0.
 - `SendAsync(ReadOnlyMemory<byte> message, DeliveryMethod method, byte channel, CancellationToken)` và `WithDelivery(DeliveryMethod method, byte channel)` chọn phương thức gửi (`Unreliable`, `UnreliableSequenced`, `ReliableUnordered`, `ReliableOrdered`, `ReliableSequenced`) và kênh; `WithDelivery` ném `ArgumentOutOfRangeException` với phương thức không xác định hoặc kênh không nhỏ hơn số kênh của phiên.
 - `EngineReport` trả về báo cáo của protocol engine.
+- `NetworkEndpoint` đi theo client: giá trị được đặt từ đường đi đầu tiên của phiên và được cập nhật mỗi khi engine xác thực một lần di chuyển (NAT rebinding, handover), không chỉ khi phiên được thiết lập.
+- Các datagram mà một phiên tạo ra trong một lần xả được gửi bằng `sendmmsg` trên Linux 64-bit (tối đa 8 datagram mỗi lần gọi hệ thống, `DatagramListener.SendBatch`); trên nền tảng khác, hoặc khi lệnh gửi theo lô không khả dụng, mỗi datagram đi bằng một lần `SendTo` riêng.
+- `MessageProcessed` chạy trực tiếp trên luồng vừa hoàn tất việc gửi khi protocol báo `SupportsInlinePostProcessing`; xem [Protocol](./protocol.md).
 - `ExcludeFromIdleTimeout` là `true`; thời gian chờ nhàn rỗi do protocol engine áp dụng (`DatagramEngineOptions.IdleTimeoutMs`), không phải `TimingWheel`. `UpdateIdleTimeout` chỉ kiểm tra đối số của nó.
 
 ## API liên quan

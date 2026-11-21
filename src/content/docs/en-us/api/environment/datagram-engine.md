@@ -43,7 +43,7 @@ After every `Receive`, `TrySend`, `Close` and `OnTimer`, call `Poll` repeatedly 
 
 ### Send path
 
-How a message becomes a datagram. `TrySend` copies the message into a priority queue, splitting it into fragments when it exceeds `MaxUnfragmentedMessageSize` (`ReliableSender.cs` L80); `Poll` (`DatagramEngine.cs` L241) writes retransmissions first, then queued messages by priority, once the congestion window and pacer allow it, and seals the result with the protection.
+How a message becomes a datagram. `TrySend` copies the message into a priority queue, splitting it into fragments when it exceeds `MaxUnfragmentedMessageSize` (`ReliableSender.cs` L80); `Poll` (`DatagramEngine.cs` L241) writes retransmissions first, then queued messages by priority, once the congestion window and pacer allow it, and seals the result with the protection. A pending ACK is added to a datagram that carries data, but an ACK written for a send that then had nothing to send is discarded unless it is already due (`MaxAckDelayMs` or the coalescing delay below), so a request/response exchange does not produce a datagram holding only an ACK; the next datagram, usually the reply, carries it. A PATH_RESPONSE is the exception: it is written at once, past the congestion window and pacer (RFC 9000 section 8.2.2), so a session stalled behind a NAT rebinding or handover can validate its new path. Queued messages are linked through `OutMessage.Previous`/`Next` (`OutMessageList`) rather than a `LinkedList`, and the chunks of a fragmented message share one pooled copy of the message, so queuing allocates nothing per message or chunk (`ReliableSender.cs`, `OutMessage.cs`). A pending ACK is added to a datagram that carries data, but an ACK written for a send that then had nothing to send is discarded unless it is already due (`MaxAckDelayMs` or the coalescing delay below), so a request/response exchange does not produce a datagram holding only an ACK; the next datagram, usually the reply, carries it. A PATH_RESPONSE is the exception: it is written at once, past the congestion window and pacer (RFC 9000 section 8.2.2), so a session stalled behind a NAT rebinding or handover can validate its new path. Queued messages are linked through `OutMessage.Previous`/`Next` (`OutMessageList`) rather than a `LinkedList`, and the chunks of a fragmented message share one pooled copy of the message, so queuing allocates nothing per message or chunk (`ReliableSender.cs`, `OutMessage.cs`).
 
 ```mermaid
 flowchart LR
@@ -61,7 +61,7 @@ flowchart LR
 
 ### Receive path
 
-How a datagram becomes a message. `Receive` (`DatagramEngine.cs` L423) drops malformed, duplicate or unauthentic datagrams, then `ProcessFrames` routes each frame; messages go through `ReliableReceiver` by delivery method and reach the handler after the whole datagram is processed (`DispatchDeliveries`).
+How a datagram becomes a message. `Receive` (`DatagramEngine.cs` L441) drops malformed, duplicate or unauthentic datagrams, then `ProcessFrames` routes each frame; messages go through `ReliableReceiver` by delivery method and reach the handler after the whole datagram is processed (`DispatchDeliveries`).
 
 ```mermaid
 flowchart LR
@@ -79,7 +79,7 @@ flowchart LR
 
 ### Loss recovery and timers
 
-How loss is detected and repaired, driven by ACK frames and by `OnTimer` (`DatagramEngine.Cleanup.cs` L182). A packet is lost when three newer packets were acknowledged or its loss time passed (`LossRecovery.PacketThreshold`); lost messages go back to the retransmit list and the NewReno window shrinks. When no ACK arrives, the probe timeout queues two probes so `Poll` can send even with a full window. `OnTimer` also sends keepalive PINGs and ends the session on idle timeout.
+How loss is detected and repaired, driven by ACK frames and by `OnTimer` (`DatagramEngine.Cleanup.cs` L182). A packet is lost when three newer packets were acknowledged or its loss time passed (`LossRecovery.PacketThreshold`); lost messages go back to the retransmit list and the NewReno window shrinks. The receiver acknowledges a gap in packet numbers at once, but a second ack-eliciting packet only arms an ACK due in at most `AckCoalesceDelay` (1 ms, capped by `MaxAckDelayMs`) so a reply can carry it (`AckTracker.cs`). ACK-only datagrams are never acknowledged on their own, so they are not counted in `DatagramsLost` (`DatagramEngine.cs` `DetectLost`). The NewReno window does not grow on an acknowledgement when the flight before it filled less than half of the window (application-limited sender, RFC 9002 section 7.8; `NewRenoController.cs`). Three consecutive losses of datagrams above `MinimumMtu` drop the MTU to `MinimumMtu`; path MTU discovery then restarts from the smallest candidate after 60 seconds (`MtuDiscovery.RaiseDelayMicros`) instead of staying capped for the session, so a blackout (tunnel, handover) does not cap the MTU permanently. The receiver acknowledges a gap in packet numbers at once, but a second ack-eliciting packet only arms an ACK due in at most `AckCoalesceDelay` (1 ms, capped by `MaxAckDelayMs`) so a reply can carry it (`AckTracker.cs`). ACK-only datagrams are never acknowledged on their own, so they are not counted in `DatagramsLost` (`DatagramEngine.cs` `DetectLost`). The NewReno window does not grow on an acknowledgement when the flight before it filled less than half of the window (application-limited sender, RFC 9002 section 7.8; `NewRenoController.cs`). Three consecutive losses of datagrams above `MinimumMtu` drop the MTU to `MinimumMtu`; path MTU discovery then restarts from the smallest candidate after 60 seconds (`MtuDiscovery.RaiseDelayMicros`) instead of staying capped for the session, so a blackout (tunnel, handover) does not cap the MTU permanently. When no ACK arrives, the probe timeout queues two probes so `Poll` can send even with a full window. `OnTimer` also sends keepalive PINGs and ends the session on idle timeout.
 
 ```mermaid
 flowchart TD
@@ -140,9 +140,9 @@ public DatagramEngine(
 | Member | Signature | Description |
 | :--- | :--- | :--- |
 | `Poll` | `public int Poll(Span<byte> destination, long now, out SocketAddress? path)` | Produces the next datagram, or returns `0` when nothing is due. `destination` must be at least `MaxDatagramSize` bytes (`ArgumentOutOfRangeException` otherwise). `path` is non-`null` only for a path challenge sent to an address that is not the active path (L241). |
-| `Receive` | `public bool Receive(ReadOnlySpan<byte> datagram, SocketAddress? from, long now)` | Processes one received datagram; `true` when it authenticated and was processed. `from` is the sender address on the server (copied when kept) and `null` on the client. Datagrams that are malformed, too long, for another connection id, duplicate or not authentic increment `DatagramsDropped` and return `false` (L423-L433). |
+| `Receive` | `public bool Receive(ReadOnlySpan<byte> datagram, SocketAddress? from, long now)` | Processes one received datagram; `true` when it authenticated and was processed. `from` is the sender address on the server (copied when kept) and `null` on the client. Datagrams that are malformed, too long, for another connection id, duplicate or not authentic increment `DatagramsDropped` and return `false` (L441-L449). |
 | `OnTimer` | `public void OnTimer(long now)` | Runs the timers that are due: idle timeout, draining, loss detection, probe timeout, keepalive, path validation retries, key discard and fragment expiry (`DatagramEngine.Cleanup.cs` L182). |
-| `NextTimer` | `public long NextTimer { get; }` | Time of the next `OnTimer` call, or `long.MaxValue` when none is needed (`DatagramEngine.Report.cs` L48). |
+| `NextTimer` | `public long NextTimer { get; }` | Time of the next `OnTimer` call, or `long.MaxValue` when none is needed (`DatagramEngine.Report.cs` L51). |
 | `Close` | `public void Close(DatagramCloseCode code, string? reason, long now, ulong applicationCode = 0)` | Queues a CLOSE frame for the next `Poll`, then drains for three probe timeouts. `IdleTimeout` throws `ArgumentException` (local only). At most 256 UTF-8 bytes of `reason` are sent. `applicationCode` is used with `ApplicationError` (`DatagramEngine.Cleanup.cs` L65). |
 
 ### Diagnostics
@@ -151,16 +151,16 @@ All in `DatagramEngine.Report.cs`.
 
 | Member | Signature | Description |
 | :--- | :--- | :--- |
-| `Mtu` | `public int Mtu { get; }` | Current path MTU (UDP payload bytes) (L13). |
+| `Mtu` | `public int Mtu { get; }` | Current path MTU (UDP payload bytes). Falls back to `MinimumMtu` after repeated large-datagram losses and is searched again after 60 seconds (L13). |
 | `SmoothedRtt` | `public long SmoothedRtt { get; }` | Smoothed round-trip time in microseconds (L16). |
 | `CongestionWindow` | `public long CongestionWindow { get; }` | Congestion window in bytes (L19). |
 | `BytesInFlight` | `public long BytesInFlight { get; }` | Bytes in flight (L22). |
 | `DatagramsSent` | `public long DatagramsSent { get; private set; }` | Datagrams sent (L25). |
 | `DatagramsReceived` | `public long DatagramsReceived { get; private set; }` | Authenticated datagrams received (L28). |
 | `DatagramsDropped` | `public long DatagramsDropped { get; private set; }` | Received datagrams dropped (malformed, duplicate, or not authentic) (L31). |
-| `DatagramsLost` | `public long DatagramsLost { get; private set; }` | Sent datagrams declared lost (L34). |
-| `ActivePath` | `public SocketAddress? ActivePath { get; }` | Validated peer address on the server; `null` before the first authenticated datagram and on the client (L43). |
-| `GenerateReport` | `public string GenerateReport()` | One-line summary (`state`, `mtu`, `srtt`, `cwnd`, `inflight`, `sent`, `received`, `lost`, `dropped`) for diagnostics (L87). |
+| `DatagramsLost` | `public long DatagramsLost { get; private set; }` | Sent ack-eliciting datagrams declared lost; ACK-only datagrams are not counted (L37). |
+| `ActivePath` | `public SocketAddress? ActivePath { get; }` | Validated peer address on the server; `null` before the first authenticated datagram and on the client (L46). |
+| `GenerateReport` | `public string GenerateReport()` | One-line summary (`state`, `mtu`, `srtt`, `cwnd`, `inflight`, `sent`, `received`, `lost`, `dropped`) for diagnostics (L90). |
 
 ## `DatagramEngineState`
 
@@ -169,7 +169,7 @@ All in `DatagramEngine.Report.cs`.
 | Value | Meaning |
 | :--- | :--- |
 | `Pending = 0` | Created; no datagram has authenticated yet. |
-| `Established = 1` | A datagram from the peer authenticated; data flows (set in `Receive`, `DatagramEngine.cs` L468). |
+| `Established = 1` | A datagram from the peer authenticated; data flows (set in `Receive`, `DatagramEngine.cs` L486). |
 | `Draining = 2` | A CLOSE frame is queued or was sent or received; the session ignores further datagrams. |
 | `Closed = 3` | Closed; nothing is sent or received. |
 
@@ -241,7 +241,7 @@ stateDiagram-v2
 | :--- | :--- | :--- | :--- | :--- |
 | `ChannelCount` | `int` | `8` | 1..64 | Number of channels in use (L27). |
 | `IdleTimeoutMs` | `int` | `15_000` | 100..3,600,000 | Idle timeout in milliseconds (L32). |
-| `MaxAckDelayMs` | `int` | `25` | 1..1,000 | Longest an acknowledgement is delayed, in milliseconds (L37). |
+| `MaxAckDelayMs` | `int` | `25` | 1..1,000 | Longest an acknowledgement is delayed, in milliseconds; an ACK due after two packets waits at most 1 ms (L37). |
 | `UnreliableExpiryMs` | `int` | `100` | 1..60,000 | How long a queued unreliable message may wait before it is dropped (L42). |
 | `MaxMessageSize` | `int` | `1048576` (1 MiB) | 1..67,108,864 (64 MiB) | Largest message accepted by a send or reassembled from fragments (L47). |
 | `ReceiveBufferBytes` | `long` | `4194304` (4 MiB) | 1..`long.MaxValue` | Total bytes this side buffers for ordering and reassembly; advertised to the peer (L52). |

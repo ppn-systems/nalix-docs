@@ -51,7 +51,7 @@ Mỗi datagram đều được phiên niêm phong bằng ChaCha20-Poly1305, nên
 
 ## Đường gửi và nhận
 
-Sơ đồ theo dõi một thông điệp đi qua engine tới socket UDP và một datagram quay về `OnMessageReceived` (`DatagramSession.cs:271-281`, `346-361`, `363-404`, `424-454`, `483-526`).
+Sơ đồ theo dõi một thông điệp đi qua engine tới socket UDP và một datagram quay về `OnMessageReceived` (`DatagramSession.cs:294-313`, `354-370`, `377-419`, `446-536`, `596-650`).
 
 ```mermaid
 flowchart LR
@@ -59,14 +59,14 @@ flowchart LR
     B --> C["engine.TrySend"]
     C --> D["engine.Poll"]
     D -->|sealed datagram| E[UDP socket]
-    E -->|network| F["ReceiveLoopAsync"]
+    E -->|network| F["ReceiveLoop"]
     F --> G["engine.Receive"]
     G -->|authenticated message| H["DispatchBatch"]
     H --> I["FramePipeline inbound"]
     I --> J[OnMessageReceived]
 ```
 
-`TrySend` đưa frame vào hàng đợi của kênh và trả về `false` (hiển thị thành `NetworkException`) khi phiên đang đóng, frame quá lớn cho phương thức hoặc hàng đợi đầy. `FlushLocked` sau đó rút `Poll` vào socket và đặt lại timer của engine; lỗi socket khi gửi bị bỏ qua vì engine gửi lại những gì quan trọng. Khi nhận, engine mở datagram, và `DispatchBatch` chạy ngoài khóa engine, mỗi lần một luồng và theo đúng thứ tự phân phối.
+`TrySend` đưa frame vào hàng đợi của kênh và trả về `false` (hiển thị thành `NetworkException`) khi phiên đang đóng, frame quá lớn cho phương thức hoặc hàng đợi đầy. Đường gửi sau đó gọi `Flush`, ngoài khóa engine: mỗi lần một luồng thăm dò engine theo lô tối đa 8 datagram dưới khóa, gửi từng lô sau khi nhả khóa và đặt lại timer của engine; luồng thấy việc xả đang bận sẽ để lại một yêu cầu để luồng đang xả nhận lấy. Lỗi socket khi gửi bị bỏ qua vì engine gửi lại những gì quan trọng. Chỉ datagram đóng của `DisconnectAsync` được gửi dưới khóa engine. Vòng nhận chạy trên luồng chạy dài riêng của phiên với các lời gọi `Socket.Receive` chặn, nên datagram đi từ kernel thẳng vào engine mà không qua thread pool. Sau `engine.Receive`, `DispatchBatch` chạy ngoài khóa engine, mỗi lần một luồng và theo đúng thứ tự phân phối, rồi vòng lặp mới gửi những gì datagram đòi hỏi (chủ yếu là ACK, cùng mọi phản hồi mà handler đưa vào hàng đợi).
 
 ## Tham chiếu API công khai
 

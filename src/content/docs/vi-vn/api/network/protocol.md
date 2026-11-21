@@ -57,6 +57,7 @@ public abstract partial class Protocol : IProtocol
     // Các thuộc tính có thể cấu hình
     public virtual TransportFraming Framing { get; set; } = TransportFraming.UInt16LengthPrefixed;
     public virtual bool KeepConnectionOpen { get; protected set; }
+    public virtual bool SupportsInlinePostProcessing { get; }
     public bool IsAccepting { get; protected set; }
 
     // Metrics
@@ -80,6 +81,10 @@ public abstract partial class Protocol : IProtocol
     public void Dispose();
 }
 ```
+
+## Xử lý hậu kỳ trực tiếp
+
+`SupportsInlinePostProcessing` (`Protocol.Lifecycle.cs`) mặc định là `false`. Khi một protocol trả về `true` và là subscriber `MessageProcessed` duy nhất, transport chạy `PostProcessMessage` ngay trên luồng vừa hoàn tất việc gửi (`AsyncCallback.CanPostProcessInline` / `InvokeInline`, được dùng bởi `Connection`, `WebSocketConnection` và `DatagramConnection`) thay vì đưa một work item vào thread pool cho mỗi thông điệp được gửi. Chỉ trả về `true` khi `OnPostProcess` gần như không làm gì và `KeepConnectionOpen` là `true`: nếu không, hậu kỳ sẽ ngắt kết nối, việc không được chạy trên đường gửi. `DefaultProtocol` trong `Nalix.Hosting` trả về giá trị `KeepConnectionOpen` của nó.
 
 ## Tự triển khai `Protocol`
 

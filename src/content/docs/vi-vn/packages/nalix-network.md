@@ -44,6 +44,7 @@ Lớp trừu tượng `Protocol` (`Nalix.Network.Protocols.Protocol`) nối các
 - **Vòng đời sau chấp nhận** — `OnAccept(IConnection, CancellationToken)` chạy sau khi đã qua kiểm soát và đăng ký vào hub.
 - **Xử lý thông điệp** — `ProcessMessage(object? sender, IConnectionEventArgs args)` chuyển các payload `IBufferLease` đã đóng khung tới `IPacketDispatch.HandlePacket(...)`.
 - **Bật/tắt chấp nhận động** — `IsAccepting` và `SetConnectionAcceptance(bool)` bật hoặc tạm dừng chấp nhận kết nối mới một cách nguyên tử, mà không đóng các socket đang hoạt động.
+- **Hậu kỳ trực tiếp** — `virtual bool SupportsInlinePostProcessing` (mặc định `false`) cho phép protocol có `OnPostProcess` rất nhẹ để transport chạy nó trên luồng hoàn tất việc gửi thay vì thread pool.
 
 ```csharp
 using Nalix.Abstractions.Networking;

@@ -155,7 +155,7 @@ bool validEncoded = Pbkdf2.Encoded.Verify("secret-password", encoded);
   - `public static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)` — Constant-time byte comparison (`[MethodImpl(NoInlining | NoOptimization)]`) preventing timing side-channel attacks.
   - `public static bool IsZero(ReadOnlySpan<byte> value)` — Constant-time all-zero check for keys and secrets.
 - **`MemorySecurity`** (`src/Nalix.Codec/Security/Primitives/MemorySecurity.cs`):
-  - `public static void ZeroMemory(byte[] buffer)` and `public static void ZeroMemory(Span<byte> buffer)` — Overwrites sensitive buffers with `Volatile.Write(..., 0)` so the JIT cannot dead-store-eliminate key wiping.
+  - `public static void ZeroMemory(byte[] buffer)` and `public static void ZeroMemory(Span<byte> buffer)` — Overwrites sensitive buffers by calling `Span<byte>.Clear()` inside a method marked `NoInlining | NoOptimization`, so the JIT cannot dead-store-eliminate key wiping.
 
 ## 6. Protocol & Framing Hash Primitives (`Nalix.Environment.Hashing`)
 

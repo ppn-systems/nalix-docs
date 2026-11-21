@@ -88,7 +88,7 @@ public interface IPoolRentable
 | `GetTypedPool<T>()` | `public TypedObjectPool<T> GetTypedPool<T>() where T : IPoolable, new()` | Returns a `TypedObjectPool<T>` adapter bound to this manager. |
 | `Prealloc<T>(int)` | `public int Prealloc<T>(int count) where T : IPoolable, new()` | Preallocates `count` instances into `T`'s pool (`count > 0`) and returns the number of instances added. |
 | `SetMaxCapacity<T>(int)` | `public bool SetMaxCapacity<T>(int maxCapacity) where T : IPoolable` | Sets the maximum retained capacity for `T`'s pool (`maxCapacity >= 0`). |
-| `GetTypeInfo<T>()` | `public Dictionary<string, object> GetTypeInfo<T>() where T : IPoolable` | Returns a dictionary of metrics (`AvailableCount`, `MaxCapacity`, `TotalGets`, `TotalReturns`, `CacheHitRate`, `Outstanding`, `PeakOutstanding`, `Status`, and lifetime percentiles when `EnableDiagnostics = true`). |
+| `GetTypeInfo<T>()` | `public Dictionary<string, object> GetTypeInfo<T>() where T : IPoolable` | Returns a dictionary of metrics (`AvailableCount`, `MaxCapacity`, `TotalGets`, `TotalReturns`, `CacheHitRate`, `Outstanding`, `PeakOutstanding` (exact only with `EnableMetrics = true`), `Status`, and lifetime percentiles when `EnableDiagnostics = true`). |
 | `ClearPool<T>()` / `ClearAllPools()` | `public int ClearPool<T>()` / `public int ClearAllPools()` | Purges pooled instances and returns the number of removed objects. |
 | `PerformHealthCheck()` | `public int PerformHealthCheck()` | Evaluates window miss rates across active pools and returns the number of unhealthy pools. |
 | `ResetMetrics()` / `ResetStatistics()` | `public void ResetMetrics()` / `public void ResetStatistics()` | Resets global and per-pool counters. |
@@ -103,7 +103,7 @@ public interface IPoolRentable
 | `DefaultMaxSize` | `public const int DefaultMaxSize = 1024` | Per-type capacity used when no positive limit is given. |
 | `Default` | `public static ObjectPool Default { get; }` | Shared instance created with the parameterless constructor. |
 | `ObjectPool()` | `public ObjectPool()` | Creates a pool with `DefaultMaxSize` per type. |
-| `Get<T>()` / `GetWithInfo<T>()` | `public T Get<T>()` / `public (T obj, bool isCacheHit) GetWithInfo<T>() where T : IPoolable, new()` | Rents an instance, creating one when the bucket is empty; `GetWithInfo` also reports whether it was a pool hit. |
+| `Get<T>()` / `GetWithInfo<T>()` | `public T Get<T>()` / `public (T obj, bool isCacheHit) GetWithInfo<T>() where T : IPoolable, new()` | Rents an instance, creating one when the bucket is empty (an empty bucket is detected from its counts, without scanning its slots); `GetWithInfo` also reports whether it was a pool hit. |
 | `Return<T>(T)` | `public void Return<T>(T obj) where T : IPoolable` | Resets and returns an instance (throws `ArgumentNullException` for `null`). |
 | `GetMultiple<T>(int)` / `ReturnMultiple<T>(IEnumerable<T>)` | `public List<T> GetMultiple<T>(int count)` / `public int ReturnMultiple<T>(IEnumerable<T> objects)` | Batch rent (throws `ArgumentException` when `count <= 0`) and batch return (returns the number accepted). |
 | `Prealloc<T>(int)` | `public int Prealloc<T>(int count)` | Preallocates instances and returns how many were added. |
@@ -122,7 +122,7 @@ Configured via `[ObjectPool]` in `default.ini` or `builder.Configure<ObjectPoolO
 | Property | Type | Default | Validation | Description |
 | :--- | :--- | :---: | :--- | :--- |
 | `EnableDiagnostics` | `bool` | `false` | — | Enables `PoolSentinel` tracking for object lifetimes (`Avg`/`p95`/`Max`) and suspicious long-lived rentals. |
-| `EnableMetrics` | `bool` | `true` | — | Enables lightweight atomic hit/miss and `Outstanding` counters (safe for production). |
+| `EnableMetrics` | `bool` | `true` | — | Enables exact per-type `Outstanding` / `PeakOutstanding` tracking and access timestamps. Default `false`: every thread renting a type updates the same counters, which costs throughput on many cores. Per-type gets, returns, hits and misses, and the manager-wide totals (`TotalGetOperations` and the like), are counted either way. |
 | `CaptureStackTraces` | `bool` | `false` | — | Captures allocation stack traces on `Get<T>()` when `EnableDiagnostics = true` (expensive; use only when debugging leaks). |
 | `SuspiciousThresholdSeconds` | `int` | `30` | `[ValueRange(0, 3600)]` | Threshold in seconds after which an unreturned object is flagged as suspicious. |
 | `EnableLeakDetection` | `bool` | `false` | — | Uses `PoolSentinel` finalizers to detect rented objects garbage-collected without `Return<T>()` (requires `EnableDiagnostics = true` so `PoolSentinel` instances are attached on `Get<T>()`). |
@@ -134,7 +134,7 @@ Configured via `[ObjectPool]` in `default.ini` or `builder.Configure<ObjectPoolO
 | `DeepTrimPercentage` | `int` | `25` | `[ValueRange(10, 45)]` | Percentage of capacity retained during deep trim cycles. |
 | `TrimDecayFactor` | `double` | `0.5` | `[ValueRange(0.1, 1.0)]` | Fraction of excess objects removed per trim cycle (exponential decay). |
 | `HotHitRateThreshold` | `double` | `85.0` | `[ValueRange(75.0, 98.0)]` | Hit-rate percentage above which a pool is treated as "hot" and trimmed lightly. |
-| `MinimumKeepObjects` | `int` | `8` | `[ValueRange(4, 64)]` | Minimum floor of objects always kept in each pool during trimming. |
+| `MinimumKeepObjects` | `int` | `8` | `[ValueRange(4, 64)]` | Minimum floor of objects kept in each pool during trimming; the floor is the larger of this, one twelfth of the pool capacity and 1.5 times the recent peak of outstanding objects (this interval's peak or half the previous one, so a burst fades over a few intervals). A pool with no `Get<T>()` for a whole trim interval shrinks toward this floor (`TrimDecayFactor` of the excess per cycle) instead of keeping `BaseKeepPercentage`. |
 | `DefaultMaxPoolSize` | `int` | `2048` | `[ValueRange(1024, 1_000_000)]` | Default maximum capacity for newly created type pools. |
 | `DefaultPreallocate` | `int` | `8` | `[ValueRange(0, 1_000_000)]` | Number of instances preallocated when a type pool is first created. |
 | `ThreadCacheDepth` | `int` | `0` | `[ValueRange(0, 4)]` | Per-thread `ThreadLocalCache<T>` depth (`0` = disabled by default so `async`/`await` continuations across ThreadPool threads do not strand pooled objects). |

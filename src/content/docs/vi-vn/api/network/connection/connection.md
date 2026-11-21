@@ -81,7 +81,7 @@ flowchart TD
 | `PacketsDropped` | `long` | Tổng số gói bị loại của kết nối do backpressure hoặc kiểm tra hợp lệ thất bại. |
 | `IsDisposed` | `bool` | `true` khi backing của kết nối đã được dispose và trả về pool. |
 | `MessageProcessing` | `event EventHandler<IConnectionEventArgs>` | Được phát qua `OnFrameReceived` (`CallbackLane.Process` hoặc `InvokeInline`) khi có khung đến. |
-| `MessageProcessed` | `event EventHandler<IConnectionEventArgs>` | Được phát qua `OnFrameSent` trên `CallbackLane.Post` khi `SocketConnection` gửi xong một khung đi. |
+| `MessageProcessed` | `event EventHandler<IConnectionEventArgs>` | Được phát qua `OnFrameSent` trên `CallbackLane.Post` khi `SocketConnection` gửi xong một khung đi. Chạy trực tiếp khi subscriber duy nhất là một `Protocol` có `SupportsInlinePostProcessing == true`. |
 | `ConnectionClosed` | `event EventHandler<IConnectionEventArgs>` | Được phát đúng một lần trong quá trình hủy kết nối, trước khi `Attributes` được trả về pool. |
 
 ## Phương thức công khai
