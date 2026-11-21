@@ -36,7 +36,7 @@ flowchart TD
         State["SessionState (Secret, SessionToken, EncryptionEnabled, LocalPort)"]
         Sup["ReconnectSupervisor + KeepAlive Monitor"]
         TCP["TcpSession"]
-        UDP["DatagramSession"]
+        DG["DatagramSession"]
         WS["WebSocketSession"]
     end
 
@@ -48,7 +48,7 @@ flowchart TD
 
     App --> Session
     TCP --> TF
-    UDP --> DE
+    DG --> DE
     WS --> WF
 ```
 

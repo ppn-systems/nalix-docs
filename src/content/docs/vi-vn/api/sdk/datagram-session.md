@@ -25,23 +25,22 @@ package: Nalix.SDK
 
 ## Cách một phiên được thiết lập
 
-```mermaid
-sequenceDiagram
-    participant App as Client Application
-    participant D as DatagramSession
-    participant S as Stream session (TCP/WebSocket)
-    participant Srv as Server
+Sơ đồ cho thấy vòng đời phiên phía client; nhãn chuyển tiếp nêu lời gọi hoặc sự kiện gây ra từng bước (`DatagramSession.cs:118-242`, `DatagramEngineState.cs`). Nửa phía máy chủ của việc trao đổi ticket được mô tả ở [UDP Listener (Server)](../network/datagram-listener.md).
 
-    App->>D: new DatagramSession(stream)
-    App->>D: ConnectAsync()
-    D->>S: RequestAsync<DatagramTicket> (Stage = REQUEST)
-    S->>Srv: DatagramTicket request
-    Srv-->>S: DatagramTicket response (ConnectionId, Nonce, Port, limits)
-    D->>D: ChaCha20Poly1305DatagramProtection.Create(State.Secret, ConnectionId, Nonce, isServer: false)
-    D->>Srv: UDP datagram (first datagram authenticates the session)
-    Srv-->>D: Authenticated datagram
-    D-->>App: OnConnected
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> RequestingTicket: ConnectAsync
+    RequestingTicket --> Idle: ticket refused
+    RequestingTicket --> Pending: UDP socket and engine started
+    Pending --> Idle: ticket expired
+    Pending --> Established: first datagram authenticates
+    Established --> Draining: DisconnectAsync or CLOSE
+    Established --> Idle: idle timeout
+    Draining --> Idle: engine closed, Teardown
 ```
+
+`Idle` là phiên không có socket và không có engine; `Pending`, `Established` và `Draining` là các trạng thái của chính engine. Mọi lỗi trong `ConnectAsync` đều chạy `Teardown` và ném `NetworkException` (`DatagramSession.cs:201-206`). Không có tự động kết nối lại: gọi lại `ConnectAsync` sẽ dọn phần còn lại (`DatagramSession.cs:130`) và yêu cầu ticket mới.
 
 1. `ConnectAsync` yêu cầu một `DatagramTicket` qua phiên stream (`RequestOptions.WithTimeout(Math.Max(1000, Options.ConnectTimeoutMillis))`). Nếu bị từ chối (`response.Reason != ProtocolReason.NONE`) sẽ ném `NetworkException("The server refused the datagram ticket: ...")`.
 2. Nó phân giải `host` (mặc định: `Options.Address` của phiên stream), kết nối một `Socket` UDP tới `port` (mặc định: `Ticket.Port`) và đặt `DontFragment` khi nền tảng cho phép.
@@ -49,6 +48,25 @@ sequenceDiagram
 4. Nó chờ đến khi máy chủ xác thực datagram đầu tiên, tối đa `Ticket.ExpiresInSeconds` giây, nếu không sẽ ném `NetworkException("The datagram session was not established before the ticket expired.")`.
 
 Mỗi datagram đều được phiên niêm phong bằng ChaCha20-Poly1305, nên các khung **không bị mã hóa lần thứ hai**: đối số `encrypt` của các phương thức gửi trong `TransportSession` bị bỏ qua.
+
+## Đường gửi và nhận
+
+Sơ đồ theo dõi một thông điệp đi qua engine tới socket UDP và một datagram quay về `OnMessageReceived` (`DatagramSession.cs:271-281`, `346-361`, `363-404`, `424-454`, `483-526`).
+
+```mermaid
+flowchart LR
+    A["SendAsync(packet, method, channel)"] --> B[Serialize frame]
+    B --> C["engine.TrySend"]
+    C --> D["engine.Poll"]
+    D -->|sealed datagram| E[UDP socket]
+    E -->|network| F["ReceiveLoopAsync"]
+    F --> G["engine.Receive"]
+    G -->|authenticated message| H["DispatchBatch"]
+    H --> I["FramePipeline inbound"]
+    I --> J[OnMessageReceived]
+```
+
+`TrySend` đưa frame vào hàng đợi của kênh và trả về `false` (hiển thị thành `NetworkException`) khi phiên đang đóng, frame quá lớn cho phương thức hoặc hàng đợi đầy. `FlushLocked` sau đó rút `Poll` vào socket và đặt lại timer của engine; lỗi socket khi gửi bị bỏ qua vì engine gửi lại những gì quan trọng. Khi nhận, engine mở datagram, và `DispatchBatch` chạy ngoài khóa engine, mỗi lần một luồng và theo đúng thứ tự phân phối.
 
 ## Tham chiếu API công khai
 

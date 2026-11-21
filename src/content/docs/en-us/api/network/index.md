@@ -16,7 +16,7 @@ package: Nalix.Network
 flowchart TD
     subgraph Listeners["Layer 1: Listeners"]
         TCP["TcpListenerBase"]
-        UDP["DatagramListener"]
+        DG["DatagramListener"]
         WS["WebSocketListenerBase"]
     end
 
@@ -28,7 +28,7 @@ flowchart TD
     subgraph Transport["Layer 3: Framed Socket I/O"]
         SC["SocketConnection (SAEA + Framing + Fragmentation)"]
         WST["WebSocketConnection transport"]
-        DGE["Datagram engine (AEAD, channels)"]
+        DGE["DatagramEngine (NDP)"]
     end
 
     subgraph Support["Layer 4: Guards & Timers"]

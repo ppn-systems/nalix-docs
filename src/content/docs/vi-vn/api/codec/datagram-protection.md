@@ -48,17 +48,23 @@ next(x)      = HKDF-Expand(x, "nalix-dgram/ku")
 
 (`DatagramKeySchedule.cs:12-20`; nhãn tại `DatagramKeySchedule.cs:34-39`.)
 
+Sơ đồ cho thấy một secret của stream trở thành các khóa độc lập cho từng hướng, và các thế hệ sau được nối từ secret trước đó (`DatagramKeySchedule.cs:12-20`).
+
 ```mermaid
 flowchart TD
-    S["S: stream session secret"] --> D["dgram_secret"]
+    S["Stream secret S"] --> D[dgram_secret]
     N["ConnectionId + TicketNonce"] --> D
-    D --> C["c2s_secret"]
-    D --> R["s2c_secret"]
-    C --> K1["key / iv (generation 0)"]
-    R --> K2["key / iv (generation 0)"]
-    C -. "next()" .-> C2["c2s_secret (next generation)"]
-    R -. "next()" .-> R2["s2c_secret (next generation)"]
+    D -->|c2s label| C0["c2s_secret gen 0"]
+    D -->|s2c label| R0["s2c_secret gen 0"]
+    C0 -->|"key and iv"| KC["Client send key + IV"]
+    R0 -->|"key and iv"| KR["Server send key + IV"]
+    C0 -->|"next (ku label)"| C1["c2s_secret gen 1"]
+    R0 -->|"next (ku label)"| R1["s2c_secret gen 1"]
+    C1 -->|"key and iv"| KC1["Client key gen 1"]
+    R1 -->|"key and iv"| KR1["Server key gen 1"]
 ```
+
+Nonce AEAD của mỗi gói là `iv XOR packetNumber` (xem phần bố cục bên dưới).
 
 ### Inputs and outputs
 
@@ -160,6 +166,27 @@ Lớp bảo vệ không tự dựng header. `DatagramEngine` ghi `DatagramHeader
 | header (13 bytes, cleartext, authenticated as AAD) | ciphertext (n bytes) | tag (16 bytes) |
 ```
 
+Sơ đồ cho thấy ba đoạn của một datagram và kích thước của chúng (`DatagramHeader.cs:11`, `DatagramEngine.cs:394-396`).
+
+```mermaid
+flowchart LR
+    H["Header 13 B, cleartext"] --> C["Ciphertext n B"] --> T["Tag 16 B"]
+    H -. "AAD" .-> T
+```
+
+Bản thân header được bố trí như sau; vị trí bit đếm từ byte đầu tiên (`DatagramHeader.cs:11-14,40-44`).
+
+```mermaid
+packet-beta
+    0-3: "Version = 1"
+    4: "KP"
+    5-7: "Reserved = 0"
+    8-71: "ConnectionId (u64 LE)"
+    72-103: "PacketNumber low 32 bits (u32 LE)"
+```
+
+`KP` là trường `KeyPhase` một bit mà `TryOpen` dùng để chọn thế hệ khóa.
+
 Độ dài datagram là `DatagramHeader.Size + plaintext.Length + TagSize` (`DatagramEngine.cs:396`). Chỉ 32 bit thấp của packet number đi trong header; bên nhận khôi phục số đầy đủ trước khi gọi `TryOpen` (`DatagramEngine.cs:432`), và giá trị 64 bit đầy đủ đó được dùng để tạo nonce.
 
 ### `Seal`
@@ -175,6 +202,35 @@ Trả về `false` (không ném ngoại lệ) khi xác thực thất bại, khi 
 3. Còn lại: thử khóa kế tiếp đã tính trước (`ChaCha20Poly1305DatagramProtection.cs:108-111`). Nếu thành công thì phía bên kia đã cập nhật khóa: khóa kế tiếp trở thành hiện tại, khóa hiện tại trở thành khóa trước đó, một secret kế tiếp mới được dẫn xuất từ secret hiện tại mới, phase nhận đổi sang `keyPhase`, và `packetNumber` được ghi lại làm gói tin đầu tiên của phase (`ChaCha20Poly1305DatagramProtection.cs:113-120`). Một lần mở thất bại không làm thay đổi trạng thái nào.
 
 ### Key update
+
+Sơ đồ cho thấy một lần cập nhật khóa giữa hai bên: bên gửi xoay khóa, bên nhận theo ở gói đầu tiên của pha mới (`DatagramEngine.cs:399-409`, `DatagramEngine.cs:456-466`, `DatagramEngine.Cleanup.cs:207-211`).
+
+```mermaid
+sequenceDiagram
+    participant A as Sender
+    participant B as Receiver
+    A->>A: UpdateSendKey, phase flips
+    A->>B: Datagram with new KeyPhase
+    B->>B: TryOpen with next key
+    B->>B: Rotate: next, current, previous
+    B-->>A: ACK of new phase
+    B->>B: DiscardPreviousReceiveKey
+```
+
+Bên gửi chỉ bắt đầu lần cập nhật mới sau khi một gói của pha hiện tại đã được xác nhận, và chỉ khi đạt giới hạn số gói (`KeyUpdatePacketInterval`) hoặc thời gian (`KeyUpdateIntervalMs`). Bên nhận lên lịch `DiscardPreviousReceiveKey` sau ba lần probe timeout kể từ khi thấy pha đổi.
+
+Sơ đồ dưới đây là cách `TryOpen` chọn khóa cho mỗi datagram nhận được (`ChaCha20Poly1305DatagramProtection.cs:97-120`).
+
+```mermaid
+flowchart TD
+    A{keyPhase is current?} -->|yes| C[Open with current key]
+    A -->|no| B{Older than phase start?}
+    B -->|yes, previous exists| P[Open with previous key]
+    B -->|no| N[Open with next key]
+    N -->|fails| F[Return false, no change]
+    N -->|opens| R[Rotate keys, flip phase]
+```
+
 
 - `UpdateSendKey()` thay thế thế hệ gửi bằng `DeriveNextSecret(send secret)` và đảo `SendKeyPhase` (`ChaCha20Poly1305DatagramProtection.cs:128-129`). `SendKeyPhase` là bit phase cần đặt vào header của các gói tin tiếp theo (`ChaCha20Poly1305DatagramProtection.cs:70`, `DatagramEngine.cs:394`).
 - `DiscardPreviousReceiveKey()` xóa sạch thế hệ nhận trước đó khi các gói tin đến muộn của phase cũ không thể xuất hiện nữa; không làm gì nếu không có (`ChaCha20Poly1305DatagramProtection.cs:133-140`, `IDatagramProtection.cs:61-62`).

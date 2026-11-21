@@ -39,20 +39,27 @@ In source (`DatagramListener.Receive.cs`) the listener:
 
 Replay protection is part of the session engine (a replay window inside `DatagramEngine`), and long-lived sessions rotate keys after `KeyUpdatePacketInterval` packets or `KeyUpdateIntervalMs` milliseconds.
 
-## High-level flow
+## Defence layers
+
+The diagram shows the defence layers in the order a datagram is checked (`DatagramListener.Receive.cs:102-189`, `DatagramEngine.cs:425-452`); the ticket flow lives on [UDP Listener](../../api/network/datagram-listener.md).
 
 ```mermaid
-sequenceDiagram
-    participant Client
-    participant TCP as Stream listener (TCP / WebSocket)
-    participant UDP as DatagramListener
-
-    Client->>TCP: 1. Connect & HandshakeAsync()
-    Client->>TCP: 2. DatagramTicket (REQUEST)
-    TCP->>UDP: 3. IssueTicket(streamConnection)
-    TCP-->>Client: 4. DatagramTicket response (ConnectionId, Nonce, Port, limits)
-    Client->>UDP: 5. First sealed datagram (ChaCha20-Poly1305)
-    UDP->>UDP: 6. Authenticate, promote ticket, accept session
+flowchart TD
+    R[Datagram] --> L1{Size and header}
+    L1 -->|fail| D1[DroppedMalformed]
+    L1 --> L2{Known id}
+    L2 -->|no| D2[DroppedUnknown]
+    L2 --> L3{Ticket live}
+    L3 -->|expired| D3[DroppedUnauthenticated]
+    L3 --> L4{Replay window}
+    L4 -->|seen or too old| D3
+    L4 --> L5{AEAD open}
+    L5 -->|bad tag| D3
+    L5 --> L6{Frame checks}
+    L6 -->|violation| D4[Session closed]
+    L6 --> L7{Connection guard}
+    L7 -->|refused| D5[Session disposed]
+    L7 --> P[Protocol dispatch]
 ```
 
 ## Server shape

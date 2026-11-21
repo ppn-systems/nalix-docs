@@ -78,6 +78,23 @@ Việc cho phép theo từng IP do `ConnectionGuard` mà host truyền cho liste
 
 ## Thứ tự khởi động khuyến nghị
 
+Sơ đồ cho thấy cách `MapDatagram` cùng các option, hub và guard tạo nên một `DatagramListener` (`NetworkApplicationBuilder.cs:268-290`, `426-433`).
+
+```mermaid
+flowchart TD
+    A[CreateBuilder] --> B[MapDatagram]
+    B --> C[Map DatagramTicketHandlers]
+    B --> D[OnPort and Bind]
+    C --> E[Build]
+    D --> E
+    O[DatagramOptions and engine options] --> F[DatagramListener]
+    G[ConnectionHub and ConnectionGuard] --> F
+    E --> F
+    F --> H[Register IDatagramTicketIssuer]
+    H --> I[RunAsync activates listener]
+    I --> J[Receive workers and ticket sweep]
+```
+
 1. Khởi tạo các manager lõi (`ObjectPoolManager`, `BufferPoolManager`)
 2. Kiểm tra hợp lệ các tùy chọn
 3. Đăng ký logger và xây dựng `PacketRegistry`

@@ -37,7 +37,7 @@ flowchart TD
     end
 
     Tick --> Drain --> CheckVer
-    CheckVer -->|No (Stale)| Pool["Return TimeoutTask to ObjectPool"]
+    CheckVer -->|"No (Stale)"| Pool["Return TimeoutTask to ObjectPool"]
     CheckVer -->|Yes| CheckRounds
     CheckRounds -->|Yes| Dec["task.Rounds-- (Stay in Bucket)"]
     CheckRounds -->|No| CheckIdle

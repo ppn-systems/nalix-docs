@@ -10,7 +10,7 @@ Nalix được thiết kế quanh mô hình máy chủ thời gian thực với 
 
 ```mermaid
 flowchart LR
-    A["Client session"] --> B["TCP / UDP listener"]
+    A["Client session"] --> B["Transport listener"]
     B --> C["Connection state"]
     C --> D["Protocol"]
     D --> E["PacketDispatchChannel"]
@@ -88,6 +88,22 @@ Nalix hỗ trợ runtime datagram (Nalix Datagram Protocol, NDP trên UDP) thôn
 - Mỗi thông điệp có thể chọn một `DeliveryMethod` (không tin cậy, có thứ tự theo sequence hoặc tin cậy) và một kênh
 
 Các điểm này phản ánh luồng listener có sẵn trong `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`, nơi datagram được xác định bằng connection id trước, sau đó được xác thực bởi session engine.
+
+Sơ đồ theo dõi một phiên datagram từ đầu đến cuối: ticket đi qua phiên stream, sau đó các datagram đã niêm phong được định tuyến theo connection id, được engine phía server xác thực và chuyển vào cùng đường dispatch như lưu lượng stream (nguồn: `DatagramSession.cs:132`, `DatagramListener.Receive.cs:100`, `DatagramConnection.Transport.cs:142,169`). Chi tiết từng thành phần nằm ở [DatagramSession](../../api/sdk/datagram-session.md), [DatagramEngine](../../api/environment/datagram-engine.md) và [DatagramListener](../../api/network/datagram-listener.md).
+
+```mermaid
+flowchart LR
+    CS["DatagramSession"] -->|"ticket request"| TH["DatagramTicketHandlers"]
+    TH -->|"IssueTicket"| DL["DatagramListener"]
+    CS --> CE["Client DatagramEngine"]
+    CE -->|"sealed datagram"| DL
+    DL -->|"Route by id"| DC["DatagramConnection"]
+    DC -->|"Receive"| SE["Server DatagramEngine"]
+    SE -->|"OnMessage"| DC
+    DC -->|"MessageProcessing"| PR["Protocol"]
+    PR --> DP["PacketDispatchChannel"]
+    DP --> H["Handler"]
+```
 
 ## Giới hạn tốc độ và bảo vệ
 

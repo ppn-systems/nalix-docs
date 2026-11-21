@@ -31,6 +31,25 @@ A datagram session is an authenticated UDP session opened with a ticket issued o
 | `ReliableOrdered` | `3` | Delivered exactly once, in send order within its channel (`DeliveryMethod.cs:28-31`). |
 | `ReliableSequenced` | `4` | The newest message of the channel is guaranteed to arrive; older ones may be skipped. Only the newest message is retransmitted (`DeliveryMethod.cs:33-37`). |
 
+The diagram groups the five methods by whether the engine retransmits lost data, and labels each with what the receiver gets (`DeliveryMethod.cs:12-37`).
+
+```mermaid
+flowchart LR
+    Q{Retransmitted?}
+    Q -->|never| U0[Unreliable]
+    Q -->|never| U1[UnreliableSequenced]
+    Q -->|yes| R2[ReliableUnordered]
+    Q -->|yes| R3[ReliableOrdered]
+    Q -->|yes| R4[ReliableSequenced]
+    U0 -->|"at most once, any order"| X[Receiver]
+    U1 -->|"drops older than newest"| X
+    R2 -->|"exactly once, any order"| X
+    R3 -->|"exactly once, send order"| X
+    R4 -->|"newest guaranteed"| X
+```
+
+Ordering and sequencing apply per channel. For `ReliableSequenced` only the newest message is retransmitted, so older ones may never arrive.
+
 ## `IDatagramTransport`
 
 `public interface IDatagramTransport : IConnection.ITransport` (`IDatagramTransport.cs:192`) is the transport of a datagram session; it is what `IConnection.Transport` returns on a datagram connection (see [Connection Contracts](./connection-contracts.md)).
@@ -117,6 +136,24 @@ The default implementation is `ChaCha20Poly1305DatagramProtectionFactory` in `Na
 | `Channel` | `byte` | The channel; defaults to `0` in the constructor (`:27`, `:17`). |
 
 Without the attribute, datagram sends use `DeliveryMethod.ReliableOrdered` on channel `0`. Stream connections ignore it and always deliver reliably and in order (`PacketDeliveryAttribute.cs:10-13`).
+
+The diagram shows how the attribute on a handler reaches the datagram transport (`PacketSender.cs:254-265`, `DatagramConnection.Transport.cs:103-122`).
+
+```mermaid
+flowchart LR
+    H["Handler with PacketDelivery"] --> M[PacketMetadata]
+    M --> G["PacketSender.GetTransport"]
+    G --> T{IDatagramTransport?}
+    T -->|no, stream| S[Transport unchanged]
+    T -->|yes| A{Attribute present?}
+    A -->|no| D[ReliableOrdered, channel 0]
+    A -->|yes| W["WithDelivery(method, channel)"]
+    W --> V[Cached delivery view]
+    V --> E[Datagram engine send]
+    D --> E
+```
+
+`WithDelivery` rejects an undefined method or a channel not below the session's channel count with `ArgumentOutOfRangeException`; `ReliableOrdered` on channel `0` returns the transport itself, and every other pair returns a cached view.
 
 At send time `PacketSender` reads the attribute from the handler metadata: on an `IDatagramTransport` it calls `WithDelivery(delivery.Method, delivery.Channel)`, otherwise it uses the connection's transport unchanged (`src/Nalix.Runtime/Dispatching/PacketSender.cs`, L254-265). Frames sent on a datagram transport are not encrypted again by the packet layer, because the session AEAD already protects them (`PacketSender.cs:248-251`).
 

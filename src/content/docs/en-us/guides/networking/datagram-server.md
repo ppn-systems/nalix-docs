@@ -78,6 +78,23 @@ Per-IP admission is handled by the `ConnectionGuard` the host passes to the list
 
 ## Recommended startup order
 
+The diagram shows how `MapDatagram` plus the options, hub and guard produce one `DatagramListener` (`NetworkApplicationBuilder.cs:268-290`, `426-433`).
+
+```mermaid
+flowchart TD
+    A[CreateBuilder] --> B[MapDatagram]
+    B --> C[Map DatagramTicketHandlers]
+    B --> D[OnPort and Bind]
+    C --> E[Build]
+    D --> E
+    O[DatagramOptions and engine options] --> F[DatagramListener]
+    G[ConnectionHub and ConnectionGuard] --> F
+    E --> F
+    F --> H[Register IDatagramTicketIssuer]
+    H --> I[RunAsync activates listener]
+    I --> J[Receive workers and ticket sweep]
+```
+
 1. Initialize core managers (`ObjectPoolManager`, `BufferPoolManager`)
 2. Validate options
 3. Register logger and build `PacketRegistry`

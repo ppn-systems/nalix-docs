@@ -48,17 +48,23 @@ next(x)      = HKDF-Expand(x, "nalix-dgram/ku")
 
 (`DatagramKeySchedule.cs:12-20`; labels at `DatagramKeySchedule.cs:34-39`.)
 
+The diagram shows how one stream secret becomes independent keys per direction, and how later generations chain from the previous secret (`DatagramKeySchedule.cs:12-20`).
+
 ```mermaid
 flowchart TD
-    S["S: stream session secret"] --> D["dgram_secret"]
+    S["Stream secret S"] --> D[dgram_secret]
     N["ConnectionId + TicketNonce"] --> D
-    D --> C["c2s_secret"]
-    D --> R["s2c_secret"]
-    C --> K1["key / iv (generation 0)"]
-    R --> K2["key / iv (generation 0)"]
-    C -. "next()" .-> C2["c2s_secret (next generation)"]
-    R -. "next()" .-> R2["s2c_secret (next generation)"]
+    D -->|c2s label| C0["c2s_secret gen 0"]
+    D -->|s2c label| R0["s2c_secret gen 0"]
+    C0 -->|"key and iv"| KC["Client send key + IV"]
+    R0 -->|"key and iv"| KR["Server send key + IV"]
+    C0 -->|"next (ku label)"| C1["c2s_secret gen 1"]
+    R0 -->|"next (ku label)"| R1["s2c_secret gen 1"]
+    C1 -->|"key and iv"| KC1["Client key gen 1"]
+    R1 -->|"key and iv"| KR1["Server key gen 1"]
 ```
+
+The AEAD nonce of each packet is then `iv XOR packetNumber` (see the layout section below).
 
 ### Inputs and outputs
 
@@ -160,6 +166,27 @@ The protection does not build the header itself. `DatagramEngine` writes the 13-
 | header (13 bytes, cleartext, authenticated as AAD) | ciphertext (n bytes) | tag (16 bytes) |
 ```
 
+The diagram shows the three segments of a datagram and their sizes (`DatagramHeader.cs:11`, `DatagramEngine.cs:394-396`).
+
+```mermaid
+flowchart LR
+    H["Header 13 B, cleartext"] --> C["Ciphertext n B"] --> T["Tag 16 B"]
+    H -. "AAD" .-> T
+```
+
+The header itself is laid out as follows; bit offsets count from the first byte (`DatagramHeader.cs:11-14,40-44`).
+
+```mermaid
+packet-beta
+    0-3: "Version = 1"
+    4: "KP"
+    5-7: "Reserved = 0"
+    8-71: "ConnectionId (u64 LE)"
+    72-103: "PacketNumber low 32 bits (u32 LE)"
+```
+
+`KP` is the one-bit `KeyPhase` field that `TryOpen` uses to select the key generation.
+
 The datagram length is `DatagramHeader.Size + plaintext.Length + TagSize` (`DatagramEngine.cs:396`). Only the low 32 bits of the packet number travel in the header; the receiver reconstructs the full number before calling `TryOpen` (`DatagramEngine.cs:432`), and that full 64-bit value feeds the nonce.
 
 ### `Seal`
@@ -175,6 +202,35 @@ Returns `false` (it does not throw) when authentication fails, when `ciphertextA
 3. Otherwise: try the precomputed next key (`ChaCha20Poly1305DatagramProtection.cs:108-111`). On success the peer has updated its key: next becomes current, current becomes previous, a new next secret is derived from the new current secret, the receive phase flips to `keyPhase`, and `packetNumber` is recorded as the first packet of the phase (`ChaCha20Poly1305DatagramProtection.cs:113-120`). A failed open changes no state.
 
 ### Key update
+
+The diagram shows one key update between two peers: the sender rotates, the receiver follows on the first packet of the new phase (`DatagramEngine.cs:399-409`, `DatagramEngine.cs:456-466`, `DatagramEngine.Cleanup.cs:207-211`).
+
+```mermaid
+sequenceDiagram
+    participant A as Sender
+    participant B as Receiver
+    A->>A: UpdateSendKey, phase flips
+    A->>B: Datagram with new KeyPhase
+    B->>B: TryOpen with next key
+    B->>B: Rotate: next, current, previous
+    B-->>A: ACK of new phase
+    B->>B: DiscardPreviousReceiveKey
+```
+
+A sender starts a new update only after a packet of its current phase was acknowledged, and only when the packet count (`KeyUpdatePacketInterval`) or the time (`KeyUpdateIntervalMs`) limit is reached. The receiver schedules `DiscardPreviousReceiveKey` three probe timeouts after it sees the phase change.
+
+The diagram below is the key choice `TryOpen` makes for every received datagram (`ChaCha20Poly1305DatagramProtection.cs:97-120`).
+
+```mermaid
+flowchart TD
+    A{keyPhase is current?} -->|yes| C[Open with current key]
+    A -->|no| B{Older than phase start?}
+    B -->|yes, previous exists| P[Open with previous key]
+    B -->|no| N[Open with next key]
+    N -->|fails| F[Return false, no change]
+    N -->|opens| R[Rotate keys, flip phase]
+```
+
 
 - `UpdateSendKey()` replaces the send generation with `DeriveNextSecret(send secret)` and flips `SendKeyPhase` (`ChaCha20Poly1305DatagramProtection.cs:128-129`). `SendKeyPhase` is the phase bit to place in the header of subsequent packets (`ChaCha20Poly1305DatagramProtection.cs:70`, `DatagramEngine.cs:394`).
 - `DiscardPreviousReceiveKey()` wipes the previous receive generation once late packets of the old phase can no longer arrive; it does nothing when there is none (`ChaCha20Poly1305DatagramProtection.cs:133-140`, `IDatagramProtection.cs:61-62`).

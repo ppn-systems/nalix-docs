@@ -26,6 +26,8 @@ Engine triển khai số thứ tự gói tin, bảo vệ AEAD qua `IDatagramProt
 
 ## Vận hành engine
 
+Vòng lặp của owner quanh engine, cho thấy ai gọi thành viên nào.
+
 ```mermaid
 flowchart LR
     Socket["UDP socket"] -->|"Receive(datagram, from, now)"| Engine["DatagramEngine"]
@@ -36,6 +38,62 @@ flowchart LR
 ```
 
 Sau mỗi lần `Receive`, `TrySend`, `Close` và `OnTimer`, hãy gọi `Poll` liên tục cho đến khi nó trả về `0`.
+
+## Bên trong engine
+
+### Đường gửi
+
+Cách một message trở thành datagram. `TrySend` sao chép message vào hàng đợi ưu tiên, tách thành fragment khi vượt `MaxUnfragmentedMessageSize` (`ReliableSender.cs` L80); `Poll` (`DatagramEngine.cs` L241) ghi bản truyền lại trước, rồi các message trong hàng đợi theo ưu tiên khi cửa sổ tắc nghẽn và pacer cho phép, rồi niêm phong bằng protection.
+
+```mermaid
+flowchart LR
+    Send["TrySend"] --> Size{"Message size"}
+    Size -->|"fits one frame"| Queue["Priority queue"]
+    Size -->|"larger, reliable"| Frag["Fragments"]
+    Frag --> Queue
+    Retx["Retransmit list"] -->|"first"| Write["WriteMessages"]
+    Queue --> Gate{"Window and pacer"}
+    Gate -->|"open"| Write
+    Gate -->|"blocked"| Wait["Wait for OnTimer"]
+    Write --> Seal["Seal with AEAD"]
+    Seal --> Out["Poll returns datagram"]
+```
+
+### Đường nhận
+
+Cách một datagram trở thành message. `Receive` (`DatagramEngine.cs` L423) loại bỏ datagram sai định dạng, trùng hoặc không xác thực, sau đó `ProcessFrames` định tuyến từng khung; message đi qua `ReliableReceiver` theo phương thức giao và tới handler sau khi xử lý xong cả datagram (`DispatchDeliveries`).
+
+```mermaid
+flowchart LR
+    Recv["Receive"] --> Check{"Header, replay, AEAD ok?"}
+    Check -->|"no"| Drop["DatagramsDropped"]
+    Check -->|"yes"| Frames["ProcessFrames"]
+    Frames -->|"ACK"| Loss["Loss recovery"]
+    Frames -->|"MESSAGE"| Rx["ReliableReceiver"]
+    Rx -->|"fragment"| Asm["Reassembly"]
+    Rx -->|"whole message"| Deliver["OnMessage"]
+    Asm -->|"complete"| Deliver
+    Frames -->|"ack-eliciting"| Ack["AckTracker"]
+    Frames -->|"bad frame"| Close["Close with error code"]
+```
+
+### Khôi phục mất gói và bộ đếm thời gian
+
+Cách phát hiện và bù đắp mất gói, do khung ACK và `OnTimer` (`DatagramEngine.Cleanup.cs` L182) điều khiển. Một gói bị coi là mất khi ba gói mới hơn đã được ACK hoặc quá thời điểm mất (`LossRecovery.PacketThreshold`); message mất quay lại danh sách truyền lại và cửa sổ NewReno co lại. Khi không có ACK, probe timeout xếp hai probe để `Poll` gửi được dù cửa sổ đã đầy. `OnTimer` cũng gửi PING keepalive và kết thúc phiên khi idle timeout.
+
+```mermaid
+flowchart TD
+    AckFrame["ACK frame"] --> Rtt["RTT sample"]
+    AckFrame --> Acked["Window grows"]
+    AckFrame --> Detect["DetectLost"]
+    Timer["OnTimer"] --> Due{"Loss time due?"}
+    Due -->|"yes"| Detect
+    Due -->|"no, PTO due"| Probe["Two probes pending"]
+    Detect --> Retx["Retransmit list"]
+    Detect --> Cut["Window halves"]
+    Retx --> Poll["Poll"]
+    Probe --> Poll
+```
 
 ## `DatagramEngine`
 
@@ -114,6 +172,20 @@ Tất cả nằm trong `DatagramEngine.Report.cs`.
 | `Established = 1` | Một datagram từ bên kia đã xác thực; dữ liệu được truyền (được đặt trong `Receive`, `DatagramEngine.cs` L468). |
 | `Draining = 2` | Một frame CLOSE đang nằm trong hàng đợi hoặc đã được gửi hay nhận; phiên bỏ qua các datagram tiếp theo. |
 | `Closed = 3` | Đã đóng; không gửi hay nhận gì nữa. |
+
+Engine đi một chiều qua bốn trạng thái; `DatagramCloseCode` cho biết vì sao nó rời `Established`. Đóng bằng `Close`, khung CLOSE, lỗi khung hoặc giới hạn AEAD đều vào `Draining` trước (`DatagramEngine.Cleanup.cs` L108, L76); chỉ idle timeout và khi hết draining mới tới `Closed` (`Terminate`, L151). `Poll` sau đó gửi khung CLOSE đã xếp hàng và draining kéo dài ba lần probe timeout.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending : constructor
+    Pending --> Established : first datagram authenticates
+    Pending --> Draining : Close or error
+    Established --> Draining : Close, error, CLOSE frame
+    Pending --> Closed : IdleTimeout
+    Established --> Closed : IdleTimeout
+    Draining --> Closed : drain ends
+    Closed --> [*]
+```
 
 ## `DatagramCloseCode`
 

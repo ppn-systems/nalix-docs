@@ -16,7 +16,7 @@ package: Nalix.SDK
 ```mermaid
 flowchart TD
     A["TransportOptions"] --> B["TcpSession / WebSocketSession"]
-    B --> B2["DatagramSession (ticket over the stream session)"]
+    B -->|"ticket request"| B2["DatagramSession"]
     B --> C["ConnectAsync()"]
     C --> D["ConnectWithResumeAsync() / HandshakeAsync()"]
     D --> E["OnReady Fired & KeepAlive Started"]

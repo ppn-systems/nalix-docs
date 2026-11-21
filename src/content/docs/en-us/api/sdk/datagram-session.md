@@ -25,23 +25,22 @@ package: Nalix.SDK
 
 ## How a Session Is Established
 
-```mermaid
-sequenceDiagram
-    participant App as Client Application
-    participant D as DatagramSession
-    participant S as Stream session (TCP/WebSocket)
-    participant Srv as Server
+The diagram shows the client session lifecycle; the transition labels name the call or event that causes each step (`DatagramSession.cs:118-242`, `DatagramEngineState.cs`). The server half of the ticket exchange is described in [UDP Listener (Server)](../network/datagram-listener.md).
 
-    App->>D: new DatagramSession(stream)
-    App->>D: ConnectAsync()
-    D->>S: RequestAsync<DatagramTicket> (Stage = REQUEST)
-    S->>Srv: DatagramTicket request
-    Srv-->>S: DatagramTicket response (ConnectionId, Nonce, Port, limits)
-    D->>D: ChaCha20Poly1305DatagramProtection.Create(State.Secret, ConnectionId, Nonce, isServer: false)
-    D->>Srv: UDP datagram (first datagram authenticates the session)
-    Srv-->>D: Authenticated datagram
-    D-->>App: OnConnected
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> RequestingTicket: ConnectAsync
+    RequestingTicket --> Idle: ticket refused
+    RequestingTicket --> Pending: UDP socket and engine started
+    Pending --> Idle: ticket expired
+    Pending --> Established: first datagram authenticates
+    Established --> Draining: DisconnectAsync or CLOSE
+    Established --> Idle: idle timeout
+    Draining --> Idle: engine closed, Teardown
 ```
+
+`Idle` is the session with no socket and no engine; `Pending`, `Established` and `Draining` are the engine's own states. Every failure in `ConnectAsync` runs `Teardown` and throws `NetworkException` (`DatagramSession.cs:201-206`). There is no automatic reconnect: calling `ConnectAsync` again tears down what is left (`DatagramSession.cs:130`) and requests a fresh ticket.
 
 1. `ConnectAsync` requests a `DatagramTicket` over the stream session (`RequestOptions.WithTimeout(Math.Max(1000, Options.ConnectTimeoutMillis))`). A refusal (`response.Reason != ProtocolReason.NONE`) throws `NetworkException("The server refused the datagram ticket: ...")`.
 2. It resolves `host` (default: the stream session's `Options.Address`), connects a UDP `Socket` to `port` (default: `Ticket.Port`), and sets `DontFragment` when the platform allows it.
@@ -49,6 +48,25 @@ sequenceDiagram
 4. It waits until the server authenticated the first datagram, at most `Ticket.ExpiresInSeconds` seconds, otherwise throws `NetworkException("The datagram session was not established before the ticket expired.")`.
 
 Every datagram is sealed with ChaCha20-Poly1305 by the session, so frames are **not encrypted a second time**: the `encrypt` argument of the `TransportSession` send methods is ignored.
+
+## Send and Receive Path
+
+The diagram follows one message out through the engine to the UDP socket and one datagram back to `OnMessageReceived` (`DatagramSession.cs:271-281`, `346-361`, `363-404`, `424-454`, `483-526`).
+
+```mermaid
+flowchart LR
+    A["SendAsync(packet, method, channel)"] --> B[Serialize frame]
+    B --> C["engine.TrySend"]
+    C --> D["engine.Poll"]
+    D -->|sealed datagram| E[UDP socket]
+    E -->|network| F["ReceiveLoopAsync"]
+    F --> G["engine.Receive"]
+    G -->|authenticated message| H["DispatchBatch"]
+    H --> I["FramePipeline inbound"]
+    I --> J[OnMessageReceived]
+```
+
+`TrySend` queues the frame on its channel and returns `false` (surfaced as `NetworkException`) when the session is closing, the frame is too large for the method, or the queue is full. `FlushLocked` then drains `Poll` into the socket and re-arms the engine timer; socket errors during send are ignored because the engine retransmits what matters. On receive, the engine opens the datagram, and `DispatchBatch` runs outside the engine lock, one thread at a time and in delivery order.
 
 ## Public API Reference
 

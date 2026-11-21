@@ -10,7 +10,7 @@ Nalix is designed around a real-time server model with long-lived sessions, pred
 
 ```mermaid
 flowchart LR
-    A["Client session"] --> B["TCP / UDP listener"]
+    A["Client session"] --> B["Transport listener"]
     B --> C["Connection state"]
     C --> D["Protocol"]
     D --> E["PacketDispatchChannel"]
@@ -88,6 +88,22 @@ The UDP path still requires session identity and authentication. Think of it as 
 - Each message can choose a `DeliveryMethod` (unreliable, sequenced or reliable) and a channel
 
 These points reflect the built-in listener flow in `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`, where datagrams are resolved by connection id first and then authenticated by the session engine.
+
+The diagram follows one datagram session end to end: the ticket travels over the stream session, then sealed datagrams are routed by connection id, authenticated by the server engine and handed to the same dispatch path as stream traffic (sources: `DatagramSession.cs:132`, `DatagramListener.Receive.cs:100`, `DatagramConnection.Transport.cs:142,169`). Per-component detail lives in [DatagramSession](../../api/sdk/datagram-session.md), [DatagramEngine](../../api/environment/datagram-engine.md) and [DatagramListener](../../api/network/datagram-listener.md).
+
+```mermaid
+flowchart LR
+    CS["DatagramSession"] -->|"ticket request"| TH["DatagramTicketHandlers"]
+    TH -->|"IssueTicket"| DL["DatagramListener"]
+    CS --> CE["Client DatagramEngine"]
+    CE -->|"sealed datagram"| DL
+    DL -->|"Route by id"| DC["DatagramConnection"]
+    DC -->|"Receive"| SE["Server DatagramEngine"]
+    SE -->|"OnMessage"| DC
+    DC -->|"MessageProcessing"| PR["Protocol"]
+    PR --> DP["PacketDispatchChannel"]
+    DP --> H["Handler"]
+```
 
 ## Throttling and Protection
 

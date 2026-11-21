@@ -57,7 +57,7 @@ sequenceDiagram
         Note over C: Verify ServerProof == HmacKeccak256.Compute(State.Secret, [NewSessionToken || timeWindow])<br/>State.SessionToken = NewSessionToken<br/>State.EncryptionEnabled = true<br/>NotifyReady() -> Return ProtocolReason.NONE
     else Session Expired / Unknown / Invalid Proof
         S-->>C: SessionResume (Stage = RESPONSE, Reason = SESSION_EXPIRED / ...)
-        Note over C: Return response.Reason (State is left untouched; ConnectWithResumeAsync reconnects and falls back to HandshakeAsync)
+        Note over C: Return response.Reason (State is left untouched, ConnectWithResumeAsync reconnects and falls back to HandshakeAsync)
     end
 ```
 

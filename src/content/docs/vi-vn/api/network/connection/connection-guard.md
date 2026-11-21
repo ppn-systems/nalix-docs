@@ -42,8 +42,8 @@ flowchart TD
     Proxy -->|No| BanCheck{"Currently Banned?"}
     BanCheck -->|Yes| Rollback
     BanCheck -->|No| RateCheck{"Within Per-IP Concurrent & Window Limits?"}
-    RateCheck -->|No (Rate Violation)| ProgBan["Apply Progressive Ban + Persist"] --> Rollback
-    RateCheck -->|No (Concurrent Cap)| Rollback
+    RateCheck -->|"No (Rate Violation)"| ProgBan["Apply Progressive Ban + Persist"] --> Rollback
+    RateCheck -->|"No (Concurrent Cap)"| Rollback
     RateCheck -->|Yes| SubCheck{"Within /24 or /48 Subnet Caps?"}
     SubCheck -->|No| RollbackSlot["Release IP Slot + Decrement Global + Reject"]
     SubCheck -->|Yes| Acc

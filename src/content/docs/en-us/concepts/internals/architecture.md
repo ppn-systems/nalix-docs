@@ -12,7 +12,7 @@ At the highest level, Nalix is a networking stack that sits between external cli
 
 ```mermaid
 graph LR
-    User("External Client / Service") -- "TCP / UDP" --> Stack("Nalix Networking Stack")
+    User("External Client / Service") -- "TCP / WebSocket / NDP" --> Stack("Nalix Networking Stack")
     Stack -- "Logs" --> Logging("ILogger / External SIEM")
     Stack -- "Config" --> Config("Configuration (INI)")
 ```

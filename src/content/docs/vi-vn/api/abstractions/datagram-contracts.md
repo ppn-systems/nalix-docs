@@ -31,6 +31,25 @@ Phiên datagram là một phiên UDP đã xác thực, được mở bằng tick
 | `ReliableOrdered` | `3` | Được phân phối đúng một lần, theo thứ tự gửi trong cùng kênh (`DeliveryMethod.cs:28-31`). |
 | `ReliableSequenced` | `4` | Thông điệp mới nhất của kênh được đảm bảo đến nơi; các thông điệp cũ hơn có thể bị bỏ qua. Chỉ thông điệp mới nhất được gửi lại (`DeliveryMethod.cs:33-37`). |
 
+Sơ đồ nhóm năm phương thức theo việc engine có gửi lại dữ liệu bị mất hay không, và gắn nhãn cho từng phương thức bằng thứ bên nhận nhận được (`DeliveryMethod.cs:12-37`).
+
+```mermaid
+flowchart LR
+    Q{Retransmitted?}
+    Q -->|never| U0[Unreliable]
+    Q -->|never| U1[UnreliableSequenced]
+    Q -->|yes| R2[ReliableUnordered]
+    Q -->|yes| R3[ReliableOrdered]
+    Q -->|yes| R4[ReliableSequenced]
+    U0 -->|"at most once, any order"| X[Receiver]
+    U1 -->|"drops older than newest"| X
+    R2 -->|"exactly once, any order"| X
+    R3 -->|"exactly once, send order"| X
+    R4 -->|"newest guaranteed"| X
+```
+
+Thứ tự và việc đánh số thứ tự áp dụng theo từng kênh. Với `ReliableSequenced` chỉ thông điệp mới nhất được gửi lại, nên các thông điệp cũ hơn có thể không bao giờ đến.
+
 ## `IDatagramTransport`
 
 `public interface IDatagramTransport : IConnection.ITransport` (`IDatagramTransport.cs:192`) là transport của một phiên datagram; đây là giá trị `IConnection.Transport` trả về trên kết nối datagram (xem [Connection Contracts](./connection-contracts.md)).
@@ -117,6 +136,24 @@ Bản triển khai mặc định là `ChaCha20Poly1305DatagramProtectionFactory`
 | `Channel` | `byte` | Kênh; mặc định là `0` trong constructor (`:27`, `:17`). |
 
 Khi không có attribute, các lần gửi datagram dùng `DeliveryMethod.ReliableOrdered` trên kênh `0`. Các kết nối stream bỏ qua nó và luôn phân phối tin cậy và theo đúng thứ tự (`PacketDeliveryAttribute.cs:10-13`).
+
+Sơ đồ cho thấy attribute trên handler đi tới transport datagram như thế nào (`PacketSender.cs:254-265`, `DatagramConnection.Transport.cs:103-122`).
+
+```mermaid
+flowchart LR
+    H["Handler with PacketDelivery"] --> M[PacketMetadata]
+    M --> G["PacketSender.GetTransport"]
+    G --> T{IDatagramTransport?}
+    T -->|no, stream| S[Transport unchanged]
+    T -->|yes| A{Attribute present?}
+    A -->|no| D[ReliableOrdered, channel 0]
+    A -->|yes| W["WithDelivery(method, channel)"]
+    W --> V[Cached delivery view]
+    V --> E[Datagram engine send]
+    D --> E
+```
+
+`WithDelivery` từ chối phương thức chưa định nghĩa hoặc kênh không nhỏ hơn số kênh của phiên bằng `ArgumentOutOfRangeException`; `ReliableOrdered` trên kênh `0` trả về chính transport, còn mọi cặp khác trả về một view được cache.
 
 Khi gửi, `PacketSender` đọc attribute từ metadata của handler: trên một `IDatagramTransport` nó gọi `WithDelivery(delivery.Method, delivery.Channel)`, còn không thì dùng nguyên transport của kết nối (`src/Nalix.Runtime/Dispatching/PacketSender.cs`, L254-265). Các frame gửi trên transport datagram không được tầng gói tin mã hóa lại, vì AEAD của phiên đã bảo vệ chúng (`PacketSender.cs:248-251`).
 

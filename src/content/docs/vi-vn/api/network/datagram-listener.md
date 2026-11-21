@@ -53,6 +53,24 @@ sequenceDiagram
 
 ## Định tuyến datagram (`DatagramListener.Receive.cs`)
 
+Sơ đồ dưới đây cho thấy mỗi datagram đi qua vòng nhận như thế nào và nó có thể bị loại ở đâu (`DatagramListener.Receive.cs:100-127`, `137-189`).
+
+```mermaid
+flowchart TD
+    A[Socket read] --> B{Header valid?}
+    B -->|too long or no id| X1[DroppedMalformed]
+    B -->|ConnectionId| C{Table lookup}
+    C -->|session| D[OnDatagram]
+    C -->|pending ticket| E[TryPromote]
+    C -->|neither| X2[DroppedUnknown]
+    E -->|ticket expired| X3[DroppedUnauthenticated]
+    E --> D
+    D -->|AEAD or replay fails| X3
+    D -->|authenticated| F{Guard TryAccept}
+    F -->|refused| X4[Dispose, count rejection]
+    F -->|ok, or established session| G[Accept and dispatch]
+```
+
 1. Mỗi worker nhận đọc vào một buffer được ghim có kích thước `DatagramEngine.MaxDatagramSize + 1` byte (`MaxDatagramSize = 1472`), nhờ đó datagram quá lớn được phát hiện thay vì bị cắt cụt.
 2. `Route` loại datagram (`DroppedMalformed`) khi nó dài hơn `MaxDatagramSize` hoặc không có header NDP để `DatagramEngine.TryReadConnectionId` đọc định danh kết nối.
 3. Một định danh đã biết trong bảng phiên được chuyển cho `DatagramConnection.OnDatagram`; một định danh có ticket đang chờ đi qua `TryPromote`; mọi trường hợp khác bị loại (`DroppedUnknown`). Datagram chưa xác thực không bao giờ được phản hồi.

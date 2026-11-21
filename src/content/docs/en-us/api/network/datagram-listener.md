@@ -53,6 +53,24 @@ sequenceDiagram
 
 ## Datagram Routing (`DatagramListener.Receive.cs`)
 
+The diagram shows how each datagram moves through the receive loop and where it can be dropped (`DatagramListener.Receive.cs:100-127`, `137-189`).
+
+```mermaid
+flowchart TD
+    A[Socket read] --> B{Header valid?}
+    B -->|too long or no id| X1[DroppedMalformed]
+    B -->|ConnectionId| C{Table lookup}
+    C -->|session| D[OnDatagram]
+    C -->|pending ticket| E[TryPromote]
+    C -->|neither| X2[DroppedUnknown]
+    E -->|ticket expired| X3[DroppedUnauthenticated]
+    E --> D
+    D -->|AEAD or replay fails| X3
+    D -->|authenticated| F{Guard TryAccept}
+    F -->|refused| X4[Dispose, count rejection]
+    F -->|ok, or established session| G[Accept and dispatch]
+```
+
 1. Each receive worker reads into a pinned buffer of `DatagramEngine.MaxDatagramSize + 1` bytes (`MaxDatagramSize = 1472`), so an oversized datagram is detected rather than truncated.
 2. `Route` drops the datagram (`DroppedMalformed`) when it is longer than `MaxDatagramSize` or has no NDP header from which `DatagramEngine.TryReadConnectionId` can read the connection identifier.
 3. A known identifier in the session table is handed to `DatagramConnection.OnDatagram`; an identifier with a pending ticket goes through `TryPromote`; anything else is dropped (`DroppedUnknown`). Unauthenticated datagrams are never answered.

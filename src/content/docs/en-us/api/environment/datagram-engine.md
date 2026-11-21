@@ -26,6 +26,8 @@ The engine implements packet numbers, AEAD protection through `IDatagramProtecti
 
 ## Driving the engine
 
+The owner loop around the engine, showing who calls which member.
+
 ```mermaid
 flowchart LR
     Socket["UDP socket"] -->|"Receive(datagram, from, now)"| Engine["DatagramEngine"]
@@ -36,6 +38,62 @@ flowchart LR
 ```
 
 After every `Receive`, `TrySend`, `Close` and `OnTimer`, call `Poll` repeatedly until it returns `0`.
+
+## Inside the engine
+
+### Send path
+
+How a message becomes a datagram. `TrySend` copies the message into a priority queue, splitting it into fragments when it exceeds `MaxUnfragmentedMessageSize` (`ReliableSender.cs` L80); `Poll` (`DatagramEngine.cs` L241) writes retransmissions first, then queued messages by priority, once the congestion window and pacer allow it, and seals the result with the protection.
+
+```mermaid
+flowchart LR
+    Send["TrySend"] --> Size{"Message size"}
+    Size -->|"fits one frame"| Queue["Priority queue"]
+    Size -->|"larger, reliable"| Frag["Fragments"]
+    Frag --> Queue
+    Retx["Retransmit list"] -->|"first"| Write["WriteMessages"]
+    Queue --> Gate{"Window and pacer"}
+    Gate -->|"open"| Write
+    Gate -->|"blocked"| Wait["Wait for OnTimer"]
+    Write --> Seal["Seal with AEAD"]
+    Seal --> Out["Poll returns datagram"]
+```
+
+### Receive path
+
+How a datagram becomes a message. `Receive` (`DatagramEngine.cs` L423) drops malformed, duplicate or unauthentic datagrams, then `ProcessFrames` routes each frame; messages go through `ReliableReceiver` by delivery method and reach the handler after the whole datagram is processed (`DispatchDeliveries`).
+
+```mermaid
+flowchart LR
+    Recv["Receive"] --> Check{"Header, replay, AEAD ok?"}
+    Check -->|"no"| Drop["DatagramsDropped"]
+    Check -->|"yes"| Frames["ProcessFrames"]
+    Frames -->|"ACK"| Loss["Loss recovery"]
+    Frames -->|"MESSAGE"| Rx["ReliableReceiver"]
+    Rx -->|"fragment"| Asm["Reassembly"]
+    Rx -->|"whole message"| Deliver["OnMessage"]
+    Asm -->|"complete"| Deliver
+    Frames -->|"ack-eliciting"| Ack["AckTracker"]
+    Frames -->|"bad frame"| Close["Close with error code"]
+```
+
+### Loss recovery and timers
+
+How loss is detected and repaired, driven by ACK frames and by `OnTimer` (`DatagramEngine.Cleanup.cs` L182). A packet is lost when three newer packets were acknowledged or its loss time passed (`LossRecovery.PacketThreshold`); lost messages go back to the retransmit list and the NewReno window shrinks. When no ACK arrives, the probe timeout queues two probes so `Poll` can send even with a full window. `OnTimer` also sends keepalive PINGs and ends the session on idle timeout.
+
+```mermaid
+flowchart TD
+    AckFrame["ACK frame"] --> Rtt["RTT sample"]
+    AckFrame --> Acked["Window grows"]
+    AckFrame --> Detect["DetectLost"]
+    Timer["OnTimer"] --> Due{"Loss time due?"}
+    Due -->|"yes"| Detect
+    Due -->|"no, PTO due"| Probe["Two probes pending"]
+    Detect --> Retx["Retransmit list"]
+    Detect --> Cut["Window halves"]
+    Retx --> Poll["Poll"]
+    Probe --> Poll
+```
 
 ## `DatagramEngine`
 
@@ -114,6 +172,20 @@ All in `DatagramEngine.Report.cs`.
 | `Established = 1` | A datagram from the peer authenticated; data flows (set in `Receive`, `DatagramEngine.cs` L468). |
 | `Draining = 2` | A CLOSE frame is queued or was sent or received; the session ignores further datagrams. |
 | `Closed = 3` | Closed; nothing is sent or received. |
+
+The engine moves one way through four states; the `DatagramCloseCode` explains why it left `Established`. Closing by `Close`, a CLOSE frame, a frame error or the AEAD limit enters `Draining` first (`DatagramEngine.Cleanup.cs` L108, L76); only the idle timeout and the end of draining reach `Closed` (`Terminate`, L151). `Poll` then sends the queued CLOSE frame and the drain lasts three probe timeouts.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending : constructor
+    Pending --> Established : first datagram authenticates
+    Pending --> Draining : Close or error
+    Established --> Draining : Close, error, CLOSE frame
+    Pending --> Closed : IdleTimeout
+    Established --> Closed : IdleTimeout
+    Draining --> Closed : drain ends
+    Closed --> [*]
+```
 
 ## `DatagramCloseCode`
 
