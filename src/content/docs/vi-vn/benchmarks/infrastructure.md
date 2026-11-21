@@ -12,7 +12,7 @@ Chỉ số hiệu năng chi tiết cho runtime lõi của Nalix, bao gồm quả
 
 | Phương thức | Mean | Error | StdDev | Cấp phát |
 | :--- | ---: | ---: | ---: | ---: |
-| **GetConnection** | **3.935 ns** | 0.3706 ns | 0.4268 ns | 0 B |
+| **GetConnection** | **3.633 ns** | 0.2432 ns | 0.3247 ns | 0 B |
 | **RegisterAndUnregister** | 269.944 ns | 8.3769 ns | 8.9631 ns | 0 B |
 
 :::note
@@ -22,7 +22,7 @@ Chỉ số hiệu năng chi tiết cho runtime lõi của Nalix, bao gồm quả
 ### Đằng sau thiết kế
 
 - **Lập chỉ mục không khóa**: Connection hub dựa vào các collection đồng thời hiệu năng cao và mảng chỉ mục để xử lý đăng ký đồng thời mà không cần khóa toàn cục.
-- **Đường tra cứu nhanh**: Tra cứu một phiên theo định danh dạng số dài mất dưới 4 nano giây (~3.9 ns), đảm bảo việc lấy phiên không trở thành nút thắt trong vòng lặp nhận tin đến.
+- **Đường tra cứu nhanh**: Tra cứu một phiên theo định danh dạng số dài mất dưới 4 nano giây (~3.6 ns), đảm bảo việc lấy phiên không trở thành nút thắt trong vòng lặp nhận tin đến.
 
 ---
 
@@ -32,13 +32,13 @@ Chỉ số hiệu năng chi tiết cho runtime lõi của Nalix, bao gồm quả
 
 | Phương thức | Mean | Error | StdDev | Cấp phát |
 | :--- | ---: | ---: | ---: | ---: |
-| **TryAccept_Allowed** | **54.56 ns** | 2.555 ns | 2.942 ns | 0 B |
-| **TryAccept_Blacklisted** | **190.40 ns** | 6.475 ns | 7.457 ns | 0 B |
+| **TryAccept_Allowed** | **66.53 ns** | 2.010 ns | 2.614 ns | 0 B |
+| **TryAccept_Blacklisted** | **234.27 ns** | 8.412 ns | 11.230 ns | 0 B |
 
 ### Đằng sau thiết kế
 
 - **Đường nhanh danh sách chặn theo IP**: Các IP bị chặn được kiểm tra ngay lập tức bằng cấu trúc tối ưu giống trie hoặc hashset, hoàn toàn không cấp phát bộ nhớ.
-- **Kiểm tra hạn mức**: Chấp nhận một kết nối cần kiểm tra giới hạn đồng thời hiện tại và giới hạn yêu cầu theo cửa sổ trượt, thực hiện trong khoảng ~55 ns và không cấp phát bộ nhớ heap.
+- **Kiểm tra hạn mức**: Chấp nhận một kết nối cần kiểm tra giới hạn đồng thời hiện tại và giới hạn yêu cầu theo cửa sổ trượt, thực hiện trong khoảng ~67 ns và không cấp phát bộ nhớ heap.
 
 ---
 
@@ -48,7 +48,7 @@ Chỉ số hiệu năng chi tiết cho runtime lõi của Nalix, bao gồm quả
 
 | Phương thức | Mean | Error | StdDev | Cấp phát |
 | :--- | ---: | ---: | ---: | ---: |
-| **StoreAndConsume** | **154.7 ns** | 5.87 ns | 6.76 ns | 48 B |
+| **StoreAndConsume** | **281.0 ns** | 7.89 ns | 10.26 ns | 48 B |
 
 ### Đằng sau thiết kế
 
@@ -62,11 +62,11 @@ Chỉ số hiệu năng chi tiết cho runtime lõi của Nalix, bao gồm quả
 
 | Phương thức | Mean | Error | StdDev | Cấp phát |
 | :--- | ---: | ---: | ---: | ---: |
-| **TryDeserialize** | **3.498 ns** | 0.0349 ns | 0.0466 ns | 0 B |
+| **TryDeserialize** | **5.700 ns** | 0.1906 ns | 0.2478 ns | 0 B |
 
 ### Đằng sau thiết kế
 
-- **Ánh xạ giải tuần tự hóa không cấp phát**: Việc ánh xạ định danh kiểu gói tin đến sang logic giải tuần tự hóa được biên dịch sẵn và lưu cache hoàn toàn. Đường tra cứu chạy dưới 4 ns với 0 B bộ nhớ heap.
+- **Ánh xạ giải tuần tự hóa không cấp phát**: Việc ánh xạ định danh kiểu gói tin đến sang logic giải tuần tự hóa được biên dịch sẵn và lưu cache hoàn toàn. Đường tra cứu chạy trong khoảng 5.7 ns với 0 B bộ nhớ heap.
 
 ---
 
@@ -76,10 +76,10 @@ Chỉ số hiệu năng chi tiết cho runtime lõi của Nalix, bao gồm quả
 
 | Phương thức | Mean | Tỷ lệ | Cấp phát |
 | :--- | ---: | ---: | ---: |
-| **Channel\<T\> write+read, single thread** | 2.45 μs | 1.00 | 0 B |
-| **ConcurrentQueue\<T\> write+read, single thread** | **0.89 μs** | **0.38** | 0 B |
-| **Channel\<T\> write+read, producer/consumer threads** | 149.20 ns / op | 1.00 | 0 B |
-| **ConcurrentQueue\<T\> write+read, producer/consumer threads** | **24.96 ns / op** | **0.17** | 3 B |
+| **Channel\<T\> write+read, single thread** | 1.49 μs | 1.00 | 0 B |
+| **ConcurrentQueue\<T\> write+read, single thread** | **0.47 μs** | **0.32** | 0 B |
+| **Channel\<T\> write+read, producer/consumer threads** | 341.28 ns / op | 1.00 | 0 B |
+| **ConcurrentQueue\<T\> write+read, producer/consumer threads** | **74.93 ns / op** | **0.22** | 1 B |
 
 Đo đầu cuối, thực thi trực tiếp `DispatchChannel<IPacket>.Push` → `TryClaim` → `TryDequeue` → `Release` (đường đi thực tế của mỗi tin nhắn):
 
@@ -107,15 +107,15 @@ Nalix dùng bộ giới hạn token bucket và các cổng đồng thời để 
 
 | Phương thức | Mean | Error | StdDev | P95 | Cấp phát |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Evaluate** | **86.72 ns** | 2.303 ns | 2.652 ns | 88.85 ns | 0 B |
+| **Evaluate** | **120.1 ns** | 3.55 ns | 4.61 ns | 127.8 ns | 0 B |
 
 ### Policy Rate Limiter
 
 | Phương thức | Mean | Error | StdDev | P95 | Cấp phát |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Evaluate** | **106.7 ns** | 3.48 ns | 4.00 ns | 111.7 ns | 0 B |
+| **Evaluate** | **149.2 ns** | 2.84 ns | 3.59 ns | 152.9 ns | 0 B |
 
 ### Chiến lược tối ưu
 
 - **Vòng lặp CAS (Compare-And-Swap) nguyên tử**: Quyết định throttling được đưa ra bằng cấu trúc interlocked không khóa, thực hiện các thao tác nguyên tử trong vài nano giây.
-- **Đánh giá không cấp phát**: Đánh giá `TokenBucket` chạy mà không cấp phát đối tượng (0 B) trong khoảng ~87 ns, cho phép kiểm tra giới hạn tốc độ trực tiếp trên các gói tin có tần suất cao.
+- **Đánh giá không cấp phát**: Đánh giá `TokenBucket` chạy mà không cấp phát đối tượng (0 B) trong khoảng ~120 ns, cho phép kiểm tra giới hạn tốc độ trực tiếp trên các gói tin có tần suất cao.

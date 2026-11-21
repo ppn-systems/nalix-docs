@@ -12,7 +12,7 @@ The `ConnectionHub` acts as the central registry for active socket connections.
 
 | Method | Mean | Error | StdDev | Allocated |
 | :--- | ---: | ---: | ---: | ---: |
-| **GetConnection** | **3.935 ns** | 0.3706 ns | 0.4268 ns | 0 B |
+| **GetConnection** | **3.633 ns** | 0.2432 ns | 0.3247 ns | 0 B |
 | **RegisterAndUnregister** | 269.944 ns | 8.3769 ns | 8.9631 ns | 0 B |
 
 :::note
@@ -22,7 +22,7 @@ The `ConnectionHub` acts as the central registry for active socket connections.
 ### Behind the design
 
 - **Lock-Free Indexing**: The connection hub relies on high-performance concurrent collections and index arrays to handle concurrent registrations without global locks.
-- **Fast Get Route**: Looking up a session by its long identifier takes less than 4 nanoseconds (~3.9 ns), ensuring that session retrieval is not a bottleneck in the inbound message loop.
+- **Fast Get Route**: Looking up a session by its long identifier takes less than 4 nanoseconds (~3.6 ns), ensuring that session retrieval is not a bottleneck in the inbound message loop.
 
 ---
 
@@ -32,13 +32,13 @@ The `ConnectionGuard` manages connection rate-limiting and connection-level IP b
 
 | Method | Mean | Error | StdDev | Allocated |
 | :--- | ---: | ---: | ---: | ---: |
-| **TryAccept_Allowed** | **54.56 ns** | 2.555 ns | 2.942 ns | 0 B |
-| **TryAccept_Blacklisted** | **190.40 ns** | 6.475 ns | 7.457 ns | 0 B |
+| **TryAccept_Allowed** | **66.53 ns** | 2.010 ns | 2.614 ns | 0 B |
+| **TryAccept_Blacklisted** | **234.27 ns** | 8.412 ns | 11.230 ns | 0 B |
 
 ### Behind the design
 
 - **IP-Based Blacklist Fast Path**: Blacklisted IPs are checked immediately using an optimized trie-like structure or hashset with absolutely zero allocations.
-- **Quota Validation**: Accepting a connection requires checking current concurrency limits and sliding-window request limits, executing in ~55 ns with zero heap allocations.
+- **Quota Validation**: Accepting a connection requires checking current concurrency limits and sliding-window request limits, executing in ~67 ns with zero heap allocations.
 
 ---
 
@@ -48,7 +48,7 @@ The `SessionStore` maintains high-performance local user sessions.
 
 | Method | Mean | Error | StdDev | Allocated |
 | :--- | ---: | ---: | ---: | ---: |
-| **StoreAndConsume** | **154.7 ns** | 5.87 ns | 6.76 ns | 48 B |
+| **StoreAndConsume** | **281.0 ns** | 7.89 ns | 10.26 ns | 48 B |
 
 ### Behind the design
 
@@ -62,11 +62,11 @@ The `PacketRegistry` maps payload identifiers to concrete handler contracts.
 
 | Method | Mean | Error | StdDev | Allocated |
 | :--- | ---: | ---: | ---: | ---: |
-| **TryDeserialize** | **3.498 ns** | 0.0349 ns | 0.0466 ns | 0 B |
+| **TryDeserialize** | **5.700 ns** | 0.1906 ns | 0.2478 ns | 0 B |
 
 ### Behind the design
 
-- **Zero-Allocation Deserialization Mapping**: Mapping an incoming packet type identifier to its deserialization logic is fully pre-compiled and cached. A resolution path executes in under 4 ns with true zero heap allocation (0 B).
+- **Zero-Allocation Deserialization Mapping**: Mapping an incoming packet type identifier to its deserialization logic is fully pre-compiled and cached. A resolution path executes in about 5.7 ns with true zero heap allocation (0 B).
 
 ---
 
@@ -76,10 +76,10 @@ The `PacketRegistry` maps payload identifiers to concrete handler contracts.
 
 | Method | Mean | Ratio | Allocated |
 | :--- | ---: | ---: | ---: |
-| **Channel\<T\> write+read, single thread** | 2.45 μs | 1.00 | 0 B |
-| **ConcurrentQueue\<T\> write+read, single thread** | **0.89 μs** | **0.38** | 0 B |
-| **Channel\<T\> write+read, producer/consumer threads** | 149.20 ns / op | 1.00 | 0 B |
-| **ConcurrentQueue\<T\> write+read, producer/consumer threads** | **24.96 ns / op** | **0.17** | 3 B |
+| **Channel\<T\> write+read, single thread** | 1.49 μs | 1.00 | 0 B |
+| **ConcurrentQueue\<T\> write+read, single thread** | **0.47 μs** | **0.32** | 0 B |
+| **Channel\<T\> write+read, producer/consumer threads** | 341.28 ns / op | 1.00 | 0 B |
+| **ConcurrentQueue\<T\> write+read, producer/consumer threads** | **74.93 ns / op** | **0.22** | 1 B |
 
 End-to-end, exercising `DispatchChannel<IPacket>.Push` → `TryClaim` → `TryDequeue` → `Release` directly (the real per-message path):
 
@@ -107,15 +107,15 @@ Nalix uses a token bucket limiter and concurrency gates to prevent server overlo
 
 | Method | Mean | Error | StdDev | P95 | Allocated |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Evaluate** | **86.72 ns** | 2.303 ns | 2.652 ns | 88.85 ns | 0 B |
+| **Evaluate** | **120.1 ns** | 3.55 ns | 4.61 ns | 127.8 ns | 0 B |
 
 ### Policy Rate Limiter
 
 | Method | Mean | Error | StdDev | P95 | Allocated |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Evaluate** | **106.7 ns** | 3.48 ns | 4.00 ns | 111.7 ns | 0 B |
+| **Evaluate** | **149.2 ns** | 2.84 ns | 3.59 ns | 152.9 ns | 0 B |
 
 ### Optimization Strategy
 
 - **Atomic CAS (Compare-And-Swap) Loops**: Throttling decisions are made using lock-free interlocked structures to perform atomic operations in nanoseconds.
-- **Zero-Allocation Evaluation**: The `TokenBucket` evaluation runs without object allocation (0 B) in ~87 ns, allowing rate-limiting checks directly on high-frequency packets.
+- **Zero-Allocation Evaluation**: The `TokenBucket` evaluation runs without object allocation (0 B) in ~120 ns, allowing rate-limiting checks directly on high-frequency packets.
