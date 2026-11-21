@@ -37,7 +37,7 @@ flowchart TD
     end
 
     Tick --> Drain --> CheckVer
-    CheckVer -->|No (Stale)| Pool["Return TimeoutTask to ObjectPool"]
+    CheckVer -->|"No (Stale)"| Pool["Return TimeoutTask to ObjectPool"]
     CheckVer -->|Yes| CheckRounds
     CheckRounds -->|Yes| Dec["task.Rounds-- (Stay in Bucket)"]
     CheckRounds -->|No| CheckIdle
@@ -51,7 +51,7 @@ flowchart TD
 
 - The wheel allocates `BucketCount` (`512`) `TimingWheelBucket` slots. When `BucketCount` is a power of two, bucket indices are computed via bitmask (`(int)(targetTick & _mask)`).
 - Each bucket maintains a doubly-linked list of pooled `TimeoutTask` nodes guarded by a per-bucket monitor lock (`lock (bucket)`), supporting $O(1)$ insertion and removal.
-- Connection registration and unregistration synchronize per connection using a power-of-two striped lock array (`_connectionLocks`) plus `ITimeoutTrackedConnection.TimeoutVersion` and `TimeoutTask` properties directly on `Connection` / `WebSocketConnection` / `PassthroughConnection`.
+- Connection registration and unregistration synchronize per connection using a power-of-two striped lock array (`_connectionLocks`) plus `ITimeoutTrackedConnection.TimeoutVersion` and `TimeoutTask` properties directly on `Connection` / `WebSocketConnection`.
 
 ### 2. Instant Reference Breaking on Disposal
 
@@ -59,7 +59,7 @@ When a `Connection` is disposed, `PerformDestructiveCleanup()` immediately break
 
 ### 3. Reference-Counted Activation (`Activate` / `Deactivate`)
 
-Multiple listeners (`TcpListenerBase`, `WebSocketListenerBase`, `UdpPassthroughListener`) share the singleton `TimingWheel`. `Activate` increments `_activeListeners` and starts the background `TaskManager` worker on the first listener; `Deactivate` decrements `_activeListeners` and stops/drains the wheel when the last listener shuts down (waiting up to `TimingWheelOptions.WheelDrainTimeoutMs = 5000` ms).
+Multiple listeners (`TcpListenerBase`, `WebSocketListenerBase`) share the singleton `TimingWheel`. `Activate` increments `_activeListeners` and starts the background `TaskManager` worker on the first listener; `Deactivate` decrements `_activeListeners` and stops/drains the wheel when the last listener shuts down (waiting up to `TimingWheelOptions.WheelDrainTimeoutMs = 5000` ms).
 
 ## Configuration (`TimingWheelOptions`)
 
@@ -68,6 +68,7 @@ Multiple listeners (`TcpListenerBase`, `WebSocketListenerBase`, `UdpPassthroughL
 | `BucketCount` | `512` | `[ValueRange(1, int.MaxValue)]` | Number of wheel slots (power-of-two values enable bitmask indexing). |
 | `TickDuration` | `1000` | `[ValueRange(1, int.MaxValue)]` | Tick interval in milliseconds for the `PeriodicTimer` loop. |
 | `IdleTimeoutMs` | `60_000` | `[ValueRange(1, int.MaxValue)]` | Default connection idle timeout in milliseconds before auto-disconnect. |
+| `HandshakeTimeoutMs` | `15_000` | `[ValueRange(0, 600_000)]` | Maximum time in milliseconds a TCP/WebSocket connection may stay below `ESTABLISHED` permission after accept before it is closed (`0` disables). |
 | `WheelDrainTimeoutMs` | `5000` | `[ValueRange(0, 60000)]` | Maximum graceful drain wait in milliseconds during shutdown. |
 
 ## Related APIs

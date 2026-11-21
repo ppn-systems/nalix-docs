@@ -8,7 +8,7 @@ package: Nalix.Abstractions
 **Namespace:** `Nalix.Abstractions.Networking.Packets` (and `Nalix.Abstractions.Networking.Rpc`)  
 **Assembly:** `Nalix.Abstractions`
 
-Nalix uses attributes to declare controller discovery, opcode routing, transport constraints, permission levels, encryption requirements, rate limits, and execution timeouts. These attributes are compiled into a zero-allocation `PacketMetadata` struct at build time by `PacketHandlerGenerator`.
+Nalix uses attributes to declare controller discovery, opcode routing, datagram delivery, permission levels, encryption requirements, rate limits, and execution timeouts. These attributes are compiled into a zero-allocation `PacketMetadata` struct at build time by `PacketHandlerGenerator`.
 
 ## Source Mapping
 
@@ -18,7 +18,7 @@ Nalix uses attributes to declare controller discovery, opcode routing, transport
 - `src/Nalix.Abstractions/Networking/Packets/PacketRateLimitAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketEncryptionAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketTimeoutAttribute.cs`
-- `src/Nalix.Abstractions/Networking/Packets/PacketTransportAttribute.cs`
+- `src/Nalix.Abstractions/Networking/Packets/PacketDeliveryAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketIdempotentAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Rpc/RpcServiceAttribute.cs`
 
@@ -32,13 +32,13 @@ Nalix uses attributes to declare controller discovery, opcode routing, transport
 | `[PacketEncryption]` | Method | `PacketEncryptionAttribute(bool isEncrypted = true, CipherSuiteType algorithmType = CipherSuiteType.Chacha20Poly1305)`<br/>Properties: `bool IsEncrypted`, `CipherSuiteType AlgorithmType` | Requires `context.EncryptedOnWire == true` (enforced by `PacketEncryptionMiddleware`) and encrypts responses sent via `context.Sender`. |
 | `[PacketRateLimit]` | Method | `PacketRateLimitAttribute(int requestsPerSecond, double burst = 1.0)`<br/>Property: `int RequestsPerSecond`, `double Burst`<br/>Init properties: `string? PolicyId`, `int HardLockoutSeconds = -1`, `int MaxSoftViolations = -1` | Attaches a token-bucket rate limit to the handler, enforced by `RateLimitMiddleware`. |
 | `[PacketTimeout]` | Method | `PacketTimeoutAttribute(int timeoutMilliseconds)`<br/>Property: `int TimeoutMilliseconds { get; }` | Sets a linked `CancellationToken` timeout budget in milliseconds, enforced by `TimeoutMiddleware`. |
-| `[PacketTransport]` | Method | `PacketTransportAttribute(NetworkTransport transport)`<br/>Property: `NetworkTransport TransportType { get; }` | Restricts the handler to `NetworkTransport.TCP`, `UDP`, or `WEBSOCKET` (enforced by `TransportMiddleware`) and routes `context.Sender` replies over that transport. |
+| `[PacketDelivery]` | Method | `PacketDeliveryAttribute(DeliveryMethod method, byte channel = 0)` (sealed, single use, not inherited)<br/>Properties: `DeliveryMethod Method`, `byte Channel` | Selects the delivery method and channel of the packets a handler sends on a datagram connection. Without it, datagram sends use `DeliveryMethod.ReliableOrdered` on channel 0. Stream connections (TCP, WebSocket) ignore it and always deliver reliably and in order. |
 | `[PacketIdempotent]` | Class | `PacketIdempotentAttribute()` | Documentation-only metadata marking a packet class as idempotent (safe for client-side retry policies). |
 | `[ReservedOpcodePermitted]` | Class, Method | `ReservedOpcodePermittedAttribute()` (`Nalix.Abstractions`; not inherited, single use) | Marks a type or method as permitted to use reserved opcodes (`0x0000..0x00FF`), which are normally blocked for application-level use. |
 | `[RpcService]` | Interface | `RpcServiceAttribute()` | Marks an interface for compile-time typed client extension generation by `RpcClientGenerator`. |
 
 :::important[Declaration vs. Middleware Enforcement]
-Attributes populate `context.Attributes` (`PacketMetadata`). When you register handlers via `NetworkApplicationBuilder.MapHandlers<T>()` (or `PacketDispatchOptions.WithHandler<T>()`), `PacketDispatchOptions` automatically wires `TransportMiddleware`, `PacketEncryptionMiddleware`, `PermissionMiddleware`, `RateLimitMiddleware`, and `TimeoutMiddleware` whenever any registered handler declares the corresponding attribute.
+Attributes populate `context.Attributes` (`PacketMetadata`). When you register handlers via `NetworkApplicationBuilder.MapHandlers<T>()` (or `PacketDispatchOptions.WithHandler<T>()`), `PacketDispatchOptions` automatically wires `PacketEncryptionMiddleware`, `PermissionMiddleware`, `RateLimitMiddleware`, and `TimeoutMiddleware` whenever any registered handler declares the corresponding attribute.
 :::
 
 ## Practical Example
@@ -57,7 +57,7 @@ public sealed class SecureChatController
     [PacketRateLimit(requestsPerSecond: 10, burst: 3, PolicyId = "chat-send", HardLockoutSeconds = 30, MaxSoftViolations = 5)]
     [PacketEncryption(true, CipherSuiteType.Chacha20Poly1305)]
     [PacketTimeout(5000)]
-    [PacketTransport(NetworkTransport.TCP)]
+    [PacketDelivery(DeliveryMethod.ReliableOrdered, channel: 0)]
     public ValueTask HandleChatMessageAsync(IPacketContext<ChatMessagePacket> context)
     {
         return context.Sender.ReplyAsync(new ChatAckPacket { MessageId = context.Packet.MessageId });

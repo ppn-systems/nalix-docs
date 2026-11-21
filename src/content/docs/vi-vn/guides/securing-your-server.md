@@ -22,7 +22,7 @@ await using NetworkApplication app = NetworkApplication.CreateBuilder()
     .UseSystemControl()
     .MapHandlers(typeof(HelloHandlers))
     .MapTcp<DefaultProtocol>().OnPort(TcpPort).Bind()
-    .MapUdp<DefaultProtocol>().OnPort(UdpPort).Bind()
+    .MapDatagram<DefaultProtocol>().OnPort(UdpPort).Bind()
     .MapWebSocket<DefaultProtocol>().OnPort(WebSocketPort).WithPath("/ws").Bind()
     .Build();
 
@@ -35,8 +35,8 @@ await app.RunAsync(cts.Token);
 
 Mã nguồn đầy đủ: `samples/SecureMultiTransportHelloWorld/SecureMultiTransportHelloWorld.Server/Program.cs`
 
-:::note[TCP và UDP dùng chung một cổng]
-TCP và UDP lắng nghe trên cùng một cổng vì máy chủ kiểm tra địa chỉ nguồn của gói UDP có khớp với một client TCP đã kết nối hay không. Dùng các cổng khác nhau cho mỗi bên cũng không gây lỗi, nhưng dùng chung một cổng là cấu hình đã được kiểm thử và được khuyến nghị.
+:::note[Cổng TCP và UDP]
+Datagram listener là một socket UDP riêng, nên nó có thể dùng cùng số cổng với TCP listener hoặc một cổng khác. Client biết cổng UDP từ ticket (`DatagramTicketInfo.Port`) nhận được qua phiên TCP.
 :::
 
 ## Client bắt tay qua TCP trước
@@ -62,10 +62,10 @@ HelloResponsePacket tcpResponse = await tcpSession.RequestAsync<HelloResponsePac
 
 Mã nguồn đầy đủ: `samples/SecureMultiTransportHelloWorld/SecureMultiTransportHelloWorld.Client/Program.cs`
 
-## UDP tái sử dụng danh tính phiên TCP
+## Datagram session dẫn xuất từ phiên TCP
 
 ```csharp
-using UdpSession udpSession = new(udpOptions, sharedState);
+using DatagramSession udpSession = new(tcpSession);
 await udpSession.ConnectAsync(Host, UdpPort);
 
 HelloRequestPacket udpRequest = new();
@@ -74,7 +74,7 @@ HelloResponsePacket udpResponse = await udpSession.RequestAsync<HelloResponsePac
     RequestOptions.Default.WithTimeout(5_000));
 ```
 
-Bạn phải hoàn thành bắt tay TCP trước khi gửi bất cứ thứ gì qua UDP. Gói UDP được xác thực bằng token phiên và một mã xác thực thông điệp (MAC) được suy ra từ bí mật dùng chung đã thương lượng trong bắt tay TCP — nếu không có bắt tay đó, máy chủ không có cách nào xác minh gói UDP đến từ phiên của bạn.
+Bạn phải hoàn thành bắt tay TCP trước khi mở một datagram session. `ConnectAsync` yêu cầu một ticket qua phiên TCP, và cả hai phía dẫn xuất khóa datagram từ bí mật đã thương lượng trong bắt tay. Mỗi datagram được niêm phong bằng ChaCha20-Poly1305, nên máy chủ có thể xác minh nó đến từ phiên của bạn.
 
 Mã nguồn đầy đủ: `samples/SecureMultiTransportHelloWorld/SecureMultiTransportHelloWorld.Client/Program.cs`
 
@@ -133,9 +133,9 @@ public ValueTask<TransferResponse> Transfer(IPacketContext<TransferRequest> cont
 | :--- | :--- |
 | WebSocket hoặc TCP phía sau TLS (`wss://`, một proxy kết thúc TLS) | Không thể: TLS xác thực toàn bộ luồng byte |
 | TCP thô không có TLS (như trong các mẫu) | Có thể với các handler không có `[PacketEncryption(true)]` |
-| UDP | Có thể: TLS không bao giờ bảo vệ UDP, nên hãy đánh dấu cả các handler UDP |
+| Datagram (UDP) | Không thể: mỗi datagram được phiên niêm phong bằng ChaCha20-Poly1305, và frame không bị mã hóa lần thứ hai |
 
-Các datagram UDP plaintext chỉ được kiểm tra chống phát lại dựa trên `SequenceId` 16 bit trong header, nên một datagram plaintext bị bắt có thể được chấp nhận lại khi bộ đếm này quay vòng (khoảng 65,536 gói sau đó). Datagram đã mã hóa cũng mang số thứ tự 32 bit có xác thực và không bị ảnh hưởng. Hãy đánh dấu các handler UDP bằng `[PacketEncryption(true)]`, hoặc đảm bảo chúng vẫn an toàn khi chạy hai lần với cùng một đầu vào.
+Trên một datagram session, các tham số `encrypt` của các phương thức gửi bị bỏ qua và runtime không mã hóa frame lần thứ hai (`PacketSender.NeedsEncryption`), vì phiên đã xác thực và mã hóa từng datagram.
 
 Nếu bạn không kết thúc TLS trước Nalix, hãy coi `[PacketEncryption(true)]` là bắt buộc với mọi thứ nhạy cảm. Xem [Reverse Proxy và TLS](./deployment/reverse-proxy-tls.md).
 
@@ -166,7 +166,7 @@ TCP handshake completed. Secure state is ready.
   Encryption   : True
 TCP replied: Hello from Nalix!
 
-Sending UDP hello...
+Sending datagram hello...
 UDP replied: Hello from Nalix!
 TCP connection is still alive: True
 

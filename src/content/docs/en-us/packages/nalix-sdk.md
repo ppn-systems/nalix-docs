@@ -1,11 +1,11 @@
 ---
 title: Nalix.SDK
-description: Level 3 client-side transport package for connecting .NET applications to a Nalix server over TCP or UDP with X25519 handshakes, session resume, and request/response correlation.
+description: Level 3 client-side transport package for connecting .NET applications to a Nalix server over TCP, WebSocket, or datagram (NDP over UDP) with X25519 handshakes, session resume, and request/response correlation.
 section: Packages
 package: Nalix.SDK
 ---
 
-`Nalix.SDK` is the **Level 3** client-side transport package for connecting .NET 10 applications (console, desktop, mobile, or Unity/Godot clients) to a Nalix server over TCP or UDP.
+`Nalix.SDK` is the **Level 3** client-side transport package for connecting .NET 10 applications (console, desktop, mobile, or Unity/Godot clients) to a Nalix server over TCP, WebSocket, or datagram (NDP over UDP) sessions.
 
 :::tip[Start with `TcpSession`]
 `TcpSession` is the primary client session type. It manages socket connection, background framed receive loops, automatic keepalive PING/PONG probes, exponential-backoff reconnects (`ReconnectSupervisor`), X25519 handshakes, and zero-race request/response correlation.
@@ -15,7 +15,8 @@ package: Nalix.SDK
 
 ```mermaid
 flowchart TD
-    A["TransportOptions"] --> B["TcpSession / UdpSession"]
+    A["TransportOptions"] --> B["TcpSession / WebSocketSession"]
+    B -->|"ticket request"| B2["DatagramSession"]
     B --> C["ConnectAsync()"]
     C --> D["ConnectWithResumeAsync() / HandshakeAsync()"]
     D --> E["OnReady Fired & KeepAlive Started"]
@@ -26,17 +27,19 @@ flowchart TD
 
 - **`TransportSession`** — Abstract base class implementing `ITransportSession`, `State` (`SessionState`), `WaitUntilReadyAsync`, `OnConnected`, `OnReady`, `OnDisconnected`, `OnMessageReceived`, `OnError`, keepalive probing, and pending-request correlation.
 - **`TcpSession`** — Framed TCP client session with `SocketAsyncEventArgs` pooling and automatic reconnect support.
-- **`UdpSession`** — Companion or standalone UDP datagram session that automatically prepends the 8-byte `SessionToken` negotiated on TCP.
+- **`WebSocketSession`** — Binary WebSocket client session (also usable on Blazor WASM).
+- **`DatagramSession`** — NDP-over-UDP session created from an established stream session (`new DatagramSession(stream)`); it requests a ticket over the stream, derives its own keys from `State.Secret`, seals every datagram with ChaCha20-Poly1305, and supports `DeliveryMethod` and channels.
 - **`SessionState`** — Ephemeral runtime state (`Secret`, `SessionToken`, `EncryptionEnabled`, `LocalPort`) separated from persistent `TransportOptions`.
 - **Transport Extensions (`Nalix.SDK.Transport.Extensions`)**:
   - `HandshakeExtensions` (`HandshakeAsync`)
   - `ResumeExtensions` (`ResumeSessionAsync`, `ConnectWithResumeAsync`)
-  - `RequestExtensions` (`RequestAsync<TResponse>`, `TryRequestAsync<TResponse>`, `CallAsync<TResponse>`)
+  - `RequestExtensions` (`RequestAsync<TResponse>`, `TryRequestAsync<TResponse>`)
   - `StreamExtensions` (`StreamAsync<TResponse>`)
   - `ControlExtensions` & `PingExtensions` (`NewControl`, `SendControlAsync`, `AwaitControlAsync`, `PingAsync`, `SyncTimeAsync`)
   - `CipherExtensions` & `RekeyExtensions` (`UpdateCipherAsync`, `RekeyAsync`)
   - `TransportSessionSubscriptions` (`On<TPacket>`, `OnExact<TPacket>`, `Subscribe(params IDisposable[])`)
-- **Thread Dispatching (`Nalix.SDK.Dispatch`)** — `IThreadDispatcher` and `InlineDispatcher` for marshaling received packets onto game-engine or UI main threads.
+- **Observability** — `DiagnosticsEvents` (`DiagnosticListener` named `"SDK"`) and `SdkTelemetry` (`ActivitySource` / `Meter` named `"Nalix.SDK"`), see [Session Diagnostics](../api/sdk/diagnostics.md).
+- **Thread Dispatching (`Nalix.SDK`)** — `IThreadDispatcher` and `InlineDispatcher` for marshaling received packets onto game-engine or UI main threads.
 - **Typed RPC Client Generation (`[RpcService]`)** — `RpcClientGenerator` automatically generates `<ServiceName>_RpcClient` implementations resolved via `session.CreateRpcClient<TService>()` for interfaces annotated with `[RpcService]`.
 
 ## Quick Example
@@ -83,7 +86,7 @@ await client.DisconnectAsync();
 | `CompressionEnabled` | `true` | Enables LZ4 compression for outbound frames exceeding `CompressionThreshold`. |
 | `CompressionThreshold` | `512` | Minimum payload size in bytes to trigger LZ4 compression. |
 | `AsyncQueueCapacity` | `1024` | `[ValueRange(1, 65536)]` Reserved capacity setting. |
-| `MaxUdpDatagramSize` | `1400` | `[ValueRange(64, 65507)]` Max UDP datagram bytes including the 8-byte session token. |
+| `EncryptRequestsByDefault` | `false` | Encrypts requests that do not set `RequestOptions.Encrypt` once the handshake completed. Keep `false` when the transport is wrapped in TLS. |
 | `ServerPublicKey` | `null` | Optional pinned X25519 server public key in HEX for MitM protection. |
 | `AllowTofu` | `true` | Allows Trust-On-First-Use (TOFU) public key discovery when `ServerPublicKey` is unset. |
 | `PersistTofuKey` | `false` | Persists a TOFU-discovered `ServerPublicKey` to configuration storage after verification. |
@@ -110,12 +113,16 @@ Ephemeral session values—`Secret` (`Bytes32`), `SessionToken` (`ulong`), `Encr
 | :--- | ---: | :--- |
 | `TimeoutMs` | `5000` | Must be `>= 0`; `0` waits indefinitely. Configured via `.WithTimeout(ms)`. |
 | `RetryCount` | `0` | Must be `>= 0`; retries occur **only** on `TimeoutException`. Configured via `.WithRetry(count)`. |
-| `Encrypt` | `false` | Encrypts the outbound request frame. Configured via `.WithEncrypt(bool)`. |
+| `DeadlineMs` | `0` | Must be `>= 0`; overall budget for the whole call (`0` = none). Configured via `.WithDeadline(ms)`. |
+| `RetryDelayMs` | `0` | Must be `>= 0`; base delay before a retry, doubled on each further retry with jitter. Configured via `.WithRetryDelay(ms)`. |
+| `Encrypt` | `null` | `bool?`: `true` always encrypts, `false` never, `null` follows `TransportOptions.EncryptRequestsByDefault`. Configured via `.WithEncrypt(bool?)`. |
 
 ## Key API Pages
 
 - [Transport Session](../api/sdk/transport-session.md)
 - [TCP Session](../api/sdk/tcp-session.md)
+- [WebSocket Session](../api/sdk/websocket-session.md)
+- [Datagram Session](../api/sdk/datagram-session.md)
 - [Handshake Extensions](../api/sdk/handshake-extensions.md)
 - [Resume Extensions](../api/sdk/resume-extensions.md)
 - [Session Extensions](../api/sdk/tcp-session-extensions.md)

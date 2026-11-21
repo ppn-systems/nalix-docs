@@ -26,8 +26,8 @@ This page covers the low-level helper APIs around `DataReader`, `DataWriter`, an
 
 | Type | Public members |
 |---|---|
-| `DataReaderExtensions` | `ReadByte`, `ReadSByte`, `ReadInt16`, `ReadUInt16`, `ReadInt32`, `ReadUInt32`, `ReadInt64`, `ReadUInt64`, `ReadChar`, `ReadSingle`, `ReadDouble`, `ReadBoolean`, `ReadEnumByte`, `ReadEnumSByte`, `ReadEnumInt16`, `ReadEnumUInt16`, `ReadEnumInt32`, `ReadEnumUInt32`, `ReadBytes`, `ReadRemainingBytes`, `ReadUnmanaged`, `Remaining` |
-| `DataWriterExtensions` | `Write`, `WriteEnum`, `WriteUnmanaged` overloads for primitive, span, enum (1/2/4-byte), and unmanaged values |
+| `DataReaderExtensions` | `ReadByte`, `ReadSByte`, `ReadInt16`, `ReadUInt16`, `ReadInt32`, `ReadUInt32`, `ReadInt64`, `ReadUInt64`, `ReadChar`, `ReadSingle`, `ReadDouble`, `ReadBoolean`, `ReadEnumByte`, `ReadEnumSByte`, `ReadEnumInt16`, `ReadEnumUInt16`, `ReadEnumInt32`, `ReadEnumUInt32`, `ReadEnumInt64`, `ReadEnumUInt64`, `ReadBytes`, `ReadRemainingBytes`, `ReadUnmanaged`, `Remaining` |
+| `DataWriterExtensions` | `Write`, `WriteEnum`, `WriteUnmanaged` overloads for primitive, span, enum (1/2/4/8-byte), and unmanaged values |
 | `HeaderExtensions` | `AsHeaderRef` overloads for `Span<byte>` and `ReadOnlySpan<byte>` |
 
 ## When to use these helpers
@@ -64,6 +64,8 @@ Useful methods include:
 - `ReadEnumUInt16<TEnum>()`
 - `ReadEnumInt32<TEnum>()`
 - `ReadEnumUInt32<TEnum>()`
+- `ReadEnumInt64<TEnum>()`
+- `ReadEnumUInt64<TEnum>()`
 - `ReadBytes(count)`
 - `ReadRemainingBytes()`
 - `ReadUnmanaged<T>()`
@@ -89,7 +91,7 @@ Useful methods include:
 - `Write(bool)`
 - `Write(byte[])`
 - `Write(ReadOnlySpan<byte>)`
-- `WriteEnum<TEnum>(value)` (supports 1-, 2-, and 4-byte underlying enum types; throws `NotSupportedException` for 8-byte enums)
+- `WriteEnum<TEnum>(value)` (supports 1-, 2-, 4-, and 8-byte underlying enum types; throws `NotSupportedException` for any other size)
 - `WriteUnmanaged<T>(value)`
 
 ## HeaderExtensions

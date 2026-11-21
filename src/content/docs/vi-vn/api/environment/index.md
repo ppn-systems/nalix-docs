@@ -16,6 +16,8 @@ package: Nalix.Environment
 
 ## Cấu hình (`Nalix.Environment.Configuration`)
 
+- [**IniConfig**](./ini-config.md) — Bộ đọc/ghi `.ini` mức thấp với getter có kiểu và override `NALIX_<SECTION>_<KEY>`.
+- [**Datagram Engine**](./datagram-engine.md) — Engine phiên NDP không phụ thuộc socket, trạng thái, mã đóng và `DatagramEngineOptions`.
 - [**Cấu hình (ConfigurationManager & ConfigurationLoader)**](./configuration.md) — Ràng buộc cấu hình `.ini` an toàn đa luồng, theo dõi file trực tiếp và kiểm tra hợp lệ.
 
 ## Nền tảng, thời gian, ngẫu nhiên & đánh số tuần tự

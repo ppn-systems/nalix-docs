@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport.Extensions`  
 **Assembly:** `Nalix.SDK`
 
-`HandshakeExtensions.HandshakeAsync` thực hiện handshake mật mã phía client trên bất kỳ `ITransportSession` nào ([TcpSession](./tcp-session.md), [UdpSession](./udp-session.md) hoặc [WebSocketSession](./websocket-session.md)). Nó dẫn xuất khóa đối xứng 32 byte (`session.State.Secret`), bật mã hóa khung (`session.State.EncryptionEnabled = true`), lấy `session.State.SessionToken` 8 byte, và báo `TransportSession.NotifyReady()`.
+`HandshakeExtensions.HandshakeAsync` thực hiện handshake mật mã phía client trên bất kỳ `ITransportSession` nào ([TcpSession](./tcp-session.md), [DatagramSession](./datagram-session.md) hoặc [WebSocketSession](./websocket-session.md)). Nó dẫn xuất khóa đối xứng 32 byte (`session.State.Secret`), bật mã hóa khung (`session.State.EncryptionEnabled = true`), lấy `session.State.SessionToken` 8 byte, và báo `TransportSession.NotifyReady()`.
 
 ## Ánh xạ mã nguồn
 
@@ -81,13 +81,14 @@ sequenceDiagram
 
 Khi `ConnectionGuard` yêu cầu Proof-of-Work phía server, server trả lời `SessionInit` bằng `Control(ControlType.ERROR, ProtocolReason.POW_REQUIRED)`. `HandshakeAsync` xử lý việc này một cách trong suốt:
 1. Gửi `Control(ControlType.POW_REQUEST)` và chờ `ProofOfWorkChallenge`.
-2. Giải bài toán SHA-256 với các bit 0 đứng đầu trên `ThreadPool` (`ProofOfWorkSolver.SolveChallenge`), dùng ngân sách giải riêng `30_000` ms (`PowSolveTimeoutMs`).
+2. Giải bài toán Keccak-256 với các bit 0 đứng đầu (`ProofOfWorkSolver.SolveChallenge(nonce, difficulty, timestampTicks, ct)`). Việc tìm kiếm bị giới hạn bởi cùng token liên kết với handshake, nên `Options.ConnectTimeoutMillis` cũng giới hạn việc giải; một lần giải bị hủy sẽ ném `OperationCanceledException`.
 3. Gửi `ProofOfWorkProof` và tự động gửi lại `SessionInit`.
 
 ### 3. Xóa khóa tạm thời & hoàn tác
 
 - `HandshakeAsync` đưa `TransportSession` vào trạng thái đang thương lượng trong khi chạy (tạm dừng ping keepalive nền) và xóa khóa riêng X25519 tạm thời cùng các bí mật ECDH trung gian (`CryptographicOperations.ZeroMemory`) trong khối `finally`.
 - Mỗi bước handshake dùng `session.Options.ConnectTimeoutMillis` (hoặc `5000` ms khi `ConnectTimeoutMillis <= 0`).
+- `HandshakeAsync` gọi `session.ResetSequenceCounters()` trước khi thương lượng và báo tiến trình qua `DiagnosticsEvents.Handshake.*` (`Started`, `ProofOfWorkRequested`, `TofuTrusted`, `TofuPersisted`, `TofuNotPersisted`, `ProofInvalid`, `Completed`, `Failed`).
 
 ## Ví dụ sử dụng
 

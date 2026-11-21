@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport`  
 **Assembly:** `Nalix.SDK`
 
-`ITransportSession` and its abstract base implementation `TransportSession` define the unified client session contract across [TcpSession](./tcp-session.md), [UdpSession](./udp-session.md), and [WebSocketSession](./websocket-session.md). Ephemeral security and connection state (`Secret`, `SessionToken`, `EncryptionEnabled`, `LocalPort`) is stored in `SessionState`, allowing a `TcpSession` and companion `UdpSession` to share negotiated keys and tokens seamlessly.
+`ITransportSession` and its abstract base implementation `TransportSession` (`public abstract class TransportSession : IDisposable, IAsyncDisposable, ITransportSession`) define the unified client session contract across [TcpSession](./tcp-session.md), [DatagramSession](./datagram-session.md), and [WebSocketSession](./websocket-session.md). Ephemeral security and connection state (`Secret`, `SessionToken`, `EncryptionEnabled`, `LocalPort`) is stored in `SessionState`, allowing a `DatagramSession` to derive its keys from the `Secret` of the stream session it is bound to.
 
 ## Source Mapping
 
@@ -54,7 +54,7 @@ classDiagram
     ITransportSession <|.. TransportSession
     TransportSession --> SessionState : State
     TransportSession <|-- TcpSession
-    TransportSession <|-- UdpSession
+    TransportSession <|-- DatagramSession
     TransportSession <|-- WebSocketSession
 ```
 
@@ -78,12 +78,12 @@ public class SessionState
 | Property | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `Secret` | `Bytes32` | `Bytes32.Zero` | 32-byte symmetric encryption key derived during `HandshakeAsync` or rotated via `RekeyAsync`. |
-| `SessionToken` | `ulong` | `0` | 8-byte Snowflake session token assigned by the server in `SessionEstablished` / `SessionResume` (used for 0-RTT resume and UDP authentication). |
+| `SessionToken` | `ulong` | `0` | 8-byte Snowflake session token assigned by the server in `SessionEstablished` / `SessionResume` (used for 0-RTT resume). |
 | `EncryptionEnabled` | `bool` | `false` | `true` once `HandshakeAsync` or `ResumeSessionAsync` completes; controls whether outbound packets are encrypted by default. |
-| `LocalPort` | `int` | `0` | Local TCP socket port recorded by `TcpSession.ConnectAsync`; used by a companion `UdpSession` sharing the same `SessionState` to bind to the same local port for server endpoint pinning (`SEC-30`). |
+| `LocalPort` | `int` | `0` | Local TCP socket port recorded by `TcpSession.ConnectAsync` and `ConnectWithProxyAsync`; cleared by `Reset()`. |
 
-:::tip[Sharing `SessionState` Between TCP and UDP]
-Pass `tcpSession.State` into the `UdpSession(options, tcpSession.State)` constructor so the UDP session automatically inherits the negotiated `Secret`, `SessionToken`, `EncryptionEnabled`, and `LocalPort` from the TCP handshake!
+:::tip[Datagram sessions]
+A `DatagramSession` is constructed from an established `TransportSession` (`new DatagramSession(stream)`) and shares that session's `State`, so it derives its datagram keys from `State.Secret`. See [DatagramSession](./datagram-session.md).
 :::
 
 ## `ITransportSession` & `TransportSession` Members
@@ -121,7 +121,9 @@ Pass `tcpSession.State` into the `UdpSession(options, tcpSession.State)` constru
 | `WaitUntilReadyAsync` | `Task WaitUntilReadyAsync(CancellationToken ct = default)` | Awaits any in-flight `ReconnectSupervisor` recovery (including handshake/resume and `OnReauthenticateAsync` / `OnResumedAsync`). Completes immediately if already connected. |
 | `NextSequenceId` | `ushort NextSequenceId()` | Reserves the next outbound `SequenceId` from the session counter; `0` ("unset") is skipped when the counter wraps. |
 | `StampSequenceId` | `ushort StampSequenceId(IPacket packet)` | Sets `packet.Header.SequenceId` from `NextSequenceId()` when it is `0` and returns the value the packet carries; a packet that already has a non-zero `SequenceId` is left untouched. Concrete sessions call it from `SendAsync(IPacket, ...)` before serialization. |
-| `Dispose` | `void Dispose()` | Marks the disconnect as intentional, stops keepalive monitoring, closes the transport, and releases locks. |
+| `Dispose` | `void Dispose()` | Marks the disconnect as intentional, stops keepalive monitoring, closes the transport, and releases locks. Starts the disconnect and returns. |
+| `DisposeAsync` | `ValueTask DisposeAsync()` | Disconnects gracefully, waits until the transport and its receive loop have shut down, then releases all resources. Safe to call more than once and together with `Dispose()`; the disconnect is application-initiated, so it never starts an auto-reconnect. A failing disconnect does not prevent the resources from being released. |
+| `DisposeAsyncCore` | `protected virtual ValueTask DisposeAsyncCore()` | The asynchronous part of `DisposeAsync`; defaults to `DisconnectAsync()`. `TcpSession` and `WebSocketSession` override it to also wait for the receive loop. |
 
 ## Built-In Resilience Mechanics
 
@@ -137,7 +139,7 @@ When `Options.KeepAliveIntervalMillis > 0`, `TransportSession` runs a background
 ## Related APIs
 
 - [TCP Session](./tcp-session.md)
-- [UDP Session](./udp-session.md)
+- [Datagram Session](./datagram-session.md)
 - [WebSocket Session](./websocket-session.md)
 - [Session Extensions](./tcp-session-extensions.md)
 - [Transport Options](../options/sdk/transport-options.md)

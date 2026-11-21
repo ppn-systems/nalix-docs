@@ -43,11 +43,10 @@ package: Nalix.Abstractions
 | --- | --- | --- |
 | `Packet` | `TPacket` | The deserialized request packet. |
 | `Connection` | `IConnection` | The client connection that sent the packet. |
-| `Attributes` | `PacketMetadata` | Compile-time handler attributes (`PacketOpcode`, `Timeout`, `Permission`, `Encryption`, `RateLimit`, `Transport`). |
+| `Attributes` | `PacketMetadata` | Compile-time handler attributes (`PacketOpcode`, `Timeout`, `Permission`, `Encryption`, `RateLimit`, plus `CustomAttributes` such as `[PacketDelivery]`). |
 | `Sender` | `IPacketSender` | Metadata-aware outbound packet sender bound to this context. |
 | `Scope` | `IPacketScope` | Per-packet service scope used to resolve `[FromScope]` handler parameters. |
 | `EncryptedOnWire` | `bool` | `true` if the inbound frame arrived encrypted on the wire before `FrameCipher.DecryptFrame` stripped `PacketFlags.ENCRYPTED`. |
-| `IsReliable` | `bool` | `true` when the packet arrived over a reliable transport (`TCP` or `WEBSOCKET`). |
 | `SkipOutbound` | `bool` | When set to `true`, skips outbound middleware execution for this context. |
 | `CancellationToken` | `CancellationToken` | Cancellation token governing the handler execution (including `TimeoutMiddleware` budgets). |
 
@@ -58,7 +57,7 @@ package: Nalix.Abstractions
 | Method | Signature | Description |
 | --- | --- | --- |
 | `Initialize<TPacket>` | `void Initialize<TPacket>(IPacketContext<TPacket> context) where TPacket : IPacket` | Binds the pooled sender to the active `IPacketContext<TPacket>`. |
-| `SendAsync` | `ValueTask SendAsync(IPacket packet, CancellationToken ct = default)` | Sends `packet` to `context.Connection`, automatically applying `[PacketEncryption]` and `[PacketTransport]` metadata from the handler. |
+| `SendAsync` | `ValueTask SendAsync(IPacket packet, CancellationToken ct = default)` | Sends `packet` to `context.Connection`, automatically applying `[PacketEncryption]` metadata and, on a datagram connection, the `[PacketDelivery]` method and channel from the handler. |
 | `SendAsync` (explicit encryption) | `ValueTask SendAsync(IPacket packet, bool forceEncrypt, CancellationToken ct = default)` | Sends `packet` while explicitly overriding encryption (`forceEncrypt`). |
 | `ReplyAsync` | `ValueTask ReplyAsync(IPacket response, CancellationToken ct = default)` | Automatically stamps `response.SequenceId = context.Packet.SequenceId` before sending so `session.RequestAsync<T>()` correlates the reply. |
 
@@ -78,7 +77,7 @@ package: Nalix.Abstractions
 - **`Nalix.Abstractions`**: Interfaces, attributes, headers, and zero-dependency value primitives.
 - **`Nalix.Codec`**: Concrete `PacketBase<TSelf>` frame model, `PacketRegistry`, and binary `LiteSerializer`.
 - **`Nalix.Runtime`**: Pooled `PacketContext<TPacket>`, `PacketSender`, and `PacketDispatchChannel`.
-- **`Nalix.SDK`**: Client sessions (`TcpSession`, `UdpSession`, `WebSocketSession`) consuming the same packet contracts.
+- **`Nalix.SDK`**: Client sessions (`TcpSession`, `DatagramSession`, `WebSocketSession`) consuming the same packet contracts.
 
 ## Related APIs
 

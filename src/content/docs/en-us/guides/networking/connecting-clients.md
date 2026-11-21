@@ -4,7 +4,7 @@ description: "This guide walks through creating, configuring, and connecting a c
 section: Guides
 ---
 
-This guide walks through creating, configuring, and connecting a client session using `Nalix.SDK`. It focuses on the actual SDK surface in the current source tree: `TransportOptions`, `TcpSession`, `UdpSession`, and the transport extension methods built on top of them.
+This guide walks through creating, configuring, and connecting a client session using `Nalix.SDK`. It focuses on the actual SDK surface in the current source tree: `TransportOptions`, `TcpSession`, `DatagramSession`, and the transport extension methods built on top of them.
 
 If you haven't yet, start with [Your First Server](../getting-started/your-first-server.md) — it covers the simpler `session.RequestAsync<T>()` path this guide builds on.
 
@@ -55,8 +55,7 @@ TransportOptions manualOptions = new()
     
     // Performance tuning
     NoDelay = true,           // Disable Nagle's algorithm (highly recommended for Games/Real-time)
-    BufferSize = 65536,       // Socket send/receive buffer size (default 64 KB)
-    MaxUdpDatagramSize = 1400 // UDP limit including 8-byte SessionToken and 4-byte XxHash32 MAC
+    BufferSize = 65536        // Socket send/receive buffer size (default 64 KB)
 };
 ```
 
@@ -130,40 +129,41 @@ The `On<T>` extension is designed for highest developer velocity. If you need lo
 While the SDK is mostly platform-agnostic, specialized socket options like `TCP_NODELAY` are enabled by default for gaming workloads.
 :::
 
-## 4. Create and Connect a UDP Session (Auxiliary Channel)
+## 4. Create and Connect a Datagram (UDP) Session (Auxiliary Channel)
 
 :::note[TCP is Primary, UDP is Auxiliary]
-In the Nalix architecture, **TCP is typically the primary, stateful connection**. The `UdpSession` acts as an auxiliary channel for high-frequency, unreliable data. In the common secured flow, the UDP session shares the `SessionState` (`SessionToken` and `Secret`) established by the TCP handshake or resume path.
+In the Nalix architecture, **TCP (or WebSocket) is typically the primary, stateful connection**. The `DatagramSession` acts as an auxiliary channel for high-frequency data (NDP over UDP). It is created from an established stream session whose handshake is complete, and it derives its own keys from that session's secret.
 :::
 
-`UdpSession` follows the same base transport contract, but handles datagrams instead of framed TCP streams. Pass `tcpSession.State` into the `UdpSession` constructor so both sessions share the negotiated `SessionToken` and 32-byte `Secret`.
+`DatagramSession` takes the stream session in its constructor. `ConnectAsync()` requests a ticket over that stream session, opens the UDP socket and waits until the server has authenticated the first datagram; the host defaults to the stream session's address and the port to the one in the ticket.
 
 ```csharp
 using System;
 using System.Threading.Tasks;
+using Nalix.Abstractions.Networking.Datagrams;
 using Nalix.SDK.Transport;
 
-async Task ConnectUdpStandardAsync(TcpSession tcpSession)
+async Task ConnectDatagramAsync(TcpSession tcpSession)
 {
-    // Pass `tcpSession.State` so UdpSession shares the negotiated SessionToken and Secret
-    using UdpSession udp = new(options, tcpSession.State);
+    // The TCP session must have completed HandshakeAsync() first.
+    using DatagramSession udp = new(tcpSession);
 
-    udp.OnConnected += (_, _) => Console.WriteLine("UDP socket bound and active.");
-    udp.OnDisconnected += (_, ex) => Console.WriteLine($"UDP Disconnected: {ex?.Message}");
-    udp.OnError += (_, ex) => Console.WriteLine($"UDP Error: {ex.Message}");
+    udp.OnConnected += (_, _) => Console.WriteLine("Datagram session established.");
+    udp.OnDisconnected += (_, ex) => Console.WriteLine($"Datagram Disconnected: {ex?.Message}");
+    udp.OnError += (_, ex) => Console.WriteLine($"Datagram Error: {ex.Message}");
 
-    // Connect to setup targeted UDP Socket (binding against Server IP and Port)
     await udp.ConnectAsync();
 
-    // UDP internally wraps outbound datagrams with the 8-byte SessionToken and 4-byte XxHash32 MAC.
+    // Every datagram is sealed with ChaCha20-Poly1305 by the session itself.
     // await udp.SendAsync(new PlayerMovementPacket { X = 1, Y = 2, Z = 5 });
-    
+    // await udp.SendAsync(packet, DeliveryMethod.ReliableOrdered, channel: 0);
+
     await Task.Delay(-1);
 }
 ```
 
-:::danger[UDP Datagram Size Constraint]
-UDP payloads plus the 12-byte wrapper (`8`-byte `SessionToken` prefix + `4`-byte `XxHash32` MAC trailer) cannot exceed `TransportOptions.MaxUdpDatagramSize` (Default `1400` bytes). Large chunks of data must be routed through TCP protocols. Violating the MTU triggers local `NetworkException` halts.
+:::danger[Datagram Size]
+A single datagram is at most `DatagramEngine.MaxDatagramSize` (`1472` bytes). Larger messages are fragmented by the engine up to the ticket's `MaxMessageSize` (server default `1048576`). A refused ticket or a session that is not established before the ticket expires surfaces as a `NetworkException`.
 :::
 
 :::note
@@ -232,5 +232,5 @@ session.Dispose();
 - [SDK Overview](../../api/sdk/index.md)
 - [Transport Session Guidelines](../../api/sdk/transport-session.md)
 - [TCP Session Guidelines](../../api/sdk/tcp-session.md)
-- [UDP Session Guidelines](../../api/sdk/udp-session.md)
+- [UDP Session Guidelines](../../api/sdk/datagram-session.md)
 - [Extensive Transport Options Documentation](../../api/options/sdk/transport-options.md)

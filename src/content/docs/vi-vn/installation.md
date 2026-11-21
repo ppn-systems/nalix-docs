@@ -121,10 +121,10 @@ using Nalix.SDK.Options;
 using Nalix.Network.Options;
 using Nalix.Environment.Configuration;
 
-// Server: loads [NetworkSocket] and automatically validates IValidatableConfiguration
+// Máy chủ: nạp [NetworkSocket] và tự động xác thực IValidatableConfiguration
 NetworkSocketOptions socket = ConfigurationManager.Instance.Get<NetworkSocketOptions>();
 
-// Client: loads [Transport] and validates [ValueRange] / [Length] annotations
+// Client: nạp [Transport] và xác thực các annotation [ValueRange] / [Length]
 TransportOptions transport = ConfigurationManager.Instance.Get<TransportOptions>();
 ```
 

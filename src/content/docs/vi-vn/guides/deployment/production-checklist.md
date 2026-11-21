@@ -41,7 +41,7 @@ Nếu bạn bỏ qua việc kiểm tra trên các kiểu có hỗ trợ, các gi
 
 Trước khi ra mắt, hãy kiểm tra:
 
-- `TcpListenerBase` hoặc `UdpListenerBase` khởi động thành công
+- `TcpListenerBase` hoặc `DatagramListener` khởi động thành công
 - `GenerateReport()` hoạt động
 - cổng lắng nghe và backlog đúng
 - `TimingWheelOptions.IdleTimeoutMs` (và `connection.ExcludeFromIdleTimeout` với các kết nối được miễn) khớp với kỳ vọng về hành vi nhàn rỗi thực tế
@@ -147,11 +147,10 @@ Nếu việc gỡ lỗi cần đính kèm debugger chỉ để biết trạng th
 
 Nếu UDP được bật, hãy xác nhận:
 
-- danh tính phiên được thiết lập trước khi tin tưởng lưu lượng UDP
-- connection secret đã được khởi tạo
-- các giả định về replay window là chấp nhận được
-- `IsAuthenticated(...)` thực hiện đúng các kiểm tra
-- việc loại bỏ gói chưa xác thực và gói thuộc phiên không xác định có thể quan sát được trong chẩn đoán
+- quá trình handshake của stream hoàn tất trước khi cấp datagram ticket
+- `DatagramOptions` (`TicketLifetimeSeconds`, `MaxSessions`, `ReceiveWorkers`) và `DatagramEngineOptions` phù hợp với lưu lượng của bạn
+- khi kick một người dùng, các instance `DatagramConnection` có `StreamConnectionId` tương ứng cũng bị ngắt kết nối
+- việc loại bỏ gói chưa xác thực và gói thuộc phiên không xác định (`DroppedUnauthenticated`, `DroppedUnknown`) có thể quan sát được trong chẩn đoán
 
 ## 12. Diễn tập lỗi
 

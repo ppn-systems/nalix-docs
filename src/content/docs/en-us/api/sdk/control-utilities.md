@@ -37,7 +37,7 @@ public static class PingExtensions
 ```
 
 - Sends a `TimeSync` packet (`session.NewTimeSync(ControlType.PING).WithSeq(seq).Build()`) and awaits a matching `TimeSync` (`Type == ControlType.PONG && SequenceId == seq`).
-- Computes the round-trip time (RTT) in milliseconds using `Stopwatch.GetElapsedTime(startTicks).TotalMilliseconds`.
+- Computes the round-trip time (RTT) in milliseconds from `Clock.MonoTicksNow()` minus the ping's `MonoTicks` (`Clock.MonoTicksToMilliseconds`). The request is sent with `RequestOptions.Default.WithTimeout(timeoutMs).WithEncrypt(false)`.
 - Used automatically by `TransportSession` when `TransportOptions.KeepAliveIntervalMillis > 0`.
 
 ### 2. `DisconnectExtensions` (`DisconnectGracefullyAsync`)
@@ -64,6 +64,13 @@ namespace Nalix.SDK.Transport.Extensions;
 
 public static class TimeSyncExtensions
 {
+    public readonly ref struct TimeSyncBuilder(TimeSync t)
+    {
+        public TimeSyncBuilder WithSeq(ushort seq);
+        public TimeSyncBuilder StampNow();   // MonoTicks = Clock.MonoTicksNow(), Timestamp = Clock.UnixMillisecondsNow()
+        public TimeSync Build();
+    }
+
     public static TimeSyncBuilder NewTimeSync(
         this ITransportSession _,
         ControlType type);
@@ -74,6 +81,8 @@ public static class TimeSyncExtensions
         CancellationToken ct = default);
 }
 ```
+
+`TimeSyncExtensions.TimeSyncBuilder` is a nested `readonly ref struct`. `NewTimeSync(type)` creates a pooled `TimeSync` with `sequenceId: 0` and `PacketFlags.SYSTEM`; chain `WithSeq(...)` / `StampNow()` and finish with `Build()`.
 
 ```csharp
 namespace Nalix.SDK;
@@ -91,7 +100,7 @@ public static class TimeSyncCalculator
 - **Clock Offset Formula**:
   - `SyncTimeAsync` sends `TimeSync(ControlType.TIMESYNCREQUEST)` and awaits `TimeSync(ControlType.TIMESYNCRESPONSE)`.
   - Calls `TimeSyncCalculator.CalculateOffsetMs(pong.Timestamp, rttMs)` to compute the clamped clock offset.
-  - When `session.Options.TimeSyncEnabled` is `true`, updates `session.Options.TimeOffsetMs` using an Exponential Moving Average (`(TimeOffsetMs * 0.9) + (offset * 0.1)`, or direct assignment on first sync) and returns `(RttMs, AdjustedMs: session.Options.TimeOffsetMs)`.
+  - When `session.Options.TimeSyncEnabled` is `true`, updates `session.Options.TimeOffsetMs` using an Exponential Moving Average (`(TimeOffsetMs * 0.9) + (offset * 0.1)`) and returns `(RttMs, AdjustedMs: session.Options.TimeOffsetMs)`; when it is `false`, `AdjustedMs` is `0`. The request is sent with `WithEncrypt(false)`.
 
 ### 4. `ControlExtensions` (`NewControl`, `SendControlAsync`, `AwaitControlAsync`)
 

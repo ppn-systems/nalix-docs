@@ -100,7 +100,7 @@ Khi đứng sau TLS (`wss://` hoặc proxy kết thúc TLS), yêu cầu không t
 
 ## Chính sách bọc bộ đếm sequence
 
-Mỗi hướng transport được bảo vệ bởi một `SequenceCounter` đơn điệu, dùng như một phần của nonce AEAD. `SequenceCounter.Next()` ném `CipherException` nếu việc tăng sẽ vượt qua `uint.MaxValue`, từ chối tái sử dụng nonce. Để tránh chạm vào guard này như một lỗi trực tiếp, mọi đường gửi (`TcpFrameSender`, `UdpFrameSender`, `WsFrameSender` ở client; `PacketPipeline.ProcessAndSendAsync` ở server) giờ kiểm tra `ISequenceCounter.IsApproachingOverflow(margin: 1_000_000)` **trước khi** giữ số sequence tiếp theo:
+Mỗi hướng transport được bảo vệ bởi một `SequenceCounter` đơn điệu, dùng như một phần của nonce AEAD. `SequenceCounter.Next()` ném `CipherException` nếu việc tăng sẽ vượt qua `uint.MaxValue`, từ chối tái sử dụng nonce. Để tránh chạm vào guard này như một lỗi trực tiếp, mọi đường gửi (`TcpFrameSender`, `WsFrameSender` ở client; `PacketPipeline.ProcessAndSendAsync` ở server) giờ kiểm tra `ISequenceCounter.IsApproachingOverflow(margin: 1_000_000)` **trước khi** giữ số sequence tiếp theo:
 
 - Phía client: ném `CipherException`, và cơ chế xử lý ngoại lệ không nghiêm trọng hiện có sẽ báo lỗi qua `OnError` và ngắt kết nối — client cần kết nối lại và handshake lại, hoặc gọi `RekeyExtensions.RekeyAsync` chủ động trước thời điểm này để xoay khóa và đặt lại bộ đếm.
 - Phía server: gọi trực tiếp `IConnection.Disconnect(...)` để đóng kết nối sạch sẽ thay vì ném ngoại lệ giữa chừng khi gửi.

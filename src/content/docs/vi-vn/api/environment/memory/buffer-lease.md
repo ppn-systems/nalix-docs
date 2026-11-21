@@ -27,7 +27,7 @@ package: Nalix.Environment
 - `public static readonly int StackAllocThreshold;` — Ngưỡng giữa `stackalloc` và `BufferLease.Rent` (cố định ở `512` byte; không cấu hình được qua `MemoryOptions`).
 - `public const int TransportHeadroom = sizeof(ushort);` (`2` byte) — Hằng số headroom, dành 2 byte ở đầu buffer đã thuê để TCP có thể thêm độ dài frame 2 byte mà không cần sao chép payload.
 - `public static void Configure(IObjectPoolManager poolManager)` — Gắn pooling lớp vỏ `BufferLease` với một `IObjectPoolManager` bên ngoài.
-- `BufferLease.ByteArrayPool` — Hàm trợ giúp tĩnh (`Rent(int)`, `Return(byte[], bool)`, `Configure(IBufferPoolManager)`) dựa trên `ArrayPool<byte>.Shared` hoặc một `IBufferPoolManager` đã cấu hình.
+- `BufferLease.ByteArrayPool` — `public static class` lồng bên trong (`BufferLease.cs#L143`) dựa trên `ArrayPool<byte>.Shared` hoặc một `IBufferPoolManager` đã cấu hình: `Configure(IBufferPoolManager manager)`, `Rent(int capacity = 256)`, `Return(byte[] array)` (trả buffer về pool **mà không** xóa nó), và `Return(byte[] array, bool clearArray)` (xóa toàn bộ mảng trước khi trả khi `clearArray` là `true`). Các mảng trong pool không bị xóa mỗi lần trả, nên buffer chứa dữ liệu bí mật phải được xóa bằng `clearArray: true`, được chủ sở hữu xóa, hoặc được thuê dưới dạng lease với `zeroOnDispose: true`.
 
 ## Phương thức tạo
 
@@ -51,7 +51,6 @@ package: Nalix.Environment
 | `RawCapacity` | `int` | Tổng độ dài của `byte[]` bên dưới (bao gồm `Headroom`). |
 | `Headroom` | `int` | Số byte dự trữ phía trước `_start` (`_start`). |
 | `EncryptedOnWire` | `bool` | `true` nếu khung đến từ đường truyền đã được mã hóa (được truyền sang `IPacketContext.EncryptedOnWire`). |
-| `IsReliable` | `bool` | `true` khi khung đến qua transport đáng tin cậy (`TCP` hoặc `WEBSOCKET`, được truyền sang `IPacketContext.IsReliable`). |
 | `ZeroOnDispose` | `bool` | Khi `true`, xóa buffer bằng `MemorySecurity.ZeroMemory` trước khi trả về pool. |
 | `CommitLength(int)` | `void CommitLength(int length)` | Đặt `Length` payload đã cam kết (`0 <= length <= Capacity`). |
 | `TryGetSegmentWithHeader` | `bool TryGetSegmentWithHeader(int headerSize, out ArraySegment<byte> segment)` | Trả về một `ArraySegment<byte>` liền kề bắt đầu tại `_start - headerSize` khi `Headroom >= headerSize` (cho phép ghi tiền tố độ dài TCP không sao chép). |

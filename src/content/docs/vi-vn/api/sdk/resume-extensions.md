@@ -54,10 +54,10 @@ sequenceDiagram
 
     alt Session Valid (Response.Reason == ProtocolReason.NONE)
         S-->>C: SessionResume (Stage = RESPONSE, Reason = NONE, NewSessionToken, ServerProof [32B])
-        Note over C: Verify ServerProof == HmacKeccak256.Compute(State.Secret, [NewSessionToken || timeWindow])<br/>State.SessionToken = NewSessionToken<br/>State.EncryptionEnabled = true<br/>ResetSequenceCounters() + NotifyReady() -> Return ProtocolReason.NONE
+        Note over C: Verify ServerProof == HmacKeccak256.Compute(State.Secret, [NewSessionToken || timeWindow])<br/>State.SessionToken = NewSessionToken<br/>State.EncryptionEnabled = true<br/>NotifyReady() -> Return ProtocolReason.NONE
     else Session Expired / Unknown / Invalid Proof
-        S-->>C: SessionResume (Stage = RESPONSE, Reason = SESSION_EXPIRED / SESSION_NOT_FOUND)
-        Note over C: Clear State.SessionToken = 0, State.Secret = Zero, EncryptionEnabled = false<br/>Return response.Reason (ConnectWithResumeAsync falls back to HandshakeAsync)
+        S-->>C: SessionResume (Stage = RESPONSE, Reason = SESSION_EXPIRED / ...)
+        Note over C: Return response.Reason (State is left untouched, ConnectWithResumeAsync reconnects and falls back to HandshakeAsync)
     end
 ```
 
@@ -65,14 +65,15 @@ sequenceDiagram
 
 1. **Bằng chứng của client**: `ResumeSessionAsync` tạo một bộ đệm 16 byte gồm `SessionToken` (`ulong`, little-endian tại `0..8`) và bucket thời gian 30 giây `Clock.UnixSecondsNow() / 30` (`long`, little-endian tại `8..16`), sau đó tính `HmacKeccak256.Compute(session.State.Secret.AsSpan(), proofData)` thành 32 byte mà không để lộ `Secret` trên đường truyền.
 2. **Xác minh bằng chứng của máy chủ (hai chiều)**: Khi máy chủ chấp nhận yêu cầu tiếp tục (`response.Reason == ProtocolReason.NONE`), nó xoay vòng token thành `SessionToken` mới và ký `[NewSessionToken (8B LE) || (UnixSecondsNow / 30) (8B LE)]` với cùng `Secret`. Client xác minh `response.Proof` theo thời gian hằng số (`CryptographicOperations.FixedTimeEquals`) trước khi bật mã hóa.
-3. **Đặt lại sequence**: Vì máy chủ đặt lại bộ đếm sequence của transport trên kết nối mới, `ResumeSessionAsync` gọi `session.ResetSequenceCounters()` sau khi xác minh thành công để cửa sổ sequence của client và máy chủ luôn đồng bộ.
+3. **Tiếp nối sequence**: Việc tiếp tục phiên không đặt lại bộ đếm sequence của client (handshake đầy đủ thì có). Máy chủ khôi phục trạng thái sequence gửi/nhận từ snapshot đã lưu thay vì bắt đầu lại từ `0`, nên cả hai cửa sổ tiếp tục từ chỗ kết nối trước dừng lại.
+4. **Ánh xạ lỗi**: `ResumeSessionAsync` trả về `SESSION_NOT_FOUND` khi `State.SessionToken` là `0` hoặc `State.Secret` bằng không, trả về `Reason` của máy chủ khi máy chủ từ chối, và trả về `CANCELLED`, `TIMEOUT`, `NETWORK_ERROR` hoặc `STATE_VIOLATION` khi trao đổi bị hủy, hết thời gian chờ, gặp `NetworkException` hoặc `InvalidOperationException`. Các trường hợp từ chối, thất bại và quay về handshake được báo qua `DiagnosticsEvents.Resumption.*`.
 
 ## So sánh các phương thức
 
 | Phương thức | Kiểu trả về | Hành vi |
 | :--- | :--- | :--- |
 | `ResumeSessionAsync` | `ValueTask<ProtocolReason>` | Giả định socket đã kết nối (`session.IsConnected == true`). Trả về `ProtocolReason.NONE` nếu phiên được tiếp tục, hoặc lý do lỗi `ProtocolReason` (`UNAUTHENTICATED`, `SESSION_EXPIRED`, `INTERNAL_ERROR`, v.v.). |
-| `ConnectWithResumeAsync` | `ValueTask<bool>` | Gọi `ConnectAsync`, thử `ResumeSessionAsync` (trả về `true` khi `ProtocolReason.NONE`), và tự động quay về `HandshakeAsync` (trả về `false`) khi `Options.ResumeFallbackToHandshake` là `true`. |
+| `ConnectWithResumeAsync` | `ValueTask<bool>` | Gọi `ConnectAsync`, thử `ResumeSessionAsync` (trả về `true` khi `ProtocolReason.NONE`), và khi thất bại thì kết nối lại socket rồi quay về `HandshakeAsync` (trả về `false`) nếu `Options.ResumeFallbackToHandshake` là `true`; nếu không, nó ném `NetworkException("Session resume failed: ...")`. Khi `Options.ResumeEnabled` là `false`, không có lần tiếp tục nào được thử (lý do `LOCAL_POLICY`) và handshake chạy trực tiếp. |
 | `ConnectWithResumeDetailedAsync` | `ValueTask<ProtocolReason>` | Giống `ConnectWithResumeAsync`, trả về `ProtocolReason.NONE` khi phiên hiện có được tiếp tục, hoặc `ProtocolReason` gốc cho biết vì sao việc tiếp tục thất bại trước khi quay về `HandshakeAsync`. Được `ReconnectSupervisor` dùng nội bộ. |
 
 ## Ví dụ sử dụng
@@ -89,8 +90,8 @@ using TcpSession client = new(new TransportOptions
     Port = 57206
 });
 
-// Kết nối và tự động tiếp tục nếu State.SessionToken đã có giá trị,
-// hoặc thực hiện trao đổi khóa X25519 mới ở lần kết nối đầu tiên:
+// Kết nối và tự động resume nếu State.SessionToken đã có giá trị,
+// hoặc thực hiện handshake X25519 mới ở lần kết nối đầu tiên:
 bool wasResumed = await client.ConnectWithResumeAsync();
 Console.WriteLine(wasResumed ? "Resumed existing session (0-RTT)." : "Established new session.");
 ```

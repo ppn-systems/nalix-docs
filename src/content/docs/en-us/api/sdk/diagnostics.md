@@ -5,19 +5,21 @@ section: API Reference
 package: Nalix.SDK
 ---
 
-**Namespaces:** `Nalix.SDK.Transport`, `Nalix.SDK.Transport.Extensions`, `Nalix.SDK.Options`  
+**Namespaces:** `Nalix.SDK`, `Nalix.SDK.Transport`, `Nalix.SDK.Transport.Extensions`, `Nalix.SDK.Options`  
 **Assembly:** `Nalix.SDK`
 
-`Nalix.SDK` surfaces transport lifecycle changes, frame errors, request outcomes, and latency metrics through `TransportSession` events (`OnConnected`, `OnReady`, `OnDisconnected`, `OnMessageReceived`, `OnError`), `NLogix` structured logging, and non-throwing `RequestOutcome<TResponse>` results.
+`Nalix.SDK` surfaces transport lifecycle changes, frame errors, request outcomes, and latency metrics through `TransportSession` events (`OnConnected`, `OnReady`, `OnDisconnected`, `OnMessageReceived`, `OnError`), `NLogix` structured logging, non-throwing `RequestOutcome<TResponse>` results, the `DiagnosticsEvents` listener (`"SDK"`), and `SdkTelemetry` tracing/metrics (`Nalix.SDK` `ActivitySource` and `Meter`).
 
 ## Source Mapping
 
 - `src/Nalix.SDK/Transport/TransportSession.cs`
 - `src/Nalix.SDK/Transport/TcpSession.cs`
-- `src/Nalix.SDK/Transport/UdpSession.cs`
+- `src/Nalix.SDK/Transport/DatagramSession.cs`
 - `src/Nalix.SDK/Transport/WebSocketSession.cs`
 - `src/Nalix.SDK/Options/RequestOutcome.cs`
 - `src/Nalix.SDK/TimeSyncCalculator.cs`
+- `src/Nalix.SDK/DiagnosticsEvents.cs`
+- `src/Nalix.SDK/SdkTelemetry.cs`
 
 ## 1. Subscribing to Session Lifecycle & Error Events
 
@@ -104,6 +106,86 @@ switch (outcome.Kind)
         break;
 }
 ```
+
+## 4. Diagnostic Events (`DiagnosticsEvents`)
+
+`DiagnosticsEvents` (`public static class`, namespace `Nalix.SDK`) is the registry of event names the SDK writes to a `DiagnosticListener`. Every event carries a `Nalix.Abstractions.Diagnostics.DiagnosticLog` payload. Subscribe through `DiagnosticListener.AllListeners` and match `DiagnosticsEvents.ListenerName`.
+
+| Member | Value | Description |
+| :--- | :--- | :--- |
+| `ListenerName` | `"SDK"` | Name of the `DiagnosticListener`. |
+| `Source` | `DiagnosticListener` | Global source events are written to. |
+| `Write<T>(string name, T payload)` | `void` | AOT-safe write of `payload` through `Source`. |
+
+Event names are grouped in nested static classes (all `const string`, e.g. `DiagnosticsEvents.Session.Connected == "Session.Connected"`):
+
+| Group | Events |
+| :--- | :--- |
+| `Session` (TCP, WebSocket and datagram sessions) | `Connecting`, `Connected`, `ConnectFailed`, `Disconnected`, `TransportError` |
+| `Handshake` | `Started`, `ProofOfWorkRequested`, `TofuTrusted`, `TofuPersisted`, `TofuNotPersisted`, `ProofInvalid`, `Completed`, `Failed` |
+| `Resumption` | `Resumed`, `Declined`, `Failed`, `ProofInvalid`, `Fallback` |
+| `Reconnect` | `Scheduled`, `AttemptFailed`, `Succeeded`, `GaveUp` |
+| `KeepAlive` | `Missed`, `Failed` |
+| `Rekey` | `Started`, `Completed`, `Failed` |
+| `Requests` | `Retrying`, `Failed`, `InboundFrameFailed` |
+| `Frames` (high volume) | `Sent`, `Received`, `ReplayRejected` |
+| `Subscriptions` | `HandlerFailed`, `HandlerCanceled`, `UnexpectedPacket`, `DisposeFailed` |
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using Nalix.SDK;
+
+public sealed class SdkObserver : IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object?>>
+{
+    public void OnNext(DiagnosticListener listener)
+    {
+        if (listener.Name == DiagnosticsEvents.ListenerName)
+        {
+            _ = listener.Subscribe(this);
+        }
+    }
+
+    public void OnNext(KeyValuePair<string, object?> evt)
+    {
+        if (evt.Key == DiagnosticsEvents.Reconnect.GaveUp)
+        {
+            Console.Error.WriteLine("Automatic reconnect gave up.");
+        }
+    }
+
+    public void OnCompleted() { }
+    public void OnError(Exception error) { }
+}
+
+// DiagnosticListener.AllListeners.Subscribe(new SdkObserver());
+```
+
+## 5. Tracing and Metrics (`SdkTelemetry`)
+
+`SdkTelemetry` (`public static class`, namespace `Nalix.SDK`) names the client-side tracing and metrics sources. Nothing is recorded, and nothing is allocated, while no listener is attached.
+
+| Member | Value |
+| :--- | :--- |
+| `ActivitySourceName` | `"Nalix.SDK"` |
+| `MeterName` | `"Nalix.SDK"` |
+
+| Signal | Kind | Details |
+| :--- | :--- | :--- |
+| `nalix.request` | Activity (client kind) | One per `RequestAsync` / `TryRequestAsync` call; tags `nalix.opcode`, `nalix.response.type`, `nalix.request.attempts`, `nalix.request.outcome` and, on failure, `error.type`. |
+| `nalix.client.request.duration` | Histogram (`s`) | Request duration including every retry; tags `nalix.response.type`, `nalix.request.outcome` (`ok`, `timeout`, `not_connected`, `network_error`, `canceled`, `error`). |
+| `nalix.client.request.retries` | Counter | Retries started after an attempt timed out; tag `nalix.response.type`. |
+| `nalix.client.reconnect.attempts` | Counter | Automatic reconnect attempts; tag `nalix.reconnect.outcome` (`resumed`, `handshake`, `failed`). |
+
+```csharp
+// OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .WithTracing(t => t.AddSource(SdkTelemetry.ActivitySourceName))
+    .WithMetrics(m => m.AddMeter(SdkTelemetry.MeterName));
+```
+
+Trace context is not propagated to the server.
 
 ## Related APIs
 

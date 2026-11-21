@@ -39,11 +39,10 @@ stateDiagram-v2
 | :--- | :--- | :--- |
 | `Packet` | `TPacket` | The deserialized request packet for the current invocation. |
 | `Connection` | `IConnection` | The client connection that sent the packet. |
-| `Attributes` | `PacketMetadata` | Compile-time/registration-time handler metadata (`PacketOpcode`, `Timeout`, `Permission`, `Encryption`, `Transport`, `RateLimit`, `CustomAttributes`). |
-| `Sender` | `IPacketSender` | Context-bound `PacketSender` initialized with `Connection`, `Attributes`, `IsReliable`, and the request's `SequenceId`. |
+| `Attributes` | `PacketMetadata` | Compile-time/registration-time handler metadata (`PacketOpcode`, `Timeout`, `Permission`, `Encryption`, `RateLimit`, `CustomAttributes`). |
+| `Sender` | `IPacketSender` | Context-bound `PacketSender` initialized with `Connection`, `Attributes`, and the request's `SequenceId`. |
 | `Scope` | `IPacketScope` | Per-packet dependency injection scope used to resolve `[FromScope]` handler parameters (`GetRequiredService<T>`, `GetService<T>`, `GetOrAdd<T>`). |
 | `CancellationToken` | `CancellationToken` | Token linked to the dispatch worker loop (and wrapped by `TimeoutMiddleware` when `[PacketTimeout]` is active). |
-| `IsReliable` | `bool` | `true` when the packet arrived over a reliable transport (TCP/WebSocket); `false` when it arrived over UDP. |
 | `EncryptedOnWire` | `bool` | `true` when the inbound frame arrived encrypted and was authenticated/decrypted by `FramePipeline` / `FrameCipher`. |
 | `SkipOutbound` | `bool` | When `true`, skips the normal `Outbound` middleware stage (automatically set to `true` for `void`, `Task`, and `ValueTask` handlers). |
 
@@ -59,7 +58,7 @@ stateDiagram-v2
 
 `PacketContextBridge` (`public static class PacketContextBridge`, `src/Nalix.Runtime/Dispatching/PacketContextBridge.cs`) lets a handler that expects a concrete packet type run from a pipeline typed on a base packet type, without reflection.
 
-- `Create<TConcrete, TBase>(PacketContext<TBase> baseContext, TConcrete concretePacket)` rents a `PacketContext<TConcrete>` from `ObjectPoolManager.Shared` and initializes it with the base context's connection, attributes, `IsReliable`, `EncryptedOnWire`, `CancellationToken` and `Scope`. It uses `ownsPacket: false`, so the base context keeps ownership of the packet.
+- `Create<TConcrete, TBase>(PacketContext<TBase> baseContext, TConcrete concretePacket)` rents a `PacketContext<TConcrete>` from `ObjectPoolManager.Shared` and initializes it with the base context's connection, attributes, `EncryptedOnWire`, `CancellationToken` and `Scope`. It uses `ownsPacket: false`, so the base context keeps ownership of the packet.
 - `Return<TConcrete>(PacketContext<TConcrete> bridgeContext)` disposes the bridge context back to the pool without disposing the borrowed packet.
 - `WrapStream<TConcrete, TChunk>(IAsyncEnumerable<TChunk> source, PacketContext<TConcrete> bridgeContext)` keeps the bridge context rented until the stream is fully consumed or its enumerator is disposed, so a streaming handler does not read a context that was already returned to the pool.
 

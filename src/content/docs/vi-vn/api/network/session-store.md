@@ -102,16 +102,20 @@ public sealed class InMemorySessionStore : ISessionStore, IWorker, IReportable
         CancellationToken cancellationToken = default);
 
     public ValueTask ExecuteAsync(IWorkerContext context, CancellationToken cancellationToken);
+
+    public string GenerateReport();
+    public void WriteReportData(Utf8JsonWriter writer);
 }
 ```
 
 - **Tiêu thụ một lần, nguyên tử (`SEC-33`)**: `ConsumeAsync` kiểm tra `entry.Snapshot.ExpiresAtUnixMilliseconds > Clock.UnixMillisecondsNow()`, đánh giá `predicate(entry)` tùy chọn TRƯỚC khi xóa entry (nếu `predicate` trả về `false` thì không xóa), và dùng thao tác xóa khóa-giá trị nguyên tử (`ICollection<KeyValuePair<ulong, SessionEntry>>.Remove`) để chỉ một lời gọi đồng thời có thể tiêu thụ một token hợp lệ. Trả về `SessionScope` (`scope.IsValid == true` khi đã tiêu thụ; dispose `SessionScope` sẽ trả `SessionEntry` về pool).
 - **Chỉ mục hết hạn theo nhóm phút (`_expiryBuckets`)**: Gom các session token vào các bucket 60 giây (`ExpiresAtUnixMilliseconds / 60_000`) để tác vụ nền `ExecuteAsync` chỉ duyệt các bucket đã đến hạn.
+- **Báo cáo**: `GenerateReport()` / `WriteReportData(Utf8JsonWriter)` xuất trạng thái của store cho `ReportRegistry` (`IReportable`).
 - **Loại bỏ khi đầy (`DefaultMaxSessions = 65,536`)**: Khi `_store.Count >= MaxSessions`, xóa các entry đã hết hạn trước, sau đó đến các entry cũ nhất, và gọi `entry.Return()`.
 
 ### 3. `DefaultSessionPersistencePolicy` và `SessionPersistenceObserver`
 
-- `SessionPersistenceObserver` đăng ký vào `IConnectionHub.ConnectionUnregistered`, chụp một `SnapshotConnection` (sao chép `Attributes`, `Secret`, `Level`, `Algorithm` và bộ đếm sequence TCP/UDP trước khi `Connection.Dispose()` xóa chúng về 0), rồi gọi `SaveSessionAsync` trong nền.
+- `SessionPersistenceObserver` đăng ký vào `IConnectionHub.ConnectionUnregistered`, chụp một `SnapshotConnection` (sao chép `Attributes`, `Secret`, `Level`, `Algorithm` và bộ đếm sequence gửi/nhận của transport trước khi `Connection.Dispose()` xóa chúng về 0), rồi gọi `SaveSessionAsync` trong nền.
 - `DefaultSessionPersistencePolicy.ShouldPersist(IConnection)` đánh giá ba quy tắc theo thứ tự:
   1. **Policy 1 (Cổng handshake)**: Nếu `!connection.GetRuntimeState().HandshakeEstablished`, trả về `false`.
   2. **Policy 2 (Phiên mật mã đang hoạt động)**: Nếu `!connection.Secret.IsZero` (đã thiết lập khóa mã hóa 32 byte đang hoạt động), trả về `true` ngay.

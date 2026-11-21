@@ -13,7 +13,7 @@ package: Nalix.Codec
 - **Packet Catalog (`Nalix.Codec.DataFrames`)**: Base packet classes (`FrameBase`, `PacketBase<TSelf>`) and the frozen `PacketRegistry` lookup table.
 - **Packet Pooling (`Nalix.Codec.Pooling`)**: `PacketFactory<TPacket>`, `PacketScope<TPacket>`, and `PacketBatchScope<TPacket>` for zero-allocation packet rental.
 - **Compression (`Nalix.Codec.LZ4`)**: Pooled, zero-allocation LZ4 block compression and decompression via `LZ4Codec`.
-- **Cryptography (`Nalix.Codec.Security`)**: `EnvelopeCipher` (`ChaCha20Poly1305`, `Salsa20Poly1305`, `ChaCha20`, `Salsa20`), `HandshakeX25519`, `ProofOfWork`, `Keccak256`, `HmacKeccak256`, and `Pbkdf2`.
+- **Cryptography (`Nalix.Codec.Security`)**: `EnvelopeCipher` (`ChaCha20Poly1305`, `Salsa20Poly1305`, `ChaCha20`, `Salsa20`), `HandshakeX25519`, `ProofOfWork`, `Keccak256`, `HmacKeccak256`, and `Pbkdf2`. The `Nalix.Codec.Security.Datagram` namespace adds the datagram-session AEAD (see below).
 - **Frame Transforms (`Nalix.Codec.Transforms`)**: `FramePipeline`, `FrameCipher`, `FrameCompression`, and `FrameTransformer` for inbound/outbound frame processing.
 
 ## Where It Fits
@@ -69,9 +69,18 @@ The serialization engine. For packet classes annotated with `[GenerateFormatter]
 - **X25519 Handshake**: `SessionTofu`, `SessionInit`, `SessionChallenge`, `SessionProof`, `SessionEstablished`.
 - **Session Resume**: `SessionResume` (unified frame using `SessionResumeStage` for `REQUEST` and `RESPONSE`).
 - **Proof-of-Work**: `ProofOfWorkChallenge`, `ProofOfWorkProof`.
+- **Datagram Ticket**: `DatagramTicket` (`ProtocolOpCode.DATAGRAM_TICKET = 0x000C`, `Nalix.Codec.ProtocolFrames`) with `DatagramTicketStage` (`NONE`, `REQUEST`, `RESPONSE`): the stream-session exchange that hands the client a datagram session ticket (see [Built-in Frames](../api/codec/packets/built-in-frames.md)).
+
+### Datagram Protection (`Nalix.Codec.Security.Datagram`)
+
+Implements the `IDatagramProtection` and `IDatagramProtectionFactory` contracts from `Nalix.Abstractions` (`src/Nalix.Codec/Security/Datagram/`):
+
+- `ChaCha20Poly1305DatagramProtection` — sealed class that seals and opens datagrams with ChaCha20-Poly1305 (`TagSize = ChaCha20Poly1305.TagSize`). It has independent send and receive keys, supports key updates signaled by the key phase bit (`UpdateSendKey()`, `DiscardPreviousReceiveKey()`), and is constructed either directly from the two direction secrets (`new(Bytes32 sendSecret, Bytes32 receiveSecret)`) or through `Create(Bytes32 sessionSecret, ulong connectionId, ReadOnlySpan<byte> ticketNonce, bool isServer)`. Instances are not thread-safe.
+- `ChaCha20Poly1305DatagramProtectionFactory` — stateless sealed factory with a shared `Instance`; `Create(...)` delegates to `ChaCha20Poly1305DatagramProtection.Create`.
+- `DatagramKeySchedule` — static HKDF-Keccak256 key schedule: `TicketNonceSize = 16`, `IvSize = 12`, `DeriveDirectionSecrets(sessionSecret, connectionId, ticketNonce, out clientToServer, out serverToClient)` (throws `ArgumentException` unless the nonce is 16 bytes), `DeriveKey`, `DeriveIv`, `DeriveNextSecret` (used by key updates), and `BuildNonce(iv, packetNumber, nonce)` (XORs the packet number into the IV).
 
 :::note[Memory and Fragmentation Primitives]
-While `Nalix.Codec` performs serialization and frame transforms, the underlying memory primitives (`BufferLease`, `DataReader`, `DataWriter`) and fragmentation types (`FragmentHeader`, `FragmentAssembler`, `FragmentOptions`) reside in **[Nalix.Environment](./nalix-environment.md)**.
+While `Nalix.Codec` performs serialization and frame transforms, the underlying memory primitives (`BufferLease`, `DataReader`, `DataWriter`) and fragmentation types (`FragmentHeader`, `FragmentAssembler`, `FragmentOptions`, `DatagramEngineOptions`) reside in **[Nalix.Environment](./nalix-environment.md)**.
 :::
 
 ## Quick Example

@@ -8,7 +8,7 @@ package: Nalix.Hosting
 **Namespaces:** `Nalix.Hosting`, `Nalix.Hosting.Protocols`  
 **Assembly:** `Nalix.Hosting`
 
-`Nalix.Hosting` provides a Microsoft-style fluent builder (`INetworkApplicationBuilder` / `NetworkApplicationBuilder`) and server host (`NetworkApplication`) that orchestrate configuration loading, dependency registration, compile-time packet handler wiring, and multi-transport listener lifecycles (TCP, UDP, and WebSocket).
+`Nalix.Hosting` provides a Microsoft-style fluent builder (`INetworkApplicationBuilder` / `NetworkApplicationBuilder`) and server host (`NetworkApplication`) that orchestrate configuration loading, dependency registration, compile-time packet handler wiring, and multi-transport listener lifecycles (TCP, datagram (NDP over UDP), and WebSocket), plus custom listeners added with `AddListener`.
 
 ## Source Mapping
 
@@ -21,6 +21,7 @@ package: Nalix.Hosting
 - `src/Nalix.Hosting/Protocols/DefaultProtocol.cs`
 - `src/Nalix.Hosting/Protocols/DefaultFrameProcessor.cs`
 - `src/Nalix.Hosting/Protocols/DefaultOpCodeExtractor.cs`
+- `src/Nalix.Runtime/Handlers/DatagramTicketHandlers.cs`
 
 ## Startup & Lifecycle Flow
 
@@ -30,7 +31,7 @@ flowchart LR
         CB["NetworkApplication.CreateBuilder()"] --> Opts["Configure<TOptions>() / UseLogger()"]
         Opts --> Feat["UseSecureConnections() / UseSessions() / UseGroups()"]
         Feat --> Map["MapHandlers<THandler>() / RegisterScoped<T>()"]
-        Map --> Bind["MapTcp<T>() / MapUdp<T>() / MapWebSocket<T>().Bind()"]
+        Map --> Bind["MapTcp<T>() / MapDatagram<T>() / MapWebSocket<T>().Bind()"]
     end
 
     subgraph Phase2["2. Build()"]
@@ -42,7 +43,7 @@ flowchart LR
     subgraph Phase3["3. ActivateAsync() / RunAsync()"]
         Factories --> Prep["Register Logger, Hub, Guard, BufferPool, ObjectPool"]
         Prep --> Disp["Create & Activate IPacketDispatch"]
-        Disp --> Listen["Construct & Activate TCP / UDP / WebSocket Listeners"]
+        Disp --> Listen["Construct & Activate TCP / Datagram / WebSocket / custom Listeners"]
     end
 ```
 
@@ -68,7 +69,7 @@ public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable
 | :--- | :--- |
 | `CreateBuilder()` | Creates a new `NetworkApplicationBuilder` initialized with an empty `HostingBuilderContext`. |
 | `CreateMinimal(ushort? port = null)` | Creates a ready-to-run `NetworkApplication` bound to `MapTcp<DefaultProtocol>()` on `port` (or `NetworkSocketOptions.Port` when `null`). Note: runtime assembly scanning is omitted for Native AOT safety; handlers are resolved via the compile-time `PacketHandlerRegistry` or `MapHandlers<T>()`. |
-| `ActivateAsync(CancellationToken)` | Acquires the lifecycle gate, invokes `PrepareCallbacks` (registering `ILogger`, `IConnectionHub`, `IConnectionGuard`, `IBufferPoolManager`, and `IObjectPoolManager`), creates and activates `IPacketDispatch`, constructs each bound listener (`TcpServerListener`, `UdpServerListener`, `UdpPassthroughListener`, `WebSocketServerListener`), registers them in `ReportRegistry`, and activates them. Rolls back partial activation on failure. |
+| `ActivateAsync(CancellationToken)` | Acquires the lifecycle gate, invokes `PrepareCallbacks` (registering `ILogger`, `IConnectionHub`, `IConnectionGuard`, `IBufferPoolManager`, and `IObjectPoolManager`), creates and activates `IPacketDispatch`, constructs each bound listener (`TcpServerListener`, `DatagramListener`, `WebSocketServerListener`, plus any listener added through `AddListener`), registers them in `ReportRegistry`, and activates them. Rolls back partial activation on failure. |
 | `RunAsync(CancellationToken)` | Calls `ActivateAsync(cancellationToken)`, awaits `Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)`, and guarantees `DeactivateAsync(CancellationToken.None)` in a `finally` block. |
 | `DeactivateAsync(CancellationToken)` | Deactivates and disposes all listeners in reverse registration order, disposes all protocols in reverse order, deactivates `IPacketDispatch`, and awaits `TaskManager.WaitGroupAsync("net/*", ct)` and `WaitGroupAsync("time/*", ct)` so no background workers leak across restarts. |
 | `DisposeAsync()` / `Dispose()` | Idempotently invokes `DeactivateAsync(CancellationToken.None)` and disposes the internal `SemaphoreSlim` gate. |
@@ -90,16 +91,22 @@ public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable
 | `UseBufferPoolManager(IBufferPoolManager)` | Registers a custom `IBufferPoolManager` and binds `BufferLease.ByteArrayPool`. |
 | `UseObjectPoolManager(IObjectPoolManager)` | Registers a custom `IObjectPoolManager` and configures `BufferLease`, `PacketRegistry`, and `ObjectPoolManager`. |
 | `RegisterScoped<TService>(Func<IPacketScope, TService>)` | Registers a per-packet scoped service factory (`where TService : class`) in `ScopedServiceRegistry.Instance` for `[FromScope]` handler parameters. |
+| `ScopedServiceRegistry.TryGetFactory(Type, out Func<IPacketScope, object>?)` | Public method of `ScopedServiceRegistry` (not of the builder): looks up the factory registered for a service type; returns `true` and the factory if found, otherwise `false` and `null`. `PacketScope` uses it to resolve `[FromScope]` services. |
 | `MapHandlers<THandler>()` | Validates and registers a `[PacketController]` class constructed via `InstanceManager.Instance.CreateInstanceWithInjection(typeof(THandler))`. |
 | `MapHandlers<THandler>(Func<THandler>)` | Validates and registers a `[PacketController]` class constructed via an explicit factory delegate. |
 | `MapHandlers(Type)` | Validates and registers a `[PacketController]` type directly (supports static handler classes). |
 | `MapTcp<TProtocol>()` | Begins a fluent TCP listener binding (`IProtocolBindingBuilder`) for `TProtocol : class, IProtocol`. |
-| `MapUdp<TProtocol>()` | Begins a fluent UDP listener binding (`IProtocolBindingBuilder`) for `TProtocol : class, IProtocol`. |
+| `MapDatagram<TProtocol>()` | Begins a fluent datagram (NDP over UDP) listener binding (`IProtocolBindingBuilder`) for `TProtocol : class, IProtocol`. Also maps `DatagramTicketHandlers`, through which clients request a ticket over an established TCP or WebSocket session. Throws `InvalidOperationException` when called more than once: tickets are issued by a single listener. |
+| `AddListener(Func<IListener>)` | Adds a listener created on activation and activated/deactivated together with the protocol listeners, for extensions that run their own sockets (for example a raw UDP relay). |
 | `MapWebSocket<TProtocol>()` | Begins a fluent WebSocket listener binding ([IWebSocketBindingBuilder](./websocket-binding.md)) for `TProtocol : class, IProtocol`. |
 | `Build()` | Applies options, registers the compile-time packet registry, and returns a configured `NetworkApplication`. |
 
 :::warning[Obsolete Binding Methods]
-`ListenTcp<TProtocol>()`, `ListenUdp<TProtocol>()`, and `ListenWebSocket<TProtocol>()` are marked `[Obsolete]` in `INetworkApplicationBuilder`. Always use `MapTcp<TProtocol>()`, `MapUdp<TProtocol>()`, and `MapWebSocket<TProtocol>()` in new code.
+`ListenTcp<TProtocol>()` and `ListenWebSocket<TProtocol>()` are marked `[Obsolete]` in `INetworkApplicationBuilder`. Always use `MapTcp<TProtocol>()` and `MapWebSocket<TProtocol>()` in new code. `ListenUdp<TProtocol>()` and `MapUdp<TProtocol>()` no longer exist; use `MapDatagram<TProtocol>()`.
+:::
+
+:::note[Datagram sessions outlive their stream connection]
+A datagram session copies the user, permission level and secret of its stream connection when the ticket is issued and then lives on its own: disconnecting the stream connection does not close it. To kick a user, also disconnect the `DatagramConnection` instances whose `StreamConnectionId` matches (`INetworkApplicationBuilder.cs`, `MapDatagram` remarks).
 :::
 
 ---
@@ -121,28 +128,26 @@ public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable
 
 ---
 
-## `IProtocolBindingBuilder` Reference (TCP & UDP)
+## `IProtocolBindingBuilder` Reference (TCP & Datagram)
 
-`MapTcp<TProtocol>()` and `MapUdp<TProtocol>()` return an `IProtocolBindingBuilder`:
+`MapTcp<TProtocol>()` and `MapDatagram<TProtocol>()` return an `IProtocolBindingBuilder`:
 
 ```csharp
 public interface IProtocolBindingBuilder
 {
     IProtocolBindingBuilder OnPort(ushort port);
-    IProtocolBindingBuilder WithMode(OperatingMode mode);
     IProtocolBindingBuilder WithFactory(Func<IPacketDispatch, IProtocol> factory);
-    IProtocolBindingBuilder WithAuthentication(Func<IConnection, EndPoint, ReadOnlySpan<byte>, bool> authen);
     INetworkApplicationBuilder Bind();
 }
 ```
 
-| Method | Applies To | Description |
-| :--- | :--- | :--- |
-| `OnPort(ushort port)` | TCP & UDP | Overrides `NetworkSocketOptions.Port` (`57206`) for this specific listener binding. |
-| `WithFactory(Func<IPacketDispatch, IProtocol>)` | TCP & UDP | Supplies a custom factory to instantiate `TProtocol`. When omitted, `NetworkApplicationBuilder` automatically resolves constructors matching `(ILogger, IPacketDispatch)`, `(IPacketDispatch, ILogger)`, `(IPacketDispatch)`, or `()`. |
-| `WithMode(OperatingMode mode)` | UDP only | Selects `OperatingMode.Server` (`0`, default authenticated `UdpListenerBase`) or `OperatingMode.Passthrough` (`1`, raw `UdpPassthroughListener` without Nalix session/MAC framing). |
-| `WithAuthentication(Func<IConnection, EndPoint, ReadOnlySpan<byte>, bool>)` | UDP (`Server` mode) | Supplies a custom datagram authentication predicate for `UdpServerListener`. Throws `InvalidOperationException` if combined with `OperatingMode.Passthrough`. |
-| `Bind()` | TCP & UDP | Finalizes the binding and returns the parent `INetworkApplicationBuilder`. |
+| Method | Description |
+| :--- | :--- |
+| `OnPort(ushort port)` | Sets the port to listen on, overriding the default from `NetworkSocketOptions`. For a datagram binding that never calls `OnPort`, the listener is created with port `0` (`registration.BindingBuilder.Port ?? 0`), so the OS picks a free port; the chosen port is advertised to clients in the ticket (`DatagramListener.Port`). |
+| `WithFactory(Func<IPacketDispatch, IProtocol>)` | Supplies a custom factory to instantiate `TProtocol`. When omitted, `NetworkApplicationBuilder` automatically resolves constructors matching `(ILogger, IPacketDispatch)`, `(IPacketDispatch, ILogger)`, `(IPacketDispatch)`, or `()`. |
+| `Bind()` | Finalizes the binding and returns the parent `INetworkApplicationBuilder`. |
+
+`WithMode(OperatingMode)` and `WithAuthentication(...)` were removed together with the UDP listeners; the datagram listener always authenticates each datagram with the AEAD protection created by `ChaCha20Poly1305DatagramProtectionFactory` and admits sessions through `IConnectionGuard`.
 
 ---
 
@@ -163,6 +168,7 @@ public sealed class DefaultProtocol : Protocol
 
 - Sets `IsAccepting = true` and `KeepConnectionOpen = true` on construction.
 - Uses `DefaultFrameProcessor` and `DefaultOpCodeExtractor` (reading `payload.AsHeaderRef().OpCode` from `PacketHeader`).
+- `DefaultFrameProcessor.OnFrameRejected(IConnection, ReadOnlySpan<byte>)` answers a frame the transport dropped under backpressure with a `ControlType.FAIL` / `ProtocolReason.RATE_LIMITED` / `ProtocolAdvice.RETRY` directive flagged `ControlFlags.IS_TRANSIENT`, the same reply the rate-limit middleware sends. The directive carries the request's sequence id and `Arg0` holds its opcode, so the client can match it to the pending request and retry. At most one reply is sent per connection within `DirectiveGuardOptions.DefaultCooldownMs`; frames rejected inside that window stay unanswered. The directive is not encrypted.
 - Forwards `args.Lease` and `args.Connection` directly to `_dispatch.HandlePacket(args.Lease, args.Connection)`.
 
 ---
@@ -202,7 +208,7 @@ public static class Program
             })
             .MapHandlers<PlayerController>()
             .MapTcp<DefaultProtocol>().OnPort(57206).Bind()
-            .MapUdp<DefaultProtocol>().OnPort(57206).Bind()
+            .MapDatagram<DefaultProtocol>().OnPort(57207).Bind()
             .Build();
 
         using CancellationTokenSource cts = new();
@@ -223,6 +229,6 @@ public static class Program
 - [Hosting Options](../options/hosting/hosting-options.md)
 - [Protocol](../network/protocol.md)
 - [TCP Listener](../network/tcp-listener.md)
-- [UDP Listener](../network/udp-listener.md)
+- [Datagram Listener](../network/datagram-listener.md)
 - [Packet Dispatch Channel & Router](../runtime/routing/dispatch-channel-and-router.md)
 - [Packet Dispatch Options](../options/runtime/packet-dispatch-options.md)

@@ -27,8 +27,8 @@ Runtime middleware forms the packet execution pipeline between `PacketContext<TP
 ```mermaid
 flowchart TD
     Start(["ExecuteAsync(context, dispatch, descriptor, ct)"]) --> Inbound["Inbound Middleware (Ascending Order)"]
-    Inbound -->|Calls next(ct)| Handler["ExecuteTerminalHandler (CanExecute + Invoker)"]
-    Inbound -->|Short-circuits (no next)| End(["Pipeline Returns"])
+    Inbound -->|"Calls next(ct)"| Handler["ExecuteTerminalHandler (CanExecute + Invoker)"]
+    Inbound -->|"Short-circuits (no next)"| End(["Pipeline Returns"])
     Handler --> Always["OutboundAlways Middleware (Descending Order)"]
     Always --> Decision{"!context.SkipOutbound && !ct.IsCancellationRequested?"}
     Decision -->|Yes| Outbound["Outbound Middleware (Descending Order)"]

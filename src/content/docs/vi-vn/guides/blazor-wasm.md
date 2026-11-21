@@ -60,8 +60,8 @@ public sealed partial class EchoRequestPacket : PacketBase<EchoRequestPacket>, I
 await using NetworkApplication app = NetworkApplication.CreateBuilder()
     .UseLogger(logger)
     .UseSecureConnections()   // X25519 handshake + AEAD
-    .UseSystemControl()       // serves PUBLIC_KEY_REQUEST (TOFU), ping, disconnect
-    .UseSessions()            // allows resume after a reconnect
+    .UseSystemControl()       // phục vụ PUBLIC_KEY_REQUEST (TOFU), ping, disconnect
+    .UseSessions()            // cho phép resume sau khi kết nối lại
     .MapHandlers(typeof(DemoHandlers))
     .MapWebSocket<DefaultProtocol>().OnPort(57230).WithPath("/ws/").Bind()
     .Build();
@@ -76,7 +76,7 @@ public static async ValueTask HandleEchoAsync(IPacketContext<EchoRequestPacket> 
     using PacketScope<EchoResponsePacket> lease = PacketFactory<EchoResponsePacket>.Acquire();
     lease.Value.Text = context.Packet.Text.ToUpperInvariant();
     lease.Value.ServerUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    await context.Sender.SendAsync(lease.Value).ConfigureAwait(false);   // → RequestAsync<T> on the client
+    await context.Sender.SendAsync(lease.Value).ConfigureAwait(false);   // → RequestAsync<T> trên client
 }
 
 [PacketOpcode(0x7303)]
@@ -85,7 +85,7 @@ public static async ValueTask HandleChatAsync(IPacketContext<ChatMessagePacket> 
     IConnectionBroadcaster? hub = InstanceManager.Instance.GetExistingInstance<IConnectionBroadcaster>();
     if (hub is not null)
     {
-        await hub.BroadcastAsync(context.Packet).ConfigureAwait(false);  // → On<T> in every tab
+        await hub.BroadcastAsync(context.Packet).ConfigureAwait(false);  // → On<T> ở mọi tab
     }
 }
 ```
@@ -144,8 +144,8 @@ _session = new WebSocketSession(
     },
     new WebSocketTransportOptions { Path = o.Path, UseTls = o.UseTls });
 
-// Subscribe before connecting so no push is missed. The packet goes back to the pool
-// when the handler returns, so copy its fields out.
+// Đăng ký trước khi kết nối để không bỏ lỡ push nào. Gói tin được trả về pool
+// khi handler trả về, nên hãy sao chép các trường của nó ra ngoài.
 _chatSubscription = _session.On<ChatMessagePacket>(p => ChatReceived?.Invoke(new ChatLine(p.Username, p.Message)));
 _session.OnDisconnected += OnSessionDisconnected;
 ```
@@ -159,7 +159,7 @@ public async Task EnsureConnectedAsync(CancellationToken ct = default)
     await _connectGate.WaitAsync(ct);
     try
     {
-        // ConnectAsync + resume if possible, otherwise HandshakeAsync.
+        // ConnectAsync + resume nếu có thể, nếu không thì HandshakeAsync.
         LastConnectResumed = await _session.ConnectWithResumeAsync(ct: ct);
         SetStatus(ConnectionStatus.Connected);
     }
@@ -217,8 +217,8 @@ Các gói tin được đẩy đến `session.On<T>()`. Service biến mỗi gó
 ```csharp
 private void OnSessionDisconnected(object? sender, Exception ex)
 {
-    if (_userDisconnected) return;                                  // DisconnectAsync() was ours
-    if (Interlocked.Exchange(ref _reconnecting, 1) == 1) return;    // one loop at a time
+    if (_userDisconnected) return;                                  // DisconnectAsync() do chính ta gọi
+    if (Interlocked.Exchange(ref _reconnecting, 1) == 1) return;    // mỗi lần chỉ một vòng lặp
     _ = ReconnectLoopAsync();
 }
 
@@ -230,7 +230,7 @@ private async Task ReconnectLoopAsync()
         int delay = (int)Math.Min(15_000, 500 * Math.Pow(2, attempt));       // exp. backoff
         await Task.Delay((int)(delay * (0.8 + Random.Shared.NextDouble() * 0.4)), _lifetime.Token); // + jitter
         try { await ConnectCoreAsync(_lifetime.Token); SetStatus(ConnectionStatus.Connected); return; }
-        catch (Exception) { /* keep trying */ }
+        catch (Exception) { /* tiếp tục thử */ }
     }
 }
 ```
@@ -266,7 +266,7 @@ Mở `http://localhost:5230` trong hai tab. Echo trả về chữ in hoa, và c�
 
 **Trimming và AOT.** Bản publish Release của Blazor WASM cắt bớt assembly. Các gói tin được tìm thấy lúc chạy qua `PacketRegistry`, nên hãy gắn gốc (root) assembly contracts bằng `<TrimmerRootAssembly Include="YourApp.Contracts" />`. Mẫu publish cắt bớt không có cảnh báo và chạy được. Biên dịch AOT của WebAssembly (`RunAOTCompilation`) là tùy chọn và chỉ ảnh hưởng đến tốc độ. Vòng nhận của SDK là bất đồng bộ và không bao giờ chặn một luồng, điều này quan trọng vì WASM chỉ có một luồng.
 
-**Giới hạn API của trình duyệt.** Chỉ dùng các API bất đồng bộ. `WebSocketSession.Send(ReadOnlySpan<byte>, ...)`, `TcpSession` và `UdpSession` được đánh dấu `[UnsupportedOSPlatform("browser")]`. Trong trình duyệt không có socket thô, UDP hay TCP. Các tab chạy nền có thể bị điều tiết, và trình duyệt di động có thể đóng băng hoàn toàn chúng, nên hãy chờ `OnDisconnected` sau khi tab được đánh thức. Xử lý việc này là nhiệm vụ của vòng lặp kết nối lại.
+**Giới hạn API của trình duyệt.** Chỉ dùng các API bất đồng bộ. `WebSocketSession.Send(ReadOnlySpan<byte>, ...)`, `TcpSession` và `DatagramSession` được đánh dấu `[UnsupportedOSPlatform("browser")]`. Trong trình duyệt không có socket thô, UDP hay TCP. Các tab chạy nền có thể bị điều tiết, và trình duyệt di động có thể đóng băng hoàn toàn chúng, nên hãy chờ `OnDisconnected` sau khi tab được đánh thức. Xử lý việc này là nhiệm vụ của vòng lặp kết nối lại.
 
 **Luồng và render.** Các handler `On<T>` và `OnDisconnected` không được gọi trên synchronization context của renderer. Luôn gọi `InvokeAsync(StateHasChanged)` từ chúng. Sao chép dữ liệu ra khỏi gói tin có pool trước khi handler trả về.
 

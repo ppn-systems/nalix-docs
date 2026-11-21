@@ -17,10 +17,12 @@ package: Nalix.Runtime
 - `src/Nalix.Runtime/Middleware/Standard/PermissionMiddleware.cs`
 - `src/Nalix.Runtime/Middleware/Standard/RateLimitMiddleware.cs`
 - `src/Nalix.Runtime/Middleware/Standard/TimeoutMiddleware.cs`
+- `src/Nalix.Runtime/Handlers/DatagramTicketHandlers.cs`
 - `src/Nalix.Runtime/Handlers/HandshakeHandlers.cs`
 - `src/Nalix.Runtime/Handlers/ProofOfWorkHandlers.cs`
 - `src/Nalix.Runtime/Handlers/SessionHandlers.cs`
 - `src/Nalix.Runtime/Handlers/SystemControlHandlers.cs`
+- `src/Nalix.Runtime/Security/FileCertificateStore.cs`
 - `src/Nalix.Runtime/Handlers/SystemTimeSyncHandlers.cs`
 - `src/Nalix.Runtime/Sessions/SessionService.cs`
 - `src/Nalix.Runtime/Groups/InMemoryGroupStore.cs`
@@ -108,7 +110,8 @@ If a handler method does not declare `[PacketPermission]` (`context.Attributes.P
 
 - **`HandshakeHandlers` & `ProofOfWorkHandlers`**: Server-side X25519 key exchange, TOFU public key serving, certificate storage (`FileCertificateStore`), and Proof-of-Work verification (`AdaptiveProofOfWorkPolicy`).
 - **`SessionHandlers`**: Stateless session resumption (`SessionResume`) with `HmacKeccak256` proof-of-possession and atomic token rotation via `ISessionService`.
-- **`SystemControlHandlers` & `SystemTimeSyncHandlers`**: Handles `Control` (`PING`/`PONG`, `DISCONNECT`, `CIPHER_UPDATE`, `PUBLIC_KEY_REQUEST`) and `TimeSync` frames.
+- **`SystemControlHandlers` & `SystemTimeSyncHandlers`**: `SystemControlHandlers` handles `Control` frames (`DISCONNECT`, `SESSION_REKEY`, `CIPHER_UPDATE`, `POW_REQUEST`, `PUBLIC_KEY_REQUEST`); `SystemTimeSyncHandlers` handles `TimeSync` frames (`PING`/`PONG`, `TIMESYNCREQUEST`).
+- **`DatagramTicketHandlers`**: Answers a `DatagramTicket` `REQUEST` on an established stream connection with a ticket from `IDatagramTicketIssuer` (or a refusal), bootstrapping a [DatagramSession](../api/sdk/datagram-session.md).
 
 ### 5. Session Store & Connection Groups
 
@@ -127,7 +130,7 @@ If a handler method does not declare `[PacketPermission]` (`context.Attributes.P
 
 ## Related Packages
 
-- [Nalix.Network](./nalix-network.md) — TCP, UDP, and WebSocket transport listeners
+- [Nalix.Network](./nalix-network.md) — TCP, datagram (NDP over UDP), and WebSocket transport listeners
 - [Nalix.Hosting](./nalix-hosting.md) — Fluent server builder
 - [Nalix.Codec](./nalix-codec.md) — Packet registry, serialization, and frame transforms
 - [Nalix.Framework](./nalix-framework.md) — DI, workers, and object pools

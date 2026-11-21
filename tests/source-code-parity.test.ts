@@ -24,7 +24,7 @@ function walkMdFiles(dir: string, baseDir = dir): string[] {
 describe('Ground-Truth Source-Code Parity & Adversarial Audit Gates', () => {
   const mdFiles = walkMdFiles(EN_DOCS_DIR);
 
-  it('ensures zero leaked Audit Summary headings, zero mojibake, and zero backticked link labels (R19) across all 203 docs', () => {
+  it('ensures zero leaked Audit Summary headings, zero mojibake, and zero backticked link labels (R19) across every doc', () => {
     const violations: string[] = [];
 
     for (const relFile of mdFiles) {
@@ -85,6 +85,25 @@ describe('Ground-Truth Source-Code Parity & Adversarial Audit Gates', () => {
 
         if (/\.Listen(Tcp|Udp|WebSocket)</.test(line) && !/Obsolete|marked|Use Map/i.test(line)) {
           violations.push(`${relFile}:${i + 1} — Uses obsolete .Listen*<TProtocol>() instead of .Map*<TProtocol>(): ${line.trim()}`);
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  it('verifies that APIs removed from the Nalix source (UDP stack) are only mentioned to say they are gone', () => {
+    const violations: string[] = [];
+    const removedApiPattern =
+      /\b(UdpSession|UdpListenerBase|UdpPassthroughListener|UdpFrameReader|UdpFrameSender|PassthroughConnection|DatagramGuardOptions|PacketTransportAttribute|MaxUdpDatagramSize|MaxParallelUDP|IsUdpCreated|IsReliable|MapUdp)\b/;
+
+    for (const relFile of mdFiles) {
+      const raw = fs.readFileSync(path.join(EN_DOCS_DIR, relFile), 'utf8');
+      const lines = raw.replace(/\r\n/g, '\n').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(removedApiPattern);
+        if (m && !/no longer|removed|replaces|replaced|does not exist|renamed|deleted/i.test(lines[i])) {
+          violations.push(`${relFile}:${i + 1} — References removed API '${m[1]}'`);
         }
       }
     }

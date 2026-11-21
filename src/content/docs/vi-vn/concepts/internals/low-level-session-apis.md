@@ -1,6 +1,6 @@
 ---
 title: API phiên mức thấp
-description: Hướng dẫn Client Session chính tập trung vào các quy trình cấp cao như đăng ký gói tin có kiểu mạnh và các helper kết nối lại. Trang này bao gồm bề mặt transport cấp thấp được cung cấp bởi TransportSession, TcpSession và UdpSession...
+description: Hướng dẫn Client Session chính tập trung vào các quy trình cấp cao như đăng ký gói tin có kiểu mạnh và các helper kết nối lại. Trang này bao gồm bề mặt transport cấp thấp được cung cấp bởi TransportSession, TcpSession và DatagramSession...
 section: Concepts
 ---
 
@@ -8,7 +8,7 @@ section: Concepts
 Trang này mô tả các vòng lặp sự kiện buffer thô, giữ bộ nhớ thủ công và bỏ qua các cơ chế bảo vệ của framework. Hãy hết sức thận trọng.
 :::
 
-[Hướng dẫn Client Session](../../guides/networking/connecting-clients.md) chính tập trung vào các quy trình cấp cao như đăng ký gói tin có kiểu mạnh và các helper kết nối lại. Trang này bao gồm bề mặt transport cấp thấp được cung cấp bởi `TransportSession`, `TcpSession` và `UdpSession`.
+[Hướng dẫn Client Session](../../guides/networking/connecting-clients.md) chính tập trung vào các quy trình cấp cao như đăng ký gói tin có kiểu mạnh và các helper kết nối lại. Trang này bao gồm bề mặt transport cấp thấp được cung cấp bởi `TransportSession`, `TcpSession` và `DatagramSession`.
 
 ## 1. Hook thông điệp thô (đường không cấp phát bộ nhớ)
 
@@ -16,7 +16,7 @@ Thay vì dùng `session.On<MyPacket>(...)`, vốn giải tuần tự hóa các l
 
 ### Phân tích đồng bộ thuần túy (`OnMessageReceived`)
 
-Bạn nhận được một `IBufferLease` cho mỗi khung đã giải mã. Trong triển khai SDK hiện tại, `TcpSession` gọi `OnMessageReceived` từ `HandleReceiveMessage(...)` sau khi `FrameReader` hoàn tất một khung, còn `UdpSession` gọi nó từ vòng lặp nhận sau khi các biến đổi đầu vào hoàn tất. Trong cả hai trường hợp, SDK giữ quyền sở hữu lease và tự động giải phóng nó khi đường gọi callback kết thúc, trừ khi bạn gọi `Retain()` tường minh.
+Bạn nhận được một `IBufferLease` cho mỗi khung đã giải mã. Trong triển khai SDK hiện tại, `TcpSession` gọi `OnMessageReceived` từ `HandleReceiveMessage(...)` sau khi `FrameReader` hoàn tất một khung, còn `DatagramSession` gọi nó từ vòng lặp nhận sau khi các biến đổi đầu vào hoàn tất. Trong cả hai trường hợp, SDK giữ quyền sở hữu lease và tự động giải phóng nó khi đường gọi callback kết thúc, trừ khi bạn gọi `Retain()` tường minh.
 
 ```csharp
 // CẢNH BÁO: KHÔNG thực thi các vòng lặp CPU nặng hoặc các await tác vụ chặn ở đây.
@@ -36,7 +36,7 @@ session.OnMessageReceived += (sender, lease) =>
 
 ### Xếp hàng bất đồng bộ thuần túy (`OnMessageAsync`)
 
-Cung cấp một pipeline nhận bất đồng bộ (`event Func<ReadOnlyMemory<byte>, Task>?` được khai báo trên các session cụ thể `TcpSession`, `UdpSession` và `WebSocketSession`). Pipeline này tự động giữ lease bên dưới (`lease.Retain()`) trong suốt thời gian của `Task` được trả về và giải phóng nó khi hoàn tất (`TcpSession` và `WebSocketSession` theo dõi việc hoàn tất qua continuation, còn `UdpSession` await trực tiếp handler trước khi đọc datagram tiếp theo). Lưu ý rằng `TransportOptions.AsyncQueueCapacity` hiện được dành riêng và chưa được sử dụng.
+Cung cấp một pipeline nhận bất đồng bộ (`event Func<ReadOnlyMemory<byte>, Task>?` được khai báo trên các session cụ thể `TcpSession`, `DatagramSession` và `WebSocketSession`). Pipeline này tự động giữ lease bên dưới (`lease.Retain()`) trong suốt thời gian của `Task` được trả về và giải phóng nó khi hoàn tất (`TcpSession` và `WebSocketSession` theo dõi việc hoàn tất qua continuation, còn `DatagramSession` await trực tiếp handler trước khi đọc datagram tiếp theo). Lưu ý rằng `TransportOptions.AsyncQueueCapacity` hiện được dành riêng và chưa được sử dụng.
 
 ```csharp
 session.OnMessageAsync += async (payload) =>

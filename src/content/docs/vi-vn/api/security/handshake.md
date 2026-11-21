@@ -60,12 +60,12 @@ Nếu `TransportOptions.ServerPublicKey` là `null` hoặc rỗng và `Transport
 | Bước | Phương thức | Cấu trúc HKDF | Đầu vào |
 | --- | --- | --- | --- |
 | **Băm transcript** | `ComputeTranscriptHash` | `Keccak256.HashDataToFixed(144-byte length-prefixed transcript)` | `clientPublicKey`, `clientNonce`, `serverPublicKey`, `serverNonce` |
-| **Khóa chính** | `ComputeMasterSecret` | `Hkdf.Extract(salt: Empty, ikm: sharedSecretEE \|\| sharedSecretSE)` | `sharedSecretEE`, `sharedSecretSE` (tổng 64 byte) |
-| **Bằng chứng máy chủ** | `ComputeServerProof` | `Hkdf.Expand(masterSecret, "nalix-handshake/server-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
-| **Bằng chứng client** | `ComputeClientProof` | `Hkdf.Expand(masterSecret, "nalix-handshake/client-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
-| **Bằng chứng kết thúc máy chủ** | `ComputeServerFinishProof` | `Hkdf.Expand(masterSecret, "nalix-handshake/server-finish" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
-| **Khóa phiên** | `DeriveSessionKey` | `Hkdf.Expand(masterSecret, "nalix-handshake/session" \|\| clientNonce \|\| serverNonce \|\| transcriptHash)` | `masterSecret`, `clientNonce`, `serverNonce`, `transcriptHash` |
-| **Khóa rekey** | `DeriveRekeySecret` | `Hkdf.Expand(currentSecret, "nalix-session/rekey")` | `currentSecret` |
+| **Khóa chính** | `ComputeMasterSecret` | `HkdfKeccak256.Extract(salt: Empty, ikm: sharedSecretEE \|\| sharedSecretSE)` | `sharedSecretEE`, `sharedSecretSE` (tổng 64 byte) |
+| **Bằng chứng máy chủ** | `ComputeServerProof` | `HkdfKeccak256.Expand(masterSecret, "nalix-handshake/server-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
+| **Bằng chứng client** | `ComputeClientProof` | `HkdfKeccak256.Expand(masterSecret, "nalix-handshake/client-proof" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
+| **Bằng chứng kết thúc máy chủ** | `ComputeServerFinishProof` | `HkdfKeccak256.Expand(masterSecret, "nalix-handshake/server-finish" \|\| transcriptHash)` | `masterSecret`, `transcriptHash` |
+| **Khóa phiên** | `DeriveSessionKey` | `HkdfKeccak256.Expand(masterSecret, "nalix-handshake/session" \|\| clientNonce \|\| serverNonce \|\| transcriptHash)` | `masterSecret`, `clientNonce`, `serverNonce`, `transcriptHash` |
+| **Khóa rekey** | `DeriveRekeySecret` | `HkdfKeccak256.Expand(currentSecret, "nalix-session/rekey")` | `currentSecret` |
 
 ### Phương thức công khai của `HandshakeX25519`
 

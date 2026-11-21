@@ -25,7 +25,7 @@ sequenceDiagram
     C->>S: Control (Type = SESSION_REKEY, SequenceId = seq, encrypted under K_n)
     C->>C: Switch session.State.Secret = newKey (K_{n+1}) and reset sequence counters
     S->>S: Validate handshake, connection.Secret = HandshakeX25519.DeriveRekeySecret(connection.Secret) (K_{n+1})
-    S->>S: Reset TCP/UDP send+receive sequence counters
+    S->>S: Reset send+receive sequence counters
     S->>C: Control (Type = SESSION_REKEY_ACK, SequenceId = seq, encrypted under K_{n+1})
 ```
 
@@ -50,8 +50,10 @@ The extension method:
 
 1. Derives the new session key (`K_{n+1}`) from the current secret (`K_n`) using HKDF.
 2. Sends a `Control` packet with `Type = SESSION_REKEY` encrypted under `K_n`.
-3. Immediately switches `session.State.Secret` to `K_{n+1}` and resets local sequence counters so it can decrypt the server's `SESSION_REKEY_ACK` (which is encrypted under `K_{n+1}`).
-4. Awaits `SESSION_REKEY_ACK` from the server (correlated by `SequenceId`).
+3. Switches `session.State.Secret` to `K_{n+1}` and resets local sequence counters so it can decrypt the server's `SESSION_REKEY_ACK` (which is encrypted under `K_{n+1}`). On TCP and WebSocket the switch runs under the send lock right after the request is written (`SendThenSwitchAsync`), so no frame encrypted with the old key can follow the request on the wire.
+4. Awaits `SESSION_REKEY_ACK` from the server (correlated by `SequenceId`), within `Options.ConnectTimeoutMillis` (`5000` ms when that is `0`).
+
+If the request never left, nothing changes. If it was written on an ordered transport (TCP, WebSocket) and only the acknowledgement is late or lost, the new key is kept, because the server switches as soon as it reads the request. On an unordered transport the previous key is restored.
 
 ### Server-Side Behavior
 
@@ -59,7 +61,7 @@ The `SystemControlHandlers.HandleSessionRekey` handler:
 
 1. Confirms the handshake has been established (`connection.GetRuntimeState().HandshakeEstablished`) and the control packet arrived encrypted (`context.EncryptedOnWire`).
 2. Computes the next key generation: `connection.Secret = HandshakeX25519.DeriveRekeySecret(connection.Secret)`.
-3. Resets TCP and (if applicable) UDP send/receive sequence counters.
+3. Resets the connection transport's send and receive sequence counters (`connection.Transport.SendSequence.Reset()` / `ReceiveSequence.Reset()`).
 4. Responds with `Control(SESSION_REKEY_ACK)` using the same `SequenceId` for correlation.
 
 ### Protocol Packet
@@ -73,7 +75,7 @@ The `SystemControlHandlers.HandleSessionRekey` handler:
 
 - The control packet travels encrypted (`[PacketEncryption(true)]` on connection) — it travels under the current session cipher.
 - Both parties derive the new key using HKDF-Expand with a static label `nalix-session/rekey`. No keys are sent directly over the wire, providing perfect forward secrecy for session rekeying.
-- Only reliable (TCP) transport is accepted for Rekey signals.
+- Rekey is a stream-connection feature: `HandleSessionRekey` returns without acting when `context.Connection.Transport` is an `IDatagramTransport`. A `DatagramSession` derives its own keys from the stream secret at connect time and runs its own key update.
 - If the handshake has not been established, the connection is disconnected immediately.
 - Sequence counter reset prevents stale or replayed frames from the previous key period from being accepted.
 

@@ -17,6 +17,7 @@ package: Nalix.Framework
 - `src/Nalix.Framework/Tasks/TaskManager.PrivateMethods.cs`
 - `src/Nalix.Framework/Tasks/TaskManager.Affinity.cs`
 - `src/Nalix.Framework/Tasks/TaskManager.Cleanup.cs`
+- `src/Nalix.Framework/Tasks/TaskManager.Names.cs`
 - `src/Nalix.Framework/Tasks/TaskManager.Report.cs`
 - `src/Nalix.Framework/Options/TaskManagerOptions.cs`
 
@@ -109,6 +110,14 @@ Configured via `[TaskManager]` in `default.ini` or `builder.Configure<TaskManage
 | `BackoffMaxPower` | `int` | `5` (`32x`) | `[ValueRange(0, 16)]` | Maximum exponent ($2^n$) for recurring task failure backoff. |
 | `BackoffBaseInterval` | `TimeSpan` | `00:00:01` (`1s`) | `>= 10 ms` | Base interval multiplied by $2^{\text{failures}}$ during recurring task backoff. |
 | `CleanupInterval` | `TimeSpan` | `00:00:30` (`30s`) | `>= 1 s` | Interval at which completed workers past their `RetainFor` window are purged. |
+
+## `TaskNaming` (`Nalix.Framework.Tasks`)
+
+`TaskNaming` (`src/Nalix.Framework/Tasks/TaskManager.Names.cs`) is a static helper class (hidden from IntelliSense) that standardizes names: groups use path-style segments separated by `/`, while workers and recurring jobs use dot-style segments.
+
+- `TaskNaming.SanitizeToken(string s)` keeps letters, digits, hyphen, underscore and period, replaces every other character with `_`, and returns `"-"` for a `null` or empty string.
+- `TaskNaming.Tags` holds canonical short tag constants: `Tcp = "tcp"`, `WebSocket = "ws"`, `Datagram = "dgram"`, `Net = "net"`, `Time = "time"`, `Sync = "sync"`, `Wheel = "wheel"`, `Process = "proc"`, `Worker = "worker"`, `Accept = "accept"`, `Cleanup = "cleanup"`, `Service = "service"`, `Dispatch = "dispatch"`, `Logging = "log"`, `Proxy = "proxy"`.
+- `TaskNaming.Recurring.CleanupJobId(string prefix, int instanceKey)` returns `"<sanitized prefix>.cleanup.<instanceKey as 8 hex digits>"`, for example `"sessions.cleanup.0000002A"`.
 
 ## `TaskExtensions` (`Nalix.Framework.Extensions`)
 

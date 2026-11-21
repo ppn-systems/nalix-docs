@@ -4,7 +4,7 @@ description: Nalix encrypts a connection through a handshake, not through config
 section: Guides
 ---
 
-Nalix encrypts a connection through a handshake, not through configuration you write by hand — turn it on with one call and the framework negotiates a shared key per connection. This shows how to turn on encryption and run TCP, UDP, and WebSocket listeners side by side.
+Nalix encrypts a connection through a handshake, not through configuration you write by hand — turn it on with one call and the framework negotiates a shared key per connection. This shows how to turn on encryption and run TCP, datagram (UDP), and WebSocket listeners side by side.
 
 Full source: `samples/SecureMultiTransportHelloWorld`
 
@@ -22,7 +22,7 @@ await using NetworkApplication app = NetworkApplication.CreateBuilder()
     .UseSystemControl()
     .MapHandlers(typeof(HelloHandlers))
     .MapTcp<DefaultProtocol>().OnPort(TcpPort).Bind()
-    .MapUdp<DefaultProtocol>().OnPort(UdpPort).Bind()
+    .MapDatagram<DefaultProtocol>().OnPort(UdpPort).Bind()
     .MapWebSocket<DefaultProtocol>().OnPort(WebSocketPort).WithPath("/ws").Bind()
     .Build();
 
@@ -35,8 +35,8 @@ await app.RunAsync(cts.Token);
 
 Full source: `samples/SecureMultiTransportHelloWorld/SecureMultiTransportHelloWorld.Server/Program.cs`
 
-:::note[TCP and UDP share a port]
-TCP and UDP listen on the same port because the server checks that a UDP packet's source address matches an already-connected TCP client. Using different ports for each doesn't break anything, but sharing one is the tested, recommended setup.
+:::note[TCP and UDP ports]
+The datagram listener is a separate UDP socket, so it can use the same port number as the TCP listener or a different one. The client learns the UDP port from the ticket (`DatagramTicketInfo.Port`) it receives over the TCP session.
 :::
 
 ## The client handshakes over TCP first
@@ -62,10 +62,10 @@ HelloResponsePacket tcpResponse = await tcpSession.RequestAsync<HelloResponsePac
 
 Full source: `samples/SecureMultiTransportHelloWorld/SecureMultiTransportHelloWorld.Client/Program.cs`
 
-## UDP reuses the TCP session's identity
+## The datagram session derives from the TCP session
 
 ```csharp
-using UdpSession udpSession = new(udpOptions, sharedState);
+using DatagramSession udpSession = new(tcpSession);
 await udpSession.ConnectAsync(Host, UdpPort);
 
 HelloRequestPacket udpRequest = new();
@@ -74,7 +74,7 @@ HelloResponsePacket udpResponse = await udpSession.RequestAsync<HelloResponsePac
     RequestOptions.Default.WithTimeout(5_000));
 ```
 
-You must complete the TCP handshake before sending anything over UDP. UDP packets are authenticated using the session token and a message authentication code derived from the shared secret negotiated during the TCP handshake — without that handshake, the server has no way to verify a UDP packet came from your session.
+You must complete the TCP handshake before opening a datagram session. `ConnectAsync` requests a ticket over the TCP session, and both sides derive the datagram keys from the secret negotiated during the handshake. Every datagram is sealed with ChaCha20-Poly1305, so the server can verify that it came from your session.
 
 Full source: `samples/SecureMultiTransportHelloWorld/SecureMultiTransportHelloWorld.Client/Program.cs`
 
@@ -133,9 +133,9 @@ Whether this matters depends on what sits in front of the server:
 | :--- | :--- |
 | WebSocket or TCP behind TLS (`wss://`, a TLS-terminating proxy) | Not possible: TLS authenticates the whole byte stream |
 | Raw TCP without TLS (as in the samples) | Possible for handlers without `[PacketEncryption(true)]` |
-| UDP | Possible: TLS never covers UDP, so mark UDP handlers too |
+| Datagram (UDP) | Not possible: every datagram is sealed with ChaCha20-Poly1305 by the session, and frames are not encrypted a second time |
 
-Plaintext UDP datagrams are only replay-checked against the 16-bit header `SequenceId`, so a captured plaintext datagram can be accepted again once that counter wraps (about 65,536 packets later). Encrypted datagrams also carry an authenticated 32-bit sequence and are not affected. Mark UDP handlers with `[PacketEncryption(true)]`, or make them safe to run twice on the same input.
+On a datagram session the `encrypt` arguments of the send methods are ignored and the runtime does not encrypt frames a second time (`PacketSender.NeedsEncryption`), because the session already authenticates and encrypts each datagram.
 
 If you do not terminate TLS in front of Nalix, treat `[PacketEncryption(true)]` as required on anything sensitive. See [Reverse Proxy and TLS](./deployment/reverse-proxy-tls.md).
 
@@ -166,7 +166,7 @@ TCP handshake completed. Secure state is ready.
   Encryption   : True
 TCP replied: Hello from Nalix!
 
-Sending UDP hello...
+Sending datagram hello...
 UDP replied: Hello from Nalix!
 TCP connection is still alive: True
 

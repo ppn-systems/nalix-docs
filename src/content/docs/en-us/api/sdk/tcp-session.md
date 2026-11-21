@@ -73,6 +73,8 @@ public class TcpSession : TransportSession
     public override Task SendAsync(IPacket packet, bool? encrypt = null, CancellationToken ct = default);
     public override Task SendAsync(ReadOnlyMemory<byte> payload, bool? encrypt = null, CancellationToken ct = default);
     public override void ResetSequenceCounters();
+
+    protected override ValueTask DisposeAsyncCore();
 }
 ```
 
@@ -81,10 +83,11 @@ public class TcpSession : TransportSession
 | Feature | Details |
 | :--- | :--- |
 | **Connect Coalescing** | Concurrent `ConnectAsync` calls targeting the same `host` and `port` share the in-flight connection task rather than opening duplicate sockets. |
-| **Local Port Capture (`State.LocalPort`)** | Upon connecting, `TcpSession` records `localEp.Port` into `this.State.LocalPort` so a companion `UdpSession` sharing `this.State` can bind to the exact same local port. |
+| **Local Port Capture (`State.LocalPort`)** | Upon connecting, `TcpSession` records `localEp.Port` into `this.State.LocalPort` (also recorded by `ConnectWithProxyAsync`). |
 | **`ConnectWithProxyAsync`** | Connects and immediately transmits a raw PROXY Protocol v2 header (`byte[] proxyProtocolV2`) before firing `OnConnected` or starting the receive loop (used for testing reverse-proxy client IP extraction). |
 | **Synchronous `Send(ReadOnlySpan<byte>, bool)`** | Zero-allocation synchronous send helper for pre-serialized spans. |
 | **Direct Pending-Request Dispatch** | `HasDirectPendingDispatch = true` dispatches inbound frames to active `RequestAsync` / `PacketAwaiter` observers via a lock-protected slot table before invoking `OnMessageReceived`, avoiding per-request multicast delegate allocations. |
+| **`DisposeAsync`** | `await using TcpSession` disconnects gracefully and waits for the receive loop to finish (`DisposeAsyncCore` override), which `Dispose()` does not. |
 | **`OnMessageAsync`** | When subscribed, `TcpSession` calls `lease.Retain()`, invokes `OnMessageAsync(lease.Memory)`, and automatically disposes the retained lease when the returned `Task` completes. |
 
 ## Usage Example
@@ -118,7 +121,7 @@ LoginResponse response = await client.RequestAsync<LoginResponse>(
 ## Related APIs
 
 - [Transport Session](./transport-session.md)
-- [UDP Session](./udp-session.md)
+- [Datagram Session](./datagram-session.md)
 - [WebSocket Session](./websocket-session.md)
 - [Session Extensions](./tcp-session-extensions.md)
 - [Transport Options](../options/sdk/transport-options.md)

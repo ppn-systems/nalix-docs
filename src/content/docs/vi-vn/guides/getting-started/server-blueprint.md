@@ -147,7 +147,7 @@ PacketDispatchChannel dispatch = new(options =>
 });
 
 dispatch.Activate();
-// ... construct and activate your listener with `dispatch` wired in ...
+// ... khởi tạo và kích hoạt listener của bạn với `dispatch` đã được gắn vào ...
 ```
 
 Xem [Ghép nối thủ công (không Hosting)](../../concepts/internals/minimal-server.md) để có hướng dẫn chi tiết mức thấp đầy đủ.

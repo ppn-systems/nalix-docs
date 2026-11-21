@@ -76,7 +76,8 @@ sequenceDiagram
 ```
 
 - **Key Derivation**: Both client and server derive `newKey` via `HandshakeX25519.DeriveRekeySecret(currentSecret)`.
-- **Sequence Counter Reset & Rollback**: Immediately after sending `SESSION_REKEY`, updates `session.State.Secret = newKey` and calls `session.ResetSequenceCounters()`, then awaits `Control(ControlType.SESSION_REKEY_ACK, SequenceId == seqId)` (rolling back `session.State.Secret = previousKey` on timeout or error).
+- **Sequence Counter Reset**: Right after `SESSION_REKEY` is written (on TCP and WebSocket under the send lock, so no frame encrypted with the old key can follow it), updates `session.State.Secret = newKey` and calls `session.ResetSequenceCounters()`, then awaits `Control(ControlType.SESSION_REKEY_ACK, SequenceId == seqId)` within `Options.ConnectTimeoutMillis` (`5000` ms when `0`).
+- **Failure handling**: If the request never left, nothing changed. If it was written on an ordered transport (TCP, WebSocket) and only the acknowledgement is late or lost, the new key is kept (the server switches as soon as it reads the request). On an unordered transport the previous key is restored. The server ignores `SESSION_REKEY` on a datagram session.
 
 ## Usage Example
 

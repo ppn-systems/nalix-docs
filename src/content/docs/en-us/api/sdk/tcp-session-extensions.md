@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport.Extensions`  
 **Assembly:** `Nalix.SDK`
 
-All high-level request, streaming, reactive, RPC, and security helpers in `Nalix.SDK` are implemented as extension methods on **`ITransportSession`**, meaning they work identically across [TcpSession](./tcp-session.md), [UdpSession](./udp-session.md), and [WebSocketSession](./websocket-session.md).
+All high-level request, streaming, reactive, RPC, and security helpers in `Nalix.SDK` are implemented as extension methods on **`ITransportSession`**, meaning they work identically across [TcpSession](./tcp-session.md), [DatagramSession](./datagram-session.md), and [WebSocketSession](./websocket-session.md).
 
 ## Source Mapping
 
@@ -20,6 +20,14 @@ All high-level request, streaming, reactive, RPC, and security helpers in `Nalix
 - `src/Nalix.SDK/Transport/Extensions/RpcExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/RekeyExtensions.cs`
 - `src/Nalix.SDK/Transport/Extensions/ControlExtensions.cs`
+- `src/Nalix.SDK/Transport/Extensions/TimeSyncExtensions.cs`
+- `src/Nalix.SDK/Transport/DatagramSession.cs`
+- `src/Nalix.SDK/Transport/TcpSession.cs`
+- `src/Nalix.SDK/Transport/TransportSession.cs`
+- `src/Nalix.SDK/Transport/WebSocketSession.cs`
+- `src/Nalix.SDK/DiagnosticsEvents.cs`
+- `src/Nalix.SDK/SdkTelemetry.cs`
+- `src/Nalix.SDK/Options/TransportOptions.cs`
 - `src/Nalix.SDK/Options/RequestOptions.cs`
 - `src/Nalix.SDK/Options/RequestOutcome.cs`
 
@@ -67,7 +75,10 @@ public static class RequestExtensions
 ```
 
 - **Sequence Correlation**: If `request.SequenceId == 0`, `RequestAsync` stamps the next non-zero sequence number from the session (`client.NextSequenceId()`) and awaits `TResponse` matching `SequenceId` via `PacketAwaiter.AwaitAsync`.
-- **Automatic Timeout Retry**: When `options.RetryCount > 0`, `RequestAsync` retries immediately upon `TimeoutException` up to `options.RetryCount` additional attempts (each attempt waits up to `options.TimeoutMs`).
+- **Automatic Timeout Retry**: When `options.RetryCount > 0`, `RequestAsync` retries upon `TimeoutException` up to `options.RetryCount` additional attempts (each attempt waits up to `options.TimeoutMs`). `options.RetryDelayMs` adds an exponentially growing, jittered delay before each retry, and `options.DeadlineMs` caps the whole call (waiting for a reconnect, every attempt and every delay); when the budget is spent the call throws `TimeoutException`.
+- **Reconnect Wait**: When `!client.IsConnected` but `AutoReconnectEnabled` is set (or a reconnect is running), the request waits for the `ReconnectSupervisor` to be ready; otherwise it throws `NetworkException`.
+- **Encryption**: `options.Encrypt` (`bool?`) is resolved per request; `null` follows `TransportOptions.EncryptRequestsByDefault`.
+- **Telemetry**: Each call produces a `nalix.request` activity and duration/retry metrics ([SdkTelemetry](./diagnostics.md)) and `DiagnosticsEvents.Requests.*` events.
 - **Exception-Free `TryRequestAsync`**: Catches `NetworkException` (returning `RequestOutcomeKind.NotConnected` when `!client.IsConnected`, or `RequestOutcomeKind.Failed` otherwise) and `TimeoutException` (returning `RequestOutcomeKind.TimedOut`), while rethrowing `OperationCanceledException` when `ct` is canceled.
 
 ```csharp
@@ -76,7 +87,7 @@ using Nalix.SDK.Transport.Extensions;
 
 RequestOutcome<InventoryResponse> outcome = await session.TryRequestAsync<InventoryResponse>(
     new GetInventoryPacket { CharacterId = 42 },
-    RequestOptions.Default.WithTimeout(3_000).WithRetry(2).WithEncrypt());
+    RequestOptions.Default.WithTimeout(3_000).WithRetry(2).WithRetryDelay(200).WithDeadline(10_000).WithEncrypt());
 
 if (outcome.Kind == RequestOutcomeKind.Ok)
 {
@@ -216,7 +227,22 @@ public static class RekeyExtensions
 }
 ```
 
-`RekeyAsync` requires an active `session.State.Secret`. It derives a new 32-byte key via `HandshakeX25519.DeriveRekeySecret(session.State.Secret.AsSpan())`, sends a `Control(ControlType.SESSION_REKEY, seqId, PacketFlags.SYSTEM, ProtocolReason.NONE)` frame, updates `session.State.Secret = newKey` and calls `session.ResetSequenceCounters()`, and awaits `Control(ControlType.SESSION_REKEY_ACK, SequenceId == seqId)` (rolling back to `previousKey` on failure).
+`RekeyAsync` requires an active `session.State.Secret`. It derives a new 32-byte key via `HandshakeX25519.DeriveRekeySecret(session.State.Secret.AsSpan())`, sends a `Control(ControlType.SESSION_REKEY, seqId, PacketFlags.SYSTEM, ProtocolReason.NONE)` frame, switches `session.State.Secret = newKey` and calls `session.ResetSequenceCounters()` (on TCP and WebSocket under the send lock, right after the request is written), and awaits `Control(ControlType.SESSION_REKEY_ACK, SequenceId == seqId)` within `Options.ConnectTimeoutMillis` (`5000` ms when `0`). If the request never left, nothing changes; if it was written on an ordered transport (TCP, WebSocket) and only the acknowledgement fails, the new key is kept; on an unordered transport the key is rolled back to `previousKey`. `DiagnosticsEvents.Rekey.Started` / `Completed` / `Failed` are emitted along the way.
+
+## Session Types and Supporting Types
+
+The extensions above operate on any `ITransportSession`; the concrete types they are used with are documented on their own pages:
+
+| Type | Kind | Page |
+| :--- | :--- | :--- |
+| `TransportSession` | `public abstract class : IDisposable, IAsyncDisposable, ITransportSession` | [Transport Session](./transport-session.md) |
+| `TcpSession` | `public class : TransportSession` | [TCP Session](./tcp-session.md) |
+| `WebSocketSession` | `public class : TransportSession` | [WebSocket Session](./websocket-session.md) |
+| `DatagramSession` | `public sealed class : TransportSession` | [Datagram Session](./datagram-session.md) |
+| `TransportOptions` | `public sealed partial class : ConfigurationLoader` | [Transport Options](../options/sdk/transport-options.md) |
+| `RequestOptions` | `public sealed record` | [Request Options & RequestOutcome&lt;T&gt;](../options/sdk/request-options.md) |
+| `TimeSyncExtensions` / `TimeSyncBuilder` | `public static class` / nested `readonly ref struct` | [Control Utilities](./control-utilities.md) |
+| `DiagnosticsEvents` (`Session`, `Handshake`, `Resumption`, `Reconnect`, `KeepAlive`, `Rekey`, `Requests`, `Frames`, `Subscriptions`) and `SdkTelemetry` | `public static class` | [Session Diagnostics](./diagnostics.md) |
 
 ## Related APIs
 

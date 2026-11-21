@@ -6,7 +6,7 @@ package: Nalix.Abstractions
 ---
 
 **Assembly:** `Nalix.Abstractions`  
-**Namespaces:** `Nalix.Abstractions.Networking`, `Nalix.Abstractions.Networking.Protocols`, `Nalix.Abstractions.Networking.Packets`, `Nalix.Abstractions.Security`, `Nalix.Abstractions.Identity`, `Nalix.Abstractions.Serialization`, `Nalix.Abstractions.Middleware`, `Nalix.Abstractions.Concurrency`
+**Namespaces:** `Nalix.Abstractions.Networking`, `Nalix.Abstractions.Networking.Protocols`, `Nalix.Abstractions.Networking.Packets`, `Nalix.Abstractions.Networking.Datagrams`, `Nalix.Abstractions.Security`, `Nalix.Abstractions.Identity`, `Nalix.Abstractions.Serialization`, `Nalix.Abstractions.Middleware`, `Nalix.Abstractions.Concurrency`
 
 This page provides a complete, source-verified reference for every enumeration in `Nalix.Abstractions`.
 
@@ -21,8 +21,10 @@ Identifies the network transport protocol (`src/Nalix.Abstractions/Networking/Ne
 | Member | Value | Description |
 | :--- | :--- | :--- |
 | `TCP` | `0` | Transmission Control Protocol (reliable stream). |
-| `UDP` | `1` | User Datagram Protocol (low-latency datagrams). |
-| `WEBSOCKET` | `2` | WebSocket over TCP (RFC 6455 framed stream). |
+| `WEBSOCKET` | `2` | WebSocket Protocol (reliable, message-oriented). |
+| `DATAGRAM` | `3` | Nalix Datagram Protocol: an authenticated UDP session with reliable, sequenced and unreliable delivery on independent channels. |
+
+The former `UDP = 1` member is removed; the value `1` is unused. See `DeliveryMethod` below for the delivery modes of a datagram session.
 
 ### `TransportFraming` (`byte`)
 
@@ -34,14 +36,17 @@ Selects the stream framing mode on `IConnection.ITransport` and `Protocol.Framin
 | `UInt16LengthPrefixed` | `1` | 2-byte little-endian `ushort` length prefix (default for Nalix TCP). |
 | `VarIntLengthPrefixed` | `2` | LEB128 variable-length integer prefix (governed by `VarIntFramingOptions`). |
 
-### `OperatingMode` (`byte`)
+### `DeliveryMethod` (`byte`)
 
-Configures the listener operating mode in `IProtocolBindingBuilder.WithMode(...)`:
+How a message sent over a datagram session is delivered; ordering and sequencing are per channel (`src/Nalix.Abstractions/Networking/Datagrams/DeliveryMethod.cs`, namespace `Nalix.Abstractions.Networking.Datagrams`). Stream transports (TCP, WebSocket) deliver every method reliably and in order.
 
 | Member | Value | Description |
 | :--- | :--- | :--- |
-| `Server` | `0` | Standard session-authenticated Nalix server mode (`UdpServerListener`). |
-| `Passthrough` | `1` | Stateless connectionless datagram mode (`UdpPassthroughListener` + `PassthroughConnection`). |
+| `Unreliable` | `0` | Delivered at most once, in any order; never retransmitted. |
+| `UnreliableSequenced` | `1` | Delivered at most once; a message older than the newest one already delivered on its channel is dropped. Never retransmitted. |
+| `ReliableUnordered` | `2` | Delivered exactly once, in any order. |
+| `ReliableOrdered` | `3` | Delivered exactly once, in send order within its channel. |
+| `ReliableSequenced` | `4` | The newest message of the channel is guaranteed to arrive; older ones may be skipped. Only the newest message is retransmitted. |
 
 ### `ProtocolOpCode` (`ushort`)
 
@@ -61,10 +66,13 @@ Reserved system and protocol opcodes (`0x0000..0x00FF`, `src/Nalix.Abstractions/
 | `SESSION_REKEY` | `0x0009` | Mid-session symmetric key rotation frame. |
 | `POW_CHALLENGE` | `0x000A` | Server-issued Proof-of-Work puzzle (`ProofOfWorkChallenge`). |
 | `POW_PROOF` | `0x000B` | Client-submitted Proof-of-Work solution (`ProofOfWorkProof`). |
+| `DATAGRAM_TICKET` | `0x000C` | Requests (client) or carries (server) a datagram session ticket over an established stream session (`DatagramTicket`). |
 | `TUNNEL_REQUEST` | `0x00F3` | Tunnel request packet. |
 | `TUNNEL_PROVIDE_ACK` | `0x00F4` | Tunnel provisioning acknowledgement. |
 | `TUNNEL_CONNECT_ACK` | `0x00F5` | Tunnel connection request acknowledgement. |
 | `TUNNEL_READY` | `0x00F6` | Tunnel readiness notification. |
+| `TUNNEL_CHALLENGE` | `0x00F1` | Server challenge sent on a tunnel data connection; the provider answers with `TUNNEL_PROOF`. |
+| `TUNNEL_PROOF` | `0x00F2` | Provider proof of possession of the tunnel token, answering `TUNNEL_CHALLENGE`. |
 | `TUNNEL_PROVIDE` | `0x00F7` | Tunnel provisioning metadata packet. |
 | `TUNNEL_CONNECT` | `0x00F8` | Logical tunnel connection request. |
 | `TRAVERSAL_REFLECTOR_INIT` | `0x00F9` | NAT traversal reflector initialization. |
@@ -84,10 +92,7 @@ Bitflags stored at byte offset `2` (`PacketHeaderOffset.Flags = 2`) of the 6-byt
 | `NONE` | `0x00` | Active | Uncompressed, unencrypted, unfragmented application frame. |
 | `COMPRESSED` | `1 << 1` (`0x02`) | Active | Payload is compressed with `LZ4Codec`. |
 | `ENCRYPTED` | `1 << 2` (`0x04`) | Active | Payload is wrapped in an `EnvelopeCipher` AEAD/Symmetric envelope. |
-| `FRAGMENTED` | `1 << 3` (`0x08`) | Active | Payload carries an 8-byte `FragmentHeader` chunk. |
-| `RELIABLE` | `1 << 4` (`0x10`) | `[Obsolete]` | Legacy reliability flag — transport reliability is determined by `NetworkTransport`. |
-| `UNRELIABLE` | `1 << 5` (`0x20`) | `[Obsolete]` | Legacy unreliability flag — use `NetworkTransport.UDP`. |
-| `ACKNOWLEDGED` | `1 << 6` (`0x40`) | `[Obsolete]` | Legacy acknowledgement flag. |
+| `FRAGMENTED` | `1 << 3` (`0x08`) | Active | The frame is one chunk of a larger message; set by the transport on every fragment chunk header and used by the receiver to detect fragments. |
 | `SYSTEM` | `1 << 7` (`0x80`) | Active | System-level protocol frame (`Control`, `Directive`, `TimeSync`, handshake). |
 
 ### `PacketPriority` (`byte`)
@@ -215,6 +220,7 @@ Authority levels assigned to `IConnection.Level` and checked by `PermissionMiddl
 | `NONE` | `0` | Unverified initial connection state. |
 | `POW_VERIFIED` | `10` | Client has solved a Proof-of-Work challenge (`ProofOfWorkProof`). |
 | `ESTABLISHED` | `20` | Client has completed the X25519 cryptographic handshake (`HandshakeHandlers`). |
+| `OBSERVER` | `22` | Read-only observability access, granted only by presenting the observability access key. Sits above `ESTABLISHED` and below `GUEST`, so it does not satisfy handlers that require guest or higher. |
 | `GUEST` | `25` | Anonymous guest session. |
 | `READ_ONLY` | `50` | Authenticated read-only observer. |
 | `USER` | `100` | Standard authenticated user (default for `[PacketPermission]`). |

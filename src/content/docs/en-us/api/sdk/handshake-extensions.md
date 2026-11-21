@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport.Extensions`  
 **Assembly:** `Nalix.SDK`
 
-`HandshakeExtensions.HandshakeAsync` performs the client-side cryptographic handshake over any `ITransportSession` ([TcpSession](./tcp-session.md), [UdpSession](./udp-session.md), or [WebSocketSession](./websocket-session.md)), deriving a 32-byte symmetric key (`session.State.Secret`), enabling frame encryption (`session.State.EncryptionEnabled = true`), capturing the 8-byte `session.State.SessionToken`, and signaling `TransportSession.NotifyReady()`.
+`HandshakeExtensions.HandshakeAsync` performs the client-side cryptographic handshake over any `ITransportSession` ([TcpSession](./tcp-session.md), [DatagramSession](./datagram-session.md), or [WebSocketSession](./websocket-session.md)), deriving a 32-byte symmetric key (`session.State.Secret`), enabling frame encryption (`session.State.EncryptionEnabled = true`), capturing the 8-byte `session.State.SessionToken`, and signaling `TransportSession.NotifyReady()`.
 
 ## Source Mapping
 
@@ -81,13 +81,14 @@ sequenceDiagram
 
 When `ConnectionGuard` requires Proof-of-Work on the server, the server replies to `SessionInit` with `Control(ControlType.ERROR, ProtocolReason.POW_REQUIRED)`. `HandshakeAsync` handles this transparently:
 1. Sends `Control(ControlType.POW_REQUEST)` and awaits `ProofOfWorkChallenge`.
-2. Solves the SHA-256 leading-zero-bit puzzle on the `ThreadPool` (`ProofOfWorkSolver.SolveChallenge`) using a dedicated `30_000` ms solver budget (`PowSolveTimeoutMs`).
+2. Solves the Keccak-256 leading-zero-bit puzzle (`ProofOfWorkSolver.SolveChallenge(nonce, difficulty, timestampTicks, ct)`). The search is bounded by the same linked token as the handshake, so `Options.ConnectTimeoutMillis` also bounds the solve; a cancelled solve throws `OperationCanceledException`.
 3. Sends `ProofOfWorkProof` and automatically re-sends `SessionInit`.
 
 ### 3. Ephemeral Key Zeroization & Rollback
 
 - `HandshakeAsync` enters negotiation on the `TransportSession` while running (pausing background keepalive pings) and zeroes the ephemeral X25519 private key and intermediate ECDH secrets (`CryptographicOperations.ZeroMemory`) in a `finally` block.
 - Each handshake step uses `session.Options.ConnectTimeoutMillis` (or `5000` ms when `ConnectTimeoutMillis <= 0`).
+- `HandshakeAsync` calls `session.ResetSequenceCounters()` before negotiating and reports progress through `DiagnosticsEvents.Handshake.*` (`Started`, `ProofOfWorkRequested`, `TofuTrusted`, `TofuPersisted`, `TofuNotPersisted`, `ProofInvalid`, `Completed`, `Failed`).
 
 ## Usage Example
 

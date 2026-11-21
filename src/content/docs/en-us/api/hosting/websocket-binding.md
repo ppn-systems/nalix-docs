@@ -8,7 +8,7 @@ package: Nalix.Hosting
 **Namespace:** `Nalix.Hosting`  
 **Assembly:** `Nalix.Hosting`
 
-`MapWebSocket<TProtocol>()` and `IWebSocketBindingBuilder` attach a binary WebSocket listener (`WebSocketServerListener`, inheriting from `WebSocketListenerBase`) to a `NetworkApplication` host alongside TCP and UDP bindings, and allow mapping lightweight single-buffer HTTP `GET` and `POST` routes on the same port.
+`MapWebSocket<TProtocol>()` and `IWebSocketBindingBuilder` attach a binary WebSocket listener (`WebSocketServerListener`, inheriting from `WebSocketListenerBase`) to a `NetworkApplication` host alongside TCP and datagram bindings, and allow mapping lightweight single-buffer HTTP `GET` and `POST` routes on the same port.
 
 ## Source Mapping
 

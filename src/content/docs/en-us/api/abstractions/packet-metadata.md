@@ -24,8 +24,7 @@ package: Nalix.Abstractions
 | `Permission` | `PacketPermissionAttribute?` | Optional `[PacketPermission]` level and evaluation mode. |
 | `Encryption` | `PacketEncryptionAttribute?` | Optional `[PacketEncryption]` requirement and cipher suite. |
 | `RateLimit` | `PacketRateLimitAttribute?` | Optional `[PacketRateLimit]` token-bucket / policy settings. |
-| `Transport` | `PacketTransportAttribute?` | Optional `[PacketTransport]` restriction (`TCP`, `UDP`, `WEBSOCKET`). |
-| `CustomAttributes` | `IReadOnlyDictionary<Type, Attribute>` | Dictionary of additional custom attributes discovered on the handler. |
+| `CustomAttributes` | `IReadOnlyDictionary<Type, Attribute>` | Dictionary of additional custom attributes discovered on the handler, such as `[PacketDelivery]` (read by `PacketSender` through `GetCustomAttribute<PacketDeliveryAttribute>()` to pick the delivery method and channel on a datagram connection). |
 | `GetCustomAttribute<TAttribute>()` | `TAttribute?` | Retrieves a custom attribute of type `TAttribute` in $O(1)$ time without reflection. |
 
 ## Compile-Time Generation
@@ -40,7 +39,6 @@ PacketMetadata metadata = new(
     permission: new PacketPermissionAttribute(PermissionLevel.USER, PermissionEvaluation.MinimumLevel),
     encryption: new PacketEncryptionAttribute(true, CipherSuiteType.Chacha20Poly1305),
     rateLimit: new PacketRateLimitAttribute(10, 3) { PolicyId = "chat-send" },
-    transport: new PacketTransportAttribute(NetworkTransport.TCP),
     customAttributes: null);
 ```
 

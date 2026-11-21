@@ -65,8 +65,31 @@ public abstract partial class TcpListenerBase : IListener
     public virtual void WriteReportData(Utf8JsonWriter writer);
     public void Dispose();
     protected virtual void Dispose(bool disposing);
+
+    // Accept pipeline members available to derived listeners
+    protected void ProcessConnection(IConnection connection);
+    protected void HandleConnectionClose(object? sender, IConnectionEventArgs args);
+    protected internal static void SafeCloseSocket(Socket socket);
+    protected Task AcceptConnectionsAsync(IWorkerContext ctx, CancellationToken cancellationToken);
+    protected void DoAccept(IConnection connection);
+    protected internal void DISPATCH_CONNECTION(IConnection connection);
+    protected bool InitializeOptions(Socket socket);
+    protected void HandleAccept(SocketAsyncEventArgs args);
+    protected void OnSyncAcceptCompleted(object? sender, SocketAsyncEventArgs args);
+    protected void AcceptNext(SocketAsyncEventArgs args, CancellationToken cancellationToken);
 }
 ```
+
+| Protected member | Source | Behavior |
+| :--- | :--- | :--- |
+| `ProcessConnection(IConnection)` | `TcpListener.Handle.cs` | Hands a fully initialized connection to the protocol; an exception thrown by `IProtocol.OnAccept` is caught, logged and the connection is closed, so the listener loop continues. |
+| `HandleConnectionClose(object?, IConnectionEventArgs)` | `TcpListener.Handle.cs` | `ConnectionClosed` handler; returns immediately when `args` or its `Connection` is `null`. |
+| `SafeCloseSocket(Socket)` | `TcpListener.Handle.cs` | Closes a socket that may be in an indeterminate state; exceptions are logged at `Debug` and not rethrown. |
+| `AcceptConnectionsAsync(IWorkerContext, CancellationToken)` | `TcpListener.Handle.cs` | The accept worker loop; forwards each accepted connection for processing. |
+| `DoAccept(IConnection)` | `TcpListener.Handle.cs` | Calls `IProtocol.OnAccept(connection, ct)`. |
+| `DISPATCH_CONNECTION(IConnection)` | `TcpListener.ProcessChannel.cs` | `protected internal`. Writes an accepted connection into the bounded process channel with `TryWrite`. If the channel is not available the connection is disposed; if the channel is full the new connection is dropped, the queue-full rejection metric is recorded and the connection is disconnected. |
+| `InitializeOptions(Socket)` | `TcpListener.SocketConfig.cs` | `protected`. Sets `Blocking = true` and `NoDelay` from `NetworkSocketOptions.NoDelay` on an accepted socket; returns `false` (instead of throwing) when the socket was already aborted, reset or disposed. Throws `ArgumentNullException` for a `null` socket. |
+| `HandleAccept(SocketAsyncEventArgs)`, `OnSyncAcceptCompleted(...)`, `AcceptNext(...)` | `TcpListener.Synchronization.cs` | SAEA accept completion handling and the accept loop; `AcceptNext` pauses 50 ms after an unexpected exception before retrying. |
 
 ## Metrics (`TcpListenerBase.LMetrics`)
 
@@ -86,7 +109,7 @@ public abstract partial class TcpListenerBase : IListener
 ### 1. Socket Binding & Tuning (`TcpListener.SocketConfig.cs`)
 
 - **Dual-Stack IPv6 / IPv4 Fallback**: When `NetworkSocketOptions.EnableDualStack` is `true` (default), `TcpListenerBase` binds an `InterNetworkV6` socket with `DualMode = _config.DualMode` (`true`), falling back to `InterNetwork` (IPv4) if the OS does not support IPv6 dual-stack.
-- **Socket Options**: Configures `ReuseAddress`, `ReusePort`, `TcpFastOpen`, `Backlog` (`512`), `NoDelay` (`true`), `SendBufferSize`/`ReceiveBufferSize` (`BufferSize = 65536`), and cross-platform TCP Keep-Alive probes (`3s` time, `1s` interval, `3` retries).
+- **Socket Options**: Configures `ReuseAddress`, `ReusePort`, `TcpFastOpen`, `Backlog` (`512`), `NoDelay` (`true`), `SendBufferSize`/`ReceiveBufferSize` (`BufferSize = 65536`), and cross-platform TCP Keep-Alive probes (`120` time, `30` interval, `5` retries). `SO_REUSEPORT` is only applied on Linux.
 
 ### 2. PROXY Protocol v1/v2 (`TcpListener.ProxyProtocol.cs`)
 
@@ -105,7 +128,7 @@ When `ProxyProtocolOptions.Enabled` is `true`:
 
 ## Related APIs
 
-- [UDP Listener](./udp-listener.md)
+- [Datagram Listener](./datagram-listener.md)
 - [WebSocket Binding](../hosting/websocket-binding.md)
 - [Protocol](./protocol.md)
 - [Network Socket Options](../options/network/network-socket-options.md)

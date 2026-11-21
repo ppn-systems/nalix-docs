@@ -8,7 +8,7 @@ package: Nalix.Runtime
 **Namespace:** `Nalix.Runtime.Extensions`  
 **Assembly:** `Nalix.Runtime`
 
-`ConnectionExtensions` (`public static partial class ConnectionExtensions`) và `ConnectionUserExtensions` (`public static class ConnectionUserExtensions`) cung cấp các phương thức mở rộng mức cao trên `IConnection`, `IPacketSender`, `IConnectionBroadcaster` và `IConnectionGroupRegistry` để gửi gói tin có kiểu, phát các khung `Directive` của mặt điều khiển, broadcast các khung đã nén sẵn, và định tuyến gói tin theo `UserId`.
+`ConnectionExtensions` (`public static partial class ConnectionExtensions`, `src/Nalix.Runtime/Extensions/ConnectionExtensions.cs` và `.Broadcast.cs`) và `ConnectionUserExtensions` (`public static class ConnectionUserExtensions`, `src/Nalix.Runtime/Extensions/ConnectionUserExtensions.cs`) cung cấp các phương thức mở rộng mức cao trên `IConnection`, `IPacketSender`, `IConnectionBroadcaster` và `IConnectionGroupRegistry` để gửi gói tin có kiểu, phát các khung `Directive` của mặt điều khiển, broadcast các khung đã nén sẵn, và định tuyến gói tin theo `UserId`.
 
 ## Nguồn mã
 
@@ -28,7 +28,6 @@ public static partial class ConnectionExtensions
     public static ValueTask SendAsync<TPacket>(
         this IConnection connection,
         TPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken ct = default)
         where TPacket : IPacket;
@@ -50,7 +49,7 @@ public readonly record struct ControlDirectiveOptions(
 ```
 
 - **`connection.GetHub()`**: Lấy `IConnectionHub` sở hữu kết nối, được lưu dưới `ConnectionAttributes.OwnerHub` trong `connection.Attributes` (hoặc `null` nếu chưa đăng ký).
-- **`connection.SendAsync(packet, transport, enableEncrypt, ct)`**: Tuần tự hóa `packet`, áp dụng nén đi (`CompressionOptions`) và mã hóa (`enableEncrypt`), rồi truyền qua `connection.TCP` (cho `TCP`/`WEBSOCKET`) hoặc `connection.UDP` (ném `InvalidOperationException` nếu `UDP` là `null`).
+- **`connection.SendAsync(packet, enableEncrypt, ct)`**: Tuần tự hóa `packet`, áp dụng nén đi (`CompressionOptions`) và mã hóa (`enableEncrypt`), rồi truyền qua `connection.Transport`. Tham số `NetworkTransport transport` trước đây đã bị gỡ (ghi chú suppression trong mã nguồn viết "only the UDP transport parameter was removed"); một `DatagramConnection` được truy cập qua `Transport` riêng của nó (`ReliableOrdered`, kênh 0) hoặc `IDatagramTransport.SendAsync(message, method, channel)`.
 - **`sender.SendAsync(controlType, reason, action, options)`**: Thuê một `Directive` (`0x0008`) từ pool qua `PacketFactory<Directive>.Acquire()`, khởi tạo với `ControlDirectiveOptions`, và gửi qua `IPacketSender.SendAsync`.
 
 ## 2. Mở rộng broadcast gói tin và multicast theo nhóm (`ConnectionExtensions.Broadcast.cs`)
@@ -61,7 +60,6 @@ public static partial class ConnectionExtensions
     public static Task BroadcastAsync(
         this IConnectionBroadcaster hub,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 
@@ -70,7 +68,6 @@ public static partial class ConnectionExtensions
         IConnectionGroupRegistry groupProvider,
         string groupName,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 
@@ -80,7 +77,6 @@ public static partial class ConnectionExtensions
         string groupName,
         IConnection excludedConnection,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 }
@@ -110,7 +106,6 @@ public static class ConnectionUserExtensions
         IConnectionGroupRegistry registry,
         string userId,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 
@@ -120,13 +115,12 @@ public static class ConnectionUserExtensions
         string userId,
         IConnection excludedConnection,
         IPacket packet,
-        NetworkTransport transport = NetworkTransport.TCP,
         bool enableEncrypt = true,
         CancellationToken cancellationToken = default);
 }
 ```
 
-- Đặt `connection.UserId = userId` và ánh xạ kết nối vào nhóm nội bộ `"__user_:" + userId` trong `IConnectionGroupRegistry`.
+- `MapToUserAsync` đặt `connection.UserId = userId` và ánh xạ kết nối vào nhóm nội bộ `"__user_:" + userId` trong `IConnectionGroupRegistry`.
 
 ## Ví dụ sử dụng
 
@@ -145,7 +139,7 @@ await context.Sender.SendAsync(
         SequenceId: context.Packet.Header.SequenceId));
 
 // 2. Gửi gói tin trực tiếp qua IConnection
-await context.Connection.SendAsync(notificationPacket, NetworkTransport.TCP, enableEncrypt: true);
+await context.Connection.SendAsync(notificationPacket, enableEncrypt: true);
 ```
 
 ## API liên quan

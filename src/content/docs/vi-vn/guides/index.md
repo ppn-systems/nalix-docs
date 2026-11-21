@@ -20,9 +20,9 @@ Các hướng dẫn này đi qua những mẫu thực tế, chạy được ngay
 ## Mạng
 
 - [Hướng dẫn Phiên kết nối Client](./networking/connecting-clients.md) — kết nối phiên TCP/UDP bằng `Nalix.SDK`
-- [Hướng dẫn Máy chủ UDP](./networking/udp-server.md) — xây dựng dịch vụ datagram độ trễ thấp
+- [Hướng dẫn Máy chủ UDP](./networking/datagram-server.md) — xây dựng dịch vụ datagram độ trễ thấp
 - [Hướng dẫn Mẫu kết nối TCP](./networking/tcp-patterns.md) — request/response và ghép nối listener thủ công
-- [Hướng dẫn Bảo mật UDP](./networking/udp-security.md) — bàn giao phiên an toàn cho UDP
+- [Hướng dẫn Bảo mật UDP](./networking/datagram-security.md) — bàn giao phiên an toàn cho UDP
 - [Cấu hình thời gian chờ kết nối rỗi](./networking/idle-timeout-configuration.md) — tinh chỉnh timeout kết nối
 
 ## Mở rộng

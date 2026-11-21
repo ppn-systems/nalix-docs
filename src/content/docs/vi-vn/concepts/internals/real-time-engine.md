@@ -10,7 +10,7 @@ Nalix được thiết kế quanh mô hình máy chủ thời gian thực với 
 
 ```mermaid
 flowchart LR
-    A["Client session"] --> B["TCP / UDP listener"]
+    A["Client session"] --> B["Transport listener"]
     B --> C["Connection state"]
     C --> D["Protocol"]
     D --> E["PacketDispatchChannel"]
@@ -71,7 +71,7 @@ Với ứng dụng client, mô hình tư duy đơn giản nhất là:
 
 ## Datagram độ trễ thấp (UDP)
 
-Nalix hỗ trợ runtime UDP thông qua `UdpListenerBase` cho các trường hợp không cần độ tin cậy:
+Nalix hỗ trợ runtime datagram (Nalix Datagram Protocol, NDP trên UDP) thông qua `DatagramListener` cho các trường hợp không cần độ tin cậy:
 
 | Trường hợp sử dụng | Vì sao dùng UDP |
 | :--- | :--- |
@@ -82,12 +82,28 @@ Nalix hỗ trợ runtime UDP thông qua `UdpListenerBase` cho các trường h�
 
 Đường UDP vẫn yêu cầu định danh phiên và xác thực. Hãy nghĩ về nó như cùng một logic ứng dụng, nhưng với đặc tính transport khác:
 
-- Phiên phải được thiết lập qua TCP trước
-- Mỗi datagram gồm một tiền tố session token
-- Connection secret phải được khởi tạo
-- `IsAuthenticated(...)` có thể áp dụng các kiểm tra datagram riêng của ứng dụng sau khi kiểm tra token, endpoint và chống phát lại
+- Phiên stream (TCP hoặc WebSocket) phải được thiết lập và handshake trước
+- Client yêu cầu một ticket qua phiên đó; khóa datagram được dẫn xuất từ secret của stream
+- Mỗi datagram được niêm phong bằng ChaCha20-Poly1305 và mang connection id ở dạng cleartext
+- Mỗi thông điệp có thể chọn một `DeliveryMethod` (không tin cậy, có thứ tự theo sequence hoặc tin cậy) và một kênh
 
-Các điểm này phản ánh luồng listener có sẵn trong `src/Nalix.Network/Listeners/UdpListener/UdpListener.Receive.cs`, nơi datagram được xác định bằng token trước, sau đó được đối chiếu với trạng thái kết nối đang hoạt động.
+Các điểm này phản ánh luồng listener có sẵn trong `src/Nalix.Network/Listeners/Datagram/DatagramListener.Receive.cs`, nơi datagram được xác định bằng connection id trước, sau đó được xác thực bởi session engine.
+
+Sơ đồ theo dõi một phiên datagram từ đầu đến cuối: ticket đi qua phiên stream, sau đó các datagram đã niêm phong được định tuyến theo connection id, được engine phía server xác thực và chuyển vào cùng đường dispatch như lưu lượng stream (nguồn: `DatagramSession.cs:132`, `DatagramListener.Receive.cs:100`, `DatagramConnection.Transport.cs:142,169`). Chi tiết từng thành phần nằm ở [DatagramSession](../../api/sdk/datagram-session.md), [DatagramEngine](../../api/environment/datagram-engine.md) và [DatagramListener](../../api/network/datagram-listener.md).
+
+```mermaid
+flowchart LR
+    CS["DatagramSession"] -->|"ticket request"| TH["DatagramTicketHandlers"]
+    TH -->|"IssueTicket"| DL["DatagramListener"]
+    CS --> CE["Client DatagramEngine"]
+    CE -->|"sealed datagram"| DL
+    DL -->|"Route by id"| DC["DatagramConnection"]
+    DC -->|"Receive"| SE["Server DatagramEngine"]
+    SE -->|"OnMessage"| DC
+    DC -->|"MessageProcessing"| PR["Protocol"]
+    PR --> DP["PacketDispatchChannel"]
+    DP --> H["Handler"]
+```
 
 ## Giới hạn tốc độ và bảo vệ
 
@@ -96,7 +112,7 @@ Hệ thống thời gian thực là hệ thống dễ sập nhanh nhất khi kh�
 | Thành phần | Tầng | Mục đích |
 | :--- | :--- | :--- |
 | `ConnectionGuard` | Socket | Từ chối endpoint trước khi cấp phát tài nguyên |
-| `DatagramGuard` | Transport | Giới hạn gói UDP theo từng IP, không dùng lock (bảo vệ chống UDP Flood) |
+| `ConnectionGuard` (phiên datagram) | Transport | Kiểm soát admission theo từng endpoint khi một phiên datagram được chấp nhận |
 | `TokenBucketLimiter` | Dispatch | Bảo vệ trước các đợt tăng đột biến yêu cầu bằng ngân sách burst |
 | `PolicyRateLimiter` | Dispatch | Giới hạn tốc độ theo từng opcode và từng endpoint |
 | `TimingWheel` | Transport | Quản lý timeout nhàn rỗi với độ phức tạp O(1) để dọn dẹp kết nối |
@@ -115,7 +131,7 @@ Attribute của handler trở thành hành vi lúc chạy thông qua metadata đ
 public ValueTask<PositionAck> HandlePosition(
     IPacketContext<PositionUpdate> context)
 {
-    // Metadata-driven enforcement happens before this code runs
+    // Việc kiểm soát dựa trên metadata diễn ra trước khi đoạn mã này chạy
 }
 ```
 
@@ -127,4 +143,4 @@ Metadata được phân giải một lần khi đăng ký handler, sau đó đư
 - [Middleware](./middleware-pipeline.md) — Middleware bộ đệm và middleware gói tin
 - [Packet Dispatch](../../api/runtime/routing/packet-dispatch.md) — Tham chiếu API dispatch
 - [TCP Request/Response](../../guides/networking/tcp-patterns.md) — Hướng dẫn mẫu TCP
-- [UDP Auth Flow](../../guides/networking/udp-security.md) — Hướng dẫn xác thực UDP
+- [UDP Auth Flow](../../guides/networking/datagram-security.md) — Hướng dẫn xác thực UDP

@@ -1,6 +1,6 @@
 ---
 title: Hashing and MAC
-description: Keccak-256, HMAC-Keccak-256, Poly1305 MAC, PBKDF2 credential hashing, and SecurityOptions in Nalix.Codec.Security.Hashing.
+description: Keccak-256, HMAC-Keccak-256, HKDF-Keccak-256, Poly1305 MAC, PBKDF2 credential hashing, and SecurityOptions in Nalix.Codec.Security.Hashing.
 section: API Reference
 package: Nalix.Codec
 ---
@@ -13,6 +13,7 @@ This page covers the hashing, message-authentication, and password-derivation pr
 ## Source Mapping
 
 - `src/Nalix.Codec/Security/Hashing/Keccak256.cs`
+- `src/Nalix.Codec/Security/HkdfKeccak256.cs`
 - `src/Nalix.Codec/Security/Hashing/HmacKeccak256.cs`
 - `src/Nalix.Codec/Security/Hashing/Poly1305.cs`
 - `src/Nalix.Codec/Security/Hashing/Pbkdf2.cs`
@@ -33,11 +34,19 @@ This page covers the hashing, message-authentication, and password-derivation pr
 - `void HashData(ReadOnlySpan<byte> data, Span<byte> output)` — Zero-allocation hash writing 32 bytes into `output` (throws `ArgumentException` if `output.Length < 32`).
 - `bool TryHashData(ReadOnlySpan<byte> data, Span<byte> output)` — Non-throwing span overload; returns `false` if `output.Length < 32`.
 - `byte[] HashData(ReadOnlySpan<byte> data)` — Allocates and returns a 32-byte `byte[]`.
+- `Keccak256.Sponge` (nested `public struct`, `[EditorBrowsable(Never)]`) — Stack-allocated incremental sponge (200-byte state plus a 136-byte buffer) for inputs larger than one rate block. Obtain it with `new Keccak256.Sponge()`; `void Absorb(scoped ReadOnlySpan<byte> data)` feeds data in any chunk size and `void PadAndSqueeze(scoped Span<byte> output)` applies the Keccak padding and writes the 32-byte digest. `Pbkdf2` uses it internally for its inner and outer hash.
 
 ```csharp
 using System;
 using Nalix.Abstractions.Primitives;
 using Nalix.Codec.Security.Hashing;
+
+// Incremental hashing of a large stream
+Keccak256.Sponge sponge = new();
+sponge.Absorb(chunk1);
+sponge.Absorb(chunk2);
+Span<byte> digest = stackalloc byte[32];
+sponge.PadAndSqueeze(digest);
 
 // Zero-allocation fixed 32-byte struct
 Bytes32 fixedDigest = Keccak256.HashDataToFixed(payload);
@@ -51,21 +60,42 @@ Keccak256.HashData(payload, buffer);
 
 ## 2. `HmacKeccak256`
 
-`HmacKeccak256` implements RFC 2104 HMAC over `Keccak256` (rate/block size = `136` bytes, output = `Keccak256.HashSize` = `32` bytes), wiping all intermediate key pads on the stack before returning.
+`HmacKeccak256` implements RFC 2104 HMAC over `Keccak256` (rate/block size = `136` bytes, output = `32` bytes), wiping all intermediate key pads on the stack before returning.
 
 ### Public Static Member
 
-- `void Compute(ReadOnlySpan<byte> key, ReadOnlySpan<byte> data, Span<byte> output)` — Computes the 32-byte HMAC tag into `output` (throws `ArgumentException` if `output.Length < Keccak256.HashSize`).
+- `void Compute(ReadOnlySpan<byte> key, ReadOnlySpan<byte> data, Span<byte> output)` — Computes the 32-byte HMAC tag into `output` (throws `ArgumentException` if `output.Length < 32`).
 
 ```csharp
 using System;
 using Nalix.Codec.Security.Hashing;
 using Nalix.Codec.Security.Primitives;
 
-Span<byte> mac = stackalloc byte[Keccak256.HashSize];
+Span<byte> mac = stackalloc byte[32];
 HmacKeccak256.Compute(key, data, mac);
 
 bool authentic = BitwiseOperations.FixedTimeEquals(mac, expectedMac);
+```
+
+---
+
+## 2b. `HkdfKeccak256`
+
+`HkdfKeccak256` (`public static class`, namespace `Nalix.Codec.Security`, `src/Nalix.Codec/Security/HkdfKeccak256.cs`) is HKDF (RFC 5869) over `HmacKeccak256` with a 32-byte output. It is the key derivation used by the X25519 handshake (`HandshakeX25519`), the session rekey, and the datagram key schedule (`DatagramKeySchedule`).
+
+### Public Static Members
+
+- `const int MaxInfoLength = 256` — The largest `info` accepted by `Expand`, in bytes.
+- `Bytes32 Extract(ReadOnlySpan<byte> salt, ReadOnlySpan<byte> ikm)` — HKDF-Extract: `PRK = HMAC(salt, IKM)`; `salt` may be empty.
+- `Bytes32 Expand(Bytes32 prk, ReadOnlySpan<byte> info)` — HKDF-Expand for one 32-byte block: `OKM = HMAC(PRK, info || 0x01)`. Wipes its own copy of `prk` and throws `ArgumentOutOfRangeException` when `info.Length > MaxInfoLength`.
+
+```csharp
+using System.Text;
+using Nalix.Abstractions.Primitives;
+using Nalix.Codec.Security;
+
+Bytes32 prk = HkdfKeccak256.Extract(salt: default, ikm: sharedSecret);
+Bytes32 key = HkdfKeccak256.Expand(prk, "my-app/key"u8);
 ```
 
 ---
@@ -88,6 +118,7 @@ bool authentic = BitwiseOperations.FixedTimeEquals(mac, expectedMac);
   - `void Update(ReadOnlySpan<byte> data)`
   - `void FinalizeTag(Span<byte> tag)` / `byte[] FinalizeTag()`
   - `void ComputeTag(ReadOnlySpan<byte> message, Span<byte> destination)`
+  - `void ComputeTagIncremental(ReadOnlySpan<byte> message, Span<byte> destination)` — Convenience: `Update(message)` followed by `FinalizeTag(destination)`.
   - `void Clear()` — Securely zeroes internal limbs and key state.
 
 ---
@@ -131,7 +162,7 @@ bool validEncoded = Pbkdf2.Encoded.Verify("secret-password", encoded);
 `Nalix.Environment.Hashing` provides non-cryptographic and RFC framing hash utilities:
 
 - **`XxHash32`** (`src/Nalix.Environment/Hashing/XxHash32.cs`):
-  - `public static uint Compute(ReadOnlySpan<byte> data, uint seed = 0)` — Vector128 SIMD-accelerated 32-bit xxHash used for UDP datagram authentication tags (`XxHash32.Compute(connection.Secret.AsSpan(), seed: XxHash32.Compute(datagram))`) and fast bucket sharding.
+  - `public static uint Compute(ReadOnlySpan<byte> data, uint seed = 0)` — Vector128 SIMD-accelerated 32-bit xxHash used for fast, non-cryptographic bucket sharding (for example the per-endpoint shards of `TokenBucketLimiter` / `PolicyRateLimiter`) and `FragmentHeader.GetHashCode()`. It is not used to authenticate datagrams: NDP datagrams are sealed with ChaCha20-Poly1305.
   - `public static int Compute(ulong hi, ulong lo, bool isIPv6)` — Zero-allocation positive 32-bit hash for socket endpoint keys.
 - **`Sha1`** (`src/Nalix.Environment/Hashing/Sha1.cs`):
   - `public const int HashSize = 20;`

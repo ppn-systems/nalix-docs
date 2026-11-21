@@ -8,7 +8,7 @@ section: Concepts
 This page describes raw buffer event loops, manual memory retention, and bypassing framework protections. Assume extreme caution.
 :::
 
-The primary [Client Session Guide](../../guides/networking/connecting-clients.md) focuses on high-level workflows like strongly-typed packet subscriptions and reconnect helpers. This page covers the lower-level transport surface exposed by `TransportSession`, `TcpSession`, and `UdpSession`.
+The primary [Client Session Guide](../../guides/networking/connecting-clients.md) focuses on high-level workflows like strongly-typed packet subscriptions and reconnect helpers. This page covers the lower-level transport surface exposed by `TransportSession`, `TcpSession`, and `DatagramSession`.
 
 ## 1. Raw Message Hooks (Zero-Allocation Paths)
 
@@ -16,7 +16,7 @@ Instead of using `session.On<MyPacket>(...)`, which dynamically deserializes cla
 
 ### Purely Synchronous Parsing (`OnMessageReceived`)
 
-You are provided with an `IBufferLease` for each decoded frame. In the current SDK implementation, `TcpSession` invokes `OnMessageReceived` from `HandleReceiveMessage(...)` after `FrameReader` finishes a frame, while `UdpSession` invokes it from its receive loop after inbound transforms complete. In both cases the SDK keeps ownership of the lease and automatically disposes it after the callback path finishes unless you explicitly call `Retain()`.
+You are provided with an `IBufferLease` for each decoded frame. In the current SDK implementation, `TcpSession` invokes `OnMessageReceived` from `HandleReceiveMessage(...)` after `FrameReader` finishes a frame, while `DatagramSession` invokes it from its receive loop after inbound transforms complete. In both cases the SDK keeps ownership of the lease and automatically disposes it after the callback path finishes unless you explicitly call `Retain()`.
 
 ```csharp
 // WARNING: Do NOT execute heavy CPU loops or blocking await tasks here.
@@ -36,7 +36,7 @@ session.OnMessageReceived += (sender, lease) =>
 
 ### Purely Asynchronous Queuing (`OnMessageAsync`)
 
-Provides an asynchronous receive pipeline (`event Func<ReadOnlyMemory<byte>, Task>?` declared on concrete sessions `TcpSession`, `UdpSession`, and `WebSocketSession`). Retains the underlying lease automatically (`lease.Retain()`) for the duration of the returned `Task` and disposes it upon completion (`TcpSession` and `WebSocketSession` observe completion via continuation, while `UdpSession` awaits the handler directly before reading the next datagram). Note that `TransportOptions.AsyncQueueCapacity` is currently reserved and not consumed.
+Provides an asynchronous receive pipeline (`event Func<ReadOnlyMemory<byte>, Task>?` declared on concrete sessions `TcpSession`, `DatagramSession`, and `WebSocketSession`). Retains the underlying lease automatically (`lease.Retain()`) for the duration of the returned `Task` and disposes it upon completion (`TcpSession` and `WebSocketSession` observe completion via continuation, while `DatagramSession` awaits the handler directly before reading the next datagram). Note that `TransportOptions.AsyncQueueCapacity` is currently reserved and not consumed.
 
 ```csharp
 session.OnMessageAsync += async (payload) => 

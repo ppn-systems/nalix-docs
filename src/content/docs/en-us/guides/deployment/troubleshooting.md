@@ -136,7 +136,7 @@ Start with:
 **Check**
 
 - return type is supported by Nalix return handlers
-- `context.Connection.TCP` is valid
+- `context.Connection.Transport` is valid
 - you are not mixing manual send and expected return-path behavior incorrectly
 
 **Fast fix**
@@ -160,5 +160,5 @@ When you are debugging, these usually give the fastest signal:
 ## Recommended Next Pages
 
 - [TCP Patterns Guide](../networking/tcp-patterns.md)
-- [UDP Security Guide](../networking/udp-security.md)
+- [UDP Security Guide](../networking/datagram-security.md)
 - [Handler Return Types](../../api/runtime/routing/handler-results.md)

@@ -39,7 +39,7 @@ flowchart TD
     B -->|Yes| C["Forward to next(context.CancellationToken) (Zero-Alloc Sync Fast Path)"]
     B -->|No| D["context.Connection.IncrementErrorCount()"]
     D --> E{"DirectiveGuard.TryAcquire(InboundDirectiveUnauthorizedLastSentAtMs)?"}
-    E -->|No (Suppressed)| F["Return without sending duplicate Directive"]
+    E -->|"No (Suppressed)"| F["Return without sending duplicate Directive"]
     E -->|Yes| G["Rent Directive via PacketFactory<Directive>.Acquire()"]
     G --> H["Initialize(FAIL, UNAUTHORIZED, NONE, seqId, NONE, 0, 0, arg2: OpCode)"]
     H --> I["await context.Sender.SendAsync(directive)"]

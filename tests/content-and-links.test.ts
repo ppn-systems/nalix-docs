@@ -27,7 +27,7 @@ describe('Documentation Content Quality & Internal Link Integrity', () => {
     mdFiles.map((f) => localizePath(fileToSlug(f), DEFAULT_LOCALE))
   );
 
-  it('validates YAML frontmatter (title, description, section) and Enterprise title standards on all 203 pages', () => {
+  it('validates YAML frontmatter (title, description, section) and Enterprise title standards on every page', () => {
     const invalid: string[] = [];
     for (const relFile of mdFiles) {
       const raw = fs.readFileSync(path.join(EN_DOCS_DIR, relFile), 'utf8');
@@ -105,7 +105,7 @@ describe('Documentation Content Quality & Internal Link Integrity', () => {
     expect(violations).toEqual([]);
   });
 
-  it('verifies that every internal link and image across all 203 docs resolves to an existing route or public asset', () => {
+  it('verifies that every internal link and image across every doc resolves to an existing route or public asset', () => {
     const brokenLinks: string[] = [];
 
     for (const relFile of mdFiles) {

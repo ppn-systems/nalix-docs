@@ -72,7 +72,17 @@ long solution = ProofOfWorkSolver.SolveChallenge(
     nonce: challenge.Nonce.AsSpan(),
     difficulty: challenge.Difficulty,
     timestampTicks: challenge.TimestampTicks);
+
+// Bounded search: throws OperationCanceledException when ct is cancelled
+using CancellationTokenSource cts = new(TimeSpan.FromSeconds(10));
+long boundedSolution = ProofOfWorkSolver.SolveChallenge(
+    challenge.Nonce.AsSpan(),
+    challenge.Difficulty,
+    challenge.TimestampTicks,
+    cts.Token);
 ```
+
+`ProofOfWorkSolver` (`public class`) exposes two static overloads: `long SolveChallenge(ReadOnlySpan<byte> nonce, byte difficulty, long timestampTicks)` blocks until a solution is found, and `long SolveChallenge(ReadOnlySpan<byte> nonce, byte difficulty, long timestampTicks, CancellationToken ct)` observes `ct` once every `4096` attempts and throws `OperationCanceledException` when it is cancelled. A `difficulty` of `0` returns `0` immediately. The solver hashes the 49-byte puzzle `nonce (32B) || difficulty (1B) || timestampTicks (8B LE) || solution (8B LE)` with `Keccak256`.
 
 ### 5. Protocol Frames
 

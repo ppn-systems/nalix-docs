@@ -8,7 +8,7 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.RateLimiting`  
 **Assembly:** `Nalix.Network`
 
-`ConnectionGuard` (`[Injectable] public sealed partial class ConnectionGuard : IConnectionGuard, IProofOfWorkPolicy`) gatekeeps incoming TCP, WebSocket, and passthrough UDP connections before a `Connection` object is allocated. It enforces permanent IP/CIDR blacklists, global connection ceilings, trusted-proxy quotas, per-IP and per-subnet (`/24` IPv4, `/48` IPv6) concurrency and sliding-window rate limits, progressive disk-persisted IP bans, and EWMA/capacity-driven adaptive Proof-of-Work (`IProofOfWorkPolicy`).
+`ConnectionGuard` (`[Injectable] public sealed partial class ConnectionGuard : IConnectionGuard, IProofOfWorkPolicy`) gatekeeps incoming TCP and WebSocket connections before a `Connection` object is allocated; `DatagramListener` also calls `TryAccept` when the first datagram of a ticket authenticates, and `Release` when the session closes. It enforces permanent IP/CIDR blacklists, global connection ceilings, trusted-proxy quotas, per-IP and per-subnet (`/24` IPv4, `/48` IPv6) concurrency and sliding-window rate limits, progressive disk-persisted IP bans, and EWMA/capacity-driven adaptive Proof-of-Work (`IProofOfWorkPolicy`).
 
 ## Source Mapping
 
@@ -42,8 +42,8 @@ flowchart TD
     Proxy -->|No| BanCheck{"Currently Banned?"}
     BanCheck -->|Yes| Rollback
     BanCheck -->|No| RateCheck{"Within Per-IP Concurrent & Window Limits?"}
-    RateCheck -->|No (Rate Violation)| ProgBan["Apply Progressive Ban + Persist"] --> Rollback
-    RateCheck -->|No (Concurrent Cap)| Rollback
+    RateCheck -->|"No (Rate Violation)"| ProgBan["Apply Progressive Ban + Persist"] --> Rollback
+    RateCheck -->|"No (Concurrent Cap)"| Rollback
     RateCheck -->|Yes| SubCheck{"Within /24 or /48 Subnet Caps?"}
     SubCheck -->|No| RollbackSlot["Release IP Slot + Decrement Global + Reject"]
     SubCheck -->|Yes| Acc

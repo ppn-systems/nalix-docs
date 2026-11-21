@@ -25,8 +25,9 @@ Các tùy chọn này ánh xạ tới mục `[NetworkWebSocket]` trong cấu hì
 | `Path` | `string` | `"/ws/"` | — | Tiền tố đường dẫn URL được ánh xạ tới handler nâng cấp WebSocket. |
 | `Host` | `string` | `"*"` | — | Địa chỉ host để bind (ví dụ `*` cho mọi giao diện, `+`, hoặc `localhost`). |
 | `SubProtocol` | `string` | `"nalix.v1"` | — | Subprotocol phía server được thương lượng khi nâng cấp WebSocket (`Sec-WebSocket-Protocol`). |
-| `ServerVersion` | `string` | `"1.0.0"` | — | Chuỗi phiên bản server tùy chỉnh được hiển thị qua endpoint HTTP `/version`. |
-| `EnableDevOpsEndpoints` | `bool` | `true` | — | Bật các endpoint HTTP gốc (`/healthz`, `/version`, `/metrics`) trên cổng của listener WebSocket. |
+| `ServerVersion` | `string` | `"1.0.0"` | — | Chuỗi phiên bản server tùy chỉnh được hiển thị qua endpoint HTTP `/version` (chỉ được phục vụ khi `DevOpsBearerToken` được đặt). |
+| `EnableDevOpsEndpoints` | `bool` | `true` | — | Bật các endpoint HTTP gốc trên cổng của listener WebSocket. Các route health (`/healthz`, `/health`, `/livez`, `/readyz`, `/startupz`, `/ping`) luôn được đăng ký khi là `true`; `/version` và `/metrics` còn yêu cầu thêm `DevOpsBearerToken`. |
+| `DevOpsBearerToken` | `string` | `""` (tắt endpoint) | `Validate()` ném `ValidationException` khi được đặt nhưng ngắn hơn 16 ký tự | Bearer token bắt buộc cho `/version` và `/metrics`. Rỗng (mặc định) sẽ đóng theo hướng an toàn: cả hai endpoint không được phục vụ. Yêu cầu gửi `Authorization: Bearer <token>` (scheme so khớp không phân biệt hoa thường, token được so sánh trong thời gian không đổi); token thiếu hoặc sai nhận `401 Unauthorized` kèm `WWW-Authenticate: Bearer`. |
 | `HandshakeTimeoutMs` | `int` | `5000` (ms) | `[ValueRange(500, 30000)]` | Thời gian tối đa tính bằng mili giây để chờ quá trình bắt tay nâng cấp HTTP hoàn tất trước khi đóng socket. |
 | `MaxUpgradeRequestSize` | `int` | `8192` (byte) | `[ValueRange(1024, 65536)]` | Kích thước tối đa tính bằng byte cho các header của yêu cầu nâng cấp HTTP. |
 | `MaxMessageSize` | `int` | `1_048_576` (1 MB) | `[ValueRange(1, int.MaxValue)]` | Kích thước tối đa cho phép của payload một thông điệp WebSocket đến, tính bằng byte. |
@@ -80,6 +81,7 @@ Host = *
 SubProtocol = nalix.v1
 ServerVersion = 1.0.0
 EnableDevOpsEndpoints = true
+DevOpsBearerToken =
 HandshakeTimeoutMs = 5000
 MaxUpgradeRequestSize = 8192
 MaxMessageSize = 1048576

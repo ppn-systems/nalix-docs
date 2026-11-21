@@ -55,6 +55,10 @@ sequenceDiagram
 | `GenerateReport` | `public string GenerateReport()` | Trả về bản tóm tắt chẩn đoán có định dạng gồm số lần rent/return, các buffer chưa trả và các rò rỉ phát hiện được. |
 | `WriteReportData` | `public void WriteReportData(Utf8JsonWriter writer)` | Ghi số liệu JSON có cấu trúc cho các endpoint quan sát. |
 
+## `BufferLease.ByteArrayPool` (`Nalix.Environment.Memory`)
+
+`BufferLease.ByteArrayPool` là điểm vào tĩnh cho các bộ đệm `byte[]` thô (`src/Nalix.Environment/Memory/BufferLease.cs`). Nó dùng `ArrayPool<byte>.Shared` làm phương án dự phòng cho đến khi một `IBufferPoolManager` được đăng ký bằng `Configure(IBufferPoolManager manager)` (do `UseBufferPoolManager(...)` trong `Nalix.Hosting` thực hiện). `Rent(int capacity = 256)` thuê một mảng; `Return(byte[] array)` trả mảng mà không xóa, còn `Return(byte[] array, bool clearArray)` xóa toàn bộ mảng trước khi trả khi `clearArray` là `true`. Xem [Buffer Lease](./buffer-lease.md) để biết hướng dẫn xử lý dữ liệu bí mật.
+
 ## `MemoryOptions` (`Nalix.Environment.Options`)
 
 Được cấu hình qua `[Memory]` trong `default.ini` hoặc `builder.Configure<MemoryOptions>(...)` (`src/Nalix.Environment/Options/MemoryOptions.cs`):

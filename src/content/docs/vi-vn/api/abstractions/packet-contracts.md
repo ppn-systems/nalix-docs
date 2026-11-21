@@ -43,11 +43,10 @@ package: Nalix.Abstractions
 | --- | --- | --- |
 | `Packet` | `TPacket` | Gói tin yêu cầu đã được giải tuần tự hóa. |
 | `Connection` | `IConnection` | Kết nối client đã gửi gói tin. |
-| `Attributes` | `PacketMetadata` | Attribute handler lúc biên dịch (`PacketOpcode`, `Timeout`, `Permission`, `Encryption`, `RateLimit`, `Transport`). |
+| `Attributes` | `PacketMetadata` | Attribute handler lúc biên dịch (`PacketOpcode`, `Timeout`, `Permission`, `Encryption`, `RateLimit`, cùng `CustomAttributes` như `[PacketDelivery]`). |
 | `Sender` | `IPacketSender` | Sender gửi gói tin đi, nhận biết metadata và được gắn với context này. |
 | `Scope` | `IPacketScope` | Phạm vi service theo từng gói tin, dùng để resolve các tham số handler `[FromScope]`. |
 | `EncryptedOnWire` | `bool` | `true` nếu khung đầu vào đến ở dạng mã hóa trên dây trước khi `FrameCipher.DecryptFrame` gỡ `PacketFlags.ENCRYPTED`. |
-| `IsReliable` | `bool` | `true` khi gói tin đến qua transport đáng tin cậy (`TCP` hoặc `WEBSOCKET`). |
 | `SkipOutbound` | `bool` | Khi đặt `true`, bỏ qua việc thực thi middleware đầu ra cho context này. |
 | `CancellationToken` | `CancellationToken` | Cancellation token chi phối việc thực thi handler (bao gồm ngân sách của `TimeoutMiddleware`). |
 
@@ -58,7 +57,7 @@ package: Nalix.Abstractions
 | Phương thức | Chữ ký | Mô tả |
 | --- | --- | --- |
 | `Initialize<TPacket>` | `void Initialize<TPacket>(IPacketContext<TPacket> context) where TPacket : IPacket` | Gắn sender có pool với `IPacketContext<TPacket>` đang hoạt động. |
-| `SendAsync` | `ValueTask SendAsync(IPacket packet, CancellationToken ct = default)` | Gửi `packet` tới `context.Connection`, tự động áp dụng metadata `[PacketEncryption]` và `[PacketTransport]` từ handler. |
+| `SendAsync` | `ValueTask SendAsync(IPacket packet, CancellationToken ct = default)` | Gửi `packet` tới `context.Connection`, tự động áp dụng metadata `[PacketEncryption]` và, trên kết nối datagram, phương thức cùng kênh `[PacketDelivery]` từ handler. |
 | `SendAsync` (mã hóa tường minh) | `ValueTask SendAsync(IPacket packet, bool forceEncrypt, CancellationToken ct = default)` | Gửi `packet` và ghi đè tường minh việc mã hóa (`forceEncrypt`). |
 | `ReplyAsync` | `ValueTask ReplyAsync(IPacket response, CancellationToken ct = default)` | Tự động gán `response.SequenceId = context.Packet.SequenceId` trước khi gửi để `session.RequestAsync<T>()` ghép đúng phản hồi. |
 
@@ -78,7 +77,7 @@ package: Nalix.Abstractions
 - **`Nalix.Abstractions`**: Interface, attribute, header và primitive giá trị không phụ thuộc.
 - **`Nalix.Codec`**: Mô hình khung `PacketBase<TSelf>` cụ thể, `PacketRegistry` và `LiteSerializer` nhị phân.
 - **`Nalix.Runtime`**: `PacketContext<TPacket>` có pool, `PacketSender` và `PacketDispatchChannel`.
-- **`Nalix.SDK`**: Phiên client (`TcpSession`, `UdpSession`, `WebSocketSession`) dùng cùng các hợp đồng gói tin.
+- **`Nalix.SDK`**: Phiên client (`TcpSession`, `DatagramSession`, `WebSocketSession`) dùng cùng các hợp đồng gói tin.
 
 ## API liên quan
 

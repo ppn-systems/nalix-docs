@@ -56,7 +56,7 @@ if (scope.IsValid)
 
 ## `ISessionFactory` & `ISessionPersistencePolicy`
 
-- **`ISessionFactory.CreateSession(IConnection)`**: Creates a `SessionEntry` and populates its `SessionSnapshot` with the connection's `ConnectionId` (`SessionToken`), 32-byte `Secret` (`Bytes32`), `Algorithm`, `Level`, and `Attributes` (including TCP/UDP sequence numbers).
+- **`ISessionFactory.CreateSession(IConnection)`**: Creates a `SessionEntry` and populates its `SessionSnapshot` with the connection's `ConnectionId` (`SessionToken`), 32-byte `Secret` (`Bytes32`), `Algorithm`, `Level`, and `Attributes` (including the TCP sequence numbers).
 - **`ISessionPersistencePolicy.ShouldPersist(IConnection)`**: Evaluates whether a connection's session should be saved (default `DefaultSessionPersistencePolicy` verifies that a cryptographic handshake was completed and `Secret` is non-zero).
 
 ## Related APIs

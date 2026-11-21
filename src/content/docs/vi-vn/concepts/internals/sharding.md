@@ -82,14 +82,14 @@ var builder = NetworkApplication.CreateBuilder();
 
 builder.ConfigureDispatchOptions(options =>
 {
-    // 1. Core Affinity: Match physical cores to avoid context switching
+    // 1. Core Affinity: khớp với số lõi vật lý để tránh chuyển ngữ cảnh
     options.WithDispatchLoopCount(Environment.ProcessorCount / 2);
     
-    // 2. Auto-mode guardrails (used only when the loop count is auto)
+    // 2. Giới hạn bảo vệ của chế độ auto (chỉ dùng khi số vòng lặp là auto)
     options.Drain.MinDispatchLoops = 2;
     options.Drain.MaxDispatchLoops = 32;
 
-    // 3. Throughput Tuning: Process 16 packets per wake to improve cache locality
+    // 3. Tinh chỉnh thông lượng: xử lý 16 gói tin mỗi lần đánh thức để cải thiện cache locality
     options.Drain.MaxDrainPerWakeMultiplier = 16;
 });
 ```
@@ -113,10 +113,10 @@ public override void ProcessMessage(object sender, IConnectionEventArgs args)
 {
     IBufferLease lease = args.Lease;
     
-    // Example: Elevate priority for Handshake or Control packets
+    // Ví dụ: nâng mức ưu tiên cho gói tin Handshake hoặc Control
     if (IsHighPriority(lease))
     {
-        // 3 is the Priority offset in the Nalix header (OpCode:2, Flags:1)
+        // 3 là offset của Priority trong header Nalix (OpCode:2, Flags:1)
         lease.Span[3] = (byte)PacketPriority.HIGH;
     }
     
@@ -144,10 +144,10 @@ Nếu một người chơi đăng nhập từ nhiều thiết bị (ví dụ đi
 using Nalix.Abstractions.Networking;
 using Nalix.Framework.Memory.Buffers;
 
-// A minimal proxy that the dispatcher uses as a Shard Key
+// Một proxy tối giản mà dispatcher dùng làm Shard Key
 public sealed class UserShardProxy : IConnection
 {
-    // The physical connection we are currently wrapping (if needed for sending)
+    // Kết nối vật lý mà ta đang bao bọc (nếu cần để gửi)
     public IConnection PhysicalConnection { get; }
     public long UserID { get; }
 
@@ -157,25 +157,25 @@ public sealed class UserShardProxy : IConnection
         PhysicalConnection = physical;
     }
 
-    // DISPATCHER NOTE: The dispatcher uses RuntimeHelpers.GetHashCode(connection)
-    // for bucket selection. For the proxy to work as a shard key, you MUST
-    // reuse the SAME object instance for all connections belonging to the same Shard.
+    // LƯU Ý VỀ DISPATCHER: dispatcher dùng RuntimeHelpers.GetHashCode(connection)
+    // để chọn bucket. Để proxy hoạt động như một shard key, bạn PHẢI
+    // dùng lại CÙNG MỘT đối tượng cho mọi kết nối thuộc cùng một Shard.
     
-    // Delegate required members...
+    // Ủy quyền các thành viên bắt buộc...
     public ulong ConnectionId => PhysicalConnection.ConnectionId;
     public INetworkEndpoint NetworkEndpoint => PhysicalConnection.NetworkEndpoint;
-    // ... other IConnection members
+    // ... các thành viên khác của IConnection
 }
 
-// In your Protocol or Middleware:
+// Trong Protocol hoặc Middleware của bạn:
 public void RouteToUserShard(IConnection rawConnection, IBufferLease packet)
 {
-    // Retrieve the shared proxy instance from your session manager.
-    // Ensure this returns the EXACT SAME instance for the same UserId.
+    // Lấy đối tượng proxy dùng chung từ trình quản lý phiên của bạn.
+    // Đảm bảo hàm này trả về CHÍNH XÁC CÙNG MỘT đối tượng cho cùng một UserId.
     var proxy = SessionManager.GetOrCreateUserShard(rawConnection.UserId!);
     
-    // The dispatcher now treats all packets for this 'proxy' instance 
-    // as a single sequential stream (Shard).
+    // Giờ dispatcher coi mọi gói tin của đối tượng 'proxy' này 
+    // là một luồng tuần tự duy nhất (Shard).
     _dispatch.HandlePacket(packet, proxy);
 }
 ```
@@ -227,7 +227,7 @@ Backpressure của hàng đợi theo từng kết nối được điều khiển
 Dùng các báo cáo chẩn đoán có sẵn để xác định điểm nóng hoặc shard mất cân bằng.
 
 ```csharp
-// Get a human-readable report of shard status
+// Lấy báo cáo dễ đọc về trạng thái shard
 string report = dispatchChannel.GenerateReport();
 Console.WriteLine(report);
 ```

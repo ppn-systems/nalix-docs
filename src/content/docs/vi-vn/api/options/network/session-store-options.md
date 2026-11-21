@@ -51,7 +51,7 @@ flowchart TD
 Khi `SessionFactory.CreateSession(IConnection connection)` chụp nhanh một kết nối đang đóng thành một `SessionEntry` lấy từ pool:
 - `SessionToken` được đặt bằng `connection.ConnectionId`.
 - `CreatedAtUnixMilliseconds` và `ExpiresAtUnixMilliseconds` (`now + (long)_options.SessionTtl.TotalMilliseconds`) được ghi lại bằng `Clock.UnixMillisecondsNow()`.
-- `Secret`, `Algorithm`, `Level` và bộ đếm sequence TCP/UDP được sao chép từ kết nối.
+- `Secret`, `Algorithm`, `Level` và các bộ đếm sequence gửi/nhận của transport (`ConnectionSequenceState.TcpSendSequence` / `TcpReceiveSequence`, lấy từ `connection.Transport`) được sao chép từ kết nối.
 - `connection.Attributes` được sao chép vào một `ObjectMap<AttributeKey, object>` lấy từ pool.
 
 ## Chính sách lưu trữ tự động (`DefaultSessionPersistencePolicy`)
@@ -62,6 +62,8 @@ Khi `SessionFactory.CreateSession(IConnection connection)` chụp nhanh một k�
 3. **Chính sách 3 (Dự phòng theo số lượng thuộc tính)**: Ngược lại, trả về `connection.Attributes.Count > _options.MinAttributesForPersistence` (mặc định `10`).
 
 ## Cơ chế của `InMemorySessionStore`
+
+`InMemorySessionStore` (`src/Nalix.Runtime/Sessions/InMemorySessionStore.cs`, `public sealed class InMemorySessionStore : ISessionStore, IWorker, IReportable`) là store mặc định; nó cũng là một `IReportable` (`GenerateReport()` / `WriteReportData(Utf8JsonWriter)`).
 
 Khi không có `ISessionStore` tùy chỉnh nào được inject vào `SessionService`, hệ thống tạo một `InMemorySessionStore` (dung lượng mặc định `MaxSessions = 65_536`) và đăng ký nó như một `IWorker` trên `TaskManager`:
 - **Hết hạn theo bucket theo phút**: Các phiên được lập chỉ mục trong `ConcurrentDictionary<ulong, SessionEntry>` cùng với các bucket hết hạn 1 phút (`BucketSpanMilliseconds = 60_000`), để worker dọn dẹp `IWorker` chạy nền chỉ kiểm tra những bucket có dấu thời gian đã trôi qua.

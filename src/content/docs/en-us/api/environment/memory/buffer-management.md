@@ -55,6 +55,10 @@ sequenceDiagram
 | `GenerateReport` | `public string GenerateReport()` | Returns a formatted diagnostic summary of rent/return counts,outstanding buffers, and detected leaks. |
 | `WriteReportData` | `public void WriteReportData(Utf8JsonWriter writer)` | Writes structured JSON metrics for observability endpoints. |
 
+## `BufferLease.ByteArrayPool` (`Nalix.Environment.Memory`)
+
+`BufferLease.ByteArrayPool` is the static entry point for raw `byte[]` buffers (`src/Nalix.Environment/Memory/BufferLease.cs`). It falls back to `ArrayPool<byte>.Shared` until an `IBufferPoolManager` is registered with `Configure(IBufferPoolManager manager)` (done by `UseBufferPoolManager(...)` in `Nalix.Hosting`). `Rent(int capacity = 256)` rents an array; `Return(byte[] array)` returns it without clearing, and `Return(byte[] array, bool clearArray)` clears the whole array first when `clearArray` is `true`. See [Buffer Lease](./buffer-lease.md) for the secret-handling guidance.
+
 ## `MemoryOptions` (`Nalix.Environment.Options`)
 
 Configured via `[Memory]` in `default.ini` or `builder.Configure<MemoryOptions>(...)` (`src/Nalix.Environment/Options/MemoryOptions.cs`):

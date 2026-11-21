@@ -30,7 +30,7 @@ package: Nalix.Codec
 
 ## Outbound & Inbound Pipeline Behavior (`FramePipeline` & `PacketPipeline`)
 
-`PacketPipeline.ProcessAndSendAsync` (on outbound) and `TcpListenerBase`/`UdpListenerBase`/`WebSocketListenerBase` (on inbound) execute frame transforms through `FramePipeline`:
+`PacketPipeline.ProcessAndSendAsync` (on outbound) and `TcpListenerBase`/`WebSocketListenerBase` (on inbound) execute frame transforms through `FramePipeline`:
 
 ```mermaid
 flowchart LR

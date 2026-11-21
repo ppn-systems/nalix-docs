@@ -102,16 +102,20 @@ public sealed class InMemorySessionStore : ISessionStore, IWorker, IReportable
         CancellationToken cancellationToken = default);
 
     public ValueTask ExecuteAsync(IWorkerContext context, CancellationToken cancellationToken);
+
+    public string GenerateReport();
+    public void WriteReportData(Utf8JsonWriter writer);
 }
 ```
 
 - **Atomic One-Shot Consumption (`SEC-33`)**: `ConsumeAsync` verifies that `entry.Snapshot.ExpiresAtUnixMilliseconds > Clock.UnixMillisecondsNow()`, evaluates the optional `predicate(entry)` BEFORE removing the entry if `predicate` returns `false`, and uses atomic key-value removal (`ICollection<KeyValuePair<ulong, SessionEntry>>.Remove`) so only one concurrent caller can consume a valid token. Returns a `SessionScope` (`scope.IsValid == true` when consumed; disposing `SessionScope` returns the `SessionEntry` to its pool).
 - **Minute-Bucketed Expiration Index (`_expiryBuckets`)**: Groups session tokens into 60-second buckets (`ExpiresAtUnixMilliseconds / 60_000`) so the background `ExecuteAsync` scavenger only visits buckets that are due.
+- **Reporting**: `GenerateReport()` / `WriteReportData(Utf8JsonWriter)` emit the store's state for `ReportRegistry` (`IReportable`).
 - **Capacity Eviction (`DefaultMaxSessions = 65,536`)**: When `_store.Count >= MaxSessions`, evicts expired entries first, then oldest entries, calling `entry.Return()`.
 
 ### 3. `DefaultSessionPersistencePolicy` & `SessionPersistenceObserver`
 
-- `SessionPersistenceObserver` subscribes to `IConnectionHub.ConnectionUnregistered`, captures a `SnapshotConnection` (cloning `Attributes`, `Secret`, `Level`, `Algorithm`, and TCP/UDP sequence counters before `Connection.Dispose()` zeroes them), and invokes `SaveSessionAsync` in the background.
+- `SessionPersistenceObserver` subscribes to `IConnectionHub.ConnectionUnregistered`, captures a `SnapshotConnection` (cloning `Attributes`, `Secret`, `Level`, `Algorithm`, and the transport send/receive sequence counters before `Connection.Dispose()` zeroes them), and invokes `SaveSessionAsync` in the background.
 - `DefaultSessionPersistencePolicy.ShouldPersist(IConnection)` evaluates three rules in order:
   1. **Policy 1 (Handshake Gate)**: If `!connection.GetRuntimeState().HandshakeEstablished`, returns `false`.
   2. **Policy 2 (Active Cryptographic Session)**: If `!connection.Secret.IsZero` (active 32-byte encryption key established), returns `true` immediately.

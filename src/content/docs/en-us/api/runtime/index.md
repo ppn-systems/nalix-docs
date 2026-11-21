@@ -15,7 +15,7 @@ package: Nalix.Runtime
 ```mermaid
 flowchart TD
     subgraph Network["Transport Layer (Nalix.Network)"]
-        L["Listener (TCP / UDP / WebSocket)"] -->|Receive & Transform| C["IConnection"]
+        L["Listener (TCP / Datagram / WebSocket)"] -->|Receive & Transform| C["IConnection"]
         C -->|"HandlePacket(IBufferLease, IConnection)"| D["IPacketDispatch (PacketDispatchChannel)"]
     end
 
@@ -46,7 +46,7 @@ flowchart TD
 | `PacketDispatchChannel` | Production dispatcher with coalesced `WorkerWakeSignal` wake-ups, weighted round-robin priority draining, and zero-allocation sync fast paths. | [Packet Dispatch](./routing/packet-dispatch.md) |
 | `PacketDispatcherBase<TPacket>` | Abstract base class holding `PacketDispatchOptions<TPacket>`. | [Dispatch Channel and Router](./routing/dispatch-channel-and-router.md) |
 | `PacketDispatchOptions<TPacket>` | Fluent builder (`WithHandler`, `WithMiddleware`, `WithErrorHandling`, `WithDispatchLoopCount`) and $O(1)$ 65,536-slot handler table. | [Packet Dispatch Options](../options/runtime/packet-dispatch-options.md) |
-| `PacketContext<TPacket>` | Pooled execution context (`IPacketContext<TPacket>`) carrying `Packet`, `Connection`, `Attributes`, `Sender`, `Scope`, `IsReliable`, and `EncryptedOnWire`. | [Packet Context](./routing/packet-context.md) |
+| `PacketContext<TPacket>` | Pooled execution context (`IPacketContext<TPacket>`) carrying `Packet`, `Connection`, `Attributes`, `Sender`, `Scope`, and `EncryptedOnWire`. | [Packet Context](./routing/packet-context.md) |
 | `PacketSender` | Metadata-aware outbound sender (`SendAsync`, `ReplyAsync`) bound to `PacketContext<TPacket>`. | [Packet Sender](./routing/packet-sender.md) |
 
 ### 2. Middleware & Throttling (`Nalix.Runtime.Middleware`, `Nalix.Runtime.Throttling`)

@@ -8,7 +8,7 @@ package: Nalix.Abstractions
 **Không gian tên:** `Nalix.Abstractions.Networking.Packets` (và `Nalix.Abstractions.Networking.Rpc`)  
 **Assembly:** `Nalix.Abstractions`
 
-Nalix dùng attribute để khai báo việc phát hiện controller, định tuyến opcode, ràng buộc transport, mức quyền, yêu cầu mã hóa, giới hạn tốc độ và timeout thực thi. Các attribute này được `PacketHandlerGenerator` biên dịch thành struct `PacketMetadata` không cấp phát bộ nhớ lúc build.
+Nalix dùng attribute để khai báo việc phát hiện controller, định tuyến opcode, phương thức gửi datagram, mức quyền, yêu cầu mã hóa, giới hạn tốc độ và timeout thực thi. Các attribute này được `PacketHandlerGenerator` biên dịch thành struct `PacketMetadata` không cấp phát bộ nhớ lúc build.
 
 ## Ánh xạ mã nguồn
 
@@ -18,7 +18,7 @@ Nalix dùng attribute để khai báo việc phát hiện controller, định tu
 - `src/Nalix.Abstractions/Networking/Packets/PacketRateLimitAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketEncryptionAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketTimeoutAttribute.cs`
-- `src/Nalix.Abstractions/Networking/Packets/PacketTransportAttribute.cs`
+- `src/Nalix.Abstractions/Networking/Packets/PacketDeliveryAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Packets/PacketIdempotentAttribute.cs`
 - `src/Nalix.Abstractions/Networking/Rpc/RpcServiceAttribute.cs`
 
@@ -32,13 +32,13 @@ Nalix dùng attribute để khai báo việc phát hiện controller, định tu
 | `[PacketEncryption]` | Phương thức | `PacketEncryptionAttribute(bool isEncrypted = true, CipherSuiteType algorithmType = CipherSuiteType.Chacha20Poly1305)`<br/>Thuộc tính: `bool IsEncrypted`, `CipherSuiteType AlgorithmType` | Yêu cầu `context.EncryptedOnWire == true` (được `PacketEncryptionMiddleware` thi hành) và mã hóa các phản hồi gửi qua `context.Sender`. |
 | `[PacketRateLimit]` | Phương thức | `PacketRateLimitAttribute(int requestsPerSecond, double burst = 1.0)`<br/>Thuộc tính: `int RequestsPerSecond`, `double Burst`<br/>Thuộc tính khởi tạo: `string? PolicyId`, `int HardLockoutSeconds = -1`, `int MaxSoftViolations = -1` | Gắn giới hạn token-bucket cho handler, được `RateLimitMiddleware` thi hành. |
 | `[PacketTimeout]` | Phương thức | `PacketTimeoutAttribute(int timeoutMilliseconds)`<br/>Thuộc tính: `int TimeoutMilliseconds { get; }` | Đặt ngân sách timeout cho `CancellationToken` liên kết, tính bằng mili giây, được `TimeoutMiddleware` thi hành. |
-| `[PacketTransport]` | Phương thức | `PacketTransportAttribute(NetworkTransport transport)`<br/>Thuộc tính: `NetworkTransport TransportType { get; }` | Giới hạn handler vào `NetworkTransport.TCP`, `UDP` hoặc `WEBSOCKET` (được `TransportMiddleware` thi hành) và định tuyến phản hồi của `context.Sender` qua transport đó. |
+| `[PacketDelivery]` | Phương thức | `PacketDeliveryAttribute(DeliveryMethod method, byte channel = 0)` (sealed, chỉ dùng một lần, không kế thừa)<br/>Thuộc tính: `DeliveryMethod Method`, `byte Channel` | Chọn phương thức gửi và kênh cho các gói tin mà handler gửi qua kết nối datagram. Nếu không có, việc gửi datagram dùng `DeliveryMethod.ReliableOrdered` trên kênh 0. Kết nối dạng stream (TCP, WebSocket) bỏ qua attribute này và luôn gửi tin cậy, đúng thứ tự. |
 | `[PacketIdempotent]` | Lớp | `PacketIdempotentAttribute()` | Chỉ là metadata mang tính tài liệu, đánh dấu lớp gói tin là idempotent (an toàn cho chính sách retry phía client). |
 | `[ReservedOpcodePermitted]` | Lớp, Phương thức | `ReservedOpcodePermittedAttribute()` (`Nalix.Abstractions`; không kế thừa, chỉ dùng một lần) | Đánh dấu một kiểu hoặc method được phép dùng opcode dành riêng (`0x0000..0x00FF`), vốn thường bị chặn ở mức ứng dụng. |
 | `[RpcService]` | Interface | `RpcServiceAttribute()` | Đánh dấu một interface để `RpcClientGenerator` sinh extension client có kiểu lúc biên dịch. |
 
 :::important[Khai báo và thi hành qua middleware]
-Attribute điền vào `context.Attributes` (`PacketMetadata`). Khi bạn đăng ký handler qua `NetworkApplicationBuilder.MapHandlers<T>()` (hoặc `PacketDispatchOptions.WithHandler<T>()`), `PacketDispatchOptions` tự động nối `TransportMiddleware`, `PacketEncryptionMiddleware`, `PermissionMiddleware`, `RateLimitMiddleware` và `TimeoutMiddleware` khi bất kỳ handler đã đăng ký nào khai báo attribute tương ứng.
+Attribute điền vào `context.Attributes` (`PacketMetadata`). Khi bạn đăng ký handler qua `NetworkApplicationBuilder.MapHandlers<T>()` (hoặc `PacketDispatchOptions.WithHandler<T>()`), `PacketDispatchOptions` tự động nối `PacketEncryptionMiddleware`, `PermissionMiddleware`, `RateLimitMiddleware` và `TimeoutMiddleware` khi bất kỳ handler đã đăng ký nào khai báo attribute tương ứng.
 :::
 
 ## Ví dụ thực tế
@@ -57,7 +57,7 @@ public sealed class SecureChatController
     [PacketRateLimit(requestsPerSecond: 10, burst: 3, PolicyId = "chat-send", HardLockoutSeconds = 30, MaxSoftViolations = 5)]
     [PacketEncryption(true, CipherSuiteType.Chacha20Poly1305)]
     [PacketTimeout(5000)]
-    [PacketTransport(NetworkTransport.TCP)]
+    [PacketDelivery(DeliveryMethod.ReliableOrdered, channel: 0)]
     public ValueTask HandleChatMessageAsync(IPacketContext<ChatMessagePacket> context)
     {
         return context.Sender.ReplyAsync(new ChatAckPacket { MessageId = context.Packet.MessageId });

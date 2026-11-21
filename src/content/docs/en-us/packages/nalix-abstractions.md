@@ -8,7 +8,7 @@ package: Nalix.Abstractions
 `Nalix.Abstractions` is the **Level 0** foundation of the Nalix ecosystem. It has zero external package dependencies and defines the shared interfaces, value types, attributes, and exceptions consumed by every server, client, and shared contract assembly.
 
 :::tip[Bundled Roslyn Analyzers & Source Generators]
-The `Nalix.Abstractions` NuGet package bundles `Nalix.Analyzers.dll`, `Nalix.Analyzers.CodeFixes.dll`, and `Nalix.Analyzers.Generators.dll` under `analyzers/dotnet/cs`. Referencing `Nalix.Abstractions` (directly or transitively) automatically activates all 75 compile-time diagnostics (`NALIX001`–`NALIX107`) and all 7 source generators.
+The `Nalix.Abstractions` NuGet package bundles `Nalix.Analyzers.dll`, `Nalix.Analyzers.CodeFixes.dll`, and `Nalix.Analyzers.Generators.dll` under `analyzers/dotnet/cs`. Referencing `Nalix.Abstractions` (directly or transitively) automatically activates all 78 compile-time diagnostics (`NALIX001`–`NALIX110`) and all 7 source generators.
 :::
 
 ## Where It Fits
@@ -35,7 +35,7 @@ These types define wire packets and instruct the Roslyn `SerializeFormatterGener
 - `PacketAttribute` — Marks a packet class for automatic compile-time registration in `PacketRegistry`.
 - `GenerateFormatterAttribute` — Instructs `SerializeFormatterGenerator` to generate a strongly-typed binary formatter.
 - `SerializePackableAttribute`, `SerializeOrderAttribute`, `SerializeIgnoreAttribute`, `SerializeHeaderAttribute`, `SerializeDynamicSizeAttribute` — Fine-grained binary layout controls (`SerializeLayout.Explicit` or `SerializeLayout.Sequential`).
-- `PacketHeader` & `PacketFlags` — The 6-byte wire header (`OpCode`, `Flags`, `Priority`, `SequenceId`) and bitflags (`NONE`, `COMPRESSED`, `ENCRYPTED`, `ALERT`, `FRAGMENTED`, `SYSTEM`).
+- `PacketHeader` & `PacketFlags` — The 6-byte wire header (`OpCode`, `Flags`, `Priority`, `SequenceId`) and bitflags (`NONE`, `COMPRESSED`, `ENCRYPTED`, `FRAGMENTED`, `SYSTEM`).
 
 ### 2. Handler & Middleware Contracts
 
@@ -45,8 +45,8 @@ Used on the server to route incoming packets to handler methods and run cross-cu
 
 - `PacketHandlerAttribute` — Marks a class as a packet handler controller discovered by `PacketHandlerGenerator`.
 - `PacketOpcodeAttribute` — Binds a handler method to a specific 16-bit opcode.
-- `PacketTransportAttribute` — Restricts a handler method to a specific `NetworkTransport` (`TCP`, `UDP`, `WEBSOCKET`).
-- `PacketPermissionAttribute` — Declares the required `PermissionLevel` (`NONE`, `POW_VERIFIED`, `ESTABLISHED`, `GUEST`, `READ_ONLY`, `USER`, `SUPERVISOR`, `TENANT_ADMINISTRATOR`, `SYSTEM_ADMINISTRATOR`, `OWNER`) and `PermissionEvaluation` (`MinimumLevel` or `StrictMatch`).
+- `PacketDeliveryAttribute` — Selects the `DeliveryMethod` and channel a handler's replies use on a datagram connection (`PacketDeliveryAttribute(DeliveryMethod method, byte channel = 0)`); stream connections ignore it.
+- `PacketPermissionAttribute` — Declares the required `PermissionLevel` (`NONE`, `POW_VERIFIED`, `ESTABLISHED`, `OBSERVER`, `GUEST`, `READ_ONLY`, `USER`, `SUPERVISOR`, `TENANT_ADMINISTRATOR`, `SYSTEM_ADMINISTRATOR`, `OWNER`) and `PermissionEvaluation` (`MinimumLevel` or `StrictMatch`).
 - `PacketRateLimitAttribute` — Attaches per-endpoint rate limiting (`RequestsPerSecond`, `Burst`) to a handler.
 - `PacketTimeoutAttribute` — Enforces an execution timeout (in milliseconds) on a handler method.
 - `PacketEncryptionAttribute` — Requires the inbound packet to have arrived encrypted on the wire (`EncryptedOnWire`).
@@ -55,7 +55,7 @@ Used on the server to route incoming packets to handler methods and run cross-cu
 - `IPacketMiddleware<TPacket>` — Pipeline interceptor contract (`InvokeAsync`) ordered by `[MiddlewareOrder]` and `[MiddlewareStage]`.
 
 ```csharp
-using Nalix.Abstractions.Networking;
+using Nalix.Abstractions.Networking.Datagrams;
 using Nalix.Abstractions.Networking.Packets;
 using Nalix.Abstractions.Security;
 
@@ -63,7 +63,7 @@ using Nalix.Abstractions.Security;
 public sealed class SamplePingHandlers
 {
     [PacketOpcode(0x1001)]
-    [PacketTransport(NetworkTransport.TCP)]
+    [PacketDelivery(DeliveryMethod.ReliableOrdered)]
     [PacketPermission(PermissionLevel.GUEST)]
     public ValueTask HandlePingAsync(IPacketContext<PingPacket> context)
         => context.Sender.SendAsync(context.Packet);
@@ -78,7 +78,11 @@ public sealed class SamplePingHandlers
 
 **Key Components**
 
-- `IConnection` — Composite connection contract exposing identity (`ConnectionId`, `NetworkEndpoint`, `UserId`), transport (`TCP`, `UDP`, `WEBSOCKET`), `Attributes` (`IObjectMap<AttributeKey, object>`), `Level` (`PermissionLevel`), `Algorithm` (`CipherSuiteType`), `Secret`, error tracking (`IConnectionErrorTracked`), rate limiting, and traffic metrics (`IConnectionTrafficMetrics`).
+- `IConnection` — Composite connection contract exposing identity (`ConnectionId`, `NetworkEndpoint`, `UserId`), `Transport` (`IConnection.ITransport`: TCP, WebSocket, or datagram session), `Attributes` (`IObjectMap<AttributeKey, object>`), `Level` (`PermissionLevel`), `Algorithm` (`CipherSuiteType`), `Secret`, error tracking (`IConnectionErrorTracked`), rate limiting, and traffic metrics (`IConnectionTrafficMetrics`).
+- `IDatagramTransport` — `IConnection.ITransport` of a datagram session adding `SendAsync(message, DeliveryMethod, channel, ct)` and `WithDelivery(DeliveryMethod, channel)`.
+- `DeliveryMethod` — `Unreliable`, `UnreliableSequenced`, `ReliableUnordered`, `ReliableOrdered`, `ReliableSequenced` (`Nalix.Abstractions.Networking.Datagrams`).
+- `IDatagramTicketIssuer` and `DatagramTicketInfo` — Issue and describe the single-use ticket that opens a datagram session over an established stream session.
+- `IDatagramProtection` and `IDatagramProtectionFactory` — AEAD seal/open contract for datagrams and the factory that derives its keys from the session secret and ticket values (implemented in `Nalix.Codec`).
 - `IConnectionHub` — Server-wide registry for tracking, querying, and broadcasting to active connections.
 - `IConnectionGuard` — Socket-level admission control, quota enforcement, and progressive IP banning.
 - `IConnectionGroupRegistry` — Manages named connection groups for targeted broadcasts.
@@ -90,7 +94,7 @@ public sealed class SamplePingHandlers
 **Key Components**
 
 - `IBufferLease` — Reference-counted/disposable pooled memory lease (`Span`, `Memory`, `Length`, `EncryptedOnWire`, `Retain()`).
-- `BorrowedAttribute` — Marks an `IBufferLease` parameter as borrowed (the callee must not dispose it unless transferring ownership via `ref`).
+- `BorrowedAttribute` — Marks an `IBufferLease` parameter as borrowed (the callee must not dispose it unless transferring ownership via `ref`). It also defines the ownership contract used by the analyzers `NALIX108`–`NALIX110`: a lease parameter without `[Borrowed]` takes ownership of its argument, so the caller must not dispose or use the lease afterwards.
 - `SkipCleanAttribute` — Instructs `PacketSchemaGenerator` not to reset a field/property inside the generated `ResetForPool()` method.
 - `IPoolable`, `IObjectPoolManager`, `IBufferPoolManager` — Object and buffer pool contracts.
 - `ITaskManager`, `IWorker`, `IWorkerHandle`, `IRecurringHandle` — Background worker and recurring job contracts.

@@ -1,6 +1,6 @@
 ---
 title: Tổng quan SDK
-description: Tham chiếu cho Nalix.SDK — phiên transport phía client (TcpSession, UdpSession, WebSocketSession), handshake X25519, tiếp tục phiên 0-RTT, RPC proxy và streaming bất đồng bộ.
+description: Tham chiếu cho Nalix.SDK — phiên transport phía client (TcpSession, DatagramSession, WebSocketSession), handshake X25519, tiếp tục phiên 0-RTT, RPC proxy và streaming bất đồng bộ.
 section: API Reference
 package: Nalix.SDK
 ---
@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespaces:** `Nalix.SDK`, `Nalix.SDK.Transport`, `Nalix.SDK.Transport.Extensions`, `Nalix.SDK.Extensions`, `Nalix.SDK.Options`  
 **Assembly:** `Nalix.SDK`
 
-`Nalix.SDK` là gói transport và giao thức phía client của Nalix. Nó cung cấp các phiên client cụ thể (`TcpSession`, `UdpSession`, `WebSocketSession`), một contract phiên trừu tượng/interface (`TransportSession` / `ITransportSession`), handshake X25519 với TOFU/ghim khóa và giải Proof-of-Work, tiếp tục phiên 0-RTT, xoay khóa HKDF (`RekeyAsync`), các helper yêu cầu/phản hồi có ghép cặp (`RequestAsync` / `TryRequestAsync`), streaming (`StreamAsync` / `RequestWithStreamAsync`), và các RPC client proxy được sinh từ mã nguồn (`CreateRpcClient<T>`).
+`Nalix.SDK` là gói transport và giao thức phía client của Nalix. Nó cung cấp các phiên client cụ thể (`TcpSession`, `DatagramSession`, `WebSocketSession`), một contract phiên trừu tượng/interface (`TransportSession` / `ITransportSession`), handshake X25519 với TOFU/ghim khóa và giải Proof-of-Work, tiếp tục phiên 0-RTT, xoay khóa HKDF (`RekeyAsync`), các helper yêu cầu/phản hồi có ghép cặp (`RequestAsync` / `TryRequestAsync`), streaming (`StreamAsync` / `RequestWithStreamAsync`), và các RPC client proxy được sinh từ mã nguồn (`CreateRpcClient<T>`).
 
 :::important[Chỉ dành cho gói phía client]
 `Nalix.SDK` chỉ được thiết kế cho ứng dụng client (desktop, mobile, Unity, Godot, Blazor WASM, console client). Ứng dụng server nên dùng `Nalix.Hosting`, `Nalix.Runtime` và `Nalix.Network`.
@@ -16,11 +16,11 @@ package: Nalix.SDK
 
 ## Ánh xạ mã nguồn
 
-- `src/Nalix.SDK/Transport/` (`ITransportSession.cs`, `TransportSession.cs`, `SessionState.cs`, `TcpSession.cs`, `UdpSession.cs`, `WebSocketSession.cs`)
+- `src/Nalix.SDK/Transport/` (`ITransportSession.cs`, `TransportSession.cs`, `SessionState.cs`, `TcpSession.cs`, `DatagramSession.cs`, `WebSocketSession.cs`)
 - `src/Nalix.SDK/Transport/Extensions/` (`HandshakeExtensions.cs`, `ResumeExtensions.cs`, `CipherExtensions.cs`, `RekeyExtensions.cs`, `RequestExtensions.cs`, `StreamExtensions.cs`, `HeaderStreamExtensions.cs`, `ChannelExtensions.cs`, `ObservableExtensions.cs`, `RpcExtensions.cs`, `PingExtensions.cs`, `DisconnectExtensions.cs`, `TimeSyncExtensions.cs`, `ControlExtensions.cs`, `TransportSessionSubscriptions.cs`)
 - `src/Nalix.SDK/Extensions/` (`ProtocolStringExtensions.cs`, `SubscriptionExtensions.cs`)
 - `src/Nalix.SDK/Options/` (`TransportOptions.cs`, `WebSocketTransportOptions.cs`, `RequestOptions.cs`, `RequestOutcome.cs`)
-- `src/Nalix.SDK/IThreadDispatcher.cs`, `src/Nalix.SDK/InlineDispatcher.cs`, `src/Nalix.SDK/TimeSyncCalculator.cs`
+- `src/Nalix.SDK/IThreadDispatcher.cs`, `src/Nalix.SDK/InlineDispatcher.cs`, `src/Nalix.SDK/TimeSyncCalculator.cs`, `src/Nalix.SDK/DiagnosticsEvents.cs`, `src/Nalix.SDK/SdkTelemetry.cs`
 
 ## Kiến trúc client
 
@@ -36,19 +36,19 @@ flowchart TD
         State["SessionState (Secret, SessionToken, EncryptionEnabled, LocalPort)"]
         Sup["ReconnectSupervisor + KeepAlive Monitor"]
         TCP["TcpSession"]
-        UDP["UdpSession"]
+        DG["DatagramSession"]
         WS["WebSocketSession"]
     end
 
     subgraph Framers["Internal Framers + FramePipeline"]
         TF["TcpFrameSender / TcpFrameReader"]
-        UF["UdpFrameSender / UdpFrameReader"]
+        DE["DatagramEngine (NDP)"]
         WF["WsFrameSender / WsFrameReader"]
     end
 
     App --> Session
     TCP --> TF
-    UDP --> UF
+    DG --> DE
     WS --> WF
 ```
 
@@ -57,9 +57,9 @@ flowchart TD
 ### Phiên transport
 - [Transport Session (ITransportSession & TransportSession)](./transport-session.md): Contract cơ sở, `SessionState`, `ReconnectSupervisor`, dò keepalive và điều phối trực tiếp các yêu cầu đang chờ.
 - [TCP Session (TcpSession)](./tcp-session.md): Client stream tin cậy có khung với `ConnectWithProxyAsync` và `Send` đồng bộ.
-- [UDP Session (UdpSession)](./udp-session.md): Client datagram có xác thực (`[8B SessionToken][Payload][4B XxHash32 MAC]`) với việc ghim cổng TCP đi kèm.
+- [Datagram Session (DatagramSession)](./datagram-session.md): Client NDP-over-UDP khởi tạo từ một phiên stream đã thiết lập bằng ticket, niêm phong mọi datagram bằng ChaCha20-Poly1305, và hỗ trợ các phương thức phân phối cùng channel.
 - [WebSocket Session (WebSocketSession)](./websocket-session.md): Client WebSocket binary `ws://` và `wss://` (tương thích với desktop và Blazor WASM).
-- [Frame Reader và Sender](./frame-reader-and-sender.md): Khung TCP, UDP và WebSocket nội bộ, phân mảnh và theo dõi sequence.
+- [Frame Reader và Sender](./frame-reader-and-sender.md): Khung TCP và WebSocket nội bộ, phân mảnh và theo dõi sequence.
 
 ### Mở rộng bảo mật, điều khiển & yêu cầu
 - [Tổng quan Session Extensions](./tcp-session-extensions.md): Hướng dẫn đầy đủ về `RequestExtensions`, `StreamExtensions`, `HeaderStreamExtensions`, `ChannelExtensions`, `ObservableExtensions`, `RpcExtensions` và `RekeyExtensions`.
@@ -72,7 +72,7 @@ flowchart TD
 ### Tiện ích & tùy chọn
 - [Thread Dispatching (IThreadDispatcher, InlineDispatcher)](./thread-dispatching.md): Chuyển luồng về main thread/UI cho Unity, MAUI, WPF và Godot.
 - [Protocol String Extensions (ToDisplayString)](./protocol-string-extensions.md): Mô tả dễ đọc cho `ProtocolReason` và `ProtocolAdvice` trên giao diện.
-- [Chẩn đoán phiên](./diagnostics.md): Các mẫu quan sát vòng đời và lỗi phía client.
+- [Session Diagnostics](./diagnostics.md): Các mẫu quan sát vòng đời và lỗi phía client, `DiagnosticsEvents`, cùng tracing và metrics của `SdkTelemetry`.
 - [Transport Options](../options/sdk/transport-options.md)
 - [WebSocket Transport Options](../options/sdk/websocket-transport-options.md)
 - [Request Options & RequestOutcome&lt;T&gt;](../options/sdk/request-options.md)
@@ -98,12 +98,12 @@ using TcpSession client = new(options);
 await client.ConnectAsync();
 await client.HandshakeAsync();
 
-// 2. Gửi một yêu cầu có ghép cặp và chờ phản hồi
+// 2. Gửi một yêu cầu có tương quan và chờ phản hồi
 LoginResponse reply = await client.RequestAsync<LoginResponse>(
     new LoginRequest { Username = "Alice" },
     RequestOptions.Default.WithTimeout(3_000).WithEncrypt());
 
-// 3. Ngắt kết nối một cách êm thấm
+// 3. Ngắt kết nối êm
 await client.DisconnectGracefullyAsync();
 ```
 

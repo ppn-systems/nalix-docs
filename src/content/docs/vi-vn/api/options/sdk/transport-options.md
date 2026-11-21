@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Không gian tên:** `Nalix.SDK.Options`  
 **Assembly:** `Nalix.SDK`
 
-`TransportOptions` (`public sealed partial class TransportOptions : ConfigurationLoader`) cấu hình kết nối phía client, bộ đệm socket, bộ mã AEAD, nén LZ4, ghim khóa máy chủ X25519 / Trust-On-First-Use (TOFU), tiếp tục phiên 0-RTT, backoff của `ReconnectSupervisor`, dò keepalive và đồng bộ đồng hồ trên [TcpSession](../../sdk/tcp-session.md), [UdpSession](../../sdk/udp-session.md) và [WebSocketSession](../../sdk/websocket-session.md).
+`TransportOptions` (`public sealed partial class TransportOptions : ConfigurationLoader`) cấu hình kết nối phía client, bộ đệm socket, bộ mã AEAD, nén LZ4, ghim khóa máy chủ X25519 / Trust-On-First-Use (TOFU), tiếp tục phiên 0-RTT, backoff của `ReconnectSupervisor`, dò keepalive và đồng bộ đồng hồ trên [TcpSession](../../sdk/tcp-session.md), [DatagramSession](../../sdk/datagram-session.md) và [WebSocketSession](../../sdk/websocket-session.md).
 
 ## Ánh xạ mã nguồn
 
@@ -31,7 +31,6 @@ package: Nalix.SDK
 | `ConnectTimeoutMillis` | `int` | `30000` (`30s`) | `[ValueRange(0, int.MaxValue)]` | Thời gian chờ tính bằng mili giây cho mỗi lần thử kết nối socket/WebSocket (`0` = không giới hạn). |
 | `NoDelay` | `bool` | `true` | — | Điều khiển `Socket.NoDelay` (`TCP_NODELAY`) trên `TcpSession`. |
 | `BufferSize` | `int` | `65536` (`64 KB`) | `[ValueRange(2048, 1048576)]` | Kích thước bộ đệm gửi và nhận socket tính bằng byte (`2 KB..1 MB`). |
-| `MaxUdpDatagramSize` | `int` | `1400` | `[ValueRange(64, 65507)]` | Kích thước datagram UDP tối đa tính bằng byte (bao gồm `SessionToken` 8 byte và trailer MAC `XxHash32` 4 byte). |
 | `AsyncQueueCapacity` | `int` | `1024` | `[ValueRange(1, 65536)]` | `[Reserved]` Dung lượng hàng đợi xử lý thông điệp bất đồng bộ (hiện chưa được sử dụng). |
 
 ### 2. Mã hóa, nén và danh tính server (TOFU / Ghim khóa)
@@ -41,6 +40,7 @@ package: Nalix.SDK
 | `Algorithm` | `CipherSuiteType` | `CipherSuiteType.Chacha20Poly1305` | — | Bộ mã đối xứng dùng để mã hóa khung sau `HandshakeAsync`. |
 | `CompressionEnabled` | `bool` | `true` | — | Bật nén LZ4 tự động cho các khung gửi đi đạt `CompressionThreshold`. |
 | `CompressionThreshold` | `int` | `512` | — | Kích thước payload tối thiểu tính bằng byte trước khi áp dụng nén LZ4 cho khung gửi đi. |
+| `EncryptRequestsByDefault` | `bool` | `false` | — | Mã hóa các yêu cầu không đặt `RequestOptions.Encrypt` sau khi bắt tay hoàn tất (xem [Request Options](./request-options.md)). Giữ `false` khi transport được bọc trong TLS. |
 | `ServerPublicKey` | `string?` | `null` | — | Khóa công khai X25519 tĩnh 32 byte của server dạng hex, dùng để xác thực chống MitM trong `HandshakeAsync`. |
 | `AllowTofu` | `bool` | `true` | — | Cho phép khám phá Trust-On-First-Use (`PUBLIC_KEY_REQUEST` $\rightarrow$ `SessionTofu`) khi `ServerPublicKey` là null hoặc rỗng. |
 | `PersistTofuKey` | `bool` | `false` | — | Khi `true`, lưu `ServerPublicKey` lấy qua TOFU vào kho cấu hình sau một lần bắt tay đã được xác minh. |
@@ -106,7 +106,7 @@ BufferSize = 65536
 Algorithm = Chacha20Poly1305
 CompressionEnabled = true
 CompressionThreshold = 512
-MaxUdpDatagramSize = 1400
+EncryptRequestsByDefault = false
 AllowTofu = true
 PersistTofuKey = false
 ResumeEnabled = true

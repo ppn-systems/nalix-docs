@@ -37,7 +37,7 @@ flowchart LR
 `HandlePacket(IBufferLease lease, IConnection connection)` executes on the transport receive thread:
 
 1. Disposes `lease` and returns immediately if `lease` or `connection` is `null`.
-2. If `connection.TCP.Framing == TransportFraming.UInt16LengthPrefixed` and `lease.Length < PacketConstants.HeaderSize` (`6` bytes), disposes `lease`, calls `connection.IncrementErrorCount()`, and returns.
+2. If `connection.Transport.Framing == TransportFraming.UInt16LengthPrefixed` and `lease.Length < PacketConstants.HeaderSize` (`6` bytes), disposes `lease`, calls `connection.IncrementErrorCount()`, and returns.
 3. Calls `lease.Retain()` to increment the buffer's reference count before asynchronous handoff.
 4. Enqueues via `_dispatch.PushCore(connection, lease, out bool readyEmitted, noBlock: true)`. If the queue rejects the packet (full or connection closed), disposes the retained `lease` and increments `_totalDropped`.
 5. If `readyEmitted` is `true` (the connection just became claimable), calls `RequestWake()` to wake one parked worker.
@@ -70,13 +70,13 @@ Each worker owns an allocation-free `WorkerWakeSignal` (backed by `ManualResetVa
 
 For each dequeued `IBufferLease`:
 
-1. **OpCode Extraction**: Calls `connection.PacketClassifier.Extract(lease.Span)` and reads `lease.IsReliable` and `lease.EncryptedOnWire`.
+1. **OpCode Extraction**: Calls `connection.PacketClassifier.Extract(lease.Span)` and reads `lease.EncryptedOnWire`.
 2. **Early Handler Lookup**: Calls `Options.TryResolveHandler(opcode, out handler)` **before** deserializing. If no handler is registered for `opcode`, logs a throttled warning, disposes `lease`, increments `connection.IncrementErrorCount()`, and skips deserialization entirely.
 3. **Deserialization / `MemoryPacket` Fast Path**:
    - If `handler.ExpectedPacketType == typeof(MemoryPacket)`, wraps `lease.Memory` directly in a `MemoryPacket` without calling `PacketRegistry`.
    - Otherwise calls `PacketRegistry.TryDeserialize(lease.Span, out IPacket? deserialized)`. On failure, increments `_deserializationErrors`, disposes `lease`, and increments `connection.IncrementErrorCount()`.
 4. **Synchronous vs. Asynchronous Completion**:
-   - Calls `Options.ExecuteResolvedHandlerAsync(in handler, packet, connection, isReliable, encryptedOnWire, ct)`.
+   - Calls `Options.ExecuteResolvedHandlerAsync(in handler, packet, connection, encryptedOnWire, ct)`.
    - If the `ValueTask` completes synchronously (`IsCompletedSuccessfully`), disposes `lease` immediately on the worker loop with zero continuation allocation.
    - If the handler awaits asynchronous I/O, rents a pooled `DispatchContinuation` from `ObjectPoolManager.Shared` (`workItem.Initialize(connection, lease, pending.AsTask(), ct)`) so the worker loop is not blocked and `lease` is disposed when the task finishes.
 

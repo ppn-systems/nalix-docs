@@ -27,6 +27,7 @@ package: Nalix.Network
 | :--- | :--- | ---: | :--- | :--- |
 | `MaxPerConnectionPendingPackets` | `int` | `16` | `1..1024` | Giới hạn lớp 1 cho các gói đường nhận đã xếp hàng cho một kết nối (`MessageProcessing`) nhưng chưa hoàn tất. |
 | `MaxPerConnectionOpenFragmentStreams` | `int` | `4` | `1..256` | Giới hạn lớp 1 cho số luồng gói phân mảnh đang mở đồng thời trên một kết nối. |
+| `MinFragmentPermissionLevel` | `PermissionLevel` | `ESTABLISHED` | mọi `PermissionLevel` | Cổng chặn lớp 1: khung phân mảnh từ kết nối có `Level` thấp hơn giá trị này bị từ chối trước khi cấp phát bất kỳ trạng thái lắp ráp nào (`SocketConnection.cs`, `REJECT_UNAUTHORIZED_FRAGMENT`). |
 | `OverflowPolicy` | `NetworkOverflowPolicy` | `DropPacket` (`0`) | `DropPacket` (`0`), `Disconnect` (`1`) | Hành động khi một kết nối vượt quá `MaxPerConnectionPendingPackets`: bỏ gói đến (`DropPacket`) hoặc đóng kết nối ngay (`Disconnect`). |
 | `MaxPendingNormalCallbacks` | `int` | `10_000` | `100..1_000_000` | Giới hạn lớp 2 toàn cục cho callback xử lý đầu vào (`CallbackLane.Process`) đang chờ trong `AsyncCallback`. |
 | `CallbackWarningThreshold` | `int` | `5_000` | `0..1_000_000` | Phát cảnh báo áp lực ngược mỗi `1,000` callback khi số callback thường đang chờ đạt ngưỡng này (`0` tắt cảnh báo). |
@@ -52,6 +53,7 @@ Khi một khung hoàn chỉnh được lắp ráp trong `SocketConnection.PROCES
   - Bộ đếm được giảm ngay lập tức, `IncrementPacketsDropped()` được gọi và lease của khung được giải phóng.
   - Nếu `OverflowPolicy == NetworkOverflowPolicy.Disconnect`, kết nối bị đóng ngay (`Disconnect()`) để bảo vệ máy chủ khỏi lạm dụng kiểu consumer chậm / flood.
   - Nếu `OverflowPolicy == NetworkOverflowPolicy.DropPacket` (mặc định), gói bị loại bỏ và kết nối vẫn mở.
+  - Frame bị từ chối: với `DropPacket`, khung bị loại bỏ bởi một trong hai lớp được báo cho frame processor của kết nối qua `IFrameProcessor.OnFrameRejected` (thông qua `AsyncCallback.NotifyFrameRejected`). `DefaultFrameProcessor` phản hồi bằng directive `FAIL` / `RATE_LIMITED` / `RETRY` có thể thử lại, mang sequence id của yêu cầu (tối đa một lần cho mỗi kết nối trong mỗi khoảng cooldown của directive); frame processor tùy chỉnh không override phương thức này vẫn giữ hành vi bỏ im lặng. Khung không được báo khi `OverflowPolicy` là `Disconnect`.
 - Ngược lại, khung được bọc trong `ConnectionEventArgs` và được điều phối qua:
   ```csharp
   AsyncCallback.Invoke(
@@ -64,6 +66,8 @@ Khi một khung hoàn chỉnh được lắp ráp trong `SocketConnection.PROCES
   Khi callback thực thi xong, `PooledConnectEventContext` thông báo cho kết nối (`ReleasePendingPacket()`) để giảm `backing.PendingProcessCallbacks`.
 
 ### Giới hạn luồng phân mảnh
+
+Các khung phân mảnh trước hết được kiểm tra với `MinFragmentPermissionLevel` (mặc định `ESTABLISHED`): kết nối thấp hơn mức đó sẽ bị từ chối khung, vì trạng thái lắp ráp được cấp phát theo từng kết nối và chỉ các peer đã hoàn tất handshake mới được dùng.
 
 Khi một khung phân mảnh đến và mở một luồng mới trong `FragmentAssembler`, `SocketConnection` áp dụng `MaxPerConnectionOpenFragmentStreams`. Nếu số lượng vượt quá `MaxPerConnectionOpenFragmentStreams`, luồng bị từ chối và khung bị loại bỏ. Các luồng phân mảnh đã hết hạn được loại bỏ định kỳ qua `FragmentAssembler.EvictExpired(...)`.
 
@@ -105,6 +109,7 @@ flowchart TD
 [NetworkCallback]
 MaxPerConnectionPendingPackets = 16
 MaxPerConnectionOpenFragmentStreams = 4
+MinFragmentPermissionLevel = ESTABLISHED
 OverflowPolicy = DropPacket
 MaxPendingNormalCallbacks = 10000
 CallbackWarningThreshold = 5000

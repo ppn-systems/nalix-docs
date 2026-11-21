@@ -10,9 +10,10 @@ package: Nalix.Abstractions
 ## Core Contracts
 
 - [**Packet Contracts**](./packet-contracts.md) — `IPacket`, `IPacketContext<TPacket>`, `IPacketSender`, `IPacketStaticOpcode`, `IPacketDeserializer<TPacket>`, and `PacketHeader`.
-- [**Packet Attributes**](./packet-attributes.md) — `[PacketHandler]`, `[PacketOpcode]`, `[PacketPermission]`, `[PacketEncryption]`, `[PacketRateLimit]`, `[PacketTimeout]`, `[PacketTransport]`, and `[PacketIdempotent]`.
+- [**Packet Attributes**](./packet-attributes.md) — `[PacketHandler]`, `[PacketOpcode]`, `[PacketPermission]`, `[PacketEncryption]`, `[PacketRateLimit]`, `[PacketTimeout]`, `[PacketDelivery]`, and `[PacketIdempotent]`.
 - [**Packet Metadata**](./packet-metadata.md) — `PacketMetadata` compiled by `PacketHandlerGenerator`.
-- [**Connection Contracts**](./connection-contracts.md) — `IConnection`, `IConnectionHub`, `IProtocol`, `IListener`, `IFrameProcessor`, `IOpCodeExtractor`, and `ITransportSequencer`.
+- [**Datagram Contracts**](./datagram-contracts.md) — `DeliveryMethod`, `IDatagramTransport`, `IDatagramTicketIssuer`, `IDatagramProtection`, `IDatagramProtectionFactory` and `PacketDeliveryAttribute`.
+- [**Connection Contracts**](./connection-contracts.md) — `IConnection`, `IConnectionHub`, `IProtocol`, `IListener`, `IFrameProcessor`, `IOpCodeExtractor`, `ITransportSequencer`, and the datagram contracts (`IDatagramTransport`, `IDatagramTicketIssuer`, `IDatagramProtection`, `IDatagramProtectionFactory`).
 - [**Session Contracts**](./session-contracts.md) — `ISessionService`, `ISessionFactory`, `ISessionStore`, `ISessionPersistencePolicy`, `SessionEntry`, `SessionSnapshot`, and `SessionScope`.
 - [**Concurrency Contracts**](./concurrency-contracts.md) — `ITaskManager`, `IWorker`, `WorkerAttribute`, `IWorkerHandle`, `IWorkerContext`, `IRecurringHandle`, `IWorkerOptions`, and `IRecurringOptions`.
 

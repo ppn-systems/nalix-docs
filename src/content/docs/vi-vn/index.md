@@ -56,7 +56,7 @@ Nếu bạn muốn biết Nalix hoạt động bên trong như thế nào — đ
 | [**Nalix.Hosting**](./packages/nalix-hosting.md) | Bộ dựng kiểu fluent (`NetworkApplication.CreateBuilder()`) và vòng đời ứng dụng để khởi tạo máy chủ |
 | [**Nalix.Network**](./packages/nalix-network.md) | Listener TCP, UDP và WebSocket, kết nối, connection hub và bảo vệ transport |
 | [**Nalix.Runtime**](./packages/nalix-runtime.md) | Điều phối gói tin đa luồng (`PacketDispatchChannel`), chuỗi middleware và dịch vụ phiên |
-| [**Nalix.SDK**](./packages/nalix-sdk.md) | Phiên transport phía client (`TcpSession`, `UdpSession`), bắt tay và ghép cặp request/response |
+| [**Nalix.SDK**](./packages/nalix-sdk.md) | Phiên transport phía client (`TcpSession`, `DatagramSession`), bắt tay và ghép cặp request/response |
 | [**Nalix.Codec**](./packages/nalix-codec.md) | Tuần tự hóa nhị phân lúc biên dịch (`LiteSerializer`), nén LZ4, mã hóa AEAD và `PacketRegistry` |
 | [**Nalix.Framework**](./packages/nalix-framework.md) | Dependency injection (`InstanceManager`), worker nền (`TaskManager`), ID `Snowflake`, và pool đối tượng/bộ đệm |
 | [**Nalix.Environment**](./packages/nalix-environment.md) | Bộ nhớ không cấp phát (`BufferLease`, `DataReader`, `DataWriter`), cấu hình INI, `Clock`, `TimingScope` và `Csprng` |

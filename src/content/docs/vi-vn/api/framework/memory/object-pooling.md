@@ -39,6 +39,7 @@ flowchart TD
 - `src/Nalix.Framework/Memory/Objects/ObjectPoolManager.Cleanup.cs`
 - `src/Nalix.Framework/Memory/Objects/ObjectPoolManager.Report.cs`
 - `src/Nalix.Framework/Memory/Objects/TypedObjectPool.cs`
+- `src/Nalix.Framework/Memory/Pools/ObjectPool.cs`
 - `src/Nalix.Framework/Options/ObjectPoolOptions.cs`
 
 ## Hợp đồng lõi (`IPoolable` & `IPoolRentable`)
@@ -92,6 +93,27 @@ public interface IPoolRentable
 | `PerformHealthCheck()` | `public int PerformHealthCheck()` | Đánh giá tỷ lệ miss theo cửa sổ trên các pool đang hoạt động và trả về số pool không lành mạnh. |
 | `ResetMetrics()` / `ResetStatistics()` | `public void ResetMetrics()` / `public void ResetStatistics()` | Đặt lại bộ đếm toàn cục và theo từng pool. |
 | `GenerateReport()` / `WriteReportData` | `public string GenerateReport()` / `public void WriteReportData(Utf8JsonWriter writer)` | Tạo báo cáo văn bản dễ đọc hoặc JSON có cấu trúc. |
+
+## `ObjectPool` (`Nalix.Framework.Memory.Pools`)
+
+`ObjectPool` (`public sealed class ObjectPool(int defaultMaxItemsPerType, int threadCacheDepth = 0)`, `src/Nalix.Framework/Memory/Pools/ObjectPool.cs`) là engine pool an toàn đa luồng, đánh chỉ mục theo kiểu, mà `ObjectPoolManager` xây dựng trên đó. Mỗi kiểu được pool có bucket và giới hạn dung lượng riêng; đối tượng được đặt lại khi trả về và bị loại bỏ khi bucket đã đầy. Giá trị `defaultMaxItemsPerType` không dương sẽ dùng `DefaultMaxSize`. `threadCacheDepth = 0` tắt cache cục bộ theo luồng (giữ ở `0` cho workload `async`/`await` để đối tượng không bị kẹt trên các luồng rảnh).
+
+| Thành phần | Chữ ký | Mô tả |
+| :--- | :--- | :--- |
+| `DefaultMaxSize` | `public const int DefaultMaxSize = 1024` | Dung lượng mỗi kiểu được dùng khi không có giới hạn dương nào được cung cấp. |
+| `Default` | `public static ObjectPool Default { get; }` | Instance dùng chung được tạo bằng constructor không tham số. |
+| `ObjectPool()` | `public ObjectPool()` | Tạo pool với `DefaultMaxSize` cho mỗi kiểu. |
+| `Get<T>()` / `GetWithInfo<T>()` | `public T Get<T>()` / `public (T obj, bool isCacheHit) GetWithInfo<T>() where T : IPoolable, new()` | Thuê một instance, tạo mới khi bucket rỗng; `GetWithInfo` còn báo cho biết đó có phải là lần trúng pool hay không. |
+| `Return<T>(T)` | `public void Return<T>(T obj) where T : IPoolable` | Đặt lại và trả một instance (ném `ArgumentNullException` với `null`). |
+| `GetMultiple<T>(int)` / `ReturnMultiple<T>(IEnumerable<T>)` | `public List<T> GetMultiple<T>(int count)` / `public int ReturnMultiple<T>(IEnumerable<T> objects)` | Thuê hàng loạt (ném `ArgumentException` khi `count <= 0`) và trả hàng loạt (trả về số lượng được chấp nhận). |
+| `Prealloc<T>(int)` | `public int Prealloc<T>(int count)` | Cấp phát trước các instance và trả về số lượng đã thêm. |
+| `SetMaxCapacity<T>(int)` | `public bool SetMaxCapacity<T>(int maxCapacity)` | Đặt dung lượng cho bucket của `T`. |
+| `Clear()` / `ClearType<T>()` | `public int Clear()` / `public int ClearType<T>()` | Loại bỏ mọi đối tượng trong pool, hoặc chỉ các đối tượng của `T`; trả về số lượng đã loại bỏ. |
+| `Trim(int, double)` | `public int Trim(int percentage = 50, double decayFactor = 1.0)` | Cắt tỉa mọi bucket xuống `percentage` dung lượng của nó (`0` = không cắt tỉa, giá trị âm được ép về `0`), loại bỏ `decayFactor` phần dư thừa; trả về số lượng đã loại bỏ. |
+| `CreateTypedPool<T>()` | `public TypedObjectPool<T> CreateTypedPool<T>() where T : IPoolable, new()` | Tạo adapter [TypedObjectPool](./typed-object-pools.md) gắn với pool này. |
+| `GetTypeInfo<T>()` / `GetAllTypeInfo()` / `GetStatistics()` | `Dictionary<string, object>` / `List<Dictionary<string, object>>` / `Dictionary<string, object>` | Chỉ số theo từng kiểu, mọi kiểu và toàn pool. |
+| `ResetStatistics()` | `public void ResetStatistics()` | Đặt lại các bộ đếm. |
+| Bộ đếm | `long`/`int` | `TotalCreatedCount`, `TotalRentedCount`, `TotalReturnedCount`, `TotalDroppedCount` (bị loại bỏ vì bucket đầy), `TotalRejectedReturnCount` (trả trùng lặp), `TotalAvailableCount`, `TypeCount`, `UptimeMs`. |
 
 ## `ObjectPoolOptions` (`Nalix.Framework.Options`)
 

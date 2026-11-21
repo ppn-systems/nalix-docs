@@ -60,7 +60,7 @@ flowchart TD
     B -->|Yes| C["dispatch.ExecuteTerminalHandler(descriptor, context, ct)"]
     B -->|No| D["Acquire PooledPipelineContext (32-slot local bitmask pool or ObjectPoolManager)"]
     D --> E["Stage 1: Inbound (ascending Order)"]
-    E -->|Calls next(inboundCt)| F["CREATE_EXECUTION_TOKEN(inboundCt, rootCt) + ExecuteTerminalHandler"]
+    E -->|"Calls next(inboundCt)"| F["CREATE_EXECUTION_TOKEN(inboundCt, rootCt) + ExecuteTerminalHandler"]
     E -->|Short-circuits| K["Return PooledPipelineContext"]
     F --> G["Stage 2: OutboundAlways (descending Order, runs even if handler threw OperationCanceledException)"]
     G --> H{"!context.SkipOutbound && !token.IsCancellationRequested?"}

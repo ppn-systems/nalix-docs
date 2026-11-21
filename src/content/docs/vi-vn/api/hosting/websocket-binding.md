@@ -8,7 +8,7 @@ package: Nalix.Hosting
 **Không gian tên:** `Nalix.Hosting`  
 **Assembly:** `Nalix.Hosting`
 
-`MapWebSocket<TProtocol>()` và `IWebSocketBindingBuilder` gắn một listener WebSocket nhị phân (`WebSocketServerListener`, kế thừa từ `WebSocketListenerBase`) vào host `NetworkApplication` cùng các binding TCP và UDP, đồng thời cho phép ánh xạ các route HTTP `GET` và `POST` nhẹ với bộ đệm đơn trên cùng cổng.
+`MapWebSocket<TProtocol>()` và `IWebSocketBindingBuilder` gắn một listener WebSocket nhị phân (`WebSocketServerListener`, kế thừa từ `WebSocketListenerBase`) vào host `NetworkApplication` cùng các binding TCP và datagram, đồng thời cho phép ánh xạ các route HTTP `GET` và `POST` nhẹ với bộ đệm đơn trên cùng cổng.
 
 ## Ánh xạ mã nguồn
 

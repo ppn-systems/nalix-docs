@@ -37,7 +37,7 @@ flowchart TD
     end
 
     Tick --> Drain --> CheckVer
-    CheckVer -->|No (Stale)| Pool["Return TimeoutTask to ObjectPool"]
+    CheckVer -->|"No (Stale)"| Pool["Return TimeoutTask to ObjectPool"]
     CheckVer -->|Yes| CheckRounds
     CheckRounds -->|Yes| Dec["task.Rounds-- (Stay in Bucket)"]
     CheckRounds -->|No| CheckIdle
@@ -51,7 +51,7 @@ flowchart TD
 
 - Wheel cấp phát `BucketCount` (`512`) slot `TimingWheelBucket`. Khi `BucketCount` là lũy thừa của hai, chỉ số bucket được tính bằng bitmask (`(int)(targetTick & _mask)`).
 - Mỗi bucket duy trì một danh sách liên kết đôi các nút `TimeoutTask` lấy từ pool, được bảo vệ bởi khóa monitor theo bucket (`lock (bucket)`), hỗ trợ thêm và xóa với độ phức tạp $O(1)$.
-- Việc đăng ký và hủy đăng ký kết nối được đồng bộ theo từng kết nối bằng một mảng khóa striped có kích thước lũy thừa của hai (`_connectionLocks`), cùng với các thuộc tính `ITimeoutTrackedConnection.TimeoutVersion` và `TimeoutTask` trực tiếp trên `Connection` / `WebSocketConnection` / `PassthroughConnection`.
+- Việc đăng ký và hủy đăng ký kết nối được đồng bộ theo từng kết nối bằng một mảng khóa striped có kích thước lũy thừa của hai (`_connectionLocks`), cùng với các thuộc tính `ITimeoutTrackedConnection.TimeoutVersion` và `TimeoutTask` trực tiếp trên `Connection` / `WebSocketConnection`.
 
 ### 2. Phá tham chiếu ngay khi hủy
 
@@ -59,7 +59,7 @@ Khi một `Connection` bị dispose, `PerformDestructiveCleanup()` lập tức p
 
 ### 3. Kích hoạt theo đếm tham chiếu (`Activate` / `Deactivate`)
 
-Nhiều listener (`TcpListenerBase`, `WebSocketListenerBase`, `UdpPassthroughListener`) dùng chung `TimingWheel` singleton. `Activate` tăng `_activeListeners` và khởi động worker nền của `TaskManager` cho listener đầu tiên; `Deactivate` giảm `_activeListeners` và dừng/xả wheel khi listener cuối cùng tắt (chờ tối đa `TimingWheelOptions.WheelDrainTimeoutMs = 5000` ms).
+Nhiều listener (`TcpListenerBase`, `WebSocketListenerBase`) dùng chung `TimingWheel` singleton. `Activate` tăng `_activeListeners` và khởi động worker nền của `TaskManager` cho listener đầu tiên; `Deactivate` giảm `_activeListeners` và dừng/xả wheel khi listener cuối cùng tắt (chờ tối đa `TimingWheelOptions.WheelDrainTimeoutMs = 5000` ms).
 
 ## Cấu hình (`TimingWheelOptions`)
 
@@ -68,6 +68,7 @@ Nhiều listener (`TcpListenerBase`, `WebSocketListenerBase`, `UdpPassthroughLis
 | `BucketCount` | `512` | `[ValueRange(1, int.MaxValue)]` | Số slot của wheel (giá trị lũy thừa của hai cho phép chỉ số bitmask). |
 | `TickDuration` | `1000` | `[ValueRange(1, int.MaxValue)]` | Khoảng tick tính bằng mili-giây cho vòng `PeriodicTimer`. |
 | `IdleTimeoutMs` | `60_000` | `[ValueRange(1, int.MaxValue)]` | Timeout nhàn rỗi mặc định của kết nối tính bằng mili-giây trước khi tự động ngắt. |
+| `HandshakeTimeoutMs` | `15_000` | `[ValueRange(0, 600_000)]` | Thời gian tối đa tính bằng mili-giây mà một kết nối TCP/WebSocket được ở dưới mức quyền `ESTABLISHED` sau khi accept trước khi bị đóng (`0` là tắt). |
 | `WheelDrainTimeoutMs` | `5000` | `[ValueRange(0, 60000)]` | Thời gian chờ xả tối đa khi tắt máy, tính bằng mili-giây. |
 
 ## API liên quan

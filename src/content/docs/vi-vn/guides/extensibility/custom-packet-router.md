@@ -39,19 +39,17 @@ public sealed class UserShardProxy : IConnection
         _physical = physical;
     }
 
-    // --- IDENTITY MEMBERS ---
+    // --- CÁC THÀNH VIÊN ĐỊNH DANH ---
     public ulong ConnectionId => _physical.ConnectionId;
     public string? UserId { get => _physical.UserId; set => _physical.UserId = value; }
     public INetworkEndpoint NetworkEndpoint => _physical.NetworkEndpoint;
     public bool IsDisposed => _physical.IsDisposed;
 
-    // --- TRANSMISSION DELEGATION ---
-    public IConnection.ITransport TCP => _physical.TCP;
-    public IConnection.ITransport? UDP => _physical.UDP;
-    public bool IsUdpCreated => _physical.IsUdpCreated;
+    // --- ỦY QUYỀN TRUYỀN TẢI ---
+    public IConnection.ITransport Transport => _physical.Transport;
     public IOpCodeExtractor PacketClassifier => _physical.PacketClassifier;
 
-    // --- STATE DELEGATION ---
+    // --- ỦY QUYỀN TRẠNG THÁI ---
     public IObjectMap<AttributeKey, object> Attributes => _physical.Attributes;
     public PermissionLevel Level { get => _physical.Level; set => _physical.Level = value; }
     public CipherSuiteType Algorithm { get => _physical.Algorithm; set => _physical.Algorithm = value; }
@@ -76,7 +74,7 @@ public sealed class UserShardProxy : IConnection
     public void Disconnect(string? reason = null) => _physical.Disconnect(reason);
     public void Dispose() => _physical.Dispose();
 
-    // --- EVENT DELEGATION ---
+    // --- ỦY QUYỀN SỰ KIỆN ---
     public event EventHandler<IConnectionEventArgs>? ConnectionClosed { add => _physical.ConnectionClosed += value; remove => _physical.ConnectionClosed -= value; }
     public event EventHandler<IConnectionEventArgs>? MessageProcessing { add => _physical.MessageProcessing += value; remove => _physical.MessageProcessing -= value; }
     public event EventHandler<IConnectionEventArgs>? MessageProcessed { add => _physical.MessageProcessed += value; remove => _physical.MessageProcessed -= value; }
@@ -96,7 +94,7 @@ using Nalix.Runtime.Dispatching;
 public sealed class UserBasedRouter : IPacketDispatch
 {
     private static readonly AttributeKey UserIdKey = new("UserID");
-    private readonly IPacketDispatch _inner; // The default PacketDispatchChannel
+    private readonly IPacketDispatch _inner; // PacketDispatchChannel mặc định
 
     public UserBasedRouter(IPacketDispatch inner)
     {
@@ -105,24 +103,24 @@ public sealed class UserBasedRouter : IPacketDispatch
 
     public void HandlePacket(IBufferLease? packet, IConnection connection)
     {
-        // 1. Resolve logical identity (e.g., UserID stored in connection attributes)
+        // 1. Xác định danh tính logic (ví dụ UserID lưu trong thuộc tính kết nối)
         if (connection.Attributes.TryGetValue(UserIdKey, out object? raw) && raw is long userId)
         {
-            // 2. Retrieve the shared proxy instance from your session manager.
-            // MUST return the same instance for the same UserID.
+            // 2. Lấy đối tượng proxy dùng chung từ trình quản lý phiên của bạn.
+            // PHẢI trả về cùng một đối tượng cho cùng một UserID.
             IConnection shardKey = GlobalSessionManager.GetOrCreateUserProxy(userId, connection);
 
-            // 3. Hand-off to the internal shard-aware channel using the proxy as the key.
+            // 3. Chuyển giao cho channel nội bộ nhận biết shard, dùng proxy làm khóa.
             _inner.HandlePacket(packet, shardKey);
         }
         else
         {
-            // Fallback to standard connection-based sharding for unauthenticated packets.
+            // Quay về cách chia shard theo kết nối chuẩn cho các gói tin chưa xác thực.
             _inner.HandlePacket(packet, connection);
         }
     }
 
-    // Delegate lifecycle to inner dispatcher
+    // Ủy quyền vòng đời cho dispatcher bên trong
     public void Activate(CancellationToken ct = default) => _inner.Activate(ct);
     public void Deactivate(CancellationToken ct = default) => _inner.Deactivate(ct);
 }
@@ -135,11 +133,11 @@ public sealed class UserBasedRouter : IPacketDispatch
 ```csharp
 var builder = NetworkApplication.CreateBuilder();
 
-// The builder provides the default PacketDispatchChannel (shard-aware engine)
-// as the 'dispatch' argument in the MapTcp/MapUdp factory.
+// Builder cung cấp PacketDispatchChannel mặc định (engine nhận biết shard)
+// làm đối số 'dispatch' trong factory MapTcp/MapUdp.
 builder.MapTcp<GameProtocol>().WithFactory(dispatch => 
 {
-    // Wrap the default shard engine with our custom UserBasedRouter
+    // Bao engine shard mặc định bằng UserBasedRouter tùy chỉnh của ta
     var userRouter = new UserBasedRouter(dispatch);
     
     return new GameProtocol(userRouter);

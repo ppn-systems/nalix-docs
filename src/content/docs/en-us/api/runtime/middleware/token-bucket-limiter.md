@@ -63,7 +63,22 @@ public enum RateLimitReason : byte
     SoftThrottle = 1,
     HardLockout = 2
 }
+
+public readonly record struct RateLimitPolicy
+{
+    public int Rps { get; }
+    public long CapacityMicro { get; }
+    public double RefillPerTick { get; }
+    public long RefillPerSecMicro { get; }
+    public int TokenScale { get; }
+    public int MaxSoftViolations { get; }
+    public int HardLockoutSeconds { get; }
+
+    public RateLimitPolicy(int rps, double burst, int tokenScale, double swFreq, int hardLockoutSec, int maxSoftViolations);
+}
 ```
+
+All three are nested public types of `TokenBucketLimiter` (`src/Nalix.Runtime/Throttling/TokenBucketLimiter.Types.cs`). `RateLimitPolicy` derives `CapacityMicro = burst * tokenScale`, `RefillPerTick = rps * tokenScale / swFreq` and `RefillPerSecMicro = round(rps * tokenScale)` in its constructor.
 
 ## Usage Example
 

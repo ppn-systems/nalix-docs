@@ -1,6 +1,6 @@
 ---
 title: Frame Reader và Sender
-description: Tham chiếu cho các frame reader và sender nội bộ của TCP, UDP và WebSocket trong Nalix.SDK.Transport.Internal — khung, phân mảnh, envelope MAC và bộ đếm sequence.
+description: Tham chiếu cho các frame reader và sender nội bộ của TCP và WebSocket trong Nalix.SDK.Transport.Internal — khung, phân mảnh và bộ đếm sequence.
 section: API Reference
 package: Nalix.SDK
 ---
@@ -11,15 +11,13 @@ package: Nalix.SDK
 Mỗi phiên cụ thể trong `Nalix.SDK` ủy thác I/O truyền tải mức thấp, phân mảnh, các biến đổi `FramePipeline` (nén LZ4 và mã hóa AEAD), và kiểm tra cửa sổ replay cho một cặp reader/sender nội bộ cùng một `SequenceCounter` không khóa.
 
 :::warning[Cơ chế truyền tải nội bộ]
-`TcpFrameReader`, `TcpFrameSender`, `UdpFrameReader`, `UdpFrameSender`, `WsFrameReader` và `WsFrameSender` là các kiểu `internal sealed`. Mã ứng dụng tương tác với chúng thông qua [TcpSession](./tcp-session.md), [UdpSession](./udp-session.md) và [WebSocketSession](./websocket-session.md).
+`TcpFrameReader`, `TcpFrameSender`, `WsFrameReader` và `WsFrameSender` là các kiểu `internal sealed`. Mã ứng dụng tương tác với chúng thông qua [TcpSession](./tcp-session.md) và [WebSocketSession](./websocket-session.md). [DatagramSession](./datagram-session.md) không dùng chúng: nó đóng khung datagram bằng datagram engine.
 :::
 
 ## Ánh xạ mã nguồn
 
 - `src/Nalix.SDK/Transport/Internal/Tcp/TcpFrameReader.cs`
 - `src/Nalix.SDK/Transport/Internal/Tcp/TcpFrameSender.cs`
-- `src/Nalix.SDK/Transport/Internal/Udp/UdpFrameReader.cs`
-- `src/Nalix.SDK/Transport/Internal/Udp/UdpFrameSender.cs`
 - `src/Nalix.SDK/Transport/Internal/Ws/WsFrameReader.cs`
 - `src/Nalix.SDK/Transport/Internal/Ws/WsFrameSender.cs`
 - `src/Nalix.Environment/Sequencing/SequenceCounter.cs`
@@ -28,22 +26,21 @@ Mỗi phiên cụ thể trong `Nalix.SDK` ủy thác I/O truyền tải mức th
 
 | Transport | Reader / Sender | Khung trên dây | Phân mảnh | Bảo vệ replay / sequence |
 | :--- | :--- | :--- | :--- | :--- |
-| **TCP** (`TcpSession`) | `TcpFrameReader` / `TcpFrameSender` | Tiền tố độ dài khung tổng `ushort` 2 byte little-endian (`HeaderSize = 2`) | Chia nhỏ `FragmentHeader` khi gửi (`>= MaxChunkSize`) / `FragmentAssembler` khi nhận | `SequenceCounter.IsValid(seq, TcpWindow)` (cửa sổ trượt `1024` bit) |
-| **UDP** (`UdpSession`) | `UdpFrameReader` / `UdpFrameSender` | `[8B SessionToken (outbound)][Payload][4B XxHash32 MAC]` (`<= MaxUdpDatagramSize`) | Không có (chỉ kiểm tra MTU của một datagram) | `SequenceCounter.IsValid(seq, UdpWindow)` (cửa sổ trượt `512` bit) |
-| **WebSocket** (`WebSocketSession`) | `WsFrameReader` / `WsFrameSender` | `WebSocketMessageType.Binary` (khung `EndOfMessage`) | `FragmentAssembler` khi nhận (khi gửi, thông điệp binary WebSocket hoàn chỉnh được gửi trực tiếp) | `SequenceCounter.IsValid(seq, TcpWindow)` (cửa sổ trượt `1024` bit) |
+| **TCP** (`TcpSession`) | `TcpFrameReader` / `TcpFrameSender` | Tiền tố độ dài khung tổng `ushort` 2 byte little-endian (`HeaderSize = 2`) | Chia nhỏ `FragmentHeader` khi gửi (`>= MaxChunkSize`) / `FragmentAssembler` khi nhận | `SequenceCounter.IsValid(seq, TcpWindow)` (`SequenceOptions.TcpWindow`, mặc định `32`) |
+| **WebSocket** (`WebSocketSession`) | `WsFrameReader` / `WsFrameSender` | `WebSocketMessageType.Binary` (khung `EndOfMessage`) | `FragmentAssembler` khi nhận (khi gửi, thông điệp binary WebSocket hoàn chỉnh được gửi trực tiếp) | `SequenceCounter.IsValid(seq, TcpWindow)` (`SequenceOptions.TcpWindow`, mặc định `32`) |
 
 ## Pipeline biến đổi gửi & nhận
 
 ```mermaid
 flowchart LR
-    subgraph Outbound["Outbound (Tcp/Udp/WsFrameSender)"]
+    subgraph Outbound["Outbound (Tcp/WsFrameSender)"]
         P1["Serialized BufferLease"] --> P2["FramePipeline.ProcessOutbound<br/>(LZ4 Compress -> AEAD Encrypt with SequenceCounter.Next())"]
-        P2 --> P3["FragmentHeader Chunking (TCP if >= MaxChunkSize)<br/>or 8B Token + 4B XxHash32 MAC (UDP)"]
+        P2 --> P3["FragmentHeader Chunking (TCP if >= MaxChunkSize)"]
         P3 --> P4["Socket / ClientWebSocket Send"]
     end
 
-    subgraph Inbound["Inbound (Tcp/Udp/WsFrameReader)"]
-        R1["Socket / ClientWebSocket Receive"] --> R2["FragmentAssembler (TCP/WS)<br/>or 4B XxHash32 MAC Check (UDP)"]
+    subgraph Inbound["Inbound (Tcp/WsFrameReader)"]
+        R1["Socket / ClientWebSocket Receive"] --> R2["FragmentAssembler (TCP/WS)"]
         R2 --> R3["FramePipeline.ProcessInbound<br/>(AEAD Decrypt -> LZ4 Decompress)"]
         R3 --> R4["SequenceCounter.IsValid(seq, window)"]
         R4 --> R5["HandleReceiveMessage(IBufferLease)"]
@@ -59,7 +56,7 @@ flowchart LR
 ## API liên quan
 
 - [TCP Session](./tcp-session.md)
-- [UDP Session](./udp-session.md)
+- [Datagram Session](./datagram-session.md)
 - [WebSocket Session](./websocket-session.md)
 - [Nén gói tin](../codec/frame-pipeline.md)
 - [AEAD Ciphers](../security/aead-and-envelope.md)

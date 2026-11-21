@@ -53,8 +53,8 @@ using Nalix.Hosting;
 using Nalix.Network.Options;
 
 TimingWheelOptions wheelOptions = ConfigurationManager.Instance.Get<TimingWheelOptions>();
-wheelOptions.IdleTimeoutMs = 30_000; // Disconnect after 30 seconds of silence
-wheelOptions.TickDuration = 1000;    // Check once per second
+wheelOptions.IdleTimeoutMs = 30_000; // Ngắt kết nối sau 30 giây im lặng
+wheelOptions.TickDuration = 1000;    // Kiểm tra mỗi giây một lần
 
 var host = NetworkApplication.CreateBuilder()
     .MapTcp<MyProtocol>().Bind()

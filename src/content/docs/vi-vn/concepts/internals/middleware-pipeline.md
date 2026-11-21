@@ -113,5 +113,5 @@ Thứ tự thực thi middleware dùng `MiddlewareOrderAttribute`, không phải
 ## Xem trong thực tế
 
 - [Middleware tùy chỉnh từ đầu đến cuối](../../guides/extensibility/custom-middleware.md): Tạo một middleware tùy chỉnh và một metadata provider.
-- [Luồng xác thực UDP](../../guides/networking/udp-security.md): Xem cách middleware xác thực được dùng trong một tình huống thực tế.
+- [Luồng xác thực UDP](../../guides/networking/datagram-security.md): Xem cách middleware xác thực được dùng trong một tình huống thực tế.
 - [Request/Response TCP](../../guides/networking/tcp-patterns.md): Quan sát middleware trong luồng TCP tiêu chuẩn.

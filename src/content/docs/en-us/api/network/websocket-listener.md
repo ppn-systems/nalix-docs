@@ -52,10 +52,10 @@ sequenceDiagram
 1. **Handshake Timeout Sweeper**: When `Activate()` is called, `WebSocketListenerBase` schedules a 1-second recurring task (`TaskManager.ScheduleRecurring`) that sweeps stalled HTTP upgrade contexts exceeding `NetworkWebSocketOptions.HandshakeTimeoutMs` (`5000` ms default), closing their sockets outside the lock and releasing their `ConnectionGuard` slots.
 2. **Built-In DevOps HTTP Endpoints**: When `NetworkWebSocketOptions.EnableDevOpsEndpoints = true` (default), the listener registers zero-allocation HTTP `GET` handlers on the same port:
    - `/healthz`, `/health`, `/livez`, `/readyz`, `/startupz`, `/ping` $\rightarrow$ `200 OK` (`Healthy`)
-   - `/version` $\rightarrow$ `200 OK` JSON (`{"name":"Nalix","version":"1.0.0","status":"running"}`)
-   - `/metrics` $\rightarrow$ `200 OK` Prometheus text format (`nalix_active_connections`)
+   - `/version` $\rightarrow$ `200 OK` JSON (`{"name":"Nalix","version":"1.0.0","status":"running"}`) and `/metrics` $\rightarrow$ `200 OK` Prometheus text format (`nalix_active_connections`): both are registered **only** when `NetworkWebSocketOptions.DevOpsBearerToken` is non-empty (fail closed) and require `Authorization: Bearer <token>`; otherwise the listener answers `401 Unauthorized` with `WWW-Authenticate: Bearer`.
 3. **CSWSH Origin Enforcement**: Validates the `Origin` header via `NetworkWebSocketOptions.IsOriginAllowed(origin)` before sending `101 Switching Protocols`. Rejected requests receive `HTTP/1.1 403 Forbidden` and close immediately.
 4. **L7 Forwarded Headers (`ForwardedHeadersOptions`)**: When `ForwardedHeadersOptions.Enabled = true`, extracts the real client IP from `CF-Connecting-IP`, `X-Real-IP` or `X-Forwarded-For` (selected by `ForwardedHeadersOptions.ClientIpHeader`, default `Auto`) (enforcing `TrustedProxyOptions` when `RequireTrustedProxy = true`) and transfers the `ConnectionGuard` slot from the proxy IP to the real client IP.
+5. **Graceful Shutdown**: The listener tracks its live `WebSocketConnection` instances; `Deactivate` closes each with an `EndpointUnavailable` (1001) close frame (waiting a bounded time for the closing handshakes) before cancelling, which would otherwise abort the sockets. See [WebSocket Connection](./websocket-connection.md).
 
 ---
 
@@ -101,6 +101,8 @@ public abstract partial class WebSocketListenerBase : TcpListenerBase
 
 ### `HttpMethodType` & `HttpRouteHandler`
 
+`HttpMethodType`, `HttpRequestView` and `HttpResponseWriter` are declared in `src/Nalix.Network/Listeners/WebListener/HttpRequestView.cs` (namespace `Nalix.Network.Listeners.Web`).
+
 ```csharp
 public enum HttpMethodType : byte
 {
@@ -124,6 +126,7 @@ public delegate void HttpRouteHandler(
 | `Body` | `ReadOnlySpan<byte>` | Request payload body bytes (for `POST` requests, up to `MaxUpgradeRequestSize`), or empty. |
 | `ContentType` | `ReadOnlySpan<byte>` | `Content-Type` header value, or empty if absent. |
 | `Origin` | `ReadOnlySpan<byte>` | `Origin` header value, or empty if absent. |
+| `Authorization` | `ReadOnlySpan<byte>` | `Authorization` header value, or empty if absent. |
 | `RemoteEndPoint` | `EndPoint?` | Resolved client endpoint (accounting for PROXY Protocol v1/v2 or trusted `ForwardedHeadersOptions`). |
 
 ### `HttpResponseWriter` (`ref struct`)

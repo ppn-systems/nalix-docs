@@ -8,7 +8,7 @@ package: Nalix.SDK
 **Namespace:** `Nalix.SDK.Transport`  
 **Assembly:** `Nalix.SDK`
 
-`WebSocketSession` (`public class WebSocketSession : TransportSession`) is the client-side binary WebSocket transport in `Nalix.SDK`, built on `ClientWebSocket`, `WsFrameSender`, and `WsFrameReader`. Unlike `TcpSession` and `UdpSession`, `WebSocketSession` is supported on browser/Blazor WASM targets (`SendAsync`) as well as desktop/mobile runtimes.
+`WebSocketSession` (`public class WebSocketSession : TransportSession`) is the client-side binary WebSocket transport in `Nalix.SDK`, built on `ClientWebSocket`, `WsFrameSender`, and `WsFrameReader`. Unlike `TcpSession` and `DatagramSession`, `WebSocketSession` is supported on browser/Blazor WASM targets (`SendAsync`) as well as desktop/mobile runtimes.
 
 ## Source Mapping
 
@@ -49,6 +49,9 @@ public class WebSocketSession : TransportSession
     public override Task SendAsync(IPacket packet, bool? encrypt = null, CancellationToken ct = default);
     public override Task SendAsync(ReadOnlyMemory<byte> payload, bool? encrypt = null, CancellationToken ct = default);
     public override void ResetSequenceCounters();
+
+    protected virtual ValueTask<IPEndPoint?> ResolveDialEndpointAsync(string host, ushort port, CancellationToken ct);
+    protected override ValueTask DisposeAsyncCore();
 }
 ```
 
@@ -56,6 +59,8 @@ public class WebSocketSession : TransportSession
 
 - **URI Construction & Subprotocol**: `ConnectAsync` builds `ws://{host}:{port}{path}` (or `wss://` when `WebSocketOptions.UseTls == true`), normalizes `WebSocketOptions.Path` (default `"/ws/"`), and registers `WebSocketOptions.SubProtocol` (default `"nalix.v1"`).
 - **WASM-Safe Receive Loop**: `ConnectAsync` starts `_reader.ReceiveLoopAsync` directly as an async task rather than `TaskCreationOptions.LongRunning`, avoiding thread-pool deadlocks on single-threaded Blazor WebAssembly runtimes.
+- **Custom dial endpoint (`ResolveDialEndpointAsync`)**: A subclass can return a pre-resolved `IPEndPoint` to dial while the request URI keeps the original hostname, so TLS SNI and the HTTP `Host` header stay the hostname (for example to resolve the host over a specific network interface). Returning `null` (the default) uses the normal `ClientWebSocket` resolution.
+- **`DisposeAsync`**: `await using WebSocketSession` disconnects gracefully and waits for the receive loop to finish, which `Dispose()` does not.
 - **Full Handshake & Extension Compatibility**: Because `WebSocketSession` implements `ITransportSession`, all SDK extensions (`HandshakeAsync`, `ResumeSessionAsync`, `RequestAsync`, `TryRequestAsync`, `StreamAsync`, `CreateRpcClient<T>`) work identically over WebSocket.
 
 ## Usage Example

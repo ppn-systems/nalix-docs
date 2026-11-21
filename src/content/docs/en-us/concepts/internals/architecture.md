@@ -12,7 +12,7 @@ At the highest level, Nalix is a networking stack that sits between external cli
 
 ```mermaid
 graph LR
-    User("External Client / Service") -- "TCP / UDP" --> Stack("Nalix Networking Stack")
+    User("External Client / Service") -- "TCP / WebSocket / NDP" --> Stack("Nalix Networking Stack")
     Stack -- "Logs" --> Logging("ILogger / External SIEM")
     Stack -- "Config" --> Config("Configuration (INI)")
 ```
@@ -116,7 +116,7 @@ sequenceDiagram
 ### 1. Transport and Listeners
 
 - **`TcpListenerBase`** — High-concurrency TCP listener using `SocketAsyncEventArgs`. Handles socket acceptance, admission control, and the receive start sequence through `Protocol.OnAccept(...)`.
-- **`UdpListenerBase`** — Stateless datagram listener with built-in authenticated session mapping and lock-free rate limiting.
+- **`DatagramListener`** — Datagram (NDP over UDP) listener: tickets issued over an authenticated stream session, per-session AEAD protection, and selectable delivery methods.
 - **Connection guard** — Early-stage admission control to reject endpoints at the socket level before allocating any application resources.
 
 ### 2. Protocol (The Bridge)

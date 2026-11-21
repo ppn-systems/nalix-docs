@@ -73,6 +73,8 @@ public class TcpSession : TransportSession
     public override Task SendAsync(IPacket packet, bool? encrypt = null, CancellationToken ct = default);
     public override Task SendAsync(ReadOnlyMemory<byte> payload, bool? encrypt = null, CancellationToken ct = default);
     public override void ResetSequenceCounters();
+
+    protected override ValueTask DisposeAsyncCore();
 }
 ```
 
@@ -81,10 +83,11 @@ public class TcpSession : TransportSession
 | Tính năng | Chi tiết |
 | :--- | :--- |
 | **Gộp kết nối (Connect Coalescing)** | Các lệnh `ConnectAsync` đồng thời nhắm tới cùng `host` và `port` sẽ chia sẻ tác vụ kết nối đang thực hiện thay vì mở nhiều socket trùng lặp. |
-| **Ghi nhận cổng cục bộ (`State.LocalPort`)** | Khi kết nối, `TcpSession` ghi `localEp.Port` vào `this.State.LocalPort` để một `UdpSession` đi kèm dùng chung `this.State` có thể bind đúng cổng cục bộ đó. |
+| **Ghi nhận cổng cục bộ (`State.LocalPort`)** | Khi kết nối, `TcpSession` ghi `localEp.Port` vào `this.State.LocalPort` (`ConnectWithProxyAsync` cũng ghi nhận giá trị này). |
 | **`ConnectWithProxyAsync`** | Kết nối và gửi ngay một header PROXY Protocol v2 thô (`byte[] proxyProtocolV2`) trước khi kích hoạt `OnConnected` hoặc khởi động vòng nhận (dùng để kiểm thử việc trích xuất IP client qua reverse proxy). |
 | **`Send(ReadOnlySpan<byte>, bool)` đồng bộ** | Hàm gửi đồng bộ không cấp phát bộ nhớ cho các span đã được tuần tự hóa trước. |
 | **Điều phối trực tiếp cho yêu cầu đang chờ** | `HasDirectPendingDispatch = true` chuyển khung đến cho các observer `RequestAsync` / `PacketAwaiter` đang hoạt động qua bảng slot có khóa, trước khi gọi `OnMessageReceived`, tránh cấp phát delegate multicast cho mỗi yêu cầu. |
+| **`DisposeAsync`** | `await using TcpSession` ngắt kết nối êm thấm và chờ vòng nhận kết thúc (override `DisposeAsyncCore`), điều mà `Dispose()` không làm. |
 | **`OnMessageAsync`** | Khi có đăng ký, `TcpSession` gọi `lease.Retain()`, gọi `OnMessageAsync(lease.Memory)`, và tự động dispose lease đã giữ khi `Task` trả về hoàn tất. |
 
 ## Ví dụ sử dụng
@@ -118,7 +121,7 @@ LoginResponse response = await client.RequestAsync<LoginResponse>(
 ## API liên quan
 
 - [Transport Session](./transport-session.md)
-- [UDP Session](./udp-session.md)
+- [UDP Session](./datagram-session.md)
 - [WebSocket Session](./websocket-session.md)
 - [Session Extensions](./tcp-session-extensions.md)
 - [Transport Options](../options/sdk/transport-options.md)

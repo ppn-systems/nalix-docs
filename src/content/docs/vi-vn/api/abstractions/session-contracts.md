@@ -56,7 +56,7 @@ if (scope.IsValid)
 
 ## `ISessionFactory` & `ISessionPersistencePolicy`
 
-- **`ISessionFactory.CreateSession(IConnection)`**: Tạo `SessionEntry` và điền `SessionSnapshot` với `ConnectionId` của kết nối (`SessionToken`), `Secret` 32 byte (`Bytes32`), `Algorithm`, `Level` và `Attributes` (bao gồm số thứ tự TCP/UDP).
+- **`ISessionFactory.CreateSession(IConnection)`**: Tạo `SessionEntry` và điền `SessionSnapshot` với `ConnectionId` của kết nối (`SessionToken`), `Secret` 32 byte (`Bytes32`), `Algorithm`, `Level` và `Attributes` (bao gồm số thứ tự TCP).
 - **`ISessionPersistencePolicy.ShouldPersist(IConnection)`**: Đánh giá xem phiên của một kết nối có nên được lưu hay không (mặc định `DefaultSessionPersistencePolicy` kiểm tra bắt tay mật mã đã hoàn tất và `Secret` khác không).
 
 ## API liên quan

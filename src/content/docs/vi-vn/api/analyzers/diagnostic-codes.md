@@ -1,11 +1,11 @@
 ---
 title: Mã chẩn đoán
-description: Tài liệu tham chiếu đầy đủ của tất cả 75 mô tả chẩn đoán lúc biên dịch (NALIX001–NALIX107) do Nalix.Analyzers và Nalix.Analyzers.Generators phát ra.
+description: Tài liệu tham chiếu đầy đủ của tất cả 78 mô tả chẩn đoán lúc biên dịch (NALIX001–NALIX110) do Nalix.Analyzers và Nalix.Analyzers.Generators phát ra.
 section: API Reference
 package: Nalix.Analyzers
 ---
 
-Trang này liệt kê tất cả **75 mô tả chẩn đoán đang hoạt động** do `Nalix.Analyzers` (67 quy tắc trong `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`) và `Nalix.Analyzers.Generators` (8 quy tắc trong `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`) phát ra.
+Trang này liệt kê tất cả **78 mô tả chẩn đoán đang hoạt động** do `Nalix.Analyzers` (70 quy tắc trong `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`) và `Nalix.Analyzers.Generators` (8 quy tắc trong `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`) phát ra.
 
 :::note[Các mã chẩn đoán đã bị loại bỏ]
 `NALIX007`, `NALIX019`, `NALIX029`, `NALIX031`, `NALIX049` và `NALIX053` đã bị loại bỏ khi các đường dẫn `INetworkBufferMiddleware` và dispatch bằng reflection kiểu cũ được gỡ bỏ.
@@ -80,7 +80,7 @@ Trang này liệt kê tất cả **75 mô tả chẩn đoán đang hoạt độn
 | `NALIX042` | Kiểu handler của `NetworkApplicationBuilder` không thể khởi tạo | Cảnh báo | Usage | Không | Các kiểu controller truyền vào `MapHandlers` phải là lớp cụ thể, có thể khởi tạo. |
 | `NALIX043` | Kiểu metadata provider của `NetworkApplicationBuilder` không thể khởi tạo | Cảnh báo | Usage | Không | Các kiểu metadata provider phải là lớp cụ thể, có thể khởi tạo. |
 | `NALIX044` | `NetworkApplicationBuilder` nên cấu hình một binding TCP | Thông tin | Usage | Không | Cảnh báo khi `.Build()` được gọi mà không có binding listener transport nào. |
-| `NALIX045` | `NetworkApplicationBuilder` nên cấu hình TCP trước UDP | Thông tin | Usage | Không | Các listener UDP đã xác thực dựa vào phiên được thiết lập qua TCP (`MapTcp` nên đi cùng `MapUdp`). |
+| `NALIX045` | `NetworkApplicationBuilder` nên cấu hình TCP cùng với binding datagram | Thông tin | Usage | Không | Phiên datagram (NDP) được khởi tạo qua phiên TCP hoặc WebSocket, nên binding `MapDatagram` cần một binding luồng (`ListenTcp`) trong cùng chuỗi builder. |
 | `NALIX057` | `RequestOptions` dùng timeout vô hạn với retry | Thông tin | SDK | Có | Đặt `TimeoutMs = 0` với `RetryCount > 0` làm cho các lần retry không bao giờ xảy ra vì lần thử đầu tiên chờ vô hạn. |
 
 ## 5. Chẩn đoán của Source Generator (`NALIX059`–`NALIX068`)
@@ -98,7 +98,7 @@ Trang này liệt kê tất cả **75 mô tả chẩn đoán đang hoạt độn
 | `NALIX067` | Method handler bị loại khỏi bảng điều phối | Lỗi | `Nalix.Runtime.Dispatching` | `PacketHandlerGenerator` | Tham số `0` của handler `[PacketOpcode]` là `IPacketContext<TPacket>`; mọi tham số bổ sung (`1..N`) phải là kiểu tham chiếu được đánh dấu `[FromScope]`. |
 | `NALIX068` | `StaticOpCode` của gói tin bị trùng | Lỗi | `Nalix.Codec.DataFrames` | `PacketRegistryGenerator` | Hai hoặc nhiều lớp gói tin trong compilation cùng khai báo một `StaticOpCode`. |
 
-## 6. Chẩn đoán bảo mật, pooling, RPC, injection và vòng đời (`NALIX071`–`NALIX107`)
+## 6. Chẩn đoán bảo mật, pooling, RPC, injection và vòng đời (`NALIX071`–`NALIX110`)
 
 | ID | Tiêu đề | Mức độ | Danh mục | Phạm vi | Mô tả |
 | --- | --- | :---: | --- | --- | --- |
@@ -117,6 +117,9 @@ Trang này liệt kê tất cả **75 mô tả chẩn đoán đang hoạt độn
 | `NALIX105` | Đã tắt analyzer Nalix: không resolve được symbol cần thiết | Cảnh báo | Usage | Mọi assembly | Được phát ra khi bắt đầu compilation nếu không resolve được một symbol Nalix Core bắt buộc từ các assembly được tham chiếu. |
 | `NALIX106` | `StaticOpCode` của gói tin đã được gói tin khác dùng | Lỗi | Usage | Mọi assembly | Hai kiểu gói tin trong compilation khai báo cùng một giá trị `StaticOpCode`. |
 | `NALIX107` | `ResetForPool` của gói tin không đặt lại thành viên có thể thay đổi | Cảnh báo | Lifecycle | Mọi assembly | Override `ResetForPool()` thủ công trên lớp gói tin bỏ sót việc đặt lại một field hoặc property có thể thay đổi mà không được đánh dấu `[SkipClean]`. |
+| `NALIX108` | `IBufferLease` bị giải phóng nhiều hơn một lần | Cảnh báo | Lifecycle | Mọi assembly | Một lease bị giải phóng hai lần trong cùng một method: `Dispose()` hoặc chuyển cho tham số nhận quyền sở hữu (không có `[Borrowed]`) rồi giải phóng lần nữa, hoặc giải phóng tường minh một lease đã khai báo bằng `using`. Chỉ báo khi lần giải phóng đầu chạy vô điều kiện và lần thứ hai nằm ở câu lệnh phía sau trong cùng một block. Gọi `Retain()` trên lease sẽ bỏ qua phân tích. |
+| `NALIX109` | `IBufferLease` được dùng sau khi đã giải phóng | Cảnh báo | Lifecycle | Mọi assembly | Một lease được dùng sau `Dispose()` hoặc sau khi được chuyển cho tham số nhận quyền sở hữu (không có `[Borrowed]`); các instance lease đã pool sẽ được tái sử dụng, nên lease có thể đã thuộc về owner khác. |
+| `NALIX110` | `IBufferLease` được mượn bị giải phóng hoặc lưu trữ | Cảnh báo | Lifecycle | Mọi assembly | Tham số lease có `[Borrowed]` thuộc sở hữu của bên gọi: method không được dispose nó, chuyển nó cho tham số nhận quyền sở hữu, hoặc lưu nó vào field hay property không tự đánh dấu `[Borrowed]`. Hãy đánh dấu đích là `[Borrowed]`, gọi `Retain()` cho owner mới, hoặc bỏ `[Borrowed]`. |
 
 ---
 

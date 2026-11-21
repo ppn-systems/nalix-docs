@@ -10,9 +10,10 @@ package: Nalix.Abstractions
 ## Hợp đồng cốt lõi
 
 - [**Hợp đồng gói tin**](./packet-contracts.md) — `IPacket`, `IPacketContext<TPacket>`, `IPacketSender`, `IPacketStaticOpcode`, `IPacketDeserializer<TPacket>` và `PacketHeader`.
-- [**Thuộc tính gói tin**](./packet-attributes.md) — `[PacketHandler]`, `[PacketOpcode]`, `[PacketPermission]`, `[PacketEncryption]`, `[PacketRateLimit]`, `[PacketTimeout]`, `[PacketTransport]` và `[PacketIdempotent]`.
+- [**Thuộc tính gói tin**](./packet-attributes.md) — `[PacketHandler]`, `[PacketOpcode]`, `[PacketPermission]`, `[PacketEncryption]`, `[PacketRateLimit]`, `[PacketTimeout]`, `[PacketDelivery]` và `[PacketIdempotent]`.
 - [**Metadata gói tin**](./packet-metadata.md) — `PacketMetadata` được biên dịch bởi `PacketHandlerGenerator`.
-- [**Hợp đồng kết nối**](./connection-contracts.md) — `IConnection`, `IConnectionHub`, `IProtocol`, `IListener`, `IFrameProcessor`, `IOpCodeExtractor` và `ITransportSequencer`.
+- [**Hợp đồng datagram**](./datagram-contracts.md) — `DeliveryMethod`, `IDatagramTransport`, `IDatagramTicketIssuer`, `IDatagramProtection`, `IDatagramProtectionFactory` và `PacketDeliveryAttribute`.
+- [**Hợp đồng kết nối**](./connection-contracts.md) — `IConnection`, `IConnectionHub`, `IProtocol`, `IListener`, `IFrameProcessor`, `IOpCodeExtractor`, `ITransportSequencer` và các hợp đồng datagram (`IDatagramTransport`, `IDatagramTicketIssuer`, `IDatagramProtection`, `IDatagramProtectionFactory`).
 - [**Hợp đồng phiên**](./session-contracts.md) — `ISessionService`, `ISessionFactory`, `ISessionStore`, `ISessionPersistencePolicy`, `SessionEntry`, `SessionSnapshot` và `SessionScope`.
 - [**Hợp đồng đồng thời**](./concurrency-contracts.md) — `ITaskManager`, `IWorker`, `WorkerAttribute`, `IWorkerHandle`, `IWorkerContext`, `IRecurringHandle`, `IWorkerOptions` và `IRecurringOptions`.
 

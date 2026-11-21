@@ -23,7 +23,7 @@ At compile time, [PacketHandlerGenerator](../../analyzers/autogen/packet-handler
 | `Task` / `ValueTask` | `true` | Awaits completion; sends no automatic response. |
 | `TResponse` (where `TResponse : IPacket`) | `false` | Sends `response` via `context.Sender.ReplyAsync` (when `response.Header.SequenceId == 0`) or `context.Sender.SendAsync` (when `SequenceId != 0`), then disposes `response` if it is a distinct `IDisposable` instance. |
 | `Task<TResponse>` / `ValueTask<TResponse>` | `false` | Awaits the result, then sends and disposes `TResponse` as above. |
-| `byte[]` / `Memory<byte>` / `ReadOnlyMemory<byte>` (or `Task<...>` / `ValueTask<...>`) | `false` | Sends the raw bytes directly on `context.Connection.TCP` (if reliable or UDP is `null`) or `context.Connection.UDP`. |
+| `byte[]` / `Memory<byte>` / `ReadOnlyMemory<byte>` (or `Task<...>` / `ValueTask<...>`) | `false` | Sends the raw bytes directly with `context.Connection.Transport.SendAsync(data)`. |
 | `IAsyncEnumerable<TResponse>` (where `TResponse : IPacket`) | `false` | Streams each yielded packet via `context.Sender.ReplyAsync(item, ct)`. Uses a one-item look-ahead to set `IPacketStreamable.IsEndOfStream = true` on the final yielded packet before sending, and disposes each yielded `IDisposable` packet after sending. |
 
 ## Supported Handler Parameter Shapes

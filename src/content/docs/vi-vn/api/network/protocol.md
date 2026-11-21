@@ -8,7 +8,7 @@ package: Nalix.Network
 **Namespace:** `Nalix.Network.Protocols`  
 **Assembly:** `Nalix.Network`
 
-`Protocol` (`public abstract partial class Protocol : IProtocol`) là lớp cơ sở trừu tượng mà `TcpListenerBase`, `UdpListenerBase` và `WebSocketListenerBase` sử dụng. Nó định nghĩa quy trình chấp nhận kết nối (`OnAccept`, `ValidateConnection`), lựa chọn kiểu đóng khung trên dây (`Framing`), các hook biến đổi và trích xuất opcode đầu vào (`FrameProcessor`, `OpCodeExtractor`), xử lý gói tin (`ProcessMessage`, `PostProcessMessage`), và số liệu lỗi/gói tin ở mức protocol.
+`Protocol` (`public abstract partial class Protocol : IProtocol`) là lớp cơ sở trừu tượng mà `TcpListenerBase`, `DatagramListener` và `WebSocketListenerBase` sử dụng. Nó định nghĩa quy trình chấp nhận kết nối (`OnAccept`, `ValidateConnection`), lựa chọn kiểu đóng khung trên dây (`Framing`), các hook biến đổi và trích xuất opcode đầu vào (`FrameProcessor`, `OpCodeExtractor`), xử lý gói tin (`ProcessMessage`, `PostProcessMessage`), và số liệu lỗi/gói tin ở mức protocol.
 
 ## Nguồn mã
 
@@ -27,8 +27,8 @@ flowchart TD
         CheckAcc -->|No| Disc["connection.Disconnect()"]
         CheckAcc -->|Yes| Val{"ValidateConnection(connection)?"}
         Val -->|No| Disc
-        Val -->|Yes| Frame["connection.TCP.UseFraming(Framing)"]
-        Frame --> Begin["connection.TCP.BeginReceive(ct)"]
+        Val -->|Yes| Frame["connection.Transport.UseFraming(Framing)"]
+        Frame --> Begin["connection.Transport.BeginReceive(ct)"]
     end
 
     subgraph MessagePhase["2. Inbound Message Loop"]
@@ -49,12 +49,12 @@ namespace Nalix.Network.Protocols;
 
 public abstract partial class Protocol : IProtocol
 {
-    // Abstract contracts required from derived protocols
+    // Các hợp đồng trừu tượng mà protocol dẫn xuất phải cung cấp
     public abstract IFrameProcessor FrameProcessor { get; }
     public abstract IOpCodeExtractor OpCodeExtractor { get; }
     public abstract void ProcessMessage(object? sender, IConnectionEventArgs args);
 
-    // Configurable properties
+    // Các thuộc tính có thể cấu hình
     public virtual TransportFraming Framing { get; set; } = TransportFraming.UInt16LengthPrefixed;
     public virtual bool KeepConnectionOpen { get; protected set; }
     public bool IsAccepting { get; protected set; }
@@ -63,12 +63,12 @@ public abstract partial class Protocol : IProtocol
     public ulong TotalMessages { get; }
     public ulong TotalErrors { get; }
 
-    // Lifecycle & execution methods
+    // Các phương thức vòng đời và thực thi
     public virtual void OnAccept(IConnection connection, CancellationToken cancellationToken = default);
     public void PostProcessMessage(object? sender, IConnectionEventArgs args);
     public void SetConnectionAcceptance(bool isEnabled);
 
-    // Protected extensibility hooks
+    // Các hook mở rộng protected
     protected virtual bool ValidateConnection(IConnection connection) => true;
     protected virtual void OnPostProcess(IConnectionEventArgs args);
     protected virtual void OnConnectionError(IConnection connection, Exception exception);
@@ -118,6 +118,6 @@ public sealed class GameProtocol(IPacketDispatch dispatcher) : Protocol
 ## API liên quan
 
 - [TCP Listener](./tcp-listener.md)
-- [UDP Listener](./udp-listener.md)
+- [Datagram Listener](./datagram-listener.md)
 - [Connection](./connection/connection.md)
 - [Packet Dispatch Channel & Router](../runtime/routing/dispatch-channel-and-router.md)

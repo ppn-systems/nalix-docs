@@ -5,7 +5,7 @@ section: Packages
 package: Nalix.Hosting
 ---
 
-`Nalix.Hosting` là gói host ứng dụng **cấp 4** cho máy chủ Nalix. Nó cung cấp một builder kiểu fluent theo phong cách ASP.NET Core (`NetworkApplication.CreateBuilder()`) để kết nối `PacketRegistry`, `PacketDispatchChannel`, `InstanceManager`, các file cấu hình (`server.ini`), bắt tay bảo mật, phiên và các listener TCP/UDP/WebSocket vào một vòng đời thống nhất.
+`Nalix.Hosting` là gói host ứng dụng **cấp 4** cho máy chủ Nalix. Nó cung cấp một builder kiểu fluent theo phong cách ASP.NET Core (`NetworkApplication.CreateBuilder()`) để kết nối `PacketRegistry`, `PacketDispatchChannel`, `InstanceManager`, các file cấu hình (`server.ini`), bắt tay bảo mật, phiên và các listener TCP, datagram (NDP qua UDP) và WebSocket vào một vòng đời thống nhất.
 
 ## Ánh xạ mã nguồn
 
@@ -26,7 +26,7 @@ flowchart LR
         A["NetworkApplication.CreateBuilder()"] --> B["Configure<TOptions>() / UseLogger()"]
         B --> C["UseSecureConnections() / UseSessions() / UseGroups()"]
         C --> D["MapHandlers<THandler>()"]
-        D --> E["MapTcp / MapUdp / MapWebSocket"]
+        D --> E["MapTcp / MapDatagram / MapWebSocket"]
     end
 
     subgraph Runtime ["Execution Phase"]
@@ -40,7 +40,7 @@ flowchart LR
 
 ### `NetworkApplication`
 
-Host máy chủ có thể chạy, triển khai `IActivatableAsync`, `IReportable`, `IDisposable` và `IAsyncDisposable`.
+Host máy chủ có thể chạy, triển khai `IActivatableAsync` và `IAsyncDisposable` (`public sealed class NetworkApplication : IActivatableAsync, IAsyncDisposable`).
 
 - `NetworkApplication.CreateBuilder()` — Tạo một `INetworkApplicationBuilder` mới.
 - `ActivateAsync(CancellationToken)` / `DeactivateAsync(CancellationToken)` — Khởi động hoặc dừng dispatcher và mọi listener đã gắn mà không chặn luồng.
@@ -61,15 +61,16 @@ Host máy chủ có thể chạy, triển khai `IActivatableAsync`, `IReportable
 | `RegisterScoped<TService>(Func<IPacketScope, TService>)` | Đăng ký factory dịch vụ theo phạm vi từng gói tin cho các tham số handler `[FromScope]`. |
 | `MapHandlers<THandler>()` / `MapHandlers(Type)` | Đăng ký một lớp controller `[PacketHandler]` (instance, factory, hoặc lớp `static`). |
 | `MapTcp<TProtocol>()` | Trả về `IProtocolBindingBuilder` (`OnPort(ushort)`, `WithFactory(...)`, `Bind()`) cho TCP. |
-| `MapUdp<TProtocol>()` | Trả về `IProtocolBindingBuilder` (`OnPort(ushort)`, `WithMode(OperatingMode)`, `WithAuthentication(Func<IConnection, EndPoint, ReadOnlySpan<byte>, bool>)`, `Bind()`) cho UDP. |
+| `MapDatagram<TProtocol>()` | Trả về `IProtocolBindingBuilder` (`OnPort(ushort)`, `WithFactory(...)`, `Bind()`) cho listener datagram (NDP qua UDP) và ánh xạ `DatagramTicketHandlers`. Chỉ được gọi một lần cho mỗi ứng dụng. |
+| `AddListener(Func<IListener>)` | Thêm một `IListener` tùy chỉnh, được kích hoạt và hủy kích hoạt cùng với các listener giao thức. |
 | `MapWebSocket<TProtocol>()` | Trả về `IWebSocketBindingBuilder` (`OnPort(ushort)`, `WithPath(string)`, `MapGet(...)`, `MapPost(...)`, `Bind()`) cho WebSocket. |
 | `UseSecureConnections(string? certificatePath = null)` | *(Mở rộng)* Bật bắt tay X25519 (`HandshakeHandlers`), Proof-of-Work (`ProofOfWorkHandlers`), `SystemControlHandlers` và `FileCertificateStore`. |
 | `UseSessions()` | *(Mở rộng)* Bật tiếp tục phiên không trạng thái (`SessionHandlers`, `SessionService` và `SessionPersistenceObserver`). |
 | `UseGroups()` | *(Mở rộng)* Đăng ký `IConnectionGroupRegistry` (`InMemoryGroupStore`) và dọn dẹp thành viên khi ngắt kết nối tự động (`GroupMembershipObserver`). |
 | `UseSystemControl()` / `UseTimeSync()` | *(Mở rộng)* Bật `SystemControlHandlers` hoặc `SystemTimeSyncHandlers`. |
 
-:::note[`MapTcp` / `MapUdp` / `MapWebSocket` thay thế `Listen*`]
-`MapTcp<TProtocol>()`, `MapUdp<TProtocol>()` và `MapWebSocket<TProtocol>()` là các phương thức ràng buộc chính thức. Các phương thức cũ `ListenTcp<TProtocol>()`, `ListenUdp<TProtocol>()` và `ListenWebSocket<TProtocol>()` được đánh dấu `[Obsolete]` và chuyển tiếp sang `Map*`.
+:::note[`MapTcp` / `MapWebSocket` thay thế `Listen*`]
+`MapTcp<TProtocol>()`, `MapDatagram<TProtocol>()` và `MapWebSocket<TProtocol>()` là các phương thức ràng buộc chính thức. Các phương thức cũ `ListenTcp<TProtocol>()` và `ListenWebSocket<TProtocol>()` được đánh dấu `[Obsolete]` và chuyển tiếp sang `Map*`. Các ràng buộc UDP (`MapUdp`, `ListenUdp`) đã bị loại bỏ.
 :::
 
 ### `Bootstrap` (Module Initializer)

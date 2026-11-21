@@ -39,7 +39,7 @@ flowchart TD
     B -->|No| C["Subscribe connection.ConnectionClosed + Set OwnerHub Attribute"]
     C --> D["ConnectionRegistry.TryAdd(connection.ConnectionId, connection)"]
     D --> E{"Added to Shard?"}
-    E -->|No (Duplicate)| F["Unsubscribe + Throw InternalErrorException"]
+    E -->|"No (Duplicate)"| F["Unsubscribe + Throw InternalErrorException"]
     E -->|Yes| G["Indexed in Shard & Endpoint Map"]
 ```
 

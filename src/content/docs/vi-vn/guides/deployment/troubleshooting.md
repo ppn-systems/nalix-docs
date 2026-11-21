@@ -136,7 +136,7 @@ Bắt đầu với:
 **Kiểm tra**
 
 - kiểu trả về có được các return handler của Nalix hỗ trợ không
-- `context.Connection.TCP` có hợp lệ không
+- `context.Connection.Transport` có hợp lệ không
 - bạn có đang trộn lẫn việc gửi thủ công với hành vi đường trả về kỳ vọng một cách sai không
 
 **Cách sửa nhanh**
@@ -160,5 +160,5 @@ Khi gỡ lỗi, những thứ sau thường cho tín hiệu nhanh nhất:
 ## Các trang nên đọc tiếp
 
 - [Hướng dẫn TCP Patterns](../networking/tcp-patterns.md)
-- [Hướng dẫn Bảo mật UDP](../networking/udp-security.md)
+- [Hướng dẫn Bảo mật UDP](../networking/datagram-security.md)
 - [Kiểu trả về của Handler](../../api/runtime/routing/handler-results.md)

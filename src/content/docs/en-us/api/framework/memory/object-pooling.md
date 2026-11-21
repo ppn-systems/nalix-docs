@@ -39,6 +39,7 @@ flowchart TD
 - `src/Nalix.Framework/Memory/Objects/ObjectPoolManager.Cleanup.cs`
 - `src/Nalix.Framework/Memory/Objects/ObjectPoolManager.Report.cs`
 - `src/Nalix.Framework/Memory/Objects/TypedObjectPool.cs`
+- `src/Nalix.Framework/Memory/Pools/ObjectPool.cs`
 - `src/Nalix.Framework/Options/ObjectPoolOptions.cs`
 
 ## Core Contracts (`IPoolable` & `IPoolRentable`)
@@ -92,6 +93,27 @@ public interface IPoolRentable
 | `PerformHealthCheck()` | `public int PerformHealthCheck()` | Evaluates window miss rates across active pools and returns the number of unhealthy pools. |
 | `ResetMetrics()` / `ResetStatistics()` | `public void ResetMetrics()` / `public void ResetStatistics()` | Resets global and per-pool counters. |
 | `GenerateReport()` / `WriteReportData` | `public string GenerateReport()` / `public void WriteReportData(Utf8JsonWriter writer)` | Produces human-readable text or structured JSON reports. |
+
+## `ObjectPool` (`Nalix.Framework.Memory.Pools`)
+
+`ObjectPool` (`public sealed class ObjectPool(int defaultMaxItemsPerType, int threadCacheDepth = 0)`, `src/Nalix.Framework/Memory/Pools/ObjectPool.cs`) is the thread-safe, type-indexed pool engine that `ObjectPoolManager` builds on. Each pooled type gets its own bucket and capacity limit; objects are reset on return and discarded when the bucket is full. A non-positive `defaultMaxItemsPerType` falls back to `DefaultMaxSize`. `threadCacheDepth = 0` disables thread-local caching (keep it at `0` for `async`/`await` workloads so objects are not stranded on idle threads).
+
+| Member | Signature | Description |
+| :--- | :--- | :--- |
+| `DefaultMaxSize` | `public const int DefaultMaxSize = 1024` | Per-type capacity used when no positive limit is given. |
+| `Default` | `public static ObjectPool Default { get; }` | Shared instance created with the parameterless constructor. |
+| `ObjectPool()` | `public ObjectPool()` | Creates a pool with `DefaultMaxSize` per type. |
+| `Get<T>()` / `GetWithInfo<T>()` | `public T Get<T>()` / `public (T obj, bool isCacheHit) GetWithInfo<T>() where T : IPoolable, new()` | Rents an instance, creating one when the bucket is empty; `GetWithInfo` also reports whether it was a pool hit. |
+| `Return<T>(T)` | `public void Return<T>(T obj) where T : IPoolable` | Resets and returns an instance (throws `ArgumentNullException` for `null`). |
+| `GetMultiple<T>(int)` / `ReturnMultiple<T>(IEnumerable<T>)` | `public List<T> GetMultiple<T>(int count)` / `public int ReturnMultiple<T>(IEnumerable<T> objects)` | Batch rent (throws `ArgumentException` when `count <= 0`) and batch return (returns the number accepted). |
+| `Prealloc<T>(int)` | `public int Prealloc<T>(int count)` | Preallocates instances and returns how many were added. |
+| `SetMaxCapacity<T>(int)` | `public bool SetMaxCapacity<T>(int maxCapacity)` | Sets the capacity of `T`'s bucket. |
+| `Clear()` / `ClearType<T>()` | `public int Clear()` / `public int ClearType<T>()` | Removes all pooled objects, or only those of `T`; returns the number removed. |
+| `Trim(int, double)` | `public int Trim(int percentage = 50, double decayFactor = 1.0)` | Trims every bucket to `percentage` of its capacity (`0` = no trim, negative clamped to `0`), removing `decayFactor` of the excess; returns the number removed. |
+| `CreateTypedPool<T>()` | `public TypedObjectPool<T> CreateTypedPool<T>() where T : IPoolable, new()` | Creates a [TypedObjectPool](./typed-object-pools.md) adapter bound to this pool. |
+| `GetTypeInfo<T>()` / `GetAllTypeInfo()` / `GetStatistics()` | `Dictionary<string, object>` / `List<Dictionary<string, object>>` / `Dictionary<string, object>` | Per-type, all-type and pool-wide metrics. |
+| `ResetStatistics()` | `public void ResetStatistics()` | Resets the counters. |
+| Counters | `long`/`int` | `TotalCreatedCount`, `TotalRentedCount`, `TotalReturnedCount`, `TotalDroppedCount` (discarded because a bucket was full), `TotalRejectedReturnCount` (duplicate returns), `TotalAvailableCount`, `TypeCount`, `UptimeMs`. |
 
 ## `ObjectPoolOptions` (`Nalix.Framework.Options`)
 

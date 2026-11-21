@@ -15,6 +15,8 @@ Các sự kiện mạng trên `IConnection` (`MessageProcessing`, `MessageProces
 - `src/Nalix.Abstractions/Networking/IConnectionEventArgs.cs`
 - `src/Nalix.Network/Connections/Connection.EventArgs.cs`
 - `src/Nalix.Network/Connections/Connection.cs`
+- `src/Nalix.Network/Connections/WebSocketConnection.cs`
+- `src/Nalix.Network/Connections/DatagramConnection.cs`
 - `src/Nalix.Network/Internal/Transport/AsyncCallback.cs`
 - `src/Nalix.Network/Options/NetworkCallbackOptions.cs`
 
@@ -22,7 +24,7 @@ Các sự kiện mạng trên `IConnection` (`MessageProcessing`, `MessageProces
 
 ```mermaid
 sequenceDiagram
-    participant S as SocketConnection / UdpListenerBase
+    participant S as SocketConnection / WebSocketConnection / DatagramConnection
     participant C as Connection (LocalPool)
     participant AC as AsyncCallback
     participant TP as ThreadPool
@@ -65,6 +67,7 @@ public sealed class ConnectionEventArgs : EventArgs, IConnectionEventArgs, IPool
 ```
 
 - **`ExchangeLease(newLease)`**: Hoán đổi nguyên tử `IBufferLease?` bên dưới (được `TcpListenerBase` / `WebSocketListenerBase` dùng sau khi `FramePipeline.ProcessInbound` giải mã hoặc giải nén khung đến tại chỗ) và trả về lease trước đó để bên gọi dispose.
+- **Các loại kết nối**: Ba sự kiện này cùng tồn tại trên `Connection` (TCP), `WebSocketConnection` và `DatagramConnection`; cả ba đều triển khai `IConnection`. `DatagramListener` đăng ký `MessageProcessing` vào `IFrameProcessor.ProcessFrame` và `MessageProcessed` vào `IProtocol.PostProcessMessage` trên mỗi `DatagramConnection` được chấp nhận.
 - **Pool hai tầng**: `Connection` và `WebSocketConnection` duy trì một `LocalPool` lock-free 8 slot cho `ConnectionEventArgs` và `PooledConnectEventContext`, và chuyển sang `ObjectPoolManager.Shared` khi pool cục bộ của kết nối đã đầy.
 
 :::warning[Tuyệt đối không giữ `ConnectionEventArgs`]
@@ -75,7 +78,7 @@ public sealed class ConnectionEventArgs : EventArgs, IConnectionEventArgs, IPool
 
 | Sự kiện | Làn `AsyncCallback` | Giới hạn toàn cục | Giới hạn theo IP | Hành vi |
 | :--- | :--- | ---: | ---: | :--- |
-| `MessageProcessing` | `CallbackLane.Process` (hoặc `InvokeInline`) | `MaxPendingNormalCallbacks` (`10,000`) | `MaxPendingPerIp` (`64`) | Giải mã/giải nén khung (`FramePipeline.ProcessInbound`), kiểm tra sequence và gọi `IProtocol.ProcessMessage`. Thực thi inline qua `AsyncCallback.CanRunInline` / `InvokeInline` khi được gắn với một subscriber `IFrameProcessor { SupportsInlineProcessing: true }` duy nhất. |
+| `MessageProcessing` | `CallbackLane.Process` (hoặc `InvokeInline`) | `MaxPendingNormalCallbacks` (`10,000`) | `MaxPendingPerIp` (`64`) | Giải mã/giải nén khung (`FramePipeline.ProcessInbound`), kiểm tra sequence và gọi `IProtocol.ProcessMessage`. Thực thi inline qua `AsyncCallback.CanRunInline` / `InvokeInline` khi được gắn với một subscriber `IFrameProcessor { SupportsInlineProcessing: true }` duy nhất. Khung bị loại bỏ do backpressure không được chuyển tới sự kiện này; thay vào đó nó được báo cho `IFrameProcessor` đã đăng ký qua `OnFrameRejected`. |
 | `MessageProcessed` | `CallbackLane.Post` | `MaxPendingPostCallbacks` (`5,000`) | `MaxPendingPostPerIp` (`32`) | Được kích hoạt bởi `Connection.OnFrameSent` khi việc gửi khung đi hoàn tất; gọi `IProtocol.PostProcessMessage` (số liệu và việc đóng `KeepConnectionOpen`). |
 | `ConnectionClosed` | `InvokeHighPriority` | Không giới hạn | Không giới hạn | Bỏ qua mọi cơ chế backpressure của làn thường và làn post, để việc dọn dẹp khi ngắt kết nối và hủy đăng ký không bị nghẽn khi có lũ yêu cầu. |
 

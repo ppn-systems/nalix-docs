@@ -6,7 +6,7 @@ package: Nalix.Abstractions
 ---
 
 **Assembly:** `Nalix.Abstractions`  
-**Các không gian tên:** `Nalix.Abstractions.Networking`, `Nalix.Abstractions.Networking.Protocols`, `Nalix.Abstractions.Networking.Packets`, `Nalix.Abstractions.Security`, `Nalix.Abstractions.Identity`, `Nalix.Abstractions.Serialization`, `Nalix.Abstractions.Middleware`, `Nalix.Abstractions.Concurrency`
+**Các không gian tên:** `Nalix.Abstractions.Networking`, `Nalix.Abstractions.Networking.Protocols`, `Nalix.Abstractions.Networking.Packets`, `Nalix.Abstractions.Networking.Datagrams`, `Nalix.Abstractions.Security`, `Nalix.Abstractions.Identity`, `Nalix.Abstractions.Serialization`, `Nalix.Abstractions.Middleware`, `Nalix.Abstractions.Concurrency`
 
 Trang này cung cấp tham chiếu đầy đủ, đã kiểm chứng với mã nguồn, cho mọi enumeration trong `Nalix.Abstractions`.
 
@@ -21,8 +21,10 @@ Xác định giao thức transport mạng (`src/Nalix.Abstractions/Networking/Ne
 | Thành phần | Giá trị | Mô tả |
 | :--- | :--- | :--- |
 | `TCP` | `0` | Giao thức điều khiển truyền tải (luồng đáng tin cậy). |
-| `UDP` | `1` | Giao thức datagram người dùng (datagram độ trễ thấp). |
-| `WEBSOCKET` | `2` | WebSocket qua TCP (luồng có khung theo RFC 6455). |
+| `WEBSOCKET` | `2` | Giao thức WebSocket (đáng tin cậy, hướng thông điệp). |
+| `DATAGRAM` | `3` | Giao thức Nalix Datagram: phiên UDP có xác thực, hỗ trợ truyền tin cậy, có thứ tự theo chuỗi và không tin cậy trên các kênh độc lập. |
+
+Thành phần `UDP = 1` trước đây đã bị loại bỏ; giá trị `1` không còn được dùng. Xem `DeliveryMethod` bên dưới để biết các chế độ truyền của một phiên datagram.
 
 ### `TransportFraming` (`byte`)
 
@@ -34,14 +36,17 @@ Chọn chế độ đóng khung luồng trên `IConnection.ITransport` và `Prot
 | `UInt16LengthPrefixed` | `1` | Tiền tố độ dài `ushort` little-endian 2 byte (mặc định cho TCP của Nalix). |
 | `VarIntLengthPrefixed` | `2` | Tiền tố số nguyên có độ dài thay đổi LEB128 (được điều khiển bởi `VarIntFramingOptions`). |
 
-### `OperatingMode` (`byte`)
+### `DeliveryMethod` (`byte`)
 
-Cấu hình chế độ hoạt động của listener trong `IProtocolBindingBuilder.WithMode(...)`:
+Cách một thông điệp gửi qua phiên datagram được chuyển đi; thứ tự và việc đánh số chuỗi được áp dụng theo từng kênh (`src/Nalix.Abstractions/Networking/Datagrams/DeliveryMethod.cs`, không gian tên `Nalix.Abstractions.Networking.Datagrams`). Transport dạng stream (TCP, WebSocket) chuyển mọi phương thức một cách tin cậy và đúng thứ tự.
 
 | Thành phần | Giá trị | Mô tả |
 | :--- | :--- | :--- |
-| `Server` | `0` | Chế độ máy chủ Nalix tiêu chuẩn có xác thực theo phiên (`UdpServerListener`). |
-| `Passthrough` | `1` | Chế độ datagram không trạng thái, không kết nối (`UdpPassthroughListener` + `PassthroughConnection`). |
+| `Unreliable` | `0` | Chuyển tối đa một lần, thứ tự bất kỳ; không bao giờ truyền lại. |
+| `UnreliableSequenced` | `1` | Chuyển tối đa một lần; thông điệp cũ hơn thông điệp mới nhất đã chuyển trên cùng kênh sẽ bị loại bỏ. Không bao giờ truyền lại. |
+| `ReliableUnordered` | `2` | Chuyển đúng một lần, thứ tự bất kỳ. |
+| `ReliableOrdered` | `3` | Chuyển đúng một lần, theo thứ tự gửi trong kênh của nó. |
+| `ReliableSequenced` | `4` | Thông điệp mới nhất của kênh được đảm bảo đến nơi; các thông điệp cũ hơn có thể bị bỏ qua. Chỉ thông điệp mới nhất được truyền lại. |
 
 ### `ProtocolOpCode` (`ushort`)
 
@@ -61,10 +66,13 @@ Các opcode hệ thống và protocol được dành riêng (`0x0000..0x00FF`, `
 | `SESSION_REKEY` | `0x0009` | Khung xoay vòng khóa đối xứng giữa chừng phiên. |
 | `POW_CHALLENGE` | `0x000A` | Câu đố Proof-of-Work do máy chủ phát hành (`ProofOfWorkChallenge`). |
 | `POW_PROOF` | `0x000B` | Lời giải Proof-of-Work do client gửi (`ProofOfWorkProof`). |
+| `DATAGRAM_TICKET` | `0x000C` | Yêu cầu (client) hoặc mang (máy chủ) ticket phiên datagram qua một phiên stream đã thiết lập (`DatagramTicket`). |
 | `TUNNEL_REQUEST` | `0x00F3` | Gói yêu cầu tunnel. |
 | `TUNNEL_PROVIDE_ACK` | `0x00F4` | Xác nhận cung cấp tunnel. |
 | `TUNNEL_CONNECT_ACK` | `0x00F5` | Xác nhận yêu cầu kết nối tunnel. |
 | `TUNNEL_READY` | `0x00F6` | Thông báo tunnel đã sẵn sàng. |
+| `TUNNEL_CHALLENGE` | `0x00F1` | Thử thách của máy chủ gửi trên kết nối dữ liệu tunnel; bên cung cấp trả lời bằng `TUNNEL_PROOF`. |
+| `TUNNEL_PROOF` | `0x00F2` | Bên cung cấp chứng minh sở hữu token tunnel, trả lời `TUNNEL_CHALLENGE`. |
 | `TUNNEL_PROVIDE` | `0x00F7` | Gói metadata cung cấp tunnel. |
 | `TUNNEL_CONNECT` | `0x00F8` | Yêu cầu kết nối tunnel logic. |
 | `TRAVERSAL_REFLECTOR_INIT` | `0x00F9` | Khởi tạo reflector NAT traversal. |
@@ -84,10 +92,7 @@ Các cờ bit được lưu tại offset byte `2` (`PacketHeaderOffset.Flags = 2
 | `NONE` | `0x00` | Đang dùng | Khung ứng dụng không nén, không mã hóa, không phân mảnh. |
 | `COMPRESSED` | `1 << 1` (`0x02`) | Đang dùng | Payload được nén bằng `LZ4Codec`. |
 | `ENCRYPTED` | `1 << 2` (`0x04`) | Đang dùng | Payload được bọc trong envelope AEAD/đối xứng `EnvelopeCipher`. |
-| `FRAGMENTED` | `1 << 3` (`0x08`) | Đang dùng | Payload mang một đoạn `FragmentHeader` 8 byte. |
-| `RELIABLE` | `1 << 4` (`0x10`) | `[Obsolete]` | Cờ độ tin cậy kiểu cũ — độ tin cậy transport được xác định bởi `NetworkTransport`. |
-| `UNRELIABLE` | `1 << 5` (`0x20`) | `[Obsolete]` | Cờ không đáng tin cậy kiểu cũ — hãy dùng `NetworkTransport.UDP`. |
-| `ACKNOWLEDGED` | `1 << 6` (`0x40`) | `[Obsolete]` | Cờ xác nhận kiểu cũ. |
+| `FRAGMENTED` | `1 << 3` (`0x08`) | Đang dùng | Khung là một đoạn của thông điệp lớn hơn; transport đặt cờ này trên header của mọi đoạn và bên nhận dùng nó để phát hiện các đoạn. |
 | `SYSTEM` | `1 << 7` (`0x80`) | Đang dùng | Khung protocol cấp hệ thống (`Control`, `Directive`, `TimeSync`, bắt tay). |
 
 ### `PacketPriority` (`byte`)
@@ -215,6 +220,7 @@ Các mức thẩm quyền được gán cho `IConnection.Level` và được `Pe
 | `NONE` | `0` | Trạng thái kết nối ban đầu chưa được xác minh. |
 | `POW_VERIFIED` | `10` | Client đã giải câu đố Proof-of-Work (`ProofOfWorkProof`). |
 | `ESTABLISHED` | `20` | Client đã hoàn tất bắt tay mật mã X25519 (`HandshakeHandlers`). |
+| `OBSERVER` | `22` | Quyền truy cập observability chỉ đọc, chỉ được cấp khi xuất trình khóa truy cập observability. Nằm trên `ESTABLISHED` và dưới `GUEST`, nên không thỏa các handler yêu cầu mức guest trở lên. |
 | `GUEST` | `25` | Phiên khách ẩn danh. |
 | `READ_ONLY` | `50` | Người quan sát đã xác thực, chỉ có quyền đọc. |
 | `USER` | `100` | Người dùng đã xác thực tiêu chuẩn (mặc định cho `[PacketPermission]`). |

@@ -115,5 +115,5 @@ Middleware execution uses `MiddlewareOrderAttribute`, not insertion order. If mu
 ## See it in action
 
 - [Custom Middleware End-to-End](../../guides/extensibility/custom-middleware.md) — Create a custom middleware and metadata provider.
-- [UDP Auth Flow](../../guides/networking/udp-security.md) — See how authentication middleware is used in a real scenario.
+- [UDP Auth Flow](../../guides/networking/datagram-security.md) — See how authentication middleware is used in a real scenario.
 - [TCP Request/Response](../../guides/networking/tcp-patterns.md) — Observe middleware in a standard TCP flow.

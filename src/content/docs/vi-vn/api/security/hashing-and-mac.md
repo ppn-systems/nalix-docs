@@ -1,6 +1,6 @@
 ---
 title: Băm và MAC
-description: Keccak-256, HMAC-Keccak-256, MAC Poly1305, băm thông tin xác thực PBKDF2 và SecurityOptions trong Nalix.Codec.Security.Hashing.
+description: Keccak-256, HMAC-Keccak-256, HKDF-Keccak-256, MAC Poly1305, băm thông tin xác thực PBKDF2 và SecurityOptions trong Nalix.Codec.Security.Hashing.
 section: API Reference
 package: Nalix.Codec
 ---
@@ -13,6 +13,7 @@ Trang này trình bày các nguyên thủy băm, xác thực thông điệp và 
 ## Ánh xạ mã nguồn
 
 - `src/Nalix.Codec/Security/Hashing/Keccak256.cs`
+- `src/Nalix.Codec/Security/HkdfKeccak256.cs`
 - `src/Nalix.Codec/Security/Hashing/HmacKeccak256.cs`
 - `src/Nalix.Codec/Security/Hashing/Poly1305.cs`
 - `src/Nalix.Codec/Security/Hashing/Pbkdf2.cs`
@@ -33,11 +34,19 @@ Trang này trình bày các nguyên thủy băm, xác thực thông điệp và 
 - `void HashData(ReadOnlySpan<byte> data, Span<byte> output)` — Băm không cấp phát bộ nhớ, ghi 32 byte vào `output` (ném `ArgumentException` nếu `output.Length < 32`).
 - `bool TryHashData(ReadOnlySpan<byte> data, Span<byte> output)` — Overload span không ném ngoại lệ; trả về `false` nếu `output.Length < 32`.
 - `byte[] HashData(ReadOnlySpan<byte> data)` — Cấp phát và trả về `byte[]` 32 byte.
+- `Keccak256.Sponge` (`public struct` lồng bên trong, `[EditorBrowsable(Never)]`) — Sponge gia tăng cấp phát trên stack (trạng thái 200 byte cộng bộ đệm 136 byte) cho đầu vào lớn hơn một khối rate. Tạo bằng `new Keccak256.Sponge()`; `void Absorb(scoped ReadOnlySpan<byte> data)` nạp dữ liệu theo khối có kích thước bất kỳ và `void PadAndSqueeze(scoped Span<byte> output)` áp dụng phần đệm Keccak rồi ghi digest 32 byte. `Pbkdf2` dùng nó nội bộ cho lần băm trong và băm ngoài.
 
 ```csharp
 using System;
 using Nalix.Abstractions.Primitives;
 using Nalix.Codec.Security.Hashing;
+
+// Băm gia tăng một luồng lớn
+Keccak256.Sponge sponge = new();
+sponge.Absorb(chunk1);
+sponge.Absorb(chunk2);
+Span<byte> digest = stackalloc byte[32];
+sponge.PadAndSqueeze(digest);
 
 // Struct cố định 32 byte, không cấp phát bộ nhớ
 Bytes32 fixedDigest = Keccak256.HashDataToFixed(payload);
@@ -51,21 +60,42 @@ Keccak256.HashData(payload, buffer);
 
 ## 2. `HmacKeccak256`
 
-`HmacKeccak256` triển khai HMAC theo RFC 2104 trên `Keccak256` (rate/kích thước khối = `136` byte, đầu ra = `Keccak256.HashSize` = `32` byte), và xóa sạch mọi pad khóa trung gian trên stack trước khi trả về.
+`HmacKeccak256` triển khai HMAC theo RFC 2104 trên `Keccak256` (rate/kích thước khối = `136` byte, đầu ra = `32` byte), và xóa sạch mọi pad khóa trung gian trên stack trước khi trả về.
 
 ### Thành viên tĩnh công khai
 
-- `void Compute(ReadOnlySpan<byte> key, ReadOnlySpan<byte> data, Span<byte> output)` — Tính thẻ HMAC 32 byte vào `output` (ném `ArgumentException` nếu `output.Length < Keccak256.HashSize`).
+- `void Compute(ReadOnlySpan<byte> key, ReadOnlySpan<byte> data, Span<byte> output)` — Tính thẻ HMAC 32 byte vào `output` (ném `ArgumentException` nếu `output.Length < 32`).
 
 ```csharp
 using System;
 using Nalix.Codec.Security.Hashing;
 using Nalix.Codec.Security.Primitives;
 
-Span<byte> mac = stackalloc byte[Keccak256.HashSize];
+Span<byte> mac = stackalloc byte[32];
 HmacKeccak256.Compute(key, data, mac);
 
 bool authentic = BitwiseOperations.FixedTimeEquals(mac, expectedMac);
+```
+
+---
+
+## 2b. `HkdfKeccak256`
+
+`HkdfKeccak256` (`public static class`, namespace `Nalix.Codec.Security`, `src/Nalix.Codec/Security/HkdfKeccak256.cs`) là HKDF (RFC 5869) trên `HmacKeccak256` với đầu ra 32 byte. Đây là cơ chế dẫn xuất khóa được handshake X25519 (`HandshakeX25519`), việc rekey phiên và lịch khóa datagram (`DatagramKeySchedule`) sử dụng.
+
+### Thành viên tĩnh công khai
+
+- `const int MaxInfoLength = 256` — `info` lớn nhất mà `Expand` chấp nhận, tính bằng byte.
+- `Bytes32 Extract(ReadOnlySpan<byte> salt, ReadOnlySpan<byte> ikm)` — HKDF-Extract: `PRK = HMAC(salt, IKM)`; `salt` có thể rỗng.
+- `Bytes32 Expand(Bytes32 prk, ReadOnlySpan<byte> info)` — HKDF-Expand cho một khối 32 byte: `OKM = HMAC(PRK, info || 0x01)`. Xóa bản sao `prk` của chính nó và ném `ArgumentOutOfRangeException` khi `info.Length > MaxInfoLength`.
+
+```csharp
+using System.Text;
+using Nalix.Abstractions.Primitives;
+using Nalix.Codec.Security;
+
+Bytes32 prk = HkdfKeccak256.Extract(salt: default, ikm: sharedSecret);
+Bytes32 key = HkdfKeccak256.Expand(prk, "my-app/key"u8);
 ```
 
 ---
@@ -88,6 +118,7 @@ bool authentic = BitwiseOperations.FixedTimeEquals(mac, expectedMac);
   - `void Update(ReadOnlySpan<byte> data)`
   - `void FinalizeTag(Span<byte> tag)` / `byte[] FinalizeTag()`
   - `void ComputeTag(ReadOnlySpan<byte> message, Span<byte> destination)`
+  - `void ComputeTagIncremental(ReadOnlySpan<byte> message, Span<byte> destination)` — Tiện ích: `Update(message)` rồi `FinalizeTag(destination)`.
   - `void Clear()` — Xóa an toàn các limb nội bộ và trạng thái khóa.
 
 ---
@@ -131,7 +162,7 @@ bool validEncoded = Pbkdf2.Encoded.Verify("secret-password", encoded);
 `Nalix.Environment.Hashing` cung cấp các tiện ích băm không mật mã và băm theo RFC cho khung dữ liệu:
 
 - **`XxHash32`** (`src/Nalix.Environment/Hashing/XxHash32.cs`):
-  - `public static uint Compute(ReadOnlySpan<byte> data, uint seed = 0)` — xxHash 32-bit tăng tốc SIMD Vector128, dùng cho thẻ xác thực datagram UDP (`XxHash32.Compute(connection.Secret.AsSpan(), seed: XxHash32.Compute(datagram))`) và phân mảnh bucket nhanh.
+  - `public static uint Compute(ReadOnlySpan<byte> data, uint seed = 0)` — xxHash 32-bit tăng tốc SIMD Vector128, dùng để chia bucket nhanh, không mật mã (ví dụ các shard theo endpoint của `TokenBucketLimiter` / `PolicyRateLimiter`) và cho `FragmentHeader.GetHashCode()`. Nó không dùng để xác thực datagram: datagram NDP được niêm phong bằng ChaCha20-Poly1305.
   - `public static int Compute(ulong hi, ulong lo, bool isIPv6)` — Băm 32-bit dương không cấp phát bộ nhớ, dùng làm khóa endpoint socket.
 - **`Sha1`** (`src/Nalix.Environment/Hashing/Sha1.cs`):
   - `public const int HashSize = 20;`
