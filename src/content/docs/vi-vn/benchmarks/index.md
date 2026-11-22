@@ -1,10 +1,10 @@
 ---
 title: Benchmark hiệu năng
-description: Nalix được thiết kế cho các ứng dụng thời gian thực với thông lượng cao và độ trễ thấp. Tài liệu này cung cấp báo cáo đầy đủ về các bộ benchmark của Nalix được chạy vào ngày 2026-10-01.
+description: Nalix được thiết kế cho các ứng dụng thời gian thực với thông lượng cao và độ trễ thấp. Tài liệu này cung cấp báo cáo đầy đủ về các bộ benchmark của Nalix được chạy vào ngày 2026-11-21.
 section: Benchmarks
 ---
 
-Nalix được thiết kế cho các ứng dụng thời gian thực với thông lượng cao và độ trễ thấp. Tài liệu này cung cấp báo cáo đầy đủ về các bộ benchmark của Nalix được chạy vào ngày 2026-10-01.
+Nalix được thiết kế cho các ứng dụng thời gian thực với thông lượng cao và độ trễ thấp. Tài liệu này cung cấp báo cáo đầy đủ về các bộ benchmark của Nalix được chạy vào ngày 2026-11-21.
 
 ## Triết lý hiệu năng
 
@@ -31,11 +31,11 @@ Xem chi tiết các chỉ số theo từng hệ thống con:
 
 ## Thông tin môi trường
 
-Các benchmark được chạy trong môi trường sau:
+Các benchmark được chạy trên các máy ảo đám mây cùng loại, mỗi bộ benchmark một máy, trong môi trường sau:
 
-- **OS**: Windows 11 (10.0.26300.9550)
-- **CPU**: 13th Gen Intel Core i7-13620H (2.40GHz)
-- **Lõi**: 10 vật lý, 16 luồng logic
-- **Runtime**: .NET 10.0.12 (SDK 10.0.401, X64 RyuJIT x86-64-v3)
-- **Môi trường**: Performance Power Plan, Server GC bật, Concurrent GC bật
+- **OS**: Ubuntu 24.04.5 LTS (Linux 6.18, máy khách KVM)
+- **CPU**: Intel Xeon Processor @ 2.10–2.30 GHz
+- **Lõi**: 4 vCPU (1 luồng mỗi lõi)
+- **Runtime**: .NET 10.0.15 (target net10.0, X64 RyuJIT; build bằng SDK 10.0.404 hoặc 11.0.x)
+- **Môi trường**: Server GC bật, Concurrent GC bật
 - **Toolchain**: BenchmarkDotNet v0.15.8

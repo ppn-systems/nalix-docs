@@ -1,10 +1,10 @@
 ---
 title: Performance Benchmarks
-description: Nalix is engineered for high-throughput, low-latency real-time applications. This documentation provides a comprehensive report of Nalix benchmark suites executed on 2026-10-01.
+description: Nalix is engineered for high-throughput, low-latency real-time applications. This documentation provides a comprehensive report of Nalix benchmark suites executed on 2026-11-21.
 section: Benchmarks
 ---
 
-Nalix is engineered for high-throughput, low-latency real-time applications. This documentation provides a comprehensive report of Nalix benchmark suites executed on 2026-10-01.
+Nalix is engineered for high-throughput, low-latency real-time applications. This documentation provides a comprehensive report of Nalix benchmark suites executed on 2026-11-21.
 
 ## Performance Philosophy
 
@@ -31,11 +31,11 @@ Explore detailed metrics by subsystem:
 
 ## Environment Details
 
-Benchmarks were executed in the following environment:
+Benchmarks were executed on cloud VMs of the same type, one suite per VM, in the following environment:
 
-- **OS**: Windows 11 (10.0.26300.9550)
-- **CPU**: 13th Gen Intel Core i7-13620H (2.40GHz)
-- **Cores**: 10 Physical, 16 Logical
-- **Runtime**: .NET 10.0.12 (SDK 10.0.401, X64 RyuJIT x86-64-v3)
-- **Environment**: Performance Power Plan, Server GC Enabled, Concurrent GC Enabled
+- **OS**: Ubuntu 24.04.5 LTS (Linux 6.18, KVM guest)
+- **CPU**: Intel Xeon Processor @ 2.10–2.30 GHz
+- **Cores**: 4 vCPU (1 thread per core)
+- **Runtime**: .NET 10.0.15 (net10.0 target, X64 RyuJIT; built with SDK 10.0.404 or 11.0.x)
+- **Environment**: Server GC Enabled, Concurrent GC Enabled
 - **Toolchain**: BenchmarkDotNet v0.15.8
