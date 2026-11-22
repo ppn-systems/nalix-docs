@@ -16,17 +16,18 @@ These numbers come from a 4-vCPU cloud Linux container over loopback, where the 
 ## Summary
 
 :::note[All 12 libraries measured on one machine]
-All 12 frameworks and baselines below, plus the two diagnostic Nalix runs, were measured on 2026-11-21 on the same 4-vCPU Linux VM in two back-to-back batches (`nalix-tcp`, `nalix-ws` and `nalix-tcp-aead` first, then the rest), under the .NET 10.0.15 runtime. Every comparison reflects head-to-head results under identical hardware and OS conditions.
+All 12 frameworks and baselines below, plus the two diagnostic Nalix runs, were measured on 2026-11-22 on the same 4-vCPU Linux VM in one uninterrupted pass, under the .NET 10.0.15 runtime and with a fresh (default) Nalix configuration. Every comparison reflects head-to-head results under identical hardware and OS conditions.
 :::
 
-- **Single-client latency:** Nalix TCP has the lowest p50 of the full frameworks. At 32 B the p50 is 60.0 µs for Nalix TCP, 67.7 µs for Nalix WebSocket and 72.7 µs for Nalix AEAD, against 77.4 µs for gRPC duplex, 93.8 µs for the MagicOnion hub, 96.5 µs for SignalR and 115.1 µs for gRPC unary. At 1 KB, Nalix TCP achieves 66.2 µs against 84.7 µs for gRPC duplex, 96.8 µs for SignalR and 98.2 µs for the MagicOnion hub. The hand-written raw-socket baseline (29.0 µs / 27.0 µs) and the raw Kestrel WebSocket echo (55.7 µs / 60.1 µs) are faster.
+- **Single-client latency:** Nalix TCP has the lowest p50 of the full frameworks. At 32 B the p50 is 56.7 µs for Nalix TCP, 58.4 µs for Nalix AEAD and 64.5 µs for Nalix WebSocket, against 70.4 µs for gRPC duplex, 79.8 µs for SignalR, 81.3 µs for the MagicOnion hub and 99.6 µs for gRPC unary. At 1 KB, Nalix TCP achieves 58.1 µs against 78.6 µs for SignalR, 79.2 µs for gRPC duplex and 97.7 µs for the MagicOnion hub. The hand-written raw-socket baseline (28.5 µs / 22.7 µs) and the raw Kestrel WebSocket echo (50.7 µs / 56.8 µs) are faster.
 - **Throughput with 64 clients:**
-  - At 32 B: Nalix TCP 85.3k ops/s, Nalix WebSocket 74.8k, Nalix TCP AEAD 72.6k, SignalR 67.7k, gRPC duplex 64.9k, MagicOnion hub 59.8k, gRPC unary 51.2k, MagicOnion unary 50.4k.
-  - At 1 KB: Nalix TCP 65.7k ops/s, SignalR 63.1k, gRPC duplex 60.9k, Nalix TCP AEAD 57.2k, Nalix WebSocket 56.1k, MagicOnion hub 50.9k, gRPC unary 49.1k, MagicOnion unary 44.2k. Under this 4-core machine all frameworks are CPU-bound; at 1 KB the top three sit within about 8% of each other.
-- **Throughput with 1 and 16 clients:** Nalix TCP is first at 1 client for both sizes (14.7k at 32 B, 13.4k at 1 KB). At 16 clients and 32 B, Nalix TCP (69.0k) and Nalix WebSocket (65.7k) lead gRPC duplex (59.5k) and SignalR (57.4k); at 16 clients and 1 KB, Nalix TCP (54.7k), Nalix WebSocket (54.6k) and gRPC duplex (54.4k) are level.
-- **Server CPU per message:** Nalix TCP measures 27.2 µs at 64 clients and 32 B against 25.0 µs for SignalR and 27.7 µs for gRPC duplex (Nalix WebSocket 26.5 µs), so SignalR's server is the cheapest of the full frameworks; the Nalix client is cheaper (17.5 µs client CPU/op vs 25.7 µs for SignalR).
+  - At 32 B: Nalix TCP 97.0k ops/s, Nalix WebSocket 91.6k, Nalix TCP AEAD 86.5k, SignalR 79.5k, gRPC duplex 75.7k, MagicOnion hub 72.2k, gRPC unary 63.0k, MagicOnion unary 58.4k.
+  - At 1 KB: Nalix TCP 86.2k ops/s, Nalix WebSocket 76.9k, SignalR 69.3k, Nalix TCP AEAD 66.9k, gRPC duplex 63.4k, MagicOnion hub 58.9k, gRPC unary 56.1k, MagicOnion unary 53.8k. Under this 4-core machine all frameworks are CPU-bound.
+- **Throughput with 1 and 16 clients:** Nalix TCP is first at 1 client for both sizes (17.1k at 32 B, 16.5k at 1 KB). At 16 clients and 32 B, Nalix TCP (80.8k) and Nalix WebSocket (78.4k) lead SignalR (69.1k) and gRPC duplex (64.2k); at 16 clients and 1 KB, Nalix WebSocket (70.5k) and Nalix TCP (69.4k) lead SignalR (63.7k) and gRPC duplex (62.1k).
+- **Inline dispatcher (diagnostic row):** with `InlinePacketDispatcher`, which hands each packet straight to a thread-pool work item instead of the dispatch channel, Nalix TCP reaches 135.9k ops/s at 32 B and 92.9k at 1 KB with 64 clients, at 15.0 µs of server CPU per message, on par with the raw Kestrel WebSocket echo (133.7k). It is opt-in and suits short handlers that do not block.
+- **Server CPU per message:** at 64 clients and 32 B, Nalix WebSocket (20.9 µs) and SignalR (21.0 µs) are the cheapest of the full frameworks, ahead of Nalix TCP (23.4 µs) and gRPC duplex (24.9 µs); the Nalix client is also cheaper (16.0 µs client CPU/op vs 21.6 µs for SignalR).
 - **Server allocations:** 56 B per message at 32 B for Nalix TCP, Nalix WebSocket and Nalix AEAD, the lowest of the full frameworks (MagicOnion hub 200 B, gRPC duplex 264 B, SignalR 672 B). Only the raw Kestrel WebSocket baseline allocates less (0 B). At 1 KB Nalix TCP allocates 1,048 B vs 1,192 B for the MagicOnion hub, 1,256 B for gRPC duplex and 1,664 B for SignalR.
-- **Encryption:** Nalix AEAD (X25519 + ChaCha20-Poly1305) wins against gRPC over TLS on single-client latency (32 B p50 72.7 µs vs 116.7 µs for gRPC duplex TLS; at 1 KB 90.6 µs vs 119.5 µs), on 64-client throughput (72.6k vs 50.9k ops/s at 32 B; 57.2k vs 42.2k at 1 KB) and on server allocations (56 B vs 813 B at 32 B; 1,048 B vs 1,802 B at 1 KB).
+- **Encryption:** Nalix AEAD (X25519 + ChaCha20-Poly1305) wins against gRPC over TLS on single-client latency (32 B p50 58.4 µs vs 105.2 µs for gRPC duplex TLS; at 1 KB 76.4 µs vs 114.5 µs), on 64-client throughput (86.5k vs 51.8k ops/s at 32 B; 66.9k vs 49.3k at 1 KB) and on server allocations (56 B vs 809 B at 32 B; 1,048 B vs 1,795 B at 1 KB).
 
 ## Environment
 
@@ -37,12 +38,12 @@ All 12 frameworks and baselines below, plus the two diagnostic Nalix runs, were 
 | OS | Ubuntu 24.04.5 LTS (Linux 6.18, cloud VM container) |
 | Runtime | .NET 10.0.15 runtime (SDK 11.0.100-rc.3), Release, x64 RyuJIT, TieredPGO on |
 | GC | Server GC + Concurrent GC for **every** process (from `benchmarks/Directory.Build.props`) |
-| Nalix | source at `master` (`Version.props` 14.3.10), project references |
+| Nalix | source at `master` (`ebb42388`, `Version.props` 14.3.10), project references, fresh default configuration |
 | ASP.NET Core / SignalR | 10.0.13 (`Microsoft.AspNetCore.SignalR.Client`, `.Protocols.MessagePack` → MessagePack 2.5.303) |
 | gRPC | `Grpc.AspNetCore` 2.84.0, `Grpc.Net.Client` 2.84.0, Google.Protobuf 3.35.1 |
 | MagicOnion | `MagicOnion.Server` / `.Client` 7.11.0 (MessagePack 3.1.12) |
-| Date | 2026-11-21 (all libraries measured on one machine, two back-to-back batches) |
-| Machine state | Idle VM before the run; no other workload during the batches |
+| Date | 2026-11-22 (all libraries measured on one machine in one pass) |
+| Machine state | Idle VM before the run; no other workload during the run |
 
 ## Methodology
 
@@ -99,119 +100,119 @@ benchmarks/run-comparison.sh        # Linux/macOS
 
 | Library | mean (µs) | p50 (µs) | p90 (µs) | p99 (µs) | p99.9 (µs) | run spread (p50) | server alloc/op (B) |
 |:--|--:|--:|--:|--:|--:|--:|--:|
-| raw-tcp | 42.0 | 29.0 | 85.0 | 121.3 | 423.6 | ±10.6% | 144 |
-| kestrel-ws | 59.2 | 55.7 | 89.7 | 141.0 | 477.7 | ±1.5% | 0 |
-| nalix-tcp | 66.2 | 60.0 | 92.6 | 153.4 | 552.1 | ±1.6% | 56 |
-| nalix-ws | 74.1 | 67.7 | 105.6 | 173.5 | 605.1 | ±0.9% | 56 |
-| nalix-tcp-aead | 80.9 | 72.7 | 117.5 | 187.3 | 611.0 | ±6.0% | 56 |
-| signalr-ws-msgpack | 105.6 | 96.5 | 153.9 | 265.4 | 968.8 | ±4.3% | 680 |
-| grpc-unary | 130.3 | 115.1 | 189.1 | 377.0 | 1302.4 | ±1.7% | 970 |
-| grpc-duplex | 83.5 | 77.4 | 114.1 | 181.0 | 845.1 | ±0.8% | 264 |
-| grpc-unary-tls | 216.6 | 191.0 | 345.3 | 620.5 | 1548.0 | ±2.1% | 1033 |
-| grpc-duplex-tls | 127.1 | 116.7 | 185.9 | 314.5 | 1043.8 | ±2.0% | 315 |
-| magiconion-unary | 149.6 | 133.2 | 225.0 | 441.1 | 1295.9 | ±2.0% | 1433 |
-| magiconion-hub | 99.7 | 93.8 | 134.9 | 221.9 | 917.6 | ±2.5% | 201 |
+| raw-tcp | 43.8 | 28.5 | 89.3 | 118.4 | 245.1 | ±30.6% | 144 |
+| kestrel-ws | 51.0 | 50.7 | 80.8 | 109.8 | 204.8 | ±5.1% | 0 |
+| nalix-tcp | 60.0 | 56.7 | 83.9 | 120.0 | 272.4 | ±1.4% | 56 |
+| nalix-ws | 68.5 | 64.5 | 98.3 | 137.5 | 247.4 | ±4.1% | 56 |
+| nalix-tcp-aead | 63.8 | 58.4 | 94.2 | 137.3 | 253.3 | ±6.5% | 56 |
+| signalr-ws-msgpack | 83.5 | 79.8 | 118.0 | 175.7 | 611.0 | ±3.3% | 680 |
+| grpc-unary | 108.3 | 99.6 | 158.3 | 262.9 | 949.3 | ±3.9% | 969 |
+| grpc-duplex | 74.1 | 70.4 | 103.1 | 145.0 | 665.7 | ±2.9% | 264 |
+| grpc-unary-tls | 203.6 | 184.2 | 327.0 | 518.2 | 1228.4 | ±6.6% | 1050 |
+| grpc-duplex-tls | 116.6 | 105.2 | 181.3 | 289.1 | 731.8 | ±2.0% | 315 |
+| magiconion-unary | 126.5 | 115.1 | 181.2 | 308.7 | 975.5 | ±3.6% | 1434 |
+| magiconion-hub | 87.1 | 81.3 | 123.4 | 197.3 | 657.0 | ±4.8% | 200 |
 
 ### Latency — 1024 B payload, 1 client, sequential request/response
 
 | Library | mean (µs) | p50 (µs) | p90 (µs) | p99 (µs) | p99.9 (µs) | run spread (p50) | server alloc/op (B) |
 |:--|--:|--:|--:|--:|--:|--:|--:|
-| raw-tcp | 40.0 | 27.0 | 77.4 | 121.2 | 350.7 | ±7.0% | 144 |
-| kestrel-ws | 62.1 | 60.1 | 92.8 | 142.2 | 344.6 | ±3.8% | 0 |
-| nalix-tcp | 74.8 | 66.2 | 105.3 | 179.1 | 765.5 | ±1.1% | 1048 |
-| nalix-ws | 88.2 | 78.7 | 124.2 | 226.9 | 858.4 | ±3.4% | 1048 |
-| nalix-tcp-aead | 97.4 | 90.6 | 138.2 | 223.1 | 786.0 | ±4.2% | 1048 |
-| signalr-ws-msgpack | 105.0 | 96.8 | 148.8 | 265.3 | 1053.4 | ±1.4% | 1672 |
-| grpc-unary | 136.1 | 122.5 | 195.2 | 373.5 | 1331.8 | ±0.7% | 1962 |
-| grpc-duplex | 92.4 | 84.7 | 127.4 | 206.9 | 1077.0 | ±0.8% | 1256 |
-| grpc-unary-tls | 213.3 | 192.5 | 335.4 | 577.8 | 1908.3 | ±2.3% | 2008 |
-| grpc-duplex-tls | 131.7 | 119.5 | 188.3 | 344.9 | 1219.3 | ±1.6% | 1313 |
-| magiconion-unary | 153.7 | 139.4 | 217.9 | 440.1 | 1232.4 | ±2.4% | 3738 |
-| magiconion-hub | 106.8 | 98.2 | 151.7 | 254.2 | 1278.4 | ±3.5% | 1192 |
+| raw-tcp | 41.1 | 22.7 | 88.4 | 115.8 | 235.9 | ±3.4% | 144 |
+| kestrel-ws | 59.0 | 56.8 | 89.5 | 128.1 | 222.4 | ±9.8% | 0 |
+| nalix-tcp | 61.4 | 58.1 | 84.7 | 122.9 | 262.3 | ±1.5% | 1048 |
+| nalix-ws | 77.8 | 70.5 | 112.5 | 182.1 | 567.4 | ±2.9% | 1048 |
+| nalix-tcp-aead | 79.7 | 76.4 | 112.3 | 168.7 | 610.3 | ±4.3% | 1048 |
+| signalr-ws-msgpack | 83.6 | 78.6 | 118.6 | 184.9 | 837.2 | ±3.6% | 1672 |
+| grpc-unary | 118.0 | 107.9 | 169.6 | 278.6 | 932.2 | ±2.8% | 1961 |
+| grpc-duplex | 86.0 | 79.2 | 121.7 | 180.3 | 902.1 | ±2.4% | 1256 |
+| grpc-unary-tls | 231.0 | 207.9 | 368.9 | 548.0 | 1745.3 | ±3.5% | 2042 |
+| grpc-duplex-tls | 126.7 | 114.5 | 189.9 | 304.0 | 1031.2 | ±3.1% | 1309 |
+| magiconion-unary | 138.7 | 127.5 | 202.3 | 330.9 | 1302.7 | ±4.2% | 3738 |
+| magiconion-hub | 106.2 | 97.7 | 150.4 | 246.0 | 845.2 | ±7.6% | 1192 |
 
 ### Throughput — 32 B payload, N clients closed-loop (ops/s, median of runs)
 
 | Library | 1 client | 16 clients | 64 clients |
 |:--|--:|--:|--:|
-| raw-tcp | 24,294 (±8%) | 113,135 (±2%) | 135,743 (±2%) |
-| kestrel-ws | 16,458 (±5%) | 87,355 (±2%) | 108,808 (±1%) |
-| nalix-tcp | 14,677 (±1%) | 69,010 (±2%) | 85,258 (±2%) |
-| nalix-ws | 13,622 (±4%) | 65,655 (±2%) | 74,799 (±2%) |
-| nalix-tcp-aead | 13,591 (±5%) | 55,251 (±3%) | 72,631 (±3%) |
-| signalr-ws-msgpack | 8,729 (±9%) | 57,419 (±0%) | 67,717 (±1%) |
-| grpc-unary | 7,581 (±4%) | 44,166 (±2%) | 51,176 (±2%) |
-| grpc-duplex | 12,044 (±3%) | 59,486 (±4%) | 64,936 (±2%) |
-| grpc-unary-tls | 4,766 (±5%) | 31,396 (±4%) | 41,890 (±1%) |
-| grpc-duplex-tls | 7,834 (±4%) | 41,610 (±3%) | 50,934 (±3%) |
-| magiconion-unary | 6,586 (±2%) | 39,196 (±1%) | 50,395 (±1%) |
-| magiconion-hub | 10,289 (±2%) | 48,542 (±2%) | 59,796 (±1%) |
+| raw-tcp | 26,730 (±2%) | 134,610 (±5%) | 157,643 (±4%) |
+| kestrel-ws | 19,894 (±2%) | 100,142 (±5%) | 133,650 (±2%) |
+| nalix-tcp | 17,102 (±1%) | 80,793 (±0%) | 97,029 (±6%) |
+| nalix-ws | 13,942 (±2%) | 78,438 (±3%) | 91,565 (±6%) |
+| nalix-tcp-aead | 14,606 (±1%) | 68,165 (±3%) | 86,507 (±1%) |
+| signalr-ws-msgpack | 12,255 (±6%) | 69,063 (±3%) | 79,533 (±6%) |
+| grpc-unary | 9,094 (±2%) | 51,649 (±5%) | 63,040 (±3%) |
+| grpc-duplex | 13,201 (±1%) | 64,219 (±5%) | 75,682 (±8%) |
+| grpc-unary-tls | 3,797 (±15%) | 31,006 (±4%) | 44,629 (±6%) |
+| grpc-duplex-tls | 8,266 (±4%) | 44,685 (±3%) | 51,805 (±5%) |
+| magiconion-unary | 7,878 (±7%) | 44,380 (±4%) | 58,445 (±3%) |
+| magiconion-hub | 11,381 (±4%) | 52,894 (±6%) | 72,165 (±5%) |
 
 #### Cost per message at 64 clients — 32 B
 
 | Library | server alloc/op (B) | server CPU/op (µs) | client CPU/op (µs) | client alloc/op (B) | server Gen0/1/2 per run |
 |:--|--:|--:|--:|--:|--:|
-| raw-tcp | 144 | 13.5 | 13.2 | 287 | 24/0/0 |
-| kestrel-ws | 0 | 17.4 | 16.8 | 152 | 0/0/0 |
-| nalix-tcp | 56 | 27.2 | 17.5 | 232 | 2/0/0 |
-| nalix-ws | 56 | 26.5 | 21.9 | 368 | 1/0/0 |
-| nalix-tcp-aead | 56 | 31.1 | 20.5 | 232 | 1/0/0 |
-| signalr-ws-msgpack | 672 | 25.0 | 25.7 | 1553 | 141/0/0 |
-| grpc-unary | 968 | 32.7 | 36.6 | 6736 | 82/0/0 |
-| grpc-duplex | 264 | 27.7 | 26.4 | 2320 | 50/0/0 |
-| grpc-unary-tls | 1496 | 43.8 | 44.2 | 6737 | 90/0/0 |
-| grpc-duplex-tls | 813 | 37.6 | 33.8 | 2325 | 56/0/0 |
-| magiconion-unary | 1432 | 35.8 | 37.1 | 7401 | 108/0/0 |
-| magiconion-hub | 200 | 33.5 | 28.6 | 2239 | 37/0/0 |
+| raw-tcp | 144 | 11.8 | 11.7 | 287 | 30/0/0 |
+| kestrel-ws | 0 | 14.1 | 14.0 | 152 | 0/0/0 |
+| nalix-tcp | 56 | 23.4 | 16.0 | 232 | 2/0/0 |
+| nalix-ws | 56 | 20.9 | 19.5 | 368 | 1/0/0 |
+| nalix-tcp-aead | 56 | 26.1 | 17.8 | 232 | 2/0/0 |
+| signalr-ws-msgpack | 672 | 21.0 | 21.6 | 1553 | 98/0/0 |
+| grpc-unary | 968 | 28.4 | 30.8 | 6737 | 84/0/0 |
+| grpc-duplex | 264 | 24.9 | 23.0 | 2322 | 16/0/0 |
+| grpc-unary-tls | 1504 | 39.5 | 41.0 | 6737 | 98/0/0 |
+| grpc-duplex-tls | 809 | 36.2 | 31.7 | 2325 | 100/0/0 |
+| magiconion-unary | 1432 | 30.3 | 33.1 | 7401 | 113/0/0 |
+| magiconion-hub | 200 | 26.5 | 22.9 | 2238 | 41/0/0 |
 
 ### Throughput — 1024 B payload, N clients closed-loop (ops/s, median of runs)
 
 | Library | 1 client | 16 clients | 64 clients |
 |:--|--:|--:|--:|
-| raw-tcp | 25,055 (±0%) | 114,572 (±2%) | 133,681 (±2%) |
-| kestrel-ws | 17,150 (±1%) | 85,159 (±4%) | 103,883 (±2%) |
-| nalix-tcp | 13,412 (±3%) | 54,665 (±6%) | 65,652 (±4%) |
-| nalix-ws | 11,736 (±3%) | 54,574 (±4%) | 56,129 (±2%) |
-| nalix-tcp-aead | 9,820 (±4%) | 47,103 (±2%) | 57,189 (±3%) |
-| signalr-ws-msgpack | 9,110 (±1%) | 51,022 (±1%) | 63,087 (±4%) |
-| grpc-unary | 7,615 (±2%) | 41,387 (±3%) | 49,102 (±3%) |
-| grpc-duplex | 10,743 (±4%) | 54,447 (±1%) | 60,948 (±1%) |
-| grpc-unary-tls | 4,601 (±3%) | 29,386 (±3%) | 36,961 (±3%) |
-| grpc-duplex-tls | 7,816 (±4%) | 35,278 (±3%) | 42,167 (±2%) |
-| magiconion-unary | 6,759 (±5%) | 38,324 (±1%) | 44,226 (±2%) |
-| magiconion-hub | 9,715 (±3%) | 42,317 (±1%) | 50,862 (±4%) |
+| raw-tcp | 25,466 (±5%) | 137,966 (±1%) | 161,416 (±2%) |
+| kestrel-ws | 18,763 (±3%) | 101,379 (±6%) | 122,799 (±3%) |
+| nalix-tcp | 16,494 (±2%) | 69,411 (±2%) | 86,232 (±5%) |
+| nalix-ws | 13,729 (±5%) | 70,497 (±4%) | 76,881 (±5%) |
+| nalix-tcp-aead | 12,117 (±11%) | 57,584 (±3%) | 66,910 (±2%) |
+| signalr-ws-msgpack | 11,003 (±9%) | 63,661 (±3%) | 69,339 (±8%) |
+| grpc-unary | 8,965 (±3%) | 48,783 (±2%) | 56,136 (±8%) |
+| grpc-duplex | 12,616 (±0%) | 62,085 (±1%) | 63,399 (±9%) |
+| grpc-unary-tls | 4,031 (±3%) | 31,508 (±4%) | 38,628 (±4%) |
+| grpc-duplex-tls | 8,474 (±16%) | 41,096 (±6%) | 49,251 (±5%) |
+| magiconion-unary | 7,034 (±7%) | 44,222 (±5%) | 53,808 (±1%) |
+| magiconion-hub | 9,483 (±8%) | 48,275 (±5%) | 58,927 (±3%) |
 
 #### Cost per message at 64 clients — 1024 B
 
 | Library | server alloc/op (B) | server CPU/op (µs) | client CPU/op (µs) | client alloc/op (B) | server Gen0/1/2 per run |
 |:--|--:|--:|--:|--:|--:|
-| raw-tcp | 144 | 13.5 | 13.5 | 287 | 58/0/0 |
-| kestrel-ws | 0 | 18.4 | 17.8 | 152 | 0/0/0 |
-| nalix-tcp | 1048 | 32.5 | 22.0 | 1224 | 233/0/0 |
-| nalix-ws | 1048 | 32.5 | 28.0 | 1360 | 198/0/0 |
-| nalix-tcp-aead | 1048 | 36.3 | 25.8 | 1224 | 203/0/0 |
-| signalr-ws-msgpack | 1664 | 27.2 | 27.3 | 2545 | 218/0/0 |
-| grpc-unary | 1961 | 35.6 | 37.9 | 7729 | 151/0/0 |
-| grpc-duplex | 1256 | 29.7 | 27.5 | 3345 | 237/0/0 |
-| grpc-unary-tls | 2501 | 48.8 | 50.2 | 7729 | 131/0/0 |
-| grpc-duplex-tls | 1802 | 43.1 | 38.4 | 3346 | 190/0/0 |
-| magiconion-unary | 3737 | 39.3 | 40.7 | 9705 | 193/0/0 |
-| magiconion-hub | 1192 | 37.3 | 31.8 | 3262 | 180/0/0 |
+| raw-tcp | 144 | 11.7 | 11.6 | 287 | 70/0/0 |
+| kestrel-ws | 0 | 15.7 | 15.3 | 152 | 0/0/0 |
+| nalix-tcp | 1048 | 24.6 | 17.0 | 1224 | 307/0/0 |
+| nalix-ws | 1048 | 23.6 | 21.7 | 1360 | 201/0/0 |
+| nalix-tcp-aead | 1048 | 31.3 | 22.2 | 1224 | 237/0/0 |
+| signalr-ws-msgpack | 1664 | 24.7 | 24.5 | 2546 | 185/0/0 |
+| grpc-unary | 1960 | 31.3 | 34.0 | 7729 | 136/0/0 |
+| grpc-duplex | 1256 | 28.3 | 25.5 | 3340 | 252/0/0 |
+| grpc-unary-tls | 2500 | 45.7 | 46.0 | 7729 | 124/0/0 |
+| grpc-duplex-tls | 1795 | 37.4 | 33.5 | 3345 | 156/0/0 |
+| magiconion-unary | 3736 | 33.5 | 35.4 | 9705 | 250/1/0 |
+| magiconion-hub | 1192 | 31.7 | 27.3 | 3262 | 221/0/0 |
 
 ## Who wins where
 
 | Scenario | Best framework (excluding raw baselines) | Nalix position |
 |:--|:--|:--|
-| Latency, 32 B, 1 client | **Nalix TCP** (p50 60.0 µs) | 1st. Nalix WS 67.7 µs, Nalix AEAD 72.7 µs, gRPC duplex 77.4 µs, MagicOnion hub 93.8 µs, SignalR 96.5 µs |
-| Latency, 1 KB, 1 client | **Nalix TCP** (p50 66.2 µs) | 1st. Nalix WS 78.7 µs, gRPC duplex 84.7 µs, Nalix AEAD 90.6 µs, SignalR 96.8 µs, MagicOnion hub 98.2 µs |
-| Latency, encrypted | **Nalix AEAD** at both sizes (72.7 µs vs gRPC duplex TLS 116.7 µs at 32 B; 90.6 µs vs 119.5 µs at 1 KB) | 1st at both sizes |
-| Throughput, 1 client, 32 B | **Nalix TCP** (14.7k) | 1st (Nalix WS 13.6k, Nalix AEAD 13.6k, gRPC duplex 12.0k) |
-| Throughput, 16 clients, 32 B | **Nalix TCP** 69.0k | 1st (Nalix WS 65.7k, gRPC duplex 59.5k, SignalR 57.4k) |
-| Throughput, 16 clients, 1 KB | **Nalix TCP** 54.7k / Nalix WS 54.6k / gRPC duplex 54.4k | 1st (within run noise of gRPC duplex; SignalR 51.0k) |
-| Throughput, 64 clients, 32 B | **Nalix TCP** 85.3k | 1st (Nalix WS 74.8k, SignalR 67.7k, gRPC duplex 64.9k) |
-| Throughput, 64 clients, 1 KB | **Nalix TCP** 65.7k | 1st (SignalR 63.1k, gRPC duplex 60.9k, Nalix WS 56.1k) |
-| Throughput, encrypted, 64 clients | **Nalix AEAD** (72.6k at 32 B, 57.2k at 1 KB) | 1st (gRPC duplex TLS 50.9k / 42.2k) |
+| Latency, 32 B, 1 client | **Nalix TCP** (p50 56.7 µs) | 1st. Nalix AEAD 58.4 µs, Nalix WS 64.5 µs, gRPC duplex 70.4 µs, SignalR 79.8 µs, MagicOnion hub 81.3 µs |
+| Latency, 1 KB, 1 client | **Nalix TCP** (p50 58.1 µs) | 1st. Nalix WS 70.5 µs, Nalix AEAD 76.4 µs, SignalR 78.6 µs, gRPC duplex 79.2 µs, MagicOnion hub 97.7 µs |
+| Latency, encrypted | **Nalix AEAD** at both sizes (58.4 µs vs gRPC duplex TLS 105.2 µs at 32 B; 76.4 µs vs 114.5 µs at 1 KB) | 1st at both sizes |
+| Throughput, 1 client, 32 B | **Nalix TCP** (17.1k) | 1st (Nalix AEAD 14.6k, Nalix WS 13.9k, gRPC duplex 13.2k) |
+| Throughput, 16 clients, 32 B | **Nalix TCP** 80.8k | 1st (Nalix WS 78.4k, SignalR 69.1k, gRPC duplex 64.2k) |
+| Throughput, 16 clients, 1 KB | **Nalix WS** 70.5k / Nalix TCP 69.4k | 1st (SignalR 63.7k, gRPC duplex 62.1k) |
+| Throughput, 64 clients, 32 B | **Nalix TCP** 97.0k | 1st (Nalix WS 91.6k, SignalR 79.5k, gRPC duplex 75.7k) |
+| Throughput, 64 clients, 1 KB | **Nalix TCP** 86.2k | 1st (Nalix WS 76.9k, SignalR 69.3k, gRPC duplex 63.4k) |
+| Throughput, encrypted, 64 clients | **Nalix AEAD** (86.5k at 32 B, 66.9k at 1 KB) | 1st (gRPC duplex TLS 51.8k / 49.3k) |
 | Server allocations/msg | **Nalix TCP / WS / AEAD** 56 B at 32 B | 1st of the frameworks (only raw Kestrel WebSocket, 0 B, is lower) |
-| Server CPU/msg, 64 clients, 32 B | **SignalR** 25.0 µs | Nalix WS 26.5 µs and Nalix TCP 27.2 µs, level with gRPC duplex (27.7 µs), ahead of MagicOnion hub (33.5 µs) |
+| Server CPU/msg, 64 clients, 32 B | **Nalix WS** 20.9 µs / SignalR 21.0 µs | Nalix WS level with SignalR; Nalix TCP 23.4 µs, ahead of gRPC duplex (24.9 µs) and MagicOnion hub (26.5 µs) |
 
 ## Caveats
 
