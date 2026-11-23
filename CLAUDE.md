@@ -1,6 +1,6 @@
 # nalix-docs — Claude Code Guide
 
-Documentation portal for **Nalix** (.NET 10 networking framework), built with **Astro** + **Vitest**.
+Documentation portal for **Nalix** (.NET 10 and .NET 11 networking framework), built with **Astro** + **Vitest**.
 The source of truth for every technical claim is the sibling repository [`ppn-systems/nalix`](https://github.com/ppn-systems/nalix).
 
 ## Layout

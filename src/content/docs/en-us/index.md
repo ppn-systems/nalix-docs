@@ -1,6 +1,6 @@
 ---
 title: Nalix
-description: Nalix is a real-time TCP and UDP networking framework for .NET 10. You define packet types once, share them between your server and client, and Nalix handles the transport, rout...
+description: Nalix is a real-time TCP and UDP networking framework for .NET 10 and .NET 11. You define packet types once, share them between your server and client, and Nalix handles the transport, rout...
 section: Overview
 ---
 
@@ -14,7 +14,7 @@ section: Overview
   <a href="https://github.com/ppn-systems/nalix/blob/master/LICENSE"><img src="https://img.shields.io/github/license/ppn-systems/nalix.svg?style=flat-square&color=blue" alt="License"/></a>
 </p>
 
-Nalix is a real-time TCP and UDP networking framework for .NET 10. You define packet types once, share them between your server and client, and Nalix handles the transport, routing, and security for you.
+Nalix is a real-time TCP and UDP networking framework for .NET 10 and .NET 11. You define packet types once, share them between your server and client, and Nalix handles the transport, routing, and security for you.
 
 [Get Started](./quickstart.md) · [View Packages](./packages/index.md)
 

@@ -1,6 +1,6 @@
 # Nalix Documentation
 
-Source of the documentation site for [Nalix](https://github.com/ppn-systems/nalix), a .NET 10 networking framework (TCP, UDP and WebSocket).
+Source of the documentation site for [Nalix](https://github.com/ppn-systems/nalix), a .NET 10 and .NET 11 networking framework (TCP, UDP and WebSocket).
 
 Live site: <https://docs.ppnsys.com>
 

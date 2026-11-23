@@ -1,6 +1,6 @@
 ---
 title: Nalix
-description: Nalix là framework mạng TCP và UDP thời gian thực cho .NET 10. Bạn định nghĩa kiểu gói tin một lần, chia sẻ chúng giữa máy chủ và client, còn Nalix lo phần transport, định tuyến và bảo mật cho bạn....
+description: Nalix là framework mạng TCP và UDP thời gian thực cho .NET 10 và .NET 11. Bạn định nghĩa kiểu gói tin một lần, chia sẻ chúng giữa máy chủ và client, còn Nalix lo phần transport, định tuyến và bảo mật cho bạn....
 section: Overview
 ---
 
@@ -14,7 +14,7 @@ section: Overview
   <a href="https://github.com/ppn-systems/nalix/blob/master/LICENSE"><img src="https://img.shields.io/github/license/ppn-systems/nalix.svg?style=flat-square&color=blue" alt="License"/></a>
 </p>
 
-Nalix là framework mạng TCP và UDP thời gian thực cho .NET 10. Bạn định nghĩa kiểu gói tin một lần, chia sẻ chúng giữa máy chủ và client, còn Nalix lo phần transport, định tuyến và bảo mật cho bạn.
+Nalix là framework mạng TCP và UDP thời gian thực cho .NET 10 và .NET 11. Bạn định nghĩa kiểu gói tin một lần, chia sẻ chúng giữa máy chủ và client, còn Nalix lo phần transport, định tuyến và bảo mật cho bạn.
 
 [Bắt đầu](./quickstart.md) · [Xem các gói](./packages/index.md)
 

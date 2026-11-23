@@ -2395,3 +2395,115 @@ body {
     padding-left: 28px;
   }
 }
+
+/* ---- UI polish 2 ---- */
+.nlx-home-cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.nlx-home-cta__btn {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nlx-home-cta__btn--ghost {
+  color: var(--text-primary);
+  border: 1px solid var(--border-input);
+  background-color: var(--bg-paper);
+  transition: border-color 0.15s ease;
+}
+
+.nlx-home-cta__btn--ghost:hover {
+  border-color: var(--primary-main);
+}
+
+.nlx-home-sample {
+  width: 100%;
+  max-width: 640px;
+  margin: 14px 0 0;
+  border-radius: 8px;
+  border: 1px solid var(--border-divider);
+  background-color: var(--bg-code);
+  text-align: left;
+  overflow: hidden;
+}
+
+.nlx-home-sample figcaption {
+  padding: 6px 14px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background-color: var(--bg-code-header);
+  border-bottom: 1px solid var(--border-divider);
+}
+
+.nlx-home-sample pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+/* cards in a row share the same height */
+.nlx-product-grid {
+  align-items: stretch;
+}
+
+/* sidebar: thin guide line connecting nested levels */
+.nlx-sidebar ul ul {
+  border-left: 1px solid var(--border-divider);
+  margin-left: 12px;
+}
+
+/* long headings anchor below the sticky header */
+.nlx-prose :is(h2, h3, h4) {
+  scroll-margin-top: calc(var(--header-height) + 16px);
+}
+
+.nlx-prose h2 {
+  margin-top: 2.2rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border-divider);
+}
+
+.nlx-prose p,
+.nlx-prose li {
+  line-height: 1.7;
+}
+
+/* line numbers on code blocks with 6+ lines */
+pre.nlx-code--numbered code {
+  counter-reset: nlx-line;
+}
+pre.nlx-code--numbered code .line::before {
+  counter-increment: nlx-line;
+  content: counter(nlx-line);
+  display: inline-block;
+  width: 2.2em;
+  margin-right: 1em;
+  text-align: right;
+  color: var(--text-secondary);
+  opacity: 0.55;
+  user-select: none;
+}
+
+/* soft cross-fade between pages */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}

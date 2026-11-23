@@ -10,7 +10,7 @@ Mã nguồn đầy đủ: `samples/HelloWorld`
 
 ## Bạn cần gì
 
-- .NET 10 SDK
+- .NET 10 SDK trở lên (Nalix nhắm tới `net10.0` và `net11.0`)
 
 ## Cách nhanh nhất — chạy trong 30 giây
 

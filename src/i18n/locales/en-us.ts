@@ -1,8 +1,8 @@
 export const enUs = {
   'site.title': 'Nalix Documentation',
   'site.headerBrand': 'Documentation',
-  'site.tagline': 'Enterprise-grade real-time TCP, UDP, and WebSocket networking framework for .NET 10.',
-  'site.announcement': 'Nalix for .NET 10 — Ultra-low latency, zero-allocation packet engine.',
+  'site.tagline': 'Enterprise-grade real-time TCP, UDP, and WebSocket networking framework for .NET 10 and .NET 11.',
+  'site.announcement': 'Nalix for .NET 10 and .NET 11 — Ultra-low latency, zero-allocation packet engine.',
 
   // Header & Navigation
   'nav.overview': 'Home',
@@ -36,9 +36,12 @@ export const enUs = {
   // Home portal
   'hero.title': 'Nalix Documentation',
   'hero.subtitle': 'Official user manuals and API references.',
+  'home.cta.quickstart': 'Get started',
+  'home.cta.api': 'API reference',
+  'home.sampleCaption': 'A complete TCP server in a few lines',
   'home.exploreTopics': 'Explore topics',
   'home.card.start.title': 'Get Started',
-  'home.card.start.desc': 'Set up your .NET 10 environment, define shared packet contracts, and launch your first Nalix server and client.',
+  'home.card.start.desc': 'Set up your .NET 10 or .NET 11 environment, define shared packet contracts, and launch your first Nalix server and client.',
   'home.card.guides.title': 'Application & Networking Guides',
   'home.card.guides.desc': 'Practical tutorials for real-time chat servers, TCP/UDP socket patterns, middleware pipelines, and production deployment.',
   'home.card.concepts.title': 'Core Concepts & Internals',
@@ -96,7 +99,7 @@ export const enUs = {
 
   // Footer
   'footer.copyright': 'Copyright © 2026 PPN Systems. All rights reserved.',
-  'footer.builtWith': 'Engineered for .NET 10.',
+  'footer.builtWith': 'Engineered for .NET 10 and .NET 11.',
 } as const;
 
 export type TranslationKey = keyof typeof enUs;
