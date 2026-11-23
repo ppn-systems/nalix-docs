@@ -8,7 +8,7 @@ package: Nalix.Environment
 **Namespace:** `Nalix.Environment.Memory`  
 **Assembly:** `Nalix.Environment`
 
-`BufferLease` (`public sealed class BufferLease : IBufferLease, IPoolable`) represents an owned, reference-counted slice of a rented `byte[]` array. Both the underlying `byte[]` and the `BufferLease` wrapper shell itself are pooled for zero-allocation message processing.
+`BufferLease` (`public sealed class BufferLease : IBufferLease, IPoolable, IPoolRentable`) represents an owned, reference-counted slice of a rented `byte[]` array. Both the underlying `byte[]` and the `BufferLease` wrapper shell itself are pooled for zero-allocation message processing.
 
 ## Source Mapping
 
@@ -47,6 +47,7 @@ To avoid heap allocations when wrapping rented byte arrays, `BufferLease` recycl
 | `SpanFull` | `Span<byte>` | Read/write span over the entire writable capacity after `Headroom` (`_buffer.AsSpan(_start, Capacity)`). |
 | `Memory` | `ReadOnlyMemory<byte>` | Read-only memory over the committed payload. |
 | `Length` | `int` | Committed payload byte length. |
+| `Generation` | `int` | Counter read with `Volatile.Read` that changes whenever the last reference is released; lets `LeaseRef.IsAlive` detect that a pooled lease now belongs to another owner. |
 | `Capacity` | `int` | Total writable capacity from `_start` to the end of the array. |
 | `RawCapacity` | `int` | Total length of the underlying `byte[]` (including `Headroom`). |
 | `Headroom` | `int` | Number of reserved prefix bytes before `_start` (`_start`). |
@@ -57,6 +58,10 @@ To avoid heap allocations when wrapping rented byte arrays, `BufferLease` recycl
 | `Retain()` | `void Retain()` | Atomically increments the reference count for shared broadcast/fan-out ownership. |
 | `ReleaseOwnership` | `bool ReleaseOwnership(out byte[]? buffer, out int start, out int length)` | Detaches the underlying `byte[]` when `refCount == 1` so the caller assumes responsibility for returning it. |
 | `Dispose()` | `void Dispose()` | Decrements the reference count; when it reaches `0`, returns the `byte[]` and recycles the `BufferLease` shell. |
+
+## Borrowed views (`LeaseRef`)
+
+`IBufferLease.AsRef()` (`BufferLeaseExtensions`) returns a `LeaseRef`, a `ref struct` view that cannot dispose the lease or outlive the call it is passed to. It records `Generation`, so `IsAlive` reports whether the lease was released and reused since. A method that needs the buffer longer calls `LeaseRef.Retain()` and becomes an owner. See [Connection Contracts](../../abstractions/connection-contracts.md).
 
 ## Usage Example
 

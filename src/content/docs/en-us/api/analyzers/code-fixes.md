@@ -1,11 +1,11 @@
 ---
 title: Nalix.Analyzers Code Fixes
-description: Reference for all 16 Roslyn CodeFixProvider implementations in Nalix.Analyzers.CodeFixes and the 20 active diagnostic rules they resolve automatically.
+description: Reference for all 17 Roslyn CodeFixProvider implementations in Nalix.Analyzers.CodeFixes and the 21 active diagnostic rules they resolve automatically.
 section: API Reference
 package: Nalix.Analyzers
 ---
 
-`Nalix.Analyzers.CodeFixes` provides **16 Roslyn `CodeFixProvider` classes** that automate common mechanical fixes for **20 active diagnostic IDs** (plus retired `NALIX031`) emitted by `Nalix.Analyzers`.
+`Nalix.Analyzers.CodeFixes` provides **17 Roslyn `CodeFixProvider` classes** that automate common mechanical fixes for **21 active diagnostic IDs** (plus retired `NALIX031`) emitted by `Nalix.Analyzers`.
 
 ## Source Mapping
 
@@ -29,6 +29,7 @@ All providers live under `analyzers/Nalix.Analyzers.CodeFixes/`:
 | `NullMiddlewareCodeFixProvider` | `NALIX056` | `Remove null middleware registration` | Removes the `.WithMiddleware(null)` / `.WithErrorHandlingMiddleware(null)` invocation from the fluent builder chain. |
 | `RequestOptionsConsistencyCodeFixProvider` | `NALIX057` | `Set TimeoutMs to 5000` / `Disable retries` | Resolves infinite-timeout + retry conflicts (`NALIX057`) by either setting `TimeoutMs = 5000` or setting `RetryCount = 0`. |
 | `GenericPacketHandlerCodeFixProvider` | `NALIX058` | `Remove [PacketOpcode]` | Removes `[PacketOpcode]` from generic methods that cannot be bound as packet handlers. |
+| `HandlerPermissionCodeFixProvider` | `NALIX111` | `Add [PacketPermission(PermissionLevel.USER)]` | Adds `[PacketPermission(PermissionLevel.USER)]` to a handler method that has none; use a lower or higher level when the handler needs it. |
 
 ## When Diagnostics Do Not Have a Code Fix
 

@@ -1,11 +1,11 @@
 ---
 title: Mã chẩn đoán
-description: Tài liệu tham chiếu đầy đủ của tất cả 78 mô tả chẩn đoán lúc biên dịch (NALIX001–NALIX110) do Nalix.Analyzers và Nalix.Analyzers.Generators phát ra.
+description: Tài liệu tham chiếu đầy đủ của tất cả 86 mô tả chẩn đoán lúc biên dịch (NALIX001–NALIX121) do Nalix.Analyzers và Nalix.Analyzers.Generators phát ra.
 section: API Reference
 package: Nalix.Analyzers
 ---
 
-Trang này liệt kê tất cả **78 mô tả chẩn đoán đang hoạt động** do `Nalix.Analyzers` (70 quy tắc trong `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`) và `Nalix.Analyzers.Generators` (8 quy tắc trong `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`) phát ra.
+Trang này liệt kê tất cả **86 mô tả chẩn đoán đang hoạt động** do `Nalix.Analyzers` (78 quy tắc trong `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`) và `Nalix.Analyzers.Generators` (8 quy tắc trong `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`) phát ra.
 
 :::note[Các mã chẩn đoán đã bị loại bỏ]
 `NALIX007`, `NALIX019`, `NALIX029`, `NALIX031`, `NALIX049` và `NALIX053` đã bị loại bỏ khi các đường dẫn `INetworkBufferMiddleware` và dispatch bằng reflection kiểu cũ được gỡ bỏ.
@@ -36,13 +36,11 @@ Trang này liệt kê tất cả **78 mô tả chẩn đoán đang hoạt độn
 | `NALIX056` | Đăng ký middleware dùng null | Cảnh báo | Usage | Có | Các method đăng ký middleware yêu cầu instance middleware khác null. |
 | `NALIX058` | Method handler gói tin không nên là generic | Cảnh báo | Usage | Có | Method handler gói tin generic không thể gắn với một wire opcode cụ thể. |
 
-## 2. Middleware và metadata định tuyến (`NALIX006`, `NALIX025`–`NALIX038`)
+## 2. Middleware và metadata định tuyến (`NALIX006`, `NALIX030`–`NALIX038`)
 
 | ID | Tiêu đề | Mức độ | Danh mục | Code Fix | Mô tả |
 | --- | --- | :---: | --- | :---: | --- |
 | `NALIX006` | Kiểu middleware đã đăng ký không khớp kiểu gói tin của dispatcher | Cảnh báo | Usage | Không | `IPacketMiddleware<TPacket>` phải khớp kiểu gói tin của dispatcher. |
-| `NALIX025` | Packet metadata provider xóa Opcode | Cảnh báo | Routing | Không | Các implementation `IPacketMetadataProvider` tùy chỉnh không được đặt `builder.Opcode = null`. |
-| `NALIX026` | Packet metadata provider ghi đè Opcode mà không có điều kiện bảo vệ | Thông tin | Routing | Không | Metadata provider nên bảo vệ phép gán bằng `builder.Opcode ??= ...` thay vì ghi đè vô điều kiện. |
 | `NALIX030` | Middleware gói tin nên khai báo MiddlewareOrder | Thông tin | Middleware | Có | `[MiddlewareOrder(n)]` tường minh giúp thứ tự thực thi middleware có tính xác định. |
 | `NALIX032` | Middleware Inbound bỏ qua AlwaysExecute | Thông tin | Middleware | Có | `MiddlewareStage.Inbound` bỏ qua `AlwaysExecute = true` (`AlwaysExecute` chỉ áp dụng cho `Outbound` và `Both`). |
 | `NALIX033` | Middleware đã đăng ký dùng chung MiddlewareOrder với middleware khác trong cùng chuỗi | Thông tin | Middleware | Không | Các giá trị `[MiddlewareOrder]` trùng nhau trong một chuỗi pipeline làm giảm tính dự đoán được của thứ tự. |
@@ -78,7 +76,6 @@ Trang này liệt kê tất cả **78 mô tả chẩn đoán đang hoạt độn
 | `NALIX040` | `NetworkApplicationBuilder` nên cấu hình `BufferPoolManager` | Thông tin | Performance | Không | Gợi ý gọi `.UseBufferPoolManager(...)` khi xây dựng pipeline host tùy chỉnh. |
 | `NALIX041` | `NetworkApplicationBuilder` nên cấu hình `ConnectionHub` | Thông tin | Usage | Không | Gợi ý gọi `.UseConnectionHub(...)` khi xây dựng pipeline host tùy chỉnh. |
 | `NALIX042` | Kiểu handler của `NetworkApplicationBuilder` không thể khởi tạo | Cảnh báo | Usage | Không | Các kiểu controller truyền vào `MapHandlers` phải là lớp cụ thể, có thể khởi tạo. |
-| `NALIX043` | Kiểu metadata provider của `NetworkApplicationBuilder` không thể khởi tạo | Cảnh báo | Usage | Không | Các kiểu metadata provider phải là lớp cụ thể, có thể khởi tạo. |
 | `NALIX044` | `NetworkApplicationBuilder` nên cấu hình một binding TCP | Thông tin | Usage | Không | Cảnh báo khi `.Build()` được gọi mà không có binding listener transport nào. |
 | `NALIX045` | `NetworkApplicationBuilder` nên cấu hình TCP cùng với binding datagram | Thông tin | Usage | Không | Phiên datagram (NDP) được khởi tạo qua phiên TCP hoặc WebSocket, nên binding `MapDatagram` cần một binding luồng (`ListenTcp`) trong cùng chuỗi builder. |
 | `NALIX057` | `RequestOptions` dùng timeout vô hạn với retry | Thông tin | SDK | Có | Đặt `TimeoutMs = 0` với `RetryCount > 0` làm cho các lần retry không bao giờ xảy ra vì lần thử đầu tiên chờ vô hạn. |
@@ -98,7 +95,7 @@ Trang này liệt kê tất cả **78 mô tả chẩn đoán đang hoạt độn
 | `NALIX067` | Method handler bị loại khỏi bảng điều phối | Lỗi | `Nalix.Runtime.Dispatching` | `PacketHandlerGenerator` | Tham số `0` của handler `[PacketOpcode]` là `IPacketContext<TPacket>`; mọi tham số bổ sung (`1..N`) phải là kiểu tham chiếu được đánh dấu `[FromScope]`. |
 | `NALIX068` | `StaticOpCode` của gói tin bị trùng | Lỗi | `Nalix.Codec.DataFrames` | `PacketRegistryGenerator` | Hai hoặc nhiều lớp gói tin trong compilation cùng khai báo một `StaticOpCode`. |
 
-## 6. Chẩn đoán bảo mật, pooling, RPC, injection và vòng đời (`NALIX071`–`NALIX110`)
+## 6. Chẩn đoán bảo mật, pooling, RPC, injection và vòng đời (`NALIX071`–`NALIX121`)
 
 | ID | Tiêu đề | Mức độ | Danh mục | Phạm vi | Mô tả |
 | --- | --- | :---: | --- | --- | --- |
@@ -120,6 +117,17 @@ Trang này liệt kê tất cả **78 mô tả chẩn đoán đang hoạt độn
 | `NALIX108` | `IBufferLease` bị giải phóng nhiều hơn một lần | Cảnh báo | Lifecycle | Mọi assembly | Một lease bị giải phóng hai lần trong cùng một method: `Dispose()` hoặc chuyển cho tham số nhận quyền sở hữu (không có `[Borrowed]`) rồi giải phóng lần nữa, hoặc giải phóng tường minh một lease đã khai báo bằng `using`. Chỉ báo khi lần giải phóng đầu chạy vô điều kiện và lần thứ hai nằm ở câu lệnh phía sau trong cùng một block. Gọi `Retain()` trên lease sẽ bỏ qua phân tích. |
 | `NALIX109` | `IBufferLease` được dùng sau khi đã giải phóng | Cảnh báo | Lifecycle | Mọi assembly | Một lease được dùng sau `Dispose()` hoặc sau khi được chuyển cho tham số nhận quyền sở hữu (không có `[Borrowed]`); các instance lease đã pool sẽ được tái sử dụng, nên lease có thể đã thuộc về owner khác. |
 | `NALIX110` | `IBufferLease` được mượn bị giải phóng hoặc lưu trữ | Cảnh báo | Lifecycle | Mọi assembly | Tham số lease có `[Borrowed]` thuộc sở hữu của bên gọi: method không được dispose nó, chuyển nó cho tham số nhận quyền sở hữu, hoặc lưu nó vào field hay property không tự đánh dấu `[Borrowed]`. Hãy đánh dấu đích là `[Borrowed]`, gọi `Retain()` cho owner mới, hoặc bỏ `[Borrowed]`. |
+| `NALIX111` | Packet handler thiếu `[PacketPermission]` | Cảnh báo | Security | Mọi assembly | `PacketHandler<T>.CanExecute` hoạt động theo nguyên tắc fail-closed: handler không có `[PacketPermission]` bị từ chối với `UNAUTHORIZED`. Khai báo mức yêu cầu, ví dụ `[PacketPermission(PermissionLevel.USER)]`, hoặc `PermissionLevel.NONE` cho handler công khai. |
+| `NALIX112` | `[PacketRateLimit]` có giá trị không dương | Cảnh báo | Usage | Mọi assembly | `PolicyRateLimiter` bỏ qua giới hạn khi `RequestsPerSecond` không dương và từ chối mọi yêu cầu khi `Burst` không dương. Dùng `RequestsPerSecond` dương và `Burst` tối thiểu `1`. |
+| `NALIX113` | `[PacketTimeout]` không dương | Cảnh báo | Usage | Mọi assembly | `TimeoutMiddleware` chỉ áp dụng thời hạn khi giá trị lớn hơn 0, nên `[PacketTimeout]` bằng 0 hoặc âm sẽ âm thầm vô hiệu hóa timeout. |
+| `NALIX114` | Attribute chính sách của handler không có middleware thực thi | Thông tin | Usage | Mọi assembly | `[PacketRateLimit]` và `[PacketTimeout]` chỉ được thực thi bởi `RateLimitMiddleware` và `TimeoutMiddleware`, mà `NetworkApplicationBuilder` không tự thêm. Đăng ký bằng `options.WithMiddleware(new ...)` trong `ConfigureDispatchOptions`. |
+| `NALIX115` | Request được thử lại nhưng packet không đánh dấu `[PacketIdempotent]` | Thông tin | SDK | Mọi assembly | `RequestOptions.RetryCount > 0` gửi lại sau timeout trong khi server có thể đã xử lý lần đầu. Đánh dấu packet an toàn khi lặp lại bằng `[PacketIdempotent]` hoặc bỏ retry. |
+| `NALIX116` | Subscription của packet bị bỏ đi | Thông tin | SDK | Mọi assembly | `On`, `OnExact` và `SubscribeTemp` trả về `IDisposable` để gỡ handler. Giữ và dispose nó trừ khi handler tồn tại suốt phiên. |
+| `NALIX117` | Bí mật được so sánh bằng phương thức không phải thời gian hằng | Thông tin | Security | Mọi assembly | So sánh MAC, tag, chữ ký, proof, challenge, token hoặc mật khẩu bằng `SequenceEqual` làm lộ thời gian. Dùng so sánh thời gian cố định. Kiểm tra dựa trên tên. |
+| `NALIX118` | Attribute kiểm tra cấu hình không phù hợp với property | Cảnh báo | Configuration | Mọi assembly | `[ValueRange]`, `[DurationRange]`, `[Length]`, `[AllowedEnum]` và `[Required]` phải khớp property: khoảng bị đảo, cận `[DurationRange]` không phân tích được, kiểu không phù hợp, `[AllowedEnum]` trên kiểu không phải enum và `[Required]` trên kiểu giá trị không nullable đều bị báo. |
+| `NALIX119` | `[Borrowed]` chỉ được khai báo ở phần implementation | Cảnh báo | Lifecycle | Mọi assembly | Hợp đồng sở hữu của tham số `IBufferLease` do interface member hoặc phương thức cơ sở quy định; implementation không thể tự thêm `[Borrowed]`, nếu không bên gọi chỉ thấy khai báo cơ sở sẽ làm rò rỉ buffer. |
+| `NALIX120` | `ResetForPool` không đặt lại member có thể thay đổi | Cảnh báo | Lifecycle | Mọi assembly | Mọi field và auto-property có thể thay đổi mà `ResetForPool()` không gán sẽ giữ giá trị của lần thuê trước. Đặt lại nó hoặc đánh dấu `[SkipClean]`. |
+| `NALIX121` | Đối tượng pooled được dùng sau khi trả về pool | Cảnh báo | Lifecycle | Mọi assembly | Sau khi một `IPoolable` được truyền vào phương thức `Return` (hoặc tự gọi `Return()`), pool có thể giao nó cho bên khác. Việc dùng hoặc trả lần hai có thể xảy ra trên ít nhất một đường đi đều bị báo. |
 
 ---
 

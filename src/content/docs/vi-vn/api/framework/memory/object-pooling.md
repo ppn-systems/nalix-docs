@@ -88,7 +88,7 @@ public interface IPoolRentable
 | `GetTypedPool<T>()` | `public TypedObjectPool<T> GetTypedPool<T>() where T : IPoolable, new()` | Trả về adapter `TypedObjectPool<T>` gắn với manager này. |
 | `Prealloc<T>(int)` | `public int Prealloc<T>(int count) where T : IPoolable, new()` | Cấp phát trước `count` instance vào pool của `T` (`count > 0`) và trả về số instance đã thêm. |
 | `SetMaxCapacity<T>(int)` | `public bool SetMaxCapacity<T>(int maxCapacity) where T : IPoolable` | Đặt dung lượng giữ lại tối đa cho pool của `T` (`maxCapacity >= 0`). |
-| `GetTypeInfo<T>()` | `public Dictionary<string, object> GetTypeInfo<T>() where T : IPoolable` | Trả về từ điển chỉ số (`AvailableCount`, `MaxCapacity`, `TotalGets`, `TotalReturns`, `CacheHitRate`, `Outstanding`, `PeakOutstanding` (chỉ chính xác khi `EnableMetrics = true`), `Status`, và các percentile vòng đời khi `EnableDiagnostics = true`). |
+| `GetTypeInfo<T>()` | `public Dictionary<string, object> GetTypeInfo<T>() where T : IPoolable` | Trả về từ điển chỉ số (`AvailableCount`, `MaxCapacity`, `TotalGets`, `TotalReturns`, `CacheHitRate`, `Outstanding`, `PeakOutstanding`, `Status`, và các percentile vòng đời khi `EnableDiagnostics = true`). |
 | `ClearPool<T>()` / `ClearAllPools()` | `public int ClearPool<T>()` / `public int ClearAllPools()` | Xóa các instance trong pool và trả về số đối tượng đã loại bỏ. |
 | `PerformHealthCheck()` | `public int PerformHealthCheck()` | Đánh giá tỷ lệ miss theo cửa sổ trên các pool đang hoạt động và trả về số pool không lành mạnh. |
 | `ResetMetrics()` / `ResetStatistics()` | `public void ResetMetrics()` / `public void ResetStatistics()` | Đặt lại bộ đếm toàn cục và theo từng pool. |
@@ -122,7 +122,6 @@ public interface IPoolRentable
 | Thuộc tính | Kiểu | Mặc định | Ràng buộc | Mô tả |
 | :--- | :--- | :---: | :--- | :--- |
 | `EnableDiagnostics` | `bool` | `false` | — | Bật theo dõi `PoolSentinel` cho vòng đời đối tượng (`Avg`/`p95`/`Max`) và các lần thuê bất thường kéo dài. |
-| `EnableMetrics` | `bool` | `true` | — | Bật theo dõi chính xác `Outstanding` / `PeakOutstanding` theo từng kiểu và dấu thời gian truy cập. Mặc định `false`: mọi thread thuê cùng một kiểu đều cập nhật chung các bộ đếm, làm giảm thông lượng trên máy nhiều lõi. Số lần get, return, hit và miss theo từng kiểu, cùng các tổng toàn manager (`TotalGetOperations` và tương tự), luôn được đếm dù tùy chọn này bật hay tắt. |
 | `CaptureStackTraces` | `bool` | `false` | — | Ghi stack trace cấp phát khi `Get<T>()` nếu `EnableDiagnostics = true` (tốn kém; chỉ dùng khi gỡ lỗi rò rỉ). |
 | `SuspiciousThresholdSeconds` | `int` | `30` | `[ValueRange(0, 3600)]` | Ngưỡng tính bằng giây; sau thời gian này, đối tượng chưa được trả sẽ bị đánh dấu đáng ngờ. |
 | `EnableLeakDetection` | `bool` | `false` | — | Dùng finalizer của `PoolSentinel` để phát hiện đối tượng đã thuê bị GC thu hồi mà không gọi `Return<T>()` (yêu cầu `EnableDiagnostics = true` để `PoolSentinel` được gắn khi `Get<T>()`). |

@@ -25,6 +25,9 @@ package: Nalix.Abstractions
 - `src/Nalix.Abstractions/Networking/TransportFraming.cs`
 - `src/Nalix.Abstractions/Networking/IProtocol.cs`
 - `src/Nalix.Abstractions/Networking/Protocols/IOpCodeExtractor.cs`
+- `src/Nalix.Abstractions/IBufferLease.cs`
+- `src/Nalix.Abstractions/LeaseRef.cs`
+- `src/Nalix.Abstractions/BufferLeaseExtensions.cs`
 
 ## `IConnection`
 
@@ -187,6 +190,27 @@ Không gian tên `Nalix.Abstractions.Networking.Datagrams` (`src/Nalix.Abstracti
   - `uint CurrentReceiveSequence { get; }`
   - `uint NextSendSequence()`
   - `uint NextReceiveSequence()`
+
+## `IBufferLease`, `LeaseRef` & `BufferLeaseExtensions`
+
+`Nalix.Abstractions.IBufferLease` (`public interface IBufferLease : IDisposable`) là hợp đồng buffer pooled có đếm tham chiếu, dùng bởi `SendAsyncCore(IBufferLease, ...)` và đường nhận. Phần implementation là [BufferLease](../environment/memory/buffer-lease.md).
+
+- `int Length { get; }`, `int Capacity { get; }`, `bool EncryptedOnWire { get; set; }`
+- `Span<byte> Span { get; }`, `Span<byte> SpanFull { get; }`, `ReadOnlyMemory<byte> Memory { get; }`
+- `int Generation => 0` — thay đổi mỗi khi tham chiếu cuối cùng tới lease được giải phóng. Instance lease được pool và tái sử dụng, nên bên giữ đã ghi lại giá trị này có thể biết lease nay thuộc chủ khác. Implementation không bao giờ tái sử dụng giữ mặc định `0`.
+- `void Retain()`, `void CommitLength(int length)`, `bool ReleaseOwnership(out byte[]? buffer, out int start, out int length)`
+
+`LeaseRef` (`public readonly ref struct LeaseRef`) là view chỉ đọc của một lease mà bên gọi vẫn sở hữu. Nó không có `Dispose`, và vì là `ref struct` nên không thể lưu vào field, bị lambda bắt hay giữ qua `await`.
+
+| Thành viên | Mô tả |
+| --- | --- |
+| `LeaseRef(IBufferLease lease)` | Tạo view và ghi lại `lease.Generation`. Ném `ArgumentNullException` khi `lease` là `null`. |
+| `bool IsDefault` | `true` với view mặc định, không trỏ tới lease nào. |
+| `bool IsAlive` | `true` khi lease chưa được giải phóng kể từ lúc tạo view. Bản debug assert trên mỗi lần truy cập. |
+| `int Length`, `bool EncryptedOnWire`, `ReadOnlySpan<byte> Span` | Chuyển tiếp từ lease; ném `InvalidOperationException` trên view mặc định. |
+| `IBufferLease Retain()` | Lấy thêm một tham chiếu và trả về lease; bên gọi sở hữu nó và phải dispose đúng một lần. Ném `ObjectDisposedException` khi lease đã giải phóng buffer. |
+
+`BufferLeaseExtensions.AsRef([Borrowed] this IBufferLease lease)` (`public static LeaseRef AsRef(...)`) tạo `LeaseRef` cho một lease.
 
 ## API liên quan
 

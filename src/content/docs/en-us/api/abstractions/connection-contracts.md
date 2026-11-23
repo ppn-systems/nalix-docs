@@ -25,6 +25,9 @@ package: Nalix.Abstractions
 - `src/Nalix.Abstractions/Networking/TransportFraming.cs`
 - `src/Nalix.Abstractions/Networking/IProtocol.cs`
 - `src/Nalix.Abstractions/Networking/Protocols/IOpCodeExtractor.cs`
+- `src/Nalix.Abstractions/IBufferLease.cs`
+- `src/Nalix.Abstractions/LeaseRef.cs`
+- `src/Nalix.Abstractions/BufferLeaseExtensions.cs`
 
 ## `IConnection`
 
@@ -187,6 +190,27 @@ Namespace `Nalix.Abstractions.Networking.Datagrams` (`src/Nalix.Abstractions/Net
   - `uint CurrentReceiveSequence { get; }`
   - `uint NextSendSequence()`
   - `uint NextReceiveSequence()`
+
+## `IBufferLease`, `LeaseRef` & `BufferLeaseExtensions`
+
+`Nalix.Abstractions.IBufferLease` (`public interface IBufferLease : IDisposable`) is the reference-counted pooled buffer contract used by `SendAsyncCore(IBufferLease, ...)` and the receive path. The implementation is [BufferLease](../environment/memory/buffer-lease.md).
+
+- `int Length { get; }`, `int Capacity { get; }`, `bool EncryptedOnWire { get; set; }`
+- `Span<byte> Span { get; }`, `Span<byte> SpanFull { get; }`, `ReadOnlyMemory<byte> Memory { get; }`
+- `int Generation => 0` — changes every time the last reference to the lease is released. Lease instances are pooled and reused, so a holder that recorded this value can tell that the lease now belongs to another owner. Implementations that are never reused keep the default of `0`.
+- `void Retain()`, `void CommitLength(int length)`, `bool ReleaseOwnership(out byte[]? buffer, out int start, out int length)`
+
+`LeaseRef` (`public readonly ref struct LeaseRef`) is a read-only view of a lease that the caller still owns. It has no `Dispose`, and because it is a `ref struct` it cannot be stored in a field, captured by a lambda or kept across an `await`.
+
+| Member | Description |
+| --- | --- |
+| `LeaseRef(IBufferLease lease)` | Creates the view and records `lease.Generation`. Throws `ArgumentNullException` when `lease` is `null`. |
+| `bool IsDefault` | `true` for the default view, which refers to no lease. |
+| `bool IsAlive` | `true` while the lease has not been released since the view was created. Debug builds assert it on every access. |
+| `int Length`, `bool EncryptedOnWire`, `ReadOnlySpan<byte> Span` | Forwarded from the lease; throw `InvalidOperationException` on the default view. |
+| `IBufferLease Retain()` | Takes an extra reference and returns the lease; the caller owns it and must dispose it exactly once. Throws `ObjectDisposedException` when the lease has already released its buffer. |
+
+`BufferLeaseExtensions.AsRef([Borrowed] this IBufferLease lease)` (`public static LeaseRef AsRef(...)`) creates a `LeaseRef` for a lease.
 
 ## Related APIs
 

@@ -59,6 +59,10 @@ sequenceDiagram
 
 `BufferLease.ByteArrayPool` is the static entry point for raw `byte[]` buffers (`src/Nalix.Environment/Memory/BufferLease.cs`). It falls back to `ArrayPool<byte>.Shared` until an `IBufferPoolManager` is registered with `Configure(IBufferPoolManager manager)` (done by `UseBufferPoolManager(...)` in `Nalix.Hosting`). `Rent(int capacity = 256)` rents an array; `Return(byte[] array)` returns it without clearing, and `Return(byte[] array, bool clearArray)` clears the whole array first when `clearArray` is `true`. See [Buffer Lease](./buffer-lease.md) for the secret-handling guidance.
 
+## Generation and borrowed views
+
+`IBufferLease.Generation` changes every time the last reference to a pooled lease is released. `LeaseRef` (from `lease.AsRef()`) records it so `IsAlive` can detect use after release without owning the lease. See [Connection Contracts](../../abstractions/connection-contracts.md) and [Buffer Lease](./buffer-lease.md).
+
 ## `MemoryOptions` (`Nalix.Environment.Options`)
 
 Configured via `[Memory]` in `default.ini` or `builder.Configure<MemoryOptions>(...)` (`src/Nalix.Environment/Options/MemoryOptions.cs`):
