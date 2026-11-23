@@ -2310,10 +2310,6 @@ body {
   border: 0;
 }
 
-.nlx-search-box {
-  min-width: 180px;
-}
-
 .nlx-table-scroll {
   /* edge shadows hint that the table scrolls sideways */
   background:
