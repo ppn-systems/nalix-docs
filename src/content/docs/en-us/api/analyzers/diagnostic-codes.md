@@ -1,11 +1,11 @@
 ---
 title: Diagnostic Codes
-description: Complete reference of all 78 compile-time diagnostic descriptors (NALIX001–NALIX110) emitted by Nalix.Analyzers and Nalix.Analyzers.Generators.
+description: Complete reference of all 86 compile-time diagnostic descriptors (NALIX001–NALIX121) emitted by Nalix.Analyzers and Nalix.Analyzers.Generators.
 section: API Reference
 package: Nalix.Analyzers
 ---
 
-This page lists all **78 active diagnostic descriptors** emitted by `Nalix.Analyzers` (70 rules in `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`) and `Nalix.Analyzers.Generators` (8 rules in `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`).
+This page lists all **86 active diagnostic descriptors** emitted by `Nalix.Analyzers` (78 rules in `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs`) and `Nalix.Analyzers.Generators` (8 rules in `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs`).
 
 :::note[Retired Diagnostic IDs]
 `NALIX007`, `NALIX019`, `NALIX029`, `NALIX031`, `NALIX049`, and `NALIX053` were retired when `INetworkBufferMiddleware` and legacy reflection dispatch paths were removed.
@@ -36,13 +36,11 @@ This page lists all **78 active diagnostic descriptors** emitted by `Nalix.Analy
 | `NALIX056` | Middleware registration uses null | Warning | Usage | Yes | Middleware registration methods require non-null middleware instances. |
 | `NALIX058` | Packet handler method should not be generic | Warning | Usage | Yes | Generic packet handler methods cannot be bound to a concrete wire opcode. |
 
-## 2. Middleware and Routing Metadata (`NALIX006`, `NALIX025`–`NALIX038`)
+## 2. Middleware and Routing Metadata (`NALIX006`, `NALIX030`–`NALIX038`)
 
 | ID | Title | Severity | Category | Code Fix | Description |
 | --- | --- | :---: | --- | :---: | --- |
 | `NALIX006` | Registered middleware type does not match dispatcher packet type | Warning | Usage | No | `IPacketMiddleware<TPacket>` must match the dispatcher's packet type. |
-| `NALIX025` | Packet metadata provider clears Opcode | Warning | Routing | No | Custom `IPacketMetadataProvider` implementations must not set `builder.Opcode = null`. |
-| `NALIX026` | Packet metadata provider overwrites Opcode without guard | Info | Routing | No | Metadata providers should guard assignments with `builder.Opcode ??= ...` instead of overwriting unconditionally. |
 | `NALIX030` | Packet middleware should declare MiddlewareOrder | Info | Middleware | Yes | Explicit `[MiddlewareOrder(n)]` makes middleware execution order deterministic. |
 | `NALIX032` | Inbound middleware ignores AlwaysExecute | Info | Middleware | Yes | `MiddlewareStage.Inbound` ignores `AlwaysExecute = true` (`AlwaysExecute` only applies to `Outbound` and `Both`). |
 | `NALIX033` | Registered middleware shares MiddlewareOrder with another middleware in the same chain | Info | Middleware | No | Duplicate `[MiddlewareOrder]` values in one pipeline chain reduce ordering predictability. |
@@ -78,7 +76,6 @@ This page lists all **78 active diagnostic descriptors** emitted by `Nalix.Analy
 | `NALIX040` | `NetworkApplicationBuilder` should configure `BufferPoolManager` | Info | Performance | No | Suggests calling `.UseBufferPoolManager(...)` when building a custom host pipeline. |
 | `NALIX041` | `NetworkApplicationBuilder` should configure `ConnectionHub` | Info | Usage | No | Suggests calling `.UseConnectionHub(...)` when building a custom host pipeline. |
 | `NALIX042` | `NetworkApplicationBuilder` handler type is not constructible | Warning | Usage | No | Controller types passed to `MapHandlers` must be concrete, constructible classes. |
-| `NALIX043` | `NetworkApplicationBuilder` metadata provider type is not constructible | Warning | Usage | No | Metadata provider types must be concrete, constructible classes. |
 | `NALIX044` | `NetworkApplicationBuilder` should configure a TCP binding | Info | Usage | No | Warns when `.Build()` is called without any transport listener binding. |
 | `NALIX045` | `NetworkApplicationBuilder` should configure TCP with datagram bindings | Info | Usage | No | Datagram (NDP) sessions are bootstrapped over a TCP or WebSocket session, so a `MapDatagram` binding needs a stream binding (`ListenTcp`) in the same builder chain. |
 | `NALIX057` | `RequestOptions` uses infinite timeout with retries | Info | SDK | Yes | Setting `TimeoutMs = 0` with `RetryCount > 0` makes retries unreachable because the first attempt waits indefinitely. |
@@ -98,7 +95,7 @@ Emitted by `Nalix.Analyzers.Generators` (`analyzers/Nalix.Analyzers.Generators/I
 | `NALIX067` | Handler method dropped from dispatch table | Error | `Nalix.Runtime.Dispatching` | `PacketHandlerGenerator` | Parameter `0` of a `[PacketOpcode]` handler is `IPacketContext<TPacket>`; any additional parameter (`1..N`) must be a reference type annotated with `[FromScope]`. |
 | `NALIX068` | Duplicate packet `StaticOpCode` | Error | `Nalix.Codec.DataFrames` | `PacketRegistryGenerator` | Two or more packet classes in the compilation define the same `StaticOpCode`. |
 
-## 6. Security, Pooling, RPC, Injection, and Lifecycle Diagnostics (`NALIX071`–`NALIX110`)
+## 6. Security, Pooling, RPC, Injection, and Lifecycle Diagnostics (`NALIX071`–`NALIX121`)
 
 | ID | Title | Severity | Category | Scope | Description |
 | --- | --- | :---: | --- | --- | --- |
@@ -120,6 +117,17 @@ Emitted by `Nalix.Analyzers.Generators` (`analyzers/Nalix.Analyzers.Generators/I
 | `NALIX108` | `IBufferLease` released more than once | Warning | Lifecycle | All assemblies | A lease is released twice in one method: `Dispose()` or a pass to a parameter that takes ownership (not `[Borrowed]`) followed by another release, or an explicit release of a lease declared with `using`. Reported only when the first release is unconditional and the second sits in a later statement of the same block. Calling `Retain()` on the lease skips the analysis. |
 | `NALIX109` | `IBufferLease` used after release | Warning | Lifecycle | All assemblies | A lease is used after `Dispose()` or after being passed to a parameter that takes ownership (not `[Borrowed]`); pooled lease instances are reused, so the lease may already belong to another owner. |
 | `NALIX110` | Borrowed `IBufferLease` is released or stored | Warning | Lifecycle | All assemblies | A `[Borrowed]` lease parameter is caller-owned: the method must not dispose it, pass it to a parameter that takes ownership, or store it in a field or property that is not itself `[Borrowed]`. Mark the target `[Borrowed]`, call `Retain()` for a new owner, or remove `[Borrowed]`. |
+| `NALIX111` | Packet handler is missing `[PacketPermission]` | Warning | Security | All assemblies | `PacketHandler<T>.CanExecute` is fail-closed: a handler with no `[PacketPermission]` is rejected with `UNAUTHORIZED`. Declare the required level, e.g. `[PacketPermission(PermissionLevel.USER)]`, or `PermissionLevel.NONE` for public handlers. |
+| `NALIX112` | `[PacketRateLimit]` has a non-positive value | Warning | Usage | All assemblies | `PolicyRateLimiter` skips the limit when `RequestsPerSecond` is not positive and denies every request when `Burst` is not positive. Use a positive `RequestsPerSecond` and a `Burst` of at least `1`. |
+| `NALIX113` | `[PacketTimeout]` is not positive | Warning | Usage | All assemblies | `TimeoutMiddleware` only applies a deadline when the value is greater than zero, so a zero or negative `[PacketTimeout]` silently disables it. |
+| `NALIX114` | Handler policy attribute has no middleware that enforces it | Info | Usage | All assemblies | `[PacketRateLimit]` and `[PacketTimeout]` are enforced only by `RateLimitMiddleware` and `TimeoutMiddleware`, which `NetworkApplicationBuilder` does not add. Register them with `options.WithMiddleware(new ...)` in `ConfigureDispatchOptions`. |
+| `NALIX115` | Request is retried but its packet is not marked `[PacketIdempotent]` | Info | SDK | All assemblies | `RequestOptions.RetryCount > 0` resends after a timeout although the server may already have processed the first attempt. Mark safe-to-repeat packets `[PacketIdempotent]` or remove the retry. |
+| `NALIX116` | Packet subscription is discarded | Info | SDK | All assemblies | `On`, `OnExact` and `SubscribeTemp` return the `IDisposable` that detaches the handler. Keep and dispose it unless the handler should live as long as the session. |
+| `NALIX117` | Secret is compared with a non-constant-time method | Info | Security | All assemblies | Comparing a MAC, tag, signature, proof, challenge, token or password with `SequenceEqual` leaks timing. Use a fixed-time comparison. The check is name-based. |
+| `NALIX118` | Configuration validation attribute does not fit its property | Warning | Configuration | All assemblies | `[ValueRange]`, `[DurationRange]`, `[Length]`, `[AllowedEnum]` and `[Required]` must match the property: inverted ranges, unparsable `[DurationRange]` bounds, unsuitable types, `[AllowedEnum]` on a non-enum and `[Required]` on a non-nullable value type are reported. |
+| `NALIX119` | `[Borrowed]` is declared only on the implementation | Warning | Lifecycle | All assemblies | An `IBufferLease` parameter's ownership contract is set by the interface member or base method; an implementation cannot add `[Borrowed]` on its own, or callers that see the base declaration will leak the buffer. |
+| `NALIX120` | `ResetForPool` does not reset mutable member | Warning | Lifecycle | All assemblies | Every mutable instance field and auto-property not assigned in `ResetForPool()` keeps the previous renter's value. Reset it or mark it `[SkipClean]`. |
+| `NALIX121` | Pooled object used after it was returned to the pool | Warning | Lifecycle | All assemblies | After an `IPoolable` is passed to a `Return` method (or its own `Return()` is called) the pool may hand it to another caller. Uses and second returns reachable on at least one path are reported. |
 
 ---
 

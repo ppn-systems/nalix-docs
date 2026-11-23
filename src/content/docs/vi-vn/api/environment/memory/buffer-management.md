@@ -59,6 +59,10 @@ sequenceDiagram
 
 `BufferLease.ByteArrayPool` là điểm vào tĩnh cho các bộ đệm `byte[]` thô (`src/Nalix.Environment/Memory/BufferLease.cs`). Nó dùng `ArrayPool<byte>.Shared` làm phương án dự phòng cho đến khi một `IBufferPoolManager` được đăng ký bằng `Configure(IBufferPoolManager manager)` (do `UseBufferPoolManager(...)` trong `Nalix.Hosting` thực hiện). `Rent(int capacity = 256)` thuê một mảng; `Return(byte[] array)` trả mảng mà không xóa, còn `Return(byte[] array, bool clearArray)` xóa toàn bộ mảng trước khi trả khi `clearArray` là `true`. Xem [Buffer Lease](./buffer-lease.md) để biết hướng dẫn xử lý dữ liệu bí mật.
 
+## Generation và view mượn
+
+`IBufferLease.Generation` thay đổi mỗi khi tham chiếu cuối cùng của một lease pooled được giải phóng. `LeaseRef` (từ `lease.AsRef()`) ghi lại giá trị này để `IsAlive` phát hiện việc dùng sau khi giải phóng mà không sở hữu lease. Xem [Hợp đồng kết nối](../../abstractions/connection-contracts.md) và [Buffer Lease](./buffer-lease.md).
+
 ## `MemoryOptions` (`Nalix.Environment.Options`)
 
 Được cấu hình qua `[Memory]` trong `default.ini` hoặc `builder.Configure<MemoryOptions>(...)` (`src/Nalix.Environment/Options/MemoryOptions.cs`):

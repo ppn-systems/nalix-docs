@@ -1,11 +1,11 @@
 ---
 title: Code Fixes của Nalix.Analyzers
-description: Tài liệu tham chiếu cho cả 16 implementation CodeFixProvider của Roslyn trong Nalix.Analyzers.CodeFixes và 20 quy tắc chẩn đoán đang hoạt động mà chúng tự động sửa.
+description: Tài liệu tham chiếu cho cả 17 implementation CodeFixProvider của Roslyn trong Nalix.Analyzers.CodeFixes và 21 quy tắc chẩn đoán đang hoạt động mà chúng tự động sửa.
 section: API Reference
 package: Nalix.Analyzers
 ---
 
-`Nalix.Analyzers.CodeFixes` cung cấp **16 lớp `CodeFixProvider` của Roslyn** để tự động hóa các sửa lỗi cơ học thường gặp cho **20 mã chẩn đoán đang hoạt động** (cộng với `NALIX031` đã bị loại bỏ) do `Nalix.Analyzers` phát ra.
+`Nalix.Analyzers.CodeFixes` cung cấp **17 lớp `CodeFixProvider` của Roslyn** để tự động hóa các sửa lỗi cơ học thường gặp cho **21 mã chẩn đoán đang hoạt động** (cộng với `NALIX031` đã bị loại bỏ) do `Nalix.Analyzers` phát ra.
 
 ## Ánh xạ mã nguồn
 
@@ -29,6 +29,7 @@ Mọi provider nằm trong `analyzers/Nalix.Analyzers.CodeFixes/`:
 | `NullMiddlewareCodeFixProvider` | `NALIX056` | `Remove null middleware registration` | Xóa lệnh gọi `.WithMiddleware(null)` / `.WithErrorHandlingMiddleware(null)` khỏi chuỗi builder fluent. |
 | `RequestOptionsConsistencyCodeFixProvider` | `NALIX057` | `Set TimeoutMs to 5000` / `Disable retries` | Giải quyết xung đột timeout vô hạn + retry (`NALIX057`) bằng cách đặt `TimeoutMs = 5000` hoặc `RetryCount = 0`. |
 | `GenericPacketHandlerCodeFixProvider` | `NALIX058` | `Remove [PacketOpcode]` | Xóa `[PacketOpcode]` khỏi các method generic không thể gắn làm packet handler. |
+| `HandlerPermissionCodeFixProvider` | `NALIX111` | `Add [PacketPermission(PermissionLevel.USER)]` | Thêm `[PacketPermission(PermissionLevel.USER)]` vào handler method chưa có; dùng mức thấp hơn hoặc cao hơn khi handler cần. |
 
 ## Khi chẩn đoán không có code fix
 

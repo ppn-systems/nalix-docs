@@ -8,7 +8,7 @@ package: Nalix.Environment
 **Không gian tên:** `Nalix.Environment.Memory`  
 **Assembly:** `Nalix.Environment`
 
-`BufferLease` (`public sealed class BufferLease : IBufferLease, IPoolable`) đại diện cho một lát `byte[]` được lấy từ pool, có quyền sở hữu và bộ đếm tham chiếu. Cả mảng `byte[]` bên dưới lẫn lớp vỏ `BufferLease` đều được tái sử dụng qua pool để xử lý thông điệp không cấp phát.
+`BufferLease` (`public sealed class BufferLease : IBufferLease, IPoolable, IPoolRentable`) đại diện cho một lát `byte[]` được lấy từ pool, có quyền sở hữu và bộ đếm tham chiếu. Cả mảng `byte[]` bên dưới lẫn lớp vỏ `BufferLease` đều được tái sử dụng qua pool để xử lý thông điệp không cấp phát.
 
 ## Ánh xạ mã nguồn
 
@@ -47,6 +47,7 @@ package: Nalix.Environment
 | `SpanFull` | `Span<byte>` | Span đọc/ghi trên toàn bộ dung lượng ghi được sau `Headroom` (`_buffer.AsSpan(_start, Capacity)`). |
 | `Memory` | `ReadOnlyMemory<byte>` | Bộ nhớ chỉ đọc trên payload đã cam kết. |
 | `Length` | `int` | Độ dài byte của payload đã cam kết. |
+| `Generation` | `int` | Bộ đếm đọc bằng `Volatile.Read`, thay đổi mỗi khi tham chiếu cuối cùng được giải phóng; giúp `LeaseRef.IsAlive` phát hiện lease pooled đã thuộc về chủ khác. |
 | `Capacity` | `int` | Tổng dung lượng ghi được từ `_start` đến cuối mảng. |
 | `RawCapacity` | `int` | Tổng độ dài của `byte[]` bên dưới (bao gồm `Headroom`). |
 | `Headroom` | `int` | Số byte dự trữ phía trước `_start` (`_start`). |
@@ -57,6 +58,10 @@ package: Nalix.Environment
 | `Retain()` | `void Retain()` | Tăng bộ đếm tham chiếu một cách nguyên tử để dùng chung quyền sở hữu cho broadcast/fan-out. |
 | `ReleaseOwnership` | `bool ReleaseOwnership(out byte[]? buffer, out int start, out int length)` | Tách `byte[]` bên dưới khi `refCount == 1`, để bên gọi chịu trách nhiệm trả nó về pool. |
 | `Dispose()` | `void Dispose()` | Giảm bộ đếm tham chiếu; khi về `0`, trả `byte[]` và tái chế lớp vỏ `BufferLease`. |
+
+## View mượn (`LeaseRef`)
+
+`IBufferLease.AsRef()` (`BufferLeaseExtensions`) trả về `LeaseRef`, một view `ref struct` không thể dispose lease hay sống lâu hơn lời gọi nhận nó. View ghi lại `Generation`, nên `IsAlive` cho biết lease đã được giải phóng và tái sử dụng hay chưa. Phương thức cần buffer lâu hơn gọi `LeaseRef.Retain()` và trở thành chủ sở hữu. Xem [Hợp đồng kết nối](../../abstractions/connection-contracts.md).
 
 ## Ví dụ sử dụng
 

@@ -5,17 +5,17 @@ section: API Reference
 package: Nalix.Analyzers
 ---
 
-`Nalix.Analyzers` and `Nalix.Analyzers.Generators` provide **78 compile-time Roslyn diagnostics** (`NALIX001`–`NALIX110`), **16 automated code fix providers**, and **7 incremental source generators**. Both analyzer assemblies are bundled automatically inside the `Nalix.Abstractions` NuGet package.
+`Nalix.Analyzers` and `Nalix.Analyzers.Generators` provide **86 compile-time Roslyn diagnostics** (`NALIX001`–`NALIX121`), **17 automated code fix providers**, and **7 incremental source generators**. Both analyzer assemblies are bundled automatically inside the `Nalix.Abstractions` NuGet package.
 
 ## Source Mapping
 
-- `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs` (70 analyzer descriptors)
+- `analyzers/Nalix.Analyzers/Diagnostics/DiagnosticDescriptors.cs` (78 analyzer descriptors)
 - `analyzers/Nalix.Analyzers.Generators/Internal/GeneratorDiagnosticDescriptors.cs` (8 source-generator descriptors)
 - `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.cs`
 - `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.SymbolSet.cs`
 - `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.InvocationAnalysis.cs`
 - `analyzers/Nalix.Analyzers/Analyzers/NalixUsageAnalyzer.RpcService.cs`
-- `analyzers/Nalix.Analyzers.CodeFixes/*.cs` (16 code fix providers)
+- `analyzers/Nalix.Analyzers.CodeFixes/*.cs` (17 code fix providers)
 - `analyzers/Nalix.Analyzers.Generators/*.cs` (7 incremental source generators)
 
 ## Analyzer Workflow
@@ -26,7 +26,7 @@ flowchart LR
     A --> SG["7 Incremental Source Generators"]
     B --> C{"Contract or lifecycle violation?"}
     C -->|No| D["Clean build + generated C#"]
-    C -->|Yes| E["Emit NALIX001..NALIX110"]
+    C -->|Yes| E["Emit NALIX001..NALIX121"]
     E --> F{"Automated CodeFix available?"}
     F -->|Yes| G["Apply 1-click Roslyn CodeFix"]
     F -->|No| H["Resolve architectural contract"]
@@ -34,27 +34,27 @@ flowchart LR
     H --> A
 ```
 
-## Diagnostic Surface (`NALIX001`–`NALIX110`)
+## Diagnostic Surface (`NALIX001`–`NALIX121`)
 
-The active descriptor set comprises **78 diagnostics** (70 in `Nalix.Analyzers` and 8 in `Nalix.Analyzers.Generators`). Identifiers `NALIX007`, `NALIX019`, `NALIX029`, `NALIX031`, `NALIX049`, and `NALIX053` were retired when `INetworkBufferMiddleware` and legacy reflection paths were removed.
+The active descriptor set comprises **86 diagnostics** (78 in `Nalix.Analyzers` and 8 in `Nalix.Analyzers.Generators`). Identifiers `NALIX007`, `NALIX019`, `NALIX029`, `NALIX031`, `NALIX025`, `NALIX026`, `NALIX043`, `NALIX049`, and `NALIX053` were retired when `INetworkBufferMiddleware` and legacy reflection paths were removed.
 
 | Area | Codes | Purpose |
 | --- | --- | --- |
 | **Controller dispatch & packet registration** | `NALIX001`–`NALIX005`, `NALIX008`–`NALIX012`, `NALIX017`–`NALIX018`, `NALIX035`–`NALIX036`, `NALIX047`–`NALIX048`, `NALIX050`, `NALIX052`, `NALIX054`–`NALIX056`, `NALIX058`, `NALIX067`–`NALIX068`, `NALIX106` | Validates `[PacketHandler]` controllers, `IPacketContext<TPacket>` handler signatures, `[FromScope]` parameters, opcode uniqueness (`StaticOpCode` & `[PacketOpcode]`), dispatch loop bounds (`1..64`), and `Deserialize` contracts. |
-| **Middleware & routing metadata** | `NALIX006`, `NALIX025`–`NALIX026`, `NALIX030`, `NALIX032`–`NALIX033`, `NALIX038` | Enforces `[MiddlewareOrder]`, middleware packet-type compatibility, `AlwaysExecute` stage rules, metadata builder guards, and XML opcode consistency. |
+| **Middleware & routing metadata** | `NALIX006`, `NALIX030`, `NALIX032`–`NALIX033`, `NALIX038` | Enforces `[MiddlewareOrder]`, middleware packet-type compatibility, `AlwaysExecute` stage rules, metadata builder guards, and XML opcode consistency. |
 | **Serialization & schema layout** | `NALIX013`–`NALIX016`, `NALIX021`–`NALIX022`, `NALIX034`, `NALIX046`, `NALIX051`, `NALIX059`–`NALIX060` | Validates `SerializeLayout.Explicit`, `[SerializeOrder]`, `[SerializeHeader]` conflicts, `IFixedSizeSerializable`, static `Create()` on `[GenerateFormatter]` reference types, and `partial` modifiers on `PacketBase<TSelf>` types. |
-| **DI, configuration, RPC, SDK & hosting** | `NALIX020`, `NALIX023`–`NALIX024`, `NALIX027`–`NALIX028`, `NALIX037`, `NALIX039`–`NALIX045`, `NALIX057`, `NALIX063`–`NALIX066`, `NALIX100`–`NALIX105`, `NALIX107`–`NALIX110` | Checks `ResetForPool()` completeness, `.ini` property bindability, `RequestOptions` bounds, `IBufferLease` disposal and ownership, `NetworkApplicationBuilder` setup, `[Injectable]` / `SingletonBase<T>` constructors, `[Inject]` field mutability, and `[RpcService]` contracts. |
+| **DI, configuration, RPC, SDK & hosting** | `NALIX020`, `NALIX023`–`NALIX024`, `NALIX027`–`NALIX028`, `NALIX037`, `NALIX039`–`NALIX042`, `NALIX044`–`NALIX045`, `NALIX057`, `NALIX063`–`NALIX066`, `NALIX100`–`NALIX105`, `NALIX107`–`NALIX121` | Checks `ResetForPool()` completeness, `.ini` property bindability, `RequestOptions` bounds, `IBufferLease` disposal and ownership, `NetworkApplicationBuilder` setup, `[Injectable]` / `SingletonBase<T>` constructors, `[Inject]` field mutability, and `[RpcService]` contracts. |
 | **Security, pooling & AOT** | `NALIX071`–`NALIX076`, `NALIX078` | Prevents `IPacketContext<T>` escaping handler scope (`NALIX076`), enforces `using` on `PacketScope<T>` (`NALIX075`), and guards Nalix Core assemblies against unreviewed crypto, hot-path endpoint allocations, unguarded catches, and AOT-unsafe reflection. |
 
-For the complete table of all 78 diagnostics, see [Diagnostic Codes](./diagnostic-codes.md).
+For the complete table of all 86 diagnostics, see [Diagnostic Codes](./diagnostic-codes.md).
 
 ## Automated Code Fix Coverage
 
-`Nalix.Analyzers.CodeFixes` provides 16 targeted Roslyn code fix providers covering **20 active diagnostic IDs** (plus retired `NALIX031`):
+`Nalix.Analyzers.CodeFixes` provides 17 targeted Roslyn code fix providers covering **21 active diagnostic IDs** (plus retired `NALIX031`):
 
 | Category | Code Fix Providers | Fixed Diagnostics |
 | --- | --- | --- |
-| **Packet & controller shape** | `PacketHandlerCodeFixProvider`, `PacketOpcodeCodeFixProvider`, `PacketDeserializeCodeFixProvider`, `PacketRegistryDeserializerCodeFixProvider`, `PacketSelfTypeCodeFixProvider`, `GenericPacketHandlerCodeFixProvider` | `NALIX002`, `NALIX008`, `NALIX009`, `NALIX010`, `NALIX011`, `NALIX012`, `NALIX052`, `NALIX058` |
+| **Packet & controller shape** | `PacketHandlerCodeFixProvider`, `PacketOpcodeCodeFixProvider`, `PacketDeserializeCodeFixProvider`, `PacketRegistryDeserializerCodeFixProvider`, `PacketSelfTypeCodeFixProvider`, `GenericPacketHandlerCodeFixProvider`, `HandlerPermissionCodeFixProvider` | `NALIX002`, `NALIX008`, `NALIX009`, `NALIX010`, `NALIX011`, `NALIX012`, `NALIX052`, `NALIX058`, `NALIX111` |
 | **Serialization attributes** | `SerializeOrderMissingCodeFixProvider`, `DuplicateSerializeOrderCodeFixProvider`, `SerializationConflictCodeFixProvider` | `NALIX013`, `NALIX014`, `NALIX015` |
 | **Middleware & dispatch setup** | `MiddlewareCodeFixProvider`, `NullMiddlewareCodeFixProvider`, `DispatchLoopCountCodeFixProvider` | `NALIX030`, `NALIX032`, `NALIX047`, `NALIX056` |
 | **Configuration & SDK options** | `ConfigurationIgnoreCodeFixProvider`, `RequestOptionsConsistencyCodeFixProvider` | `NALIX023`, `NALIX024`, `NALIX057` |
