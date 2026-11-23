@@ -84,6 +84,8 @@ export const viVn: TranslationDictionary = {
   'doc.copyCode': 'Sao chép',
   'doc.copiedCode': 'Đã chép',
   'doc.copyMarkdown': 'Chép Markdown',
+  'doc.lastUpdated': 'Cập nhật lần cuối',
+  'doc.filterRows': 'Lọc các dòng…',
   'doc.copiedMarkdown': 'Đã chép Markdown',
   'doc.fallbackBannerTitle': 'Đang cập nhật bản dịch',
   'doc.fallbackBannerBody':

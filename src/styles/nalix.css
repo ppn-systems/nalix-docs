@@ -2286,3 +2286,113 @@ html.nlx-is-arriving .nlx-topline span {
     animation: none;
   }
 }
+
+/* ---- UI polish ---- */
+body {
+  overflow-x: clip; /* hidden mega menus must not widen the page */
+}
+
+:where(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary-main);
+  outline-offset: 2px;
+}
+
+.nlx-prose :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
+.nlx-prose :is(h1, h2, h3, h4) > code,
+.nlx-prose :is(h1, h2, h3, h4) code {
+  font-size: 0.85em;
+  font-weight: inherit;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.nlx-table-scroll {
+  /* edge shadows hint that the table scrolls sideways */
+  background:
+    linear-gradient(to right, var(--bg-default) 30%, transparent) left center / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--bg-default) 30%, transparent) right center / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.35), transparent) left center / 10px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.35), transparent) right center / 10px 100% no-repeat scroll;
+}
+
+.nlx-table-filter {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: 32px;
+  margin: 1.2rem 0 -0.6rem;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-input);
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.nlx-table-filter:focus-visible {
+  outline: 2px solid var(--primary-main);
+  outline-offset: 1px;
+}
+
+.nlx-last-updated {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 960px) {
+  .nlx-prose tbody td:first-child,
+  .nlx-prose thead th:first-child {
+    position: sticky;
+    left: 0;
+    background-color: var(--bg-paper);
+    z-index: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  /* header search collapses to an icon and expands over the header on focus */
+  .nlx-search-box,
+  .nlx-search-box:focus-within {
+    min-width: 0;
+  }
+  .nlx-search-box {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+  .nlx-search-box svg {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .nlx-search-box__input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 0 0 0 32px;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .nlx-search-box:focus-within {
+    position: fixed;
+    top: 9px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    height: 36px;
+    padding: 0 10px;
+    justify-content: flex-start;
+    z-index: 200;
+    background-color: var(--bg-paper);
+  }
+  .nlx-search-box:focus-within .nlx-search-box__input {
+    opacity: 1;
+    cursor: text;
+    padding-left: 28px;
+  }
+}
