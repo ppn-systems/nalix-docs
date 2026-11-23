@@ -2292,7 +2292,7 @@ body {
   overflow-x: clip; /* hidden mega menus must not widen the page */
 }
 
-:where(a, button, summary, input, [tabindex]):focus-visible {
+:where(a, button, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--primary-main);
   outline-offset: 2px;
 }
@@ -2332,6 +2332,11 @@ body {
   color: var(--text-primary);
   font: inherit;
   font-size: 0.8125rem;
+}
+
+.nlx-table-filter:focus-visible {
+  outline: 2px solid var(--primary-main);
+  outline-offset: 1px;
 }
 
 .nlx-last-updated {
