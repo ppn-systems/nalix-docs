@@ -2427,37 +2427,6 @@ body {
   border-color: var(--primary-main);
 }
 
-.nlx-home-sample {
-  width: 100%;
-  max-width: 640px;
-  margin: 14px 0 0;
-  border-radius: 8px;
-  border: 1px solid var(--border-divider);
-  background-color: var(--bg-code);
-  text-align: left;
-  overflow: hidden;
-}
-
-.nlx-home-sample figcaption {
-  padding: 6px 14px;
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  background-color: var(--bg-code-header);
-  border-bottom: 1px solid var(--border-divider);
-}
-
-.nlx-home-sample pre {
-  margin: 0;
-  padding: 12px 14px;
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  line-height: 1.6;
-  color: var(--text-primary);
-}
-
 /* cards in a row share the same height */
 .nlx-product-grid {
   align-items: stretch;

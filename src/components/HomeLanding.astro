@@ -17,14 +17,6 @@ interface ProductCardItem {
   topics: Array<{ key?: string; label?: string; slug: string }>;
 }
 
-const sample = `await using NetworkApplication app = NetworkApplication.CreateBuilder()
-    .UseLogger(logger)
-    .MapHandlers(typeof(HelloHandlers))
-    .MapTcp<DefaultProtocol>().OnPort(57206).Bind()
-    .Build();
-
-await app.RunAsync(cts.Token);`;
-
 const productCards: ProductCardItem[] = [
   {
     id: 'start',
@@ -133,10 +125,6 @@ const productCards: ProductCardItem[] = [
           <a href={localizePath('api', locale)} class="nlx-home-cta__btn nlx-home-cta__btn--ghost" data-astro-prefetch>{t('home.cta.api')}</a>
         </div>
 
-        <figure class="nlx-home-sample">
-          <figcaption>{t('home.sampleCaption')}</figcaption>
-          <pre><code>{sample}</code></pre>
-        </figure>
       </div>
     </div>
 

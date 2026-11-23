@@ -40,7 +40,6 @@ export const viVn: TranslationDictionary = {
   'hero.subtitle': 'Tài liệu hướng dẫn và tham chiếu API chính thức.',
   'home.cta.quickstart': 'Bắt đầu',
   'home.cta.api': 'Tham chiếu API',
-  'home.sampleCaption': 'Một TCP server hoàn chỉnh chỉ vài dòng',
   'home.exploreTopics': 'Khám phá chủ đề',
   'home.card.start.title': 'Bắt đầu',
   'home.card.start.desc': 'Thiết lập môi trường .NET 10 hoặc .NET 11, định nghĩa gói tin dùng chung và chạy server và client Nalix đầu tiên của bạn.',
