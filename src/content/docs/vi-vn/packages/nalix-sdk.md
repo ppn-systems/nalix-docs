@@ -5,7 +5,7 @@ section: Packages
 package: Nalix.SDK
 ---
 
-`Nalix.SDK` là gói transport phía client **cấp 3** để kết nối các ứng dụng .NET 10 (console, desktop, di động, hoặc client Unity/Godot) với máy chủ Nalix qua các phiên TCP, WebSocket hoặc datagram (NDP qua UDP).
+`Nalix.SDK` là gói transport phía client **cấp 3** để kết nối các ứng dụng .NET 10 và .NET 11 (console, desktop, di động, hoặc client Unity/Godot) với máy chủ Nalix qua các phiên TCP, WebSocket hoặc datagram (NDP qua UDP).
 
 :::tip[Bắt đầu với `TcpSession`]
 `TcpSession` là kiểu phiên client chính. Nó quản lý kết nối socket, các vòng lặp nhận frame chạy nền, các probe keepalive PING/PONG tự động, kết nối lại theo backoff lũy thừa (`ReconnectSupervisor`), bắt tay X25519, và ghép cặp request/response không có race condition.

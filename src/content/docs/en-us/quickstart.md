@@ -10,7 +10,7 @@ Full source: `samples/HelloWorld`
 
 ## What you need
 
-- .NET 10 SDK
+- .NET 10 SDK or later (Nalix targets `net10.0` and `net11.0`)
 
 ## Fastest path — run it in 30 seconds
 

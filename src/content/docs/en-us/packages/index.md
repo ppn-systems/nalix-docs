@@ -1,6 +1,6 @@
 ---
 title: Packages Overview
-description: Architecture, dependency hierarchy, and responsibilities of every NuGet package in the Nalix .NET 10 real-time networking ecosystem.
+description: Architecture, dependency hierarchy, and responsibilities of every NuGet package in the Nalix .NET 10 / .NET 11 real-time networking ecosystem.
 section: Packages
 ---
 

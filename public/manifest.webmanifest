@@ -1,7 +1,7 @@
 {
   "name": "Nalix Documentation",
   "short_name": "Nalix Docs",
-  "description": "High-performance .NET 10 real-time networking framework documentation, architecture guides, and API reference.",
+  "description": "High-performance .NET 10 / .NET 11 real-time networking framework documentation, architecture guides, and API reference.",
   "start_url": "/en-us",
   "scope": "/",
   "display": "standalone",

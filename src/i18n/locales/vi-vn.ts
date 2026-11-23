@@ -3,8 +3,8 @@ import type { TranslationDictionary } from './en-us';
 export const viVn: TranslationDictionary = {
   'site.title': 'Tài liệu Nalix',
   'site.headerBrand': 'Tài liệu',
-  'site.tagline': 'Framework mạng thời gian thực TCP, UDP và WebSocket hiệu năng cao cấp doanh nghiệp cho .NET 10.',
-  'site.announcement': 'Nalix cho .NET 10 — Độ trễ cực thấp, xử lý gói tin không cấp phát bộ nhớ dư thừa.',
+  'site.tagline': 'Framework mạng thời gian thực TCP, UDP và WebSocket hiệu năng cao cấp doanh nghiệp cho .NET 10 và .NET 11.',
+  'site.announcement': 'Nalix cho .NET 10 và .NET 11 — Độ trễ cực thấp, xử lý gói tin không cấp phát bộ nhớ dư thừa.',
 
   // Header & Navigation
   'nav.overview': 'Trang chủ',
@@ -40,7 +40,7 @@ export const viVn: TranslationDictionary = {
   'hero.subtitle': 'Tài liệu hướng dẫn và tham chiếu API chính thức.',
   'home.exploreTopics': 'Khám phá chủ đề',
   'home.card.start.title': 'Bắt đầu',
-  'home.card.start.desc': 'Thiết lập môi trường .NET 10, định nghĩa gói tin dùng chung và chạy server và client Nalix đầu tiên của bạn.',
+  'home.card.start.desc': 'Thiết lập môi trường .NET 10 hoặc .NET 11, định nghĩa gói tin dùng chung và chạy server và client Nalix đầu tiên của bạn.',
   'home.card.guides.title': 'Hướng dẫn ứng dụng & mạng',
   'home.card.guides.desc': 'Hướng dẫn thực hành về server chat thời gian thực, mẫu socket TCP/UDP, pipeline middleware và triển khai production.',
   'home.card.concepts.title': 'Khái niệm cốt lõi & nội bộ',
@@ -98,5 +98,5 @@ export const viVn: TranslationDictionary = {
 
   // Footer
   'footer.copyright': 'Bản quyền © 2026 PPN Systems. Bảo lưu mọi quyền.',
-  'footer.builtWith': 'Thiết kế cho .NET 10.',
+  'footer.builtWith': 'Thiết kế cho .NET 10 và .NET 11.',
 };

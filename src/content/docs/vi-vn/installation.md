@@ -10,7 +10,7 @@ Trang này hướng dẫn cách chọn đúng các package Nalix cho project c�
 
 | Yêu cầu | Tối thiểu |
 |---|---|
-| **.NET SDK** | 10.0 trở lên ([tải về](https://dotnet.microsoft.com/download)) |
+| **.NET SDK** | 10.0 trở lên (các gói Nalix nhắm tới `net10.0` và `net11.0`) ([tải về](https://dotnet.microsoft.com/download)) |
 | **Phiên bản ngôn ngữ C#** | 14 (mặc định với .NET 10) |
 | **IDE** | Visual Studio 2026, JetBrains Rider 2025.3+, hoặc VS Code với C# Dev Kit |
 

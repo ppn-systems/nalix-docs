@@ -5,7 +5,7 @@ section: Packages
 package: Nalix.SDK
 ---
 
-`Nalix.SDK` is the **Level 3** client-side transport package for connecting .NET 10 applications (console, desktop, mobile, or Unity/Godot clients) to a Nalix server over TCP, WebSocket, or datagram (NDP over UDP) sessions.
+`Nalix.SDK` is the **Level 3** client-side transport package for connecting .NET 10 and .NET 11 applications (console, desktop, mobile, or Unity/Godot clients) to a Nalix server over TCP, WebSocket, or datagram (NDP over UDP) sessions.
 
 :::tip[Start with `TcpSession`]
 `TcpSession` is the primary client session type. It manages socket connection, background framed receive loops, automatic keepalive PING/PONG probes, exponential-backoff reconnects (`ReconnectSupervisor`), X25519 handshakes, and zero-race request/response correlation.

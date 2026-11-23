@@ -1,6 +1,6 @@
 ---
 title: Tổng quan gói
-description: Kiến trúc, cây phụ thuộc và trách nhiệm của mọi gói NuGet trong hệ sinh thái mạng thời gian thực .NET 10 của Nalix.
+description: Kiến trúc, cây phụ thuộc và trách nhiệm của mọi gói NuGet trong hệ sinh thái mạng thời gian thực .NET 10 / .NET 11 của Nalix.
 section: Packages
 ---
 

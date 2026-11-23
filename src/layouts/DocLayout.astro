@@ -99,7 +99,7 @@ const jsonLdSchema = isLanding
           name: 'Nalix',
           description: metaDescription,
           programmingLanguage: 'C#',
-          runtimePlatform: '.NET 10',
+          runtimePlatform: '.NET 10, .NET 11',
           codeRepository: 'https://github.com/ppn-systems/nalix',
           license: 'https://opensource.org/licenses/Apache-2.0',
         },
@@ -575,6 +575,13 @@ const jsonLdSchema = isLanding
           wrapper.appendChild(table);
         });
         initTableFilters();
+
+        // Line numbers for longer code blocks
+        document.querySelectorAll<HTMLElement>('.nlx-prose pre.astro-code').forEach((pre) => {
+          const lang = (pre.getAttribute('data-language') || '').toLowerCase();
+          const isShell = ['bash', 'sh', 'shell', 'powershell', 'text', 'txt', 'console'].includes(lang);
+          if (!isShell && pre.querySelectorAll('.line').length >= 6) pre.classList.add('nlx-code--numbered');
+        });
 
         // Wrap code blocks with clean developer header (no fake window dots)
         document.querySelectorAll<HTMLPreElement>('.nlx-prose pre.astro-code').forEach((pre) => {

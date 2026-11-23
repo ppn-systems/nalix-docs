@@ -10,7 +10,7 @@ This page explains how to select the right Nalix packages for your project and v
 
 | Requirement | Minimum |
 |---|---|
-| **.NET SDK** | 10.0 or later ([download](https://dotnet.microsoft.com/download)) |
+| **.NET SDK** | 10.0 or later (Nalix packages target `net10.0` and `net11.0`) ([download](https://dotnet.microsoft.com/download)) |
 | **C# language version** | 14 (default with .NET 10) |
 | **IDE** | Visual Studio 2026, JetBrains Rider 2025.3+, or VS Code with C# Dev Kit |
 
