@@ -24,6 +24,7 @@ Cả 12 framework và baseline dưới đây, cùng hai lần chạy chẩn đo�
 - **Dispatcher inline (dòng chẩn đoán):** với `InlinePacketDispatcher`, vốn chuyển thẳng mỗi gói vào một work item của thread pool thay vì đi qua dispatch channel, Nalix TCP đạt 135.9k ops/s ở 32 B và 92.9k ở 1 KB với 64 client, với 15.0 µs CPU máy chủ mỗi tin nhắn, ngang với echo WebSocket Kestrel thô (133.7k). Đây là tùy chọn bật thêm, phù hợp với handler ngắn và không chặn.
 - **CPU máy chủ trên mỗi tin nhắn:** với 64 client và 32 B, Nalix WebSocket (20.9 µs) và SignalR (21.0 µs) tốn ít CPU nhất trong các framework đầy đủ, rẻ hơn Nalix TCP (23.4 µs) và gRPC duplex (24.9 µs); phía client của Nalix cũng rẻ hơn (16.0 µs CPU/op phía client so với 21.6 µs của SignalR).
 - **Cấp phát phía máy chủ:** 56 B mỗi tin nhắn ở 32 B với Nalix TCP, Nalix WebSocket và Nalix AEAD, thấp nhất trong số các framework đầy đủ (MagicOnion hub 200 B, gRPC duplex 264 B, SignalR 672 B). Chỉ baseline echo WebSocket Kestrel thô là cấp phát ít hơn (0 B). Ở 1 KB, Nalix TCP cấp phát 1,048 B so với 1,192 B của MagicOnion hub, 1,256 B của gRPC duplex và 1,664 B của SignalR.
+- **Payload dùng pool (tùy chọn):** payload `BufferLease` thay cho `byte[]` đưa mức cấp phát phía máy chủ từ 56 B xuống 0 B ở 32 B và từ 1,048 B xuống 0 B ở 1 KB, không làm thay đổi nhất quán thông lượng hay CPU máy chủ; xem [Payload dùng pool](#payload-dùng-pool-tùy-chọn).
 - **Mã hóa:** Nalix AEAD (X25519 + ChaCha20-Poly1305) thắng gRPC qua TLS về độ trễ một client (p50 ở 32 B: 58.4 µs so với 105.2 µs của gRPC duplex TLS; ở 1 KB: 76.4 µs so với 114.5 µs), về thông lượng 64 client (86.5k so với 51.8k ops/s ở 32 B; 66.9k so với 49.3k ở 1 KB) và về cấp phát phía máy chủ (56 B so với 809 B ở 32 B; 1,048 B so với 1,795 B ở 1 KB).
 
 ## Môi trường
@@ -181,6 +182,60 @@ benchmarks/run-comparison.sh        # Linux/macOS
 | grpc-duplex-tls | 1795 | 37.4 | 33.5 | 3345 | 156/0/0 |
 | magiconion-unary | 3736 | 33.5 | 35.4 | 9705 | 250/1/0 |
 | magiconion-hub | 1192 | 31.7 | 27.3 | 3262 | 221/0/0 |
+
+## Payload dùng pool (tùy chọn)
+
+Một gói tin có payload là `byte[]` tốn một lần cấp phát cho mỗi tin nhắn ở phía nhận: bộ giải tuần tự hóa tạo mảng (header 24 B cộng payload, tức 56 B ở 32 B và 1,048 B ở 1 KB). `ReadOnlyMemory<byte>` không tránh được điều này, vì formatter của nó cũng cấp phát mảng nền. Trường `BufferLease` (`Nalix.Environment.Memory`) thì được đọc vào một bộ đệm thuê từ buffer pool, nên máy chủ không cấp phát gì cho tin nhắn.
+
+Các gói echo của `benchmarks/Nalix.Comparison.Benchmarks` đã được đổi sang `BufferLease? Data` để đo điều này. Handler gọi `Retain()` trên lease của yêu cầu để phản hồi sở hữu một tham chiếu riêng, và cả hai gói đều giải phóng lease trong `ResetForPool`.
+
+**Cách đo.** Mỗi biến thể trong năm biến thể Nalix được đo theo cặp trên một máy ảo 4 vCPU riêng (16 GB, Linux 6.18, .NET SDK 10.0.404 và 11.0.100-rc.3; CPU được liệt kê ở bảng cuối) vào ngày 2026-11-23: trước hết là bản `byte[]` của `master`, sau đó là bản có gói echo `BufferLease`, cả hai với tham số mặc định của các bảng chính (3 lần chạy mỗi ô). Một lần chạy `raw-tcp` ngắn (32 B, 16 và 64 client) trước và sau mỗi cặp cho biết máy ảo đó nhanh đến đâu. Trong các bảng dưới đây, mỗi ô đọc là `byte[]` → `BufferLease`, và `±` là một nửa độ trải (max − min)/median của các lần chạy.
+
+Dữ liệu thô: [data/network-comparison-pooled-payload.jsonl](data/network-comparison-pooled-payload.jsonl), mỗi dòng một lần chạy. Mỗi dòng bắt đầu bằng khóa `variant` (`<library>/<before|after|anchor-start|anchor-end>`); phần còn lại của dòng là đầu ra của harness, giữ nguyên.
+
+### Payload dùng pool — payload 32 B
+
+| Thư viện | cấp phát máy chủ/op (B) | Gen0 máy chủ mỗi lần chạy | CPU máy chủ/op (µs) | ops/s, 64 client | độ trễ p50 (µs), 1 client | cấp phát client/op (B) |
+|:--|--:|--:|--:|--:|--:|--:|
+| nalix-tcp | 56 → 0 | 2 → 0 | 24.4 → 22.1 | 92,064 (±4%) → 101,250 (±6%) | 55.5 → 72.3 | 232 → 288 |
+| nalix-ws | 56 → 0 | 1 → 0 | 20.1 → 20.7 | 97,782 (±2%) → 94,004 (±1%) | 58.3 → 67.1 | 368 → 424 |
+| nalix-tcp-aead | 56 → 0 | 2 → 0 | 24.6 → 26.6 | 89,937 (±2%) → 83,181 (±5%) | 49.9 → 55.7 | 232 → 288 |
+| nalix-tcp-nocomp | 56 → 0 | 2 → 0 | 22.3 → 22.0 | 101,658 (±15%) → 106,113 (±8%) | 41.7 → 53.3 | 232 → 288 |
+| nalix-tcp-inline | 56 → 0 | 21 → 0 | 16.0 → 16.6 | 120,256 (±2%) → 118,283 (±2%) | 45.5 → 49.3 | 232 → 288 |
+
+### Payload dùng pool — payload 1024 B
+
+| Thư viện | cấp phát máy chủ/op (B) | Gen0 máy chủ mỗi lần chạy | CPU máy chủ/op (µs) | ops/s, 64 client | độ trễ p50 (µs), 1 client | cấp phát client/op (B) |
+|:--|--:|--:|--:|--:|--:|--:|
+| nalix-tcp | 1048 → 0 | 259 → 0 | 26.1 → 29.7 | 74,998 (±10%) → 71,842 (±17%) | 54.6 → 52.7 | 1224 → 1280 |
+| nalix-ws | 1048 → 0 | 209 → 0 | 23.1 → 21.3 | 79,573 (±2%) → 86,280 (±3%) | 65.3 → 68.8 | 1360 → 1416 |
+| nalix-tcp-aead | 1048 → 0 | 240 → 0 | 29.9 → 29.1 | 67,762 (±4%) → 73,115 (±4%) | 66.8 → 66.3 | 1224 → 1280 |
+| nalix-tcp-nocomp | 1048 → 0 | 297 → 0 | 24.8 → 26.4 | 83,891 (±5%) → 81,838 (±9%) | 54.8 → 54.8 | 1224 → 1280 |
+| nalix-tcp-inline | 1049 → 0 | 308 → 0 | 20.0 → 19.3 | 87,282 (±4%) → 96,043 (±2%) | 51.2 → 54.0 | 1224 → 1280 |
+
+### Neo VM — raw-tcp, 64 client, 32 B (ops/s, median của các lần chạy)
+
+| Cặp đo trên máy ảo riêng | CPU (Intel Xeon) | trước cặp | sau cặp | sau ÷ trước |
+|:--|:--|--:|--:|--:|
+| nalix-tcp | 2.30 GHz | 146,169 | 163,027 | 1.12 |
+| nalix-ws | 2.30 GHz | 166,906 | 162,651 | 0.97 |
+| nalix-tcp-aead | 2.10 GHz | 154,786 | 149,167 | 0.96 |
+| nalix-tcp-nocomp | 2.30 GHz | 159,115 | 159,263 | 1.00 |
+| nalix-tcp-inline | 2.10 GHz | 151,091 | 152,473 | 1.01 |
+
+
+Những gì các số liệu chứng minh được:
+
+- **Cấp phát và GC phía máy chủ.** Mức cấp phát của máy chủ cho mỗi tin nhắn giảm từ 56 B xuống 0 B ở 32 B và từ 1,048 B xuống 0 B ở 1 KB ở cả năm biến thể, và các lần thu gom Gen0 đi kèm cũng biến mất (209 đến 308 mỗi lần chạy ở 1 KB).
+- **Thông lượng và CPU máy chủ.** Không có hướng nhất quán. Trên mười ô, thông lượng 64 client dao động từ −7.5% đến +10% (năm ô tăng, năm ô giảm), và CPU máy chủ mỗi tin nhắn tăng ở năm ô và giảm ở năm ô. Bản thân neo `raw-tcp` lệch tới 12% giữa đầu và cuối một cặp, nên các chênh lệch cỡ đó không phân biệt được với việc máy ảo đổi tốc độ.
+- **Độ trễ.** p50 một client ở 32 B cao hơn với `BufferLease` ở cả năm cặp (+3.8 đến +16.8 µs); ở 1 KB nó nằm trong khoảng −1.9 đến +3.5 µs. Lần chạy `byte[]` luôn đi trước, nên chưa loại trừ được thứ tự chạy là nguyên nhân.
+- **Cấp phát phía client.** Tăng 56 B mỗi tin nhắn ở cả mười ô. Chưa điều tra nguyên nhân.
+
+:::warning[Dành cho ai]
+Bên nhận sở hữu lease và phải giải phóng nó; gói tin dùng pool làm việc đó trong `ResetForPool`, và handler echo payload phải `Retain()` nó. Điều này phù hợp với payload được chuyển tiếp mà không đọc (gateway, tunnel, khung media). Với các gói yêu cầu và phản hồi thông thường, hãy giữ `byte[]`: lợi ích là không còn cấp phát, không phải tốc độ.
+:::
+
+**Chạy lại bảng so sánh chính.** Cả mười hai thư viện cũng được đo lại vào ngày 2026-11-23, mỗi thư viện trên một máy ảo riêng. Thứ tự của các bảng chính được tái lập (SignalR và gRPC duplex nằm trong nhiễu của nhau), và mức cấp phát phía máy chủ cũng vậy, sai khác tối đa 4 B. Thông lượng tuyệt đối thay đổi giữa các máy ảo (một số là Xeon @ 2.30 GHz, một số @ 2.10 GHz): neo `raw-tcp` ở 64 client dao động từ 127,198 đến 180,245 ops/s trên mười hai máy. Vì vậy các bảng chính ở trên được giữ nguyên là lượt đo trên một máy của 2026-11-22.
 
 ## Ai thắng ở đâu
 

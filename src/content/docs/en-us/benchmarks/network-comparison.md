@@ -27,6 +27,7 @@ All 12 frameworks and baselines below, plus the two diagnostic Nalix runs, were 
 - **Inline dispatcher (diagnostic row):** with `InlinePacketDispatcher`, which hands each packet straight to a thread-pool work item instead of the dispatch channel, Nalix TCP reaches 135.9k ops/s at 32 B and 92.9k at 1 KB with 64 clients, at 15.0 µs of server CPU per message, on par with the raw Kestrel WebSocket echo (133.7k). It is opt-in and suits short handlers that do not block.
 - **Server CPU per message:** at 64 clients and 32 B, Nalix WebSocket (20.9 µs) and SignalR (21.0 µs) are the cheapest of the full frameworks, ahead of Nalix TCP (23.4 µs) and gRPC duplex (24.9 µs); the Nalix client is also cheaper (16.0 µs client CPU/op vs 21.6 µs for SignalR).
 - **Server allocations:** 56 B per message at 32 B for Nalix TCP, Nalix WebSocket and Nalix AEAD, the lowest of the full frameworks (MagicOnion hub 200 B, gRPC duplex 264 B, SignalR 672 B). Only the raw Kestrel WebSocket baseline allocates less (0 B). At 1 KB Nalix TCP allocates 1,048 B vs 1,192 B for the MagicOnion hub, 1,256 B for gRPC duplex and 1,664 B for SignalR.
+- **Pooled payload (opt-in):** a `BufferLease` payload instead of `byte[]` takes the server allocation from 56 B to 0 B at 32 B and from 1,048 B to 0 B at 1 KB, with no consistent change in throughput or server CPU; see [Pooled payload](#pooled-payload-opt-in).
 - **Encryption:** Nalix AEAD (X25519 + ChaCha20-Poly1305) wins against gRPC over TLS on single-client latency (32 B p50 58.4 µs vs 105.2 µs for gRPC duplex TLS; at 1 KB 76.4 µs vs 114.5 µs), on 64-client throughput (86.5k vs 51.8k ops/s at 32 B; 66.9k vs 49.3k at 1 KB) and on server allocations (56 B vs 809 B at 32 B; 1,048 B vs 1,795 B at 1 KB).
 
 ## Environment
@@ -197,6 +198,59 @@ benchmarks/run-comparison.sh        # Linux/macOS
 | grpc-duplex-tls | 1795 | 37.4 | 33.5 | 3345 | 156/0/0 |
 | magiconion-unary | 3736 | 33.5 | 35.4 | 9705 | 250/1/0 |
 | magiconion-hub | 1192 | 31.7 | 27.3 | 3262 | 221/0/0 |
+
+## Pooled payload (opt-in)
+
+A packet whose payload is a `byte[]` costs one allocation per message on the receiving side: the deserializer creates the array (a 24 B header plus the payload, so 56 B at 32 B and 1,048 B at 1 KB). `ReadOnlyMemory<byte>` does not avoid it, because its formatter also allocates the backing array. A `BufferLease` field (`Nalix.Environment.Memory`) is read into a buffer rented from the buffer pool instead, so the server allocates nothing for the message.
+
+The echo packets of `benchmarks/Nalix.Comparison.Benchmarks` were switched to `BufferLease? Data` to measure it. The handler calls `Retain()` on the request's lease so that the response owns its own reference, and both packets release their lease in `ResetForPool`.
+
+**How it was measured.** Each of the five Nalix variants was measured as a pair on its own 4-vCPU VM (16 GB, Linux 6.18, .NET SDK 10.0.404 and 11.0.100-rc.3; the CPU is listed in the last table) on 2026-11-23: first the `byte[]` build of `master`, then the build with the `BufferLease` echo packets, both with the default arguments of the main tables (3 runs per cell). A short `raw-tcp` run (32 B, 16 and 64 clients) before and after each pair gauges how fast that VM was. In the tables below, each cell reads `byte[]` → `BufferLease`, and `±` is half of the (max − min)/median spread of the runs.
+
+Raw data: [data/network-comparison-pooled-payload.jsonl](data/network-comparison-pooled-payload.jsonl), one row per run. Each row starts with a `variant` key (`<library>/<before|after|anchor-start|anchor-end>`); the rest of the row is the harness output, unchanged.
+
+### Pooled payload — 32 B payload
+
+| Library | server alloc/op (B) | server Gen0 per run | server CPU/op (µs) | ops/s, 64 clients | p50 latency (µs), 1 client | client alloc/op (B) |
+|:--|--:|--:|--:|--:|--:|--:|
+| nalix-tcp | 56 → 0 | 2 → 0 | 24.4 → 22.1 | 92,064 (±4%) → 101,250 (±6%) | 55.5 → 72.3 | 232 → 288 |
+| nalix-ws | 56 → 0 | 1 → 0 | 20.1 → 20.7 | 97,782 (±2%) → 94,004 (±1%) | 58.3 → 67.1 | 368 → 424 |
+| nalix-tcp-aead | 56 → 0 | 2 → 0 | 24.6 → 26.6 | 89,937 (±2%) → 83,181 (±5%) | 49.9 → 55.7 | 232 → 288 |
+| nalix-tcp-nocomp | 56 → 0 | 2 → 0 | 22.3 → 22.0 | 101,658 (±15%) → 106,113 (±8%) | 41.7 → 53.3 | 232 → 288 |
+| nalix-tcp-inline | 56 → 0 | 21 → 0 | 16.0 → 16.6 | 120,256 (±2%) → 118,283 (±2%) | 45.5 → 49.3 | 232 → 288 |
+
+### Pooled payload — 1024 B payload
+
+| Library | server alloc/op (B) | server Gen0 per run | server CPU/op (µs) | ops/s, 64 clients | p50 latency (µs), 1 client | client alloc/op (B) |
+|:--|--:|--:|--:|--:|--:|--:|
+| nalix-tcp | 1048 → 0 | 259 → 0 | 26.1 → 29.7 | 74,998 (±10%) → 71,842 (±17%) | 54.6 → 52.7 | 1224 → 1280 |
+| nalix-ws | 1048 → 0 | 209 → 0 | 23.1 → 21.3 | 79,573 (±2%) → 86,280 (±3%) | 65.3 → 68.8 | 1360 → 1416 |
+| nalix-tcp-aead | 1048 → 0 | 240 → 0 | 29.9 → 29.1 | 67,762 (±4%) → 73,115 (±4%) | 66.8 → 66.3 | 1224 → 1280 |
+| nalix-tcp-nocomp | 1048 → 0 | 297 → 0 | 24.8 → 26.4 | 83,891 (±5%) → 81,838 (±9%) | 54.8 → 54.8 | 1224 → 1280 |
+| nalix-tcp-inline | 1049 → 0 | 308 → 0 | 20.0 → 19.3 | 87,282 (±4%) → 96,043 (±2%) | 51.2 → 54.0 | 1224 → 1280 |
+
+### VM anchor — raw-tcp, 64 clients, 32 B (ops/s, median of runs)
+
+| Pair measured on its own VM | CPU (Intel Xeon) | before the pair | after the pair | after ÷ before |
+|:--|:--|--:|--:|--:|
+| nalix-tcp | 2.30 GHz | 146,169 | 163,027 | 1.12 |
+| nalix-ws | 2.30 GHz | 166,906 | 162,651 | 0.97 |
+| nalix-tcp-aead | 2.10 GHz | 154,786 | 149,167 | 0.96 |
+| nalix-tcp-nocomp | 2.30 GHz | 159,115 | 159,263 | 1.00 |
+| nalix-tcp-inline | 2.10 GHz | 151,091 | 152,473 | 1.01 |
+
+What the numbers support:
+
+- **Server allocation and GC.** Per-message server allocation drops from 56 B to 0 B at 32 B and from 1,048 B to 0 B at 1 KB in all five variants, and the Gen0 collections that came with it disappear (209 to 308 per run at 1 KB).
+- **Throughput and server CPU.** No consistent direction. Across the ten cells, 64-client throughput moved between −7.5% and +10% (five cells up, five down), and server CPU per message went up in five and down in five. The `raw-tcp` anchor itself moved by up to 12% between the start and the end of a pair, so differences of that size cannot be told from the VM changing speed.
+- **Latency.** The single-client p50 at 32 B is higher with `BufferLease` in all five pairs (+3.8 to +16.8 µs); at 1 KB it is within −1.9 to +3.5 µs. The `byte[]` run always went first, so run order is not ruled out as the cause.
+- **Client allocation.** It rises by 56 B per message in all ten cells. The cause was not investigated.
+
+:::warning[Who this is for]
+The receiver owns the lease and must release it; a pooled packet does so in `ResetForPool`, and a handler that echoes the payload has to `Retain()` it. That fits payloads that are forwarded without being read (gateways, tunnels, media frames). For ordinary request and response packets, keep `byte[]`: the benefit is the missing allocation, not speed.
+:::
+
+**Rerun of the main comparison.** All twelve libraries were also measured again on 2026-11-23, each on its own VM. The order of the main tables was reproduced (SignalR and gRPC duplex are within noise of each other), and so were the server allocations, to within 4 B. Absolute throughput moved between VMs (some were Xeon @ 2.30 GHz, some @ 2.10 GHz): the `raw-tcp` anchor at 64 clients ranged from 127,198 to 180,245 ops/s across the twelve. The main tables above therefore stay as the single-machine pass of 2026-11-22.
 
 ## Who wins where
 
