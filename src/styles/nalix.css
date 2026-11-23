@@ -2397,36 +2397,6 @@ body {
 }
 
 /* ---- UI polish 2 ---- */
-.nlx-home-cta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 6px;
-}
-
-.nlx-home-cta__btn {
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 18px;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.nlx-home-cta__btn--ghost {
-  color: var(--text-primary);
-  border: 1px solid var(--border-input);
-  background-color: var(--bg-paper);
-  transition: border-color 0.15s ease;
-}
-
-.nlx-home-cta__btn--ghost:hover {
-  border-color: var(--primary-main);
-}
-
 /* cards in a row share the same height */
 .nlx-product-grid {
   align-items: stretch;

@@ -36,8 +36,6 @@ export const enUs = {
   // Home portal
   'hero.title': 'Nalix Documentation',
   'hero.subtitle': 'Official user manuals and API references.',
-  'home.cta.quickstart': 'Get started',
-  'home.cta.api': 'API reference',
   'home.exploreTopics': 'Explore topics',
   'home.card.start.title': 'Get Started',
   'home.card.start.desc': 'Set up your .NET 10 or .NET 11 environment, define shared packet contracts, and launch your first Nalix server and client.',

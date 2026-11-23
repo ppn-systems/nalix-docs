@@ -38,8 +38,6 @@ export const viVn: TranslationDictionary = {
   // Home portal
   'hero.title': 'Tài liệu Nalix',
   'hero.subtitle': 'Tài liệu hướng dẫn và tham chiếu API chính thức.',
-  'home.cta.quickstart': 'Bắt đầu',
-  'home.cta.api': 'Tham chiếu API',
   'home.exploreTopics': 'Khám phá chủ đề',
   'home.card.start.title': 'Bắt đầu',
   'home.card.start.desc': 'Thiết lập môi trường .NET 10 hoặc .NET 11, định nghĩa gói tin dùng chung và chạy server và client Nalix đầu tiên của bạn.',
