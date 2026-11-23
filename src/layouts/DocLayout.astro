@@ -1,5 +1,6 @@
 ---
 import '../styles/nalix.css';
+import { execFileSync } from 'node:child_process';
 import {
   DEFAULT_LOCALE,
   ENABLED_LOCALES,
@@ -61,7 +62,14 @@ const metaDescription = description || t('site.tagline');
 const siteOrigin = (Astro.site || new URL('https://docs.ppnsys.com')).toString().replace(/\/+$/, '');
 const canonicalUrl = new URL(localizePath(slug, locale), siteOrigin).toString();
 const ogImageUrl = `${siteOrigin}/assets/social-preview.svg`;
-const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/main/src/content/docs/${sourceLocale}/${relFile}`;
+let lastUpdated = '';
+try {
+  const iso = execFileSync('git', ['log', '-1', '--format=%cI', '--', `src/content/docs/${sourceLocale}/${relFile}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  if (iso) lastUpdated = new Date(iso).toLocaleDateString(localeDef.htmlLang, { year: 'numeric', month: 'short', day: 'numeric' });
+} catch {
+  lastUpdated = '';
+}
+const editUrl = `https://github.com/ppn-systems/nalix-docs/edit/master/src/content/docs/${sourceLocale}/${relFile}`;
 const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
 const hasMobileToc = tocHeadings.length > 1;
 
@@ -249,7 +257,7 @@ const jsonLdSchema = isLanding
     </script>
   </head>
 
-  <body data-copy-text={t('doc.copyCode')} data-copied-text={t('doc.copiedCode')}>
+  <body data-copy-text={t('doc.copyCode')} data-copied-text={t('doc.copiedCode')} data-filter-label={t('doc.filterRows')}>
     <div class="nlx-topline" aria-hidden="true"><span></span></div>
     <Header
       locale={locale}
@@ -346,6 +354,7 @@ const jsonLdSchema = isLanding
                   <span>{t('doc.editPage')}</span>
                 </a>
 
+                {lastUpdated && <span class="nlx-last-updated">{t('doc.lastUpdated')}: <time>{lastUpdated}</time></span>}
                 <a href="#nlx-main-content" class="nlx-edit-link">
                   <span>{t('doc.backToTop')} ↑</span>
                 </a>
@@ -535,6 +544,25 @@ const jsonLdSchema = isLanding
         });
       }
 
+      // Filter box for long tables (rows are matched against their text).
+      function initTableFilters() {
+        const label = document.body.getAttribute('data-filter-label') || 'Filter rows';
+        document.querySelectorAll<HTMLElement>('.nlx-prose .nlx-table-scroll').forEach((wrap) => {
+          const rows = Array.from(wrap.querySelectorAll<HTMLTableRowElement>('tbody tr'));
+          if (rows.length < 12 || wrap.previousElementSibling?.classList.contains('nlx-table-filter')) return;
+          const input = document.createElement('input');
+          input.type = 'search';
+          input.className = 'nlx-table-filter';
+          input.placeholder = label;
+          input.setAttribute('aria-label', label);
+          input.addEventListener('input', () => {
+            const q = input.value.trim().toLowerCase();
+            rows.forEach((r) => { r.hidden = q !== '' && !(r.textContent || '').toLowerCase().includes(q); });
+          });
+          wrap.before(input);
+        });
+      }
+
       function enhanceCodeBlocksAndTables() {
         const copyLabel = document.body.getAttribute('data-copy-text') || 'Copy';
         const copiedLabel = document.body.getAttribute('data-copied-text') || 'Copied';
@@ -546,6 +574,7 @@ const jsonLdSchema = isLanding
           table.parentNode?.insertBefore(wrapper, table);
           wrapper.appendChild(table);
         });
+        initTableFilters();
 
         // Wrap code blocks with clean developer header (no fake window dots)
         document.querySelectorAll<HTMLPreElement>('.nlx-prose pre.astro-code').forEach((pre) => {

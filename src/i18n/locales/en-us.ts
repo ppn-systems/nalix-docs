@@ -82,6 +82,8 @@ export const enUs = {
   'doc.copyCode': 'Copy',
   'doc.copiedCode': 'Copied',
   'doc.copyMarkdown': 'Copy Markdown',
+  'doc.lastUpdated': 'Last updated',
+  'doc.filterRows': 'Filter rows…',
   'doc.copiedMarkdown': 'Copied Markdown',
   'doc.fallbackBannerTitle': 'Translation Pending',
   'doc.fallbackBannerBody':
